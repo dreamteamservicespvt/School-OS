@@ -55,7 +55,8 @@ export async function roleNeedsTwoStep(userLoginId: string, schoolId: string): P
   });
 }
 
-function codeHash(token: string, code: string) {
+/** The stored hash of a code (exported for the "confirm it is you" code, confirm-me.ts). */
+export function codeHash(token: string, code: string) {
   // Bound to this challenge's own random token, so a hash cannot be reused for another challenge.
   return createHash("sha256").update(`${token}:${code}`).digest("hex");
 }
@@ -86,9 +87,9 @@ export type NotSent = { problem: string; unreachable?: boolean };
 export type Deliver = (to: CodeTo, code: string, purpose?: "sign-in" | ContactKind) => Promise<{ channel: string; sentTo: string; messageId?: string | null } | NotSent>;
 
 /** What a code is for: signing in, or confirming a new phone or email on My profile. */
-export type CodePurpose = "sign-in" | "change-phone" | "change-email" | (string & {});
+export type CodePurpose = "sign-in" | "change-phone" | "change-email" | "confirm-me" | (string & {});
 
-const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "change-phone": "code to confirm your new mobile number", "change-email": "code to confirm your new email address" };
+const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "change-phone": "code to confirm your new mobile number", "change-email": "code to confirm your new email address", "confirm-me": "code to confirm it is you" };
 
 /**
  * Sends a one-time code: by email first when the person has one and email is
@@ -188,7 +189,10 @@ const isSignInPurpose = (p: string): p is SignInPurpose => (SIGN_IN_PURPOSES as 
 /** Makes a new code for this person (ending any earlier one) and sends it; `only` keeps it to the email or the mobile. */
 export async function startChallenge(
   userLoginId: string, schoolId: string, device: DeviceInfo,
-  opts: { now?: Date; deliver?: Deliver; purpose?: SignInPurpose; only?: "email" | "phone"; /** Hand an SMS code to the provider now and say if it failed (the sign-in pages). */ confirmNow?: boolean } = {},
+  opts: {
+    now?: Date; deliver?: Deliver; purpose?: SignInPurpose; only?: "email" | "phone"; /** Hand an SMS code to the provider now and say if it failed (the sign-in pages). */ confirmNow?: boolean;
+    /** The browser's token, made before the code is sent (a blind code sign-in, decoy.ts); else a new one. */ token?: string;
+  } = {},
 ): Promise<StartResult> {
   const now = opts.now ?? new Date();
   const purpose = opts.purpose ?? "sign-in";
@@ -197,7 +201,7 @@ export async function startChallenge(
   const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { email: true, phone: true, displayName: true } });
   if (!user) return { ok: false, message: "This login was not found. Sign in again." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const token = newToken();
+  const token = opts.token && opts.token.length >= 32 ? opts.token : newToken();
   const to = { email: opts.only === "phone" ? null : user.email, phone: opts.only === "email" ? null : user.phone };
   const sent = await (opts.deliver ?? deliverCode)({ ...to, name: user.displayName, schoolId, userLoginId, key: hashToken(token).slice(0, 40) }, code);
   if ("problem" in sent) return { ok: false, message: sent.problem, unreachable: sent.unreachable };
@@ -231,6 +235,12 @@ export type VerifyResult =
   | { ok: true; userLoginId: string; schoolId: string; purpose: SignInPurpose; channel: string }
   | { ok: false; message: string; restart?: boolean };
 
+/** Counts one try at a code, unless it is used or has had its five already. False: no try left. */
+export async function countTry(id: string) {
+  const r = await prisma.twoStepChallenge.updateMany({ where: { id, usedAt: null, attempts: { lt: MAX_CODE_TRIES } }, data: { attempts: { increment: 1 } } });
+  return r.count === 1;
+}
+
 /** Checks a typed code. Five wrong codes end it; the person then signs in again. */
 export async function verifyChallenge(token: string | null | undefined, typed: string, device: DeviceInfo, now = new Date()): Promise<VerifyResult> {
   const code = typed.replace(/\s/g, "");
@@ -242,12 +252,14 @@ export async function verifyChallenge(token: string | null | undefined, typed: s
   const limit = await hitLimit(`two-step:check:${c.userLoginId}`, 20, 900, now);
   if (!limit.ok) return { ok: false, message: BUSY };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
+  // Counted before the code is compared, in one statement that refuses a sixth, so tries sent at
+  // the same moment cannot all pass the five-try check (security review 2026-11-15).
+  if (!(await countTry(c.id))) return { ok: false, message: "Too many wrong codes. Sign in again to get a new one.", restart: true };
 
   const right = timingSafeEqual(Buffer.from(codeHash(token, code)), Buffer.from(c.codeHash));
   const ctx = { schoolId: c.schoolId!, userId: c.userLoginId };
   if (!right) {
-    // Counted in one statement, so two tries at the same moment cannot both slip through.
-    const updated = await prisma.twoStepChallenge.update({ where: { id: c.id }, data: { attempts: { increment: 1 } } });
+    const updated = await prisma.twoStepChallenge.findUniqueOrThrow({ where: { id: c.id }, select: { attempts: true } });
     const left = MAX_CODE_TRIES - updated.attempts;
     if (c.schoolId) {
       await withSchool(ctx, (tx) => writeAudit(tx, ctx, { action: left <= 0 ? "two-step-locked" : "two-step-failed", recordType: "User Login", recordId: c.userLoginId, device: device.userAgent, ipAddress: device.ipAddress }));
@@ -322,7 +334,7 @@ export async function startContactChange(
 /** Checks the code for a new mobile number or email and saves it. */
 export async function confirmContactChange(
   userLoginId: string, token: string | null | undefined, typed: string, device: DeviceInfo, now = new Date(),
-): Promise<{ ok: true; kind: ContactKind; value: string } | { ok: false; message: string; restart?: boolean }> {
+): Promise<{ ok: true; kind: ContactKind; value: string; /** The mobile number or email it replaced, told about the change (contact-alert.ts). */ old: string | null; schoolId: string | null } | { ok: false; message: string; restart?: boolean }> {
   const code = typed.replace(/\s/g, "");
   if (!token) return { ok: false, message: "Send a new code first.", restart: true };
   const c = await prisma.twoStepChallenge.findUnique({ where: { tokenHash: hashToken(token) } });
@@ -332,8 +344,9 @@ export async function confirmContactChange(
   if (c.expiresAt <= now) return { ok: false, message: "This code has expired after 10 minutes. Send a new code.", restart: true };
   if (c.attempts >= MAX_CODE_TRIES) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
+  if (!(await countTry(c.id))) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
   if (!timingSafeEqual(Buffer.from(codeHash(token, code)), Buffer.from(c.codeHash))) {
-    const updated = await prisma.twoStepChallenge.update({ where: { id: c.id }, data: { attempts: { increment: 1 } } });
+    const updated = await prisma.twoStepChallenge.findUniqueOrThrow({ where: { id: c.id }, select: { attempts: true } });
     const left = MAX_CODE_TRIES - updated.attempts;
     if (left <= 0) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
     return { ok: false, message: `That code is not right. ${left} more ${left === 1 ? "try" : "tries"}.` };
@@ -352,5 +365,5 @@ export async function confirmContactChange(
       device: device.userAgent, ipAddress: device.ipAddress,
     }));
   }
-  return { ok: true, kind, value: c.newValue };
+  return { ok: true, kind, value: c.newValue, old: kind === "phone" ? before.phone : before.email, schoolId: c.schoolId };
 }

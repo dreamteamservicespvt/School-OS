@@ -105,8 +105,8 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
               <h2 id="years-h" className="text-lg font-semibold"><Words k="Academic years" /></h2>
               <NewYearButton years={page.years.map((y) => ({ value: y.id, label: y.name }))} hasActive={page.years.some((y) => y.status === "ACTIVE")} presets={TERM_PRESETS} suggested={{ name: yearNameFor(suggestedStart, suggestedEnd), start: isoDay(suggestedStart), end: isoDay(suggestedEnd) }} pageYearId={pageYearId} />
             </div>
-            <p className="mb-3 text-sm text-ink-2"><Words k="One year is active at a time. Closed years are read-only, except corrections by the Principal or School Admin with a reason." /></p>
-            {data.info.length === 0 ? <EmptyState title="No academic year yet"><Words k="Start the current year with its dates and terms. Classes, the Time Table and every record belong to a year." /></EmptyState> : (
+            <p className="mb-3 text-sm text-ink-2"><Words k="One year is active at a time. Closed years are read-only." /></p>
+            {data.info.length === 0 ? <EmptyState title="No academic year yet"><Words k="Start the current year with its dates and terms." /></EmptyState> : (
               <ul className="space-y-3">
                 {data.info.map(({ y, preview, close, remove }) => (
                   <li key={y.id} className="rounded-2xl border border-line bg-surface p-4">
@@ -155,7 +155,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
               <h2 className="text-lg font-semibold"><Words k="Terms in" /> {page.year.name}</h2>
               {page.writable && <TermButton yearId={page.year.id} suggested={{ name: `Term ${data.terms.length + 1}`, start: isoDay(data.terms.length ? addDays(data.terms[data.terms.length - 1].endDate, 1) : page.year.startDate), end: isoDay(page.year.endDate) }} />}
             </div>
-            {data.terms.length === 0 ? <EmptyState title="No terms yet"><Words k="Add the terms or semesters of" /> {page.year.name}<Words k=". Exams and report cards are grouped by term." /></EmptyState> : (
+            {data.terms.length === 0 ? <EmptyState title="No terms yet"><Words k="Add the terms or semesters of" /> {page.year.name}.</EmptyState> : (
               <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
                 {data.terms.map((t, i) => {
                   const prev = data.terms[i - 1];
@@ -179,10 +179,11 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold"><Words k="Period master" /></h2>
-            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} pageYearId={pageYearId} />
+            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} pageYearId={pageYearId}
+              nextStart={data.slots.reduce((end, s) => (s.endTime > end ? s.endTime : end), "") || undefined} />
           </div>
-          <p className="mb-3 text-sm text-ink-2"><Words k="The rows of every Time Table: periods, breaks and lunch, with times and the days each runs." /></p>
-          {data.slots.length === 0 ? <EmptyState title="No periods yet"><Words k="Add Period 1, the breaks and lunch with their times. The Time Table uses these rows." /></EmptyState> : (
+          <p className="mb-3 text-sm text-ink-2"><Words k="Periods, breaks and lunch for every Time Table." /></p>
+          {data.slots.length === 0 ? <EmptyState title="No periods yet"><Words k="Add Period 1, the breaks and lunch with their times." /></EmptyState> : (
             <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
               {data.slots.map((s) => (
                 <li key={s.id} className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${s.isBreak ? "bg-surface-2" : ""}`}>
@@ -204,7 +205,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
       {data.kind === "teachers" && (
         <section>
           <h2 className="mb-1 text-lg font-semibold"><Words k="Teacher preferences" /></h2>
-          <p className="mb-3 text-sm text-ink-2"><Words k="Lower limits and rest times for a teacher, used when the Time Table is made automatically. Empty means the school limits (" />{data.settings.maxPeriodsPerDay} <Words k="a day," /> {data.settings.maxPeriodsPerWeek} <Words k="a week)." /></p>
+          <p className="mb-3 text-sm text-ink-2"><Words k="Used when the Time Table is made automatically. Empty means the school limits (" />{data.settings.maxPeriodsPerDay} <Words k="a day," /> {data.settings.maxPeriodsPerWeek} <Words k="a week)." /></p>
           {data.teachers.length === 0 ? <EmptyState title="No teachers yet"><Words k={"Teachers appear here once they are added in Staff & HR."} /></EmptyState> : (
             <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
               {data.teachers.map((t) => {
@@ -230,7 +231,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
             <h2 className="text-lg font-semibold"><Words k="Subject conditions" /></h2>
             <ConditionButton subjects={data.subjects.map((s) => ({ value: s.id, label: s.name }))} classes={data.classes.map((c) => ({ value: c.id, label: c.name }))} days={data.settings.workingDays} slots={teaching.map((s) => ({ value: String(s.number), label: s.label }))} />
           </div>
-          {data.conditions.length === 0 ? <EmptyState title="No conditions"><Words k="Keep a subject out of a period, like no Maths in period 8. Conditions win over teacher preferences when the Time Table is made automatically." /></EmptyState> : (
+          {data.conditions.length === 0 ? <EmptyState title="No conditions"><Words k="Keep a subject out of a period, like no Maths in period 8." /></EmptyState> : (
             <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
               {data.conditions.map((c) => {
                 const words = `No ${data.subjects.find((s) => s.id === c.subjectId)?.name ?? "subject"} in period ${c.periodNo}${c.dayOfWeek ? ` on ${DAY_NAMES[c.dayOfWeek]}` : ""}, ${c.classId ? data.classes.find((x) => x.id === c.classId)?.name ?? "one class" : "all classes"}`;
@@ -245,7 +246,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
         <div className="space-y-8">
           <section>
             <h2 className="mb-1 text-lg font-semibold"><Words k="Optional parts" /></h2>
-            <p className="mb-2 text-sm text-ink-2"><Words k="Switch on only what this school uses. Screens and fields for an option stay hidden while it is off." /></p>
+            <p className="mb-2 text-sm text-ink-2"><Words k="Switch on only what this school uses." /></p>
             <div className="divide-y divide-line rounded-2xl border border-line bg-surface px-4">
               {ACADEMIC_FEATURES.map((f) => <FeatureToggle key={f.key} featureKey={f.key} label={f.label} help={f.help} on={page.current.features.has(f.key)} />)}
             </div>
@@ -256,7 +257,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
                 <h2 className="text-lg font-semibold"><Words k="Rooms and labs" /></h2>
                 <RoomButton pageYearId={pageYearId} />
               </div>
-              {data.roomList.length === 0 ? <EmptyState title="No rooms yet"><Words k="Add labs and shared rooms. Each gets its own Time Table, and labs can be booked for a period." /></EmptyState> : (
+              {data.roomList.length === 0 ? <EmptyState title="No rooms yet"><Words k="Add labs and shared rooms. Labs can be booked for a period." /></EmptyState> : (
                 <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
                   {data.roomList.map((r) => (
                     <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">

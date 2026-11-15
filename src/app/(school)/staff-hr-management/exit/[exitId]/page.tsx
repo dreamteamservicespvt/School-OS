@@ -86,7 +86,7 @@ export default async function ExitPage({ params }: Props) {
             {exit.status !== "WAITING_APPROVAL" && exit.status !== "CANCELLED" && (
               <div>
                 <a className={buttonClass("secondary", "sm")} href={`${BASE}/exit/${exit.id}/letter`} target="_blank" rel="noopener">{exit.experienceLetterNo ? `Experience letter ${exit.experienceLetterNo}` : "Issue experience letter"}</a>
-                <p className="mt-1 text-sm text-ink-2"><Words k="A PDF on the school letterhead with the Principal's signature. The number stays the same when printed again." /></p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="On the school letterhead, signed by the Principal." /></p>
               </div>
             )}
           </CardBody>

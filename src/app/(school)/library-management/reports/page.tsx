@@ -129,7 +129,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
         </div>
 
         <Card>
-          <CardHeader title="Reports" icon={FileBarChart} description="Open a report to see its rows and export it with the dates and class above." divided />
+          <CardHeader title="Reports" icon={FileBarChart} divided />
           <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-px bg-line/70">
             {LIBRARY_REPORT_LIST.map((x, i, all) => (
               // The last report fills the rest of its row, so no empty grey cell shows.
@@ -159,7 +159,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
                 <SimpleTable caption={t.any(r.report.name)} minWidth={Math.max(560, tbl.columns.length * 120)} rows={[...tbl.rows.slice(0, SHOW)]}
                   cols={tbl.columns.map((c) => ({ label: t.any(c.label), right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
                   foot={tbl.totals && tbl.rows.length <= SHOW ? tbl.columns.map((c) => t.any(cellText(tbl.totals![c.key], c.kind))) : undefined} />
-                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {tbl.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
+                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first {n} of {total}" vars={{ n: SHOW, total: tbl.rows.length.toLocaleString("en-IN") }} /> <Words k="rows. Export the report for all of them." /></p>}
               </>
             ) : <Empty icon={FileBarChart} title={t.any(tbl.empty ?? "Nothing matches")} />}
             {tbl.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.any(tbl.note)}</p>}

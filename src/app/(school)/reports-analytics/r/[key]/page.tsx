@@ -41,6 +41,10 @@ function whoSees(e: ReportEntry) {
   return e.own ? "Principal and School Admin see every class. Teachers see only their own classes." : "Principal, School Admin and the roles this module's reports are for.";
 }
 
+/** Numbers that must not break across lines. Other text (a parent's name, a class) may wrap, so a wide report
+ *  fits its box at 1440 px instead of cutting off the last heading (layman loop 3: "Reminders s…"). */
+const ONE_LINE = new Set(["phone", "adm", "admissionNo"]);
+
 /** One report (mod-reports.jsx ReportView): filters, the words of what is shown, the table with its total line, export. */
 export default async function ReportPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: SearchParams }) {
   const p = await repGuard("all");
@@ -162,7 +166,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           <Card>
             {!data.run || data.run.status === "FAILED" ? (
               <Empty icon={Hourglass} title="This is a large report"
-                body={<>{data.run?.status === "FAILED" ? `The last try did not work: ${data.run.problem ?? "please try again"}. ` : ""}<Words k="Every class in one file. It is prepared in the background so your screen does not freeze." /></>}
+                body={<>{data.run?.status === "FAILED" ? `The last try did not work: ${data.run.problem ?? "please try again"}. ` : ""}<Words k="Every class in one file, prepared in the background." /></>}
                 action={<div className="flex gap-2 flex-wrap justify-center items-start">
                   {canExport && <PrepareButton reportKey={entry.key} params={keep} words={data.words} href={withQ(href, sp, { run: null })} />}
                   {entry.byClass && clsOptions[1] && <Link href={withQ(href, sp, { [p.a.own ? "section" : "class"]: clsOptions[1].value, run: null })} scroll={false} className={buttonClass("secondary")}><Words k="See one class now" /></Link>}
@@ -171,7 +175,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
               <div className="flex flex-col items-center text-center px-6 py-14 gap-3 animate-fade" role="status">
                 <span className="w-14 h-14 rounded-2xl bg-brand/10 text-brand grid place-items-center"><Spinner size={24} /></span>
                 <h3 className="font-semibold text-[15px]"><Words k="This report is being prepared. We will notify you." /></h3>
-                <p className="text-sm text-ink3 max-w-sm"><Words k="You can leave this page. A notification with the download link arrives when it is ready." /></p>
+                <p className="text-sm text-ink3 max-w-sm"><Words k="You can leave this page." /></p>
                 <Link href={href + (href.includes("?") ? "&" : "?") + `run=${data.run.id}`} className={buttonClass("ghost", "sm")}><Words k="Check again" /></Link>
               </div>
             )}
@@ -204,17 +208,17 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             )}
             {rows.length === 0 ? (
               <Empty icon={Inbox} title="Nothing for these filters"
-                body={table.empty ?? "No rows for these filters. That is good news for this report, or try another class or dates."}
+                body={table.empty ?? "Try another class or dates."}
                 action={<Link href={qs(href, entry.dated ? { period: entry.money ? "finyear" : "acyear" } : {})} scroll={false} className={buttonClass("secondary")}>{p.a.own ? "Show my classes, whole year" : "Show all classes, whole year"}</Link>} />
             ) : (
-              <SimpleTable minWidth={Math.max(520, table.columns.length * 120)} caption={entry.name} rows={shown}
-                cols={table.columns.map((c, i) => ({ label: c.label, right: c.kind === "money" || c.kind === "number" || c.kind === "percent", nowrap: i !== table.columns.length - 1 || (c.kind !== undefined && c.kind !== "text"), render: (r: Row) => cellText(r[c.key], c.kind) }))}
+              <SimpleTable minWidth={Math.max(520, table.columns.length * 96)} caption={entry.name} rows={shown}
+                cols={table.columns.map((c, i) => ({ label: c.label, right: c.kind === "money" || c.kind === "number" || c.kind === "percent", nowrap: i === 0 || ONE_LINE.has(c.key) || (c.kind !== undefined && c.kind !== "text"), render: (r: Row) => cellText(r[c.key], c.kind) }))}
                 foot={table.totals ? table.columns.map((c) => cellText(table.totals?.[c.key] ?? null, c.kind)) : undefined} />
             )}
             {table.note && <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">{table.note}</p>}
             {rows.length > 0 && (
               <div className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 flex items-center justify-between gap-3 flex-wrap">
-                <span className="tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length.toLocaleString("en-IN")}{rows.length > shown.length ? " · the file has every row" : ""}</span>
+                <span className="tnum"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length.toLocaleString("en-IN") }} />{rows.length > shown.length ? " · the file has every row" : ""}</span>
                 {table.links?.map((l) => <Link key={l.href} href={l.href} className="text-[13px] font-semibold text-brand hover:underline">{l.label}</Link>)}
               </div>
             )}

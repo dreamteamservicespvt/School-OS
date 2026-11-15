@@ -219,7 +219,7 @@ export default async function ReportsPage({ searchParams }: Props) {
           )}
 
           <Card>
-            <CardHeader icon={FileText} title="All attendance reports" description="Each one exports to Excel, CSV or PDF with the school name and the filters on top" />
+            <CardHeader icon={FileText} title="All attendance reports" description="Each exports to Excel, CSV or PDF" />
             <ul className="px-2 pb-2 grid grid-cols-1 lg:grid-cols-2 gap-x-2">
               {list.map((x) => (
                 <li key={x.key} className="min-w-0"><Row icon={ICON[x.key] ?? FileText} title={x.label} sub={x.about} href={go(x.key)} right={<ChevronRight size={18} className="text-ink3" aria-hidden="true" />} /></li>

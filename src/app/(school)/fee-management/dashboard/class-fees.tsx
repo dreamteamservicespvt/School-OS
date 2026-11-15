@@ -41,7 +41,6 @@ export function ClassFees({ data, sort, group, href, classHref, today, all = fal
     overdueStudents: a.overdueStudents + s.overdueStudents, over30: a.over30 + s.over30,
   }), { students: 0, due: BigInt(0), paid: BigInt(0), notLate: BigInt(0), overdue: BigInt(0), overdueStudents: 0, over30: 0 });
   const pct = t.due > BigInt(0) ? Math.round((Number(t.paid) / Number(t.due)) * 1000) / 10 : 100;
-  const asOf = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(today);
 
   return (
     <div id="by-class" className="flex flex-col gap-4 scroll-mt-4">
@@ -53,7 +52,7 @@ export function ClassFees({ data, sort, group, href, classHref, today, all = fal
         { label: "Overdue", value: money(t.overdue), sub: `${t.overdueStudents} ${t.overdueStudents === 1 ? "student" : "students"} · ${t.over30} over 30 days`, icon: TriangleAlert, tone: t.overdue > BigInt(0) ? "bad" : undefined },
       ]} />}
       <Card className="overflow-hidden">
-        <CardHeader title="Fees by class" description={`This year, as of today, ${asOf} · tap a class for its students`} icon={LayoutGrid} />
+        <CardHeader title="Fees by class" description="Tap a class to see its students" icon={LayoutGrid} />
         <Toolbar>
           <UrlSelect id="fee-class-sort" param="fsort" label="Order" className="w-full md:w-56" options={FEE_SORTS} />
           {data.groups.length > 1 && (
@@ -97,7 +96,7 @@ export function ClassFees({ data, sort, group, href, classHref, today, all = fal
         {list.length > PHONE_FIRST && !all && (
           <div className="sm:hidden px-3 pb-3"><Link href={href({ fall: "1" })} className="flex h-11 items-center justify-center rounded-xl border border-line text-[14px] font-semibold text-brand hover:bg-sunken"><Words k="Show all {n} classes" vars={{ n: String(list.length) }} /></Link></div>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 90% or more collected, amber 80% to 90%, red below 80%. Left to pay on a class is everything not paid yet, late or not late. Due amounts include fees falling due in the next 30 days." /></p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green: 90% or more collected. Amber: 80% to 90%. Red: below 80%. Due includes the next 30 days." /></p>
       </Card>
     </div>
   );

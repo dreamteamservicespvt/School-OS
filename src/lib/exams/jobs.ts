@@ -20,6 +20,7 @@ import { findPeriod } from "./report-cards";
 import { sectionStudents, sitters } from "./roster";
 import { isDone } from "./marks";
 import { time12 } from "../academic/common";
+import { word } from "../notification-words";
 
 async function schoolToday(tx: Tx, schoolId: string, now: Date) {
   const s = await tx.school.findUnique({ where: { id: schoolId }, select: { timeZone: true } });
@@ -86,7 +87,8 @@ export async function remindMarksDue(tx: Tx, ctx: SchoolContext, today: Date) {
       for (const t of staff) {
         await notify(tx, ctx, {
           to: t.userLoginId!, type: "marks-due",
-          text: `${e.exam.title}: ${subject.name} marks for ${s.schoolClass.name} ${s.name} are due today. ${done} of ${plural(sits.length, "student")} entered.`,
+          key: "{exam}: {subject} marks for {class} are due today. {done} of {students} entered.",
+          values: { exam: e.exam.title, subject: subject.name, class: `${s.schoolClass.name} ${s.name}`, done, students: word(plural(sits.length, "student")) },
           link: `/examination-results/marks/${e.id}/${s.id}`,
           groupKey: `marks-due:${e.id}:${s.id}:${isoDay(today)}`,
         });
@@ -112,7 +114,8 @@ export async function makeReportCardsPdf(tx: Tx, ctx: SchoolContext, payload: { 
   if (ctx.userId) {
     await notify(tx, ctx, {
       to: ctx.userId, type: "report-cards-ready",
-      text: `Report cards for ${section.label} (${option.label}) are ready: ${plural(payload.studentIds.length, "student")} in one PDF.`,
+      key: "Report cards for {class} ({option}) are ready: {students} in one PDF.",
+      values: { class: section.label, option: word(option.label), students: word(plural(payload.studentIds.length, "student")) },
       link: `/examination-results/report-cards/file/${file.id}`,
     });
   }

@@ -156,7 +156,7 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
       {docs.length === 0 ? (
         total === 0 ? (
           <EmptyState title="No school documents yet">
-            <Words k="Keep registration, affiliation, NOCs and safety certificates here, with expiry dates, so renewals are never missed." />
+            <Words k="Keep papers here with expiry dates, so renewals are never missed." />
             {canEdit && <div className="mt-4"><Button onClick={() => setDialog({ kind: "new" })}><Words k="Upload the first document" /></Button></div>}
           </EmptyState>
         ) : <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2"><Words k="No documents match these filters. Change the search or press Reset." /></p>
@@ -190,7 +190,7 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                       <ConfirmButton trigger="Restore" triggerVariant="secondary" title={`Restore ${d.title}?`} confirmLabel="Restore document" onConfirm={() => documentAction(d.id, "restore")}><Words k="It will appear in the list again, with its reminders." /></ConfirmButton>
                     ) : (
                       <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.title}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={() => documentAction(d.id, "archive")}>
-                        <Words k="It is taken off the list and stops sending reminders. Added by mistake? This is the way to take it off. You can bring it back from “Show removed” if you need it." />
+                        <Words k="It leaves the list and stops reminders. Bring it back from “Show removed”." />
                       </ConfirmButton>
                     ))}
                     <Button size="sm" variant="ghost" aria-expanded={open === d.id} onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? "Less" : "More"}</Button>
@@ -211,7 +211,7 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                       <div className="flex flex-wrap gap-2">
                         {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "edit", doc: d })}><Words k="Edit details" /></Button>}
                         {!d.archived && (d.verified ? (
-                          <ConfirmButton trigger="Mark not verified" triggerVariant="ghost" title="Mark as not verified?" confirmLabel="Mark not verified" onConfirm={() => documentAction(d.id, "unverify")}><Words k="The document stays; it will show as not verified until someone checks it again." /></ConfirmButton>
+                          <ConfirmButton trigger="Mark not verified" triggerVariant="ghost" title="Mark as not verified?" confirmLabel="Mark not verified" onConfirm={() => documentAction(d.id, "unverify")}><Words k="The document stays, shown as not verified." /></ConfirmButton>
                         ) : (
                           <ActionButton label="Mark verified" pendingLabel="Saving…" run={() => documentAction(d.id, "verify")} />
                         ))}

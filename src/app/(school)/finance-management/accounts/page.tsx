@@ -84,7 +84,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
 
   return (
     <div>
-      <FinanceHead pageName="Accounts" href={HREF} sub="Journal entries, ledger, money to pay and money to receive · for full accounts"
+      <FinanceHead pageName="Accounts" href={HREF} sub="Journal, ledger, money to pay and receive"
         viewActions={p.can.export && (tab === "journals" || tab === "ledger") ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
         actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}><Words k="Journal entry" /></ButtonLink> : null} />
       <Stack>
@@ -97,7 +97,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
           ]} />
 
           {tab === "journals" && <>
-            <CardHeader title="Journal entries" description="Fees, income, expenses and salary reach the ledger by themselves. Posted entries are never edited, only reversed." icon={NotebookText} />
+            <CardHeader title="Journal entries" description="Posted entries are never edited, only reversed." icon={NotebookText} />
             <Toolbar className="border-t border-line">
               <UrlSearch id="jv-q" placeholder="Number, narration or account" label="Search journal entries" />
               <PeriodFilter {...p.dates} fallback="finyear" />
@@ -106,7 +106,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
             <DataList rows={journals} rowKey={(j) => j.id} rowHref={(j) => here({ open: j.id })} minWidth={860} caption="Journal entries"
               footer={`Showing ${journals.length} of ${data.journals?.length ?? 0}`}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="journal entries" /> : (data.journals?.length ?? 0) === 0
-                ? <Empty icon={NotebookText} title="No journal entries in these dates" body="Use a journal entry to move an amount between heads, for example depreciation or a head corrected." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Journal entry" /></ButtonLink> : undefined} />
+                ? <Empty icon={NotebookText} title="No journal entries in these dates" body="Move an amount between heads, like depreciation." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Journal entry" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No entries match" body="Try another number, narration or account." />}
               columns={[
                 { key: "d", label: "Date", nowrap: true, render: (j) => <><p className="tnum">{formatDate(j.date)}</p><p className="font-mono text-[12px] text-ink3">{j.number}</p></> },
@@ -145,7 +145,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
           </>}
 
           {tab === "payables" && <>
-            <CardHeader title="Money the school has to pay" description="Vendor bills and approved expenses not fully paid, by due date" icon={ArrowUpFromLine} action={<Pill tone="warn">{formatRupees(payTotal)}</Pill>} />
+            <CardHeader title="Money the school has to pay" description="Not fully paid, by due date" icon={ArrowUpFromLine} action={<Pill tone="warn">{formatRupees(payTotal)}</Pill>} />
             <DataList rows={data.pay ?? []} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/expenses?open=${r.id}`} minWidth={760} caption="Money to pay"
               empty={<Empty icon={ArrowUpFromLine} title="Nothing to pay" body="Approved expenses and vendor bills not yet paid show here." />}
               columns={[
@@ -158,10 +158,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
               phone={(r) => ({ title: r.vendor, sub: `${r.number} · due ${r.dueDate ? formatDate(r.dueDate) : "on payment"}`, icon: ArrowUpFromLine, iconTone: r.overdue ? "bad" : "neutral", right: <p className="font-semibold tnum">{formatRupees(r.balance)}</p> })} />
             {data.gov && <>
               <div className="border-t border-line mt-2" />
-              <CardHeader title="Taken from salary for the government" description="PF and ESI (staff and school share), Professional Tax and TDS of months marked paid, until recorded paid in Generate Salary" icon={Landmark}
+              <CardHeader title="Taken from salary for the government" description="PF, ESI, Professional Tax and TDS not paid yet" icon={Landmark}
                 action={<Pill tone={govTotal > ZERO ? "warn" : "ok"}>{formatRupees(govTotal)}</Pill>} />
               <DataList rows={data.gov} rowKey={(r) => `${r.runId}:${r.kind}`} rowHref={(r) => `/salary-management/generate?run=${r.runId}`} minWidth={760} caption="Taken from salary, to pay to the government"
-                empty={<Empty icon={Landmark} title="Nothing to pay to the government" body="PF, ESI, Professional Tax and TDS of each month marked paid show here until they are recorded paid." />}
+                empty={<Empty icon={Landmark} title="Nothing to pay to the government" body="They show here until recorded paid." />}
                 columns={[
                   { key: "to", label: "To", render: (r) => <><p className="font-semibold leading-tight">{r.label} · {r.payee}</p><p className="text-[12.5px] text-ink3">{monthName(r.month)} <Words k="salary" />{campusOf(r.campusId)}</p></> },
                   { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "As the state sets"}{r.overdue && <span className="block text-[12px] font-normal"><Words k="Overdue" /></span>}</span> },
@@ -174,9 +174,9 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
           </>}
 
           {tab === "receivables" && <>
-            <CardHeader title="Money owed to the school" description="Other than student fees, which have their own ledger: income recorded as draft, not yet received" icon={ArrowDownToLine} action={<Pill tone="info">{formatRupees(recvTotal)}</Pill>} />
+            <CardHeader title="Money owed to the school" description="Income saved as draft, not yet received" icon={ArrowDownToLine} action={<Pill tone="info">{formatRupees(recvTotal)}</Pill>} />
             <DataList rows={data.recv ?? []} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/income?open=${r.id}`} minWidth={680} caption="Money to receive"
-              empty={<Empty icon={ArrowDownToLine} title="Nothing to receive" body="Income saved as a draft, for example a cheque not yet cleared, shows here until it is posted." />}
+              empty={<Empty icon={ArrowDownToLine} title="Nothing to receive" body="Draft income, like an uncleared cheque, shows here." />}
               columns={[
                 { key: "from", label: "From", render: (r) => <><p className="font-semibold leading-tight">{r.from}</p><p className="text-[12.5px] text-ink3">{r.head}{r.note ? ` · ${r.note}` : ""}</p></> },
                 { key: "d", label: "Recorded", nowrap: true, render: (r) => <span className="text-[13.5px]">{formatDate(r.date)}</span> },

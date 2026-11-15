@@ -85,7 +85,7 @@ export async function reviewAction(_: FormState<unknown>, fd: FormData) {
 }
 
 export async function sendBackAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => sendBack(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application"), str(fd, "note")), () => "Sent back to the parent for the missing details.");
+  return admissionAct("edit", fd, (w) => sendBack(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application"), str(fd, "note")), (r) => (r.notSent ? `Sent back for the missing details, but the parent was not messaged (${r.notSent}). Please tell them by phone.` : "Sent back to the parent for the missing details."));
 }
 
 export async function moveAction(_: FormState<unknown>, fd: FormData) {

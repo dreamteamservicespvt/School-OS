@@ -68,14 +68,14 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   const head = (actions?: React.ReactNode) => (
     <HomeworkHead page="study-material" pageName="Study Material" actions={actions}
-      sub={p.own ? `Your courses: ${[...new Set(data.courses.filter((c) => c.canWork).map((c) => c.subject))].join(", ") || "none yet"}` : "A course workspace for each class and subject"} />
+      sub={p.own ? `Your courses: ${[...new Set(data.courses.filter((c) => c.canWork).map((c) => c.subject))].join(", ") || "none yet"}` : "Lessons for each class and subject"} />
   );
 
   if (!data.pick) {
     return (
       <div>
         {head()}
-        <Card><Empty icon={Library} title="No courses yet" body={p.own ? "Courses come from your teaching allocations. Ask the school office to add your classes and subjects." : "Courses appear once teachers are given classes and subjects for this year."} /></Card>
+        <Card><Empty icon={Library} title="No courses yet" body={p.own ? "Ask the school office to add your classes and subjects for this year." : "Courses show once teachers get classes and subjects."} /></Card>
       </div>
     );
   }
@@ -115,7 +115,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14.5px]">{l.title}{l.chapterTitle && l.chapterTitle !== l.title && <span className="text-ink3 font-normal text-[13px]"> · {l.chapterTitle}</span>}</p>
                         {l.visible
-                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand"><Words k="Opened by" /> {opened(l)} <Words k="of" /> {c.students}</Link>
+                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand"><Words k="Opened by" /> <Words k="{n} of {n2}" vars={{ n: opened(l), n2: c.students }} /></Link>
                           : <p className="text-[12.5px] text-ink3"><Words k="Hidden from students" /></p>}
                       </div>
                       {c.canWork && (
@@ -200,7 +200,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     return { courses, pick, lessons: d.lessons };
   });
   const head = <HomeworkHead page="study-material" pageName="Study Material" sub={`Class ${(s.student?.label ?? "").replace(/^Class\s+/i, "")} · notes, files and videos from your teachers`} />;
-  if (!data.pick) return <div>{head}<Card><Empty icon={Library} title="Nothing to study yet" body="Your teachers have not shared lessons yet. They appear here when they do." /></Card></div>;
+  if (!data.pick) return <div>{head}<Card><Empty icon={Library} title="Nothing to study yet" body="Your teachers have not shared lessons yet." /></Card></div>;
 
   const c = data.pick;
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { c: keyOf(c), ...extra });
@@ -217,7 +217,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <Card>
           <div className="flex items-center gap-4 p-5">
             <Ring value={data.lessons.length ? (done / data.lessons.length) * 100 : 0} size={64} stroke={7}><span className="text-[13px] font-bold tnum">{done}/{data.lessons.length}</span></Ring>
-            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}{done} <Words k="of" /> {data.lessons.length} <Words k="lessons done" /></p></div>
+            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}<Words k="{n} of {n2}" vars={{ n: done, n2: data.lessons.length }} /> <Words k="lessons done" /></p></div>
           </div>
           <ol className="px-3 pb-3 flex flex-col gap-2">
             {data.lessons.map((l, i) => {

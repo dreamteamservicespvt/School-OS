@@ -22,13 +22,14 @@ import { BASE, studentPageOnCampus, NO_ACCESS } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { PhoneMissing } from "../_lib/phone-missing";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Parents & Guardians") };
 }
 
-const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
+const FILTERS = ["consent", "photo", "link", "relation", "campus", "phone"] as const;
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const STEP = 25;
 
@@ -50,6 +51,8 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
     const links = provider ? await parentLinkStatus(tx, current.ctx, allIds) : new Map<string, { status: string; lastOpenedAt: Date | null }>();
     const notOpened = allIds.filter((id) => !links.get(id)?.lastOpenedAt);
     const activeLinks = allIds.filter((id) => links.get(id)?.status === "Active").length;
+    // Parents with no phone (owner decision 15): no Parent Link or messages until a phone is added.
+    const noPhone = allIds.length ? await tx.guardian.count({ where: { AND: [base, { phone: null }] } }) : 0;
     const openedOnce = allIds.filter((id) => links.get(id)?.lastOpenedAt).length;
 
     const and: Prisma.GuardianWhereInput[] = [base];
@@ -59,6 +62,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
     if (f.photo === "not-given") and.push({ id: { in: ids.photoNot } });
     if (f.photo === "withdrawn") and.push({ id: { in: ids.photoWithdrawn } });
     if (provider && f.link === "not-opened") and.push({ id: { in: notOpened } });
+    if (f.phone === "missing") and.push({ phone: null });
     if (params.q) {
       const digits = params.q.replace(/\D/g, "");
       and.push({ OR: [{ name: { contains: params.q, mode: "insensitive" } }, ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []), { students: { some: { archivedAt: null, student: { fullName: { contains: params.q, mode: "insensitive" } } } } }] });
@@ -76,7 +80,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
     ]);
     const names = await sectionNames(tx, rows.flatMap((r) => r.students.flatMap((s) => s.student.enrolments.map((e) => e.sectionId))));
     return {
-      total, allCount: allIds.length, ids, notOpened: notOpened.length, activeLinks, openedOnce, students: students.length, custody,
+      total, allCount: allIds.length, ids, noPhone, notOpened: notOpened.length, activeLinks, openedOnce, students: students.length, custody,
       rows: rows.map((g) => ({
         ...g,
         children: g.students.map((l) => {
@@ -92,8 +96,8 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   });
   type Row = (typeof data.rows)[number];
 
-  const chipValue = f.consent === "not-given" ? "nocons" : f.consent === "withdrawn" ? "withdrawn" : f.photo === "not-given" ? "nophoto" : f.link === "not-opened" ? "notopen" : "all";
-  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: { ...(f.relation ? { relation: f.relation } : {}), ...(f.campus ? { campus: f.campus } : {}) }, page: 1 }, { consent: null, photo: null, link: null, ...change, page: null });
+  const chipValue = f.consent === "not-given" ? "nocons" : f.consent === "withdrawn" ? "withdrawn" : f.photo === "not-given" ? "nophoto" : f.link === "not-opened" ? "notopen" : f.phone === "missing" ? "nophone" : "all";
+  const chip = (change: Record<string, string | null>) => listHref(path, { ...params, filters: { ...(f.relation ? { relation: f.relation } : {}), ...(f.campus ? { campus: f.campus } : {}) }, page: 1 }, { consent: null, photo: null, link: null, phone: null, ...change, page: null });
   const linkPill = (g: Row, cls?: string) => !provider ? null
     : g.link?.status === "Active" ? <Pill tone="ok" className={cls}>{cls ? "Link active" : "Active"}</Pill>
       : g.link?.status === "Revoked" ? <Pill tone="bad" className={cls}>{cls ? "Link revoked" : "Revoked"}</Pill>
@@ -109,7 +113,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
     ) },
-    { key: "phone", label: "Phone", nowrap: true, render: (g) => <span className="tnum text-[13.5px]">{phoneShow(g.phone)}</span> },
+    { key: "phone", label: "Phone", nowrap: true, render: (g) => g.phone ? <span className="tnum text-[13.5px]">{phoneShow(g.phone)}</span> : <PhoneMissing className="text-[13px]" editHref={can.manage && !g.archivedAt ? `${path}/${g.id}/edit` : null} /> },
     { key: "children", label: "Children", render: (g) => g.children.length ? <div className="flex flex-col gap-0.5">{g.children.map((c) => <span key={c.id} className="text-[13.5px] whitespace-nowrap">{c.name}{c.cls && <span className="text-ink3"> · {c.cls}</span>}</span>)}</div> : <span className="text-ink3 text-[13px]"><Words k="No children linked" /></span> },
     { key: "occupation", label: "Occupation", render: (g) => <span className="text-[13.5px]">{g.occupation ?? "–"}</span> },
     { key: "optedOut", label: "Opted out", render: (g) => <span className={cx("text-[13.5px]", g.optedOut && "text-warn font-semibold")}>{g.optedOut ? "Yes" : "No"}</span> },
@@ -120,7 +124,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <StudentsHead page="Parents & Guardians" href={path} sub="Parents’ details and phone numbers, linked to all their children in the school"
+      <StudentsHead page="Parents & Guardians" href={path} sub="Parents, phones and their children"
         actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Add parent or guardian" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-4">
         <Stats items={[
@@ -137,6 +141,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
           { value: "withdrawn", label: "Consent withdrawn", count: data.ids.dataWithdrawn.length, href: chip({ consent: "withdrawn" }) },
           { value: "nophoto", label: "Photo consent not given", count: data.ids.photoNot.length, href: chip({ photo: "not-given" }) },
           ...(provider ? [{ value: "notopen", label: "Parent Link not opened yet", count: data.notOpened, href: chip({ link: "not-opened" }) }] : []),
+          ...(data.noPhone || f.phone === "missing" ? [{ value: "nophone", label: "Phone missing", count: data.noPhone, href: chip({ phone: "missing" }) }] : []),
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
@@ -155,6 +160,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
                 <Pill key="c" tone={TONE[g.data]} className={cardPill}><Words k="Consent" /> {(g.data === "NONE" ? "not given" : CONSENT_STATUS_LABEL[g.data]).toLowerCase()}</Pill>,
                 linkPill(g, cardPill),
                 g.optedOut ? <Pill key="o" tone="warn" className={cardPill}><MessageCircleOff size={12} aria-hidden="true" /><Words k="Opted out" /></Pill> : null,
+                !g.phone ? <Pill key="np" tone="warn" className={cardPill}><PhoneMissing /></Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             })}
             footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP, page: null }) : null} />}

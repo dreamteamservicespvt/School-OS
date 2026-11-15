@@ -85,7 +85,7 @@ export function EditRoomSheet({ closeHref, room }: { closeHref: string; room: { 
 
 export function CloseRoomSheet({ closeHref, roomId, roomNo }: { closeHref: string; roomId: string; roomNo: string }) {
   return (
-    <SheetForm title={`Close Room ${roomNo}?`} sub="Only an empty room can close. It stays in the history; its number is not given again." closeHref={closeHref} action={closeRoomAction} submitLabel="Close room" submitVariant="danger" hidden={{ roomId }}>
+    <SheetForm title={`Close Room ${roomNo}?`} sub="Only an empty room can close. Its number is not given again." closeHref={closeHref} action={closeRoomAction} submitLabel="Close room" submitVariant="danger" hidden={{ roomId }}>
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Turned into the study room" />
     </SheetForm>
   );
@@ -123,7 +123,7 @@ export function HostelSheet({ closeHref, start }: { closeHref: string; start: { 
 
 export function CloseHostelSheet({ closeHref, hostelId, name }: { closeHref: string; hostelId: string; name: string }) {
   return (
-    <SheetForm title={`Close ${name}?`} sub="Only an empty hostel can close. Its rooms, residents and roll calls stay in the history." closeHref={closeHref} action={closeHostelAction} submitLabel="Close hostel" submitVariant="danger" hidden={{ hostelId }}>
+    <SheetForm title={`Close ${name}?`} sub="Only an empty hostel can close." closeHref={closeHref} action={closeHostelAction} submitLabel="Close hostel" submitVariant="danger" hidden={{ hostelId }}>
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="Merged into the new boys' hostel" />
     </SheetForm>
   );
@@ -259,7 +259,7 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
           </KeepSelect>
         </FieldShell>
       </div>
-      <SSwitch key={future ? "later" : "now"} name="checkedIn" title="Checked in now" sub={future ? "Off: the bed starts later. You check the student in from the residents list when they arrive." : "Turn off if the student arrives later. You check them in from the residents list."} start={!future} />
+      <SSwitch key={future ? "later" : "now"} name="checkedIn" title="Checked in now" sub={future ? "Off: check them in when they arrive." : "Turn off if the student arrives later."} start={!future} />
       {bedYear && !plans.length && <Alert tone="warning" title={`No hostel fee plan for ${bedYear.name} yet.`}><Words k="Add it in Hostel Settings, Hostel fees (the Accountant or Principal), or give the bed with No hostel fees and add the fees later." /></Alert>}
       <SArea name="note" label="Note" maxLength={300} placeholder="Optional. For example: needs a lower bunk." />
       {student && bed && !genderBad && (
@@ -275,7 +275,7 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
 export function MoveSheet({ closeHref, allocationId, name, from, beds, hostels, todayStr }: { closeHref: string; allocationId: string; name: string; from: string; beds: FreeBed[]; hostels: HostelOpt[]; todayStr: string }) {
   const f = useTyped("bedId", "");
   return (
-    <SheetForm title={`Move ${name}`} sub={`Now in ${from}. The old bed becomes free; the history is kept.`} closeHref={closeHref} action={moveAction} submitLabel="Move student" hidden={{ allocationId }}>
+    <SheetForm title={`Move ${name}`} sub={`Now in ${from}. The old bed becomes free.`} closeHref={closeHref} action={moveAction} submitLabel="Move student" hidden={{ allocationId }}>
       {beds.length === 0 ? <Alert tone="warning" title="No free bed."><Words k="Check a student out, or unblock a bed, first." /></Alert> : (
         <FieldShell label="New room and bed" id="mv-bed" required error={f.error}>
           <select key={f.key} id="mv-bed" name="bedId" defaultValue={f.value} aria-invalid={f.error ? true : undefined} className={cx(inputCls(f.error), "h-11")}>
@@ -325,7 +325,7 @@ export function CarrySheet({ closeHref, items, fromYear, toYear, toStart }: { cl
   const blocked = items.length - can.length;
   const n = picked.size;
   return (
-    <SheetForm title={`Carry boarders over to ${toYear}`} sub={`Each boarder keeps their bed from ${toStart}, and the ${toYear} hostel fee plan for their room goes on their fees. Nothing is charged twice.`}
+    <SheetForm title={`Carry boarders over to ${toYear}`} sub={`Each boarder keeps their bed from ${toStart} and gets the ${toYear} hostel fees. Nothing is charged twice.`}
       closeHref={closeHref} action={carryOverAction} wide pendingText="Carrying over…" submitDisabled={n === 0}
       submitLabel={n ? `Carry over ${n} boarder${n === 1 ? "" : "s"}` : "Carry over"} hidden={{ allocationIds: join }}
       extraButtons={outIds.length > 0 ? (
@@ -476,7 +476,7 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
   const [gw, setGw] = useState(tG.value);
   const chosen = g.list?.find((x) => x.guardianId === gw) ?? null;
   return (
-    <SheetForm title="New outing pass" sub="Recorded by the hostel, approved by the warden in Approvals." closeHref={closeHref} action={requestPassAction} submitLabel="Save and send for approval" wide pendingText="Saving…">
+    <SheetForm title="New outing pass" sub="The warden approves it in Approvals." closeHref={closeHref} action={requestPassAction} submitLabel="Save and send for approval" wide pendingText="Saving…">
       <p className="text-[13px] text-ink2 flex flex-wrap items-center gap-2"><span className="font-semibold text-ink3"><Words k="Kind" /></span><span className="inline-flex items-center h-6 px-2.5 rounded-full bg-brand/10 text-brand text-[12px] font-semibold"><Words k="Gate Pass · Hostel Outing" /></span><span className="text-ink3"><Words k="Early pickup at the gate is a Pickup pass in Front Office." /></span></p>
       <StudentFind name="studentId" label="Student" mode="resident" start={student ? [student] : []} onPick={(x) => { setStudent(x[0] ?? null); setGw(""); g.load(x[0]?.id ?? null); }} help="Students living in the hostel only." />
       <SegField name="outingType" label="Type" start={type} onChange={setType} options={[{ value: "OUTING", label: "Outing · same day" }, { value: "LEAVE", label: "Leave · overnight" }]} />
@@ -490,7 +490,7 @@ export function PassSheet({ closeHref, todayStr, nowTime, backBy, start, startGu
           <SText name="toTime" label="Time" required type="time" start={backBy} />
         </div>
       </div>
-      <FieldShell label="Going with" id="ps-gw" required error={tG.error} help={student ? "A named person: one of the student's guardians, or someone else." : "Choose the student first."}>
+      <FieldShell label="Going with" id="ps-gw" required error={tG.error} help={student ? "A guardian, or someone else." : "Choose the student first."}>
         {student ? (
           g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> <Words k="Loading the guardians…" /></span> : (
             <div className="flex flex-wrap gap-2">
@@ -548,7 +548,7 @@ export function VisitorSheet({ closeHref, hours, inHours, start, startGuardians 
   const tOk = useTyped("wardenApproved", "");
   return (
     <SheetForm title="Record a visitor" sub="Every hostel visitor meets one named student." closeHref={closeHref} action={recordVisitorAction} submitLabel="Let in" pendingText="Saving…">
-      <StudentFind name="studentId" label="Came to meet" mode="resident" start={student ? [student] : []} onPick={(x) => { setStudent(x[0] ?? null); setGw(""); g.load(x[0]?.id ?? null); }} help="The resident student the visitor has come to meet." />
+      <StudentFind name="studentId" label="Came to meet" mode="resident" start={student ? [student] : []} onPick={(x) => { setStudent(x[0] ?? null); setGw(""); g.load(x[0]?.id ?? null); }} />
       {student && (
         <FieldShell label="Visitor" id="vs-who" required error={tG.error}>
           {g.pending ? <span className="flex items-center gap-2 text-[13px] text-ink3"><Spinner /> <Words k="Loading the list…" /></span> : (
@@ -654,7 +654,7 @@ export function FeePlanSheet({ closeHref, hostels, start, yearName, yearId }: { 
   const set = (i: number, k: "label" | "due" | "amount", v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const total = rows.reduce((s, r) => s + (Number(r.amount.replace(/[₹,\s]/g, "")) || 0), 0);
   return (
-    <SheetForm title={start ? `Change ${start.name}` : "Add a hostel fee plan"} sub={`For ${yearName}. Students given a bed get these installments in their fees (Fee Management, under Hostel fee).`} closeHref={closeHref} action={saveFeePlanAction} wide
+    <SheetForm title={start ? `Change ${start.name}` : "Add a hostel fee plan"} sub={`For ${yearName}. Students given a bed get these fees.`} closeHref={closeHref} action={saveFeePlanAction} wide
       submitLabel={start ? "Save plan" : "Add plan"} hidden={start ? { planId: start.id } : yearId ? { yearId } : undefined}>
       <SText name="name" label="Plan name" required maxLength={60} start={start?.name} placeholder="Non-AC rooms" />
       <div className="grid sm:grid-cols-2 gap-3">

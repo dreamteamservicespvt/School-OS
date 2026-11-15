@@ -47,7 +47,7 @@ export function UnfinishedList({ items }: { items: UnfinishedItem[] }) {
         <span className="w-10 h-10 rounded-xl bg-warn/15 text-warn grid place-items-center shrink-0"><CircleAlert size={19} aria-hidden="true" /></span>
         <div className="min-w-0">
           <h2 id="unfinished-head" className="font-semibold text-[15px]"><Words k="Approved, but not finished" /></h2>
-          <p className="text-[13px] text-ink2"><Words k="These were approved or rejected earlier, but the leave, payment or form still shows as waiting. Check each one, then tap Finish now to complete it. Nothing changes until you tap." /></p>
+          <p className="text-[13px] text-ink2"><Words k="These were decided earlier but still show as waiting. Nothing changes until you tap Finish now." /></p>
         </div>
       </div>
       <ul className="divide-y divide-line/70 border-t border-line/70">
@@ -62,7 +62,7 @@ export function UnfinishedList({ items }: { items: UnfinishedItem[] }) {
             <div className="flex gap-2 flex-wrap items-center">
               <ConfirmButton trigger="Finish now" triggerVariant="primary" title="Finish this request now?" confirmLabel="Finish now"
                 onConfirm={async () => { await finish(r.id); }}>
-                <p><Words k="School OS does now what the decision should have done: the" /> {r.record} <Words k="is" /> {r.decidedWords}<Words k=", as" /> {r.by} <Words k="decided. It is written in the Audit Log with your name. If something has changed since, for example the class is now full, you will see why and nothing changes." /></p>
+                <p><Words k="School OS does now what the decision should have done: the" /> {r.record} <Words k="is" /> {r.decidedWords}<Words k=", as" /> {r.by} <Words k="decided. It is written in the Audit Log with your name." /></p>
               </ConfirmButton>
               {r.link && <Link href={r.link.href} className="text-[13.5px] font-semibold text-brand hover:underline">{r.link.label}</Link>}
             </div>

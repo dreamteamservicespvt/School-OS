@@ -92,7 +92,7 @@ export function OwnerRule({ rule, rules, defaultOwner, turn, staff, canEdit }: {
         ))}
         {canEdit && <div><Button variant="secondary" size="sm" icon={Settings2} onClick={() => setOpen(true)}><Words k="Change" /></Button></div>}
       </div>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Who gets new enquiries" sub="The owner can still be changed by hand. The history keeps every change." action={saveOwnerRuleAction} hidden={{ rule: pick }} submitLabel="Save">
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Who gets new enquiries" sub="The owner can still be changed by hand." action={saveOwnerRuleAction} hidden={{ rule: pick }} submitLabel="Save">
         {(f) => (
           <>
             <div className="flex flex-col gap-2" role="radiogroup" aria-label="Rule">
@@ -186,7 +186,7 @@ export function ClassEdit({ cls, fee, online, minAge, maxAge, owner, staff, feeO
       <FormSheet open={open} onClose={() => setOpen(false)} title={cls.label} sub="Rules for this class only" action={saveClassAction} hidden={{ classId: cls.value, ...(on ? { onlineOpen: "on" } : {}) }} submitLabel="Save">
         {(f) => (
           <>
-            {feeOn && <TextField label="Application fee (₹)" name="fee" inputMode="decimal" defaultValue={f.val("fee", fee)} error={f.err("fee")} placeholder="No fee" help="Leave empty for no fee. The fee head lives in Fee Structure." className="tnum" />}
+            {feeOn && <TextField label="Application fee (₹)" name="fee" inputMode="decimal" defaultValue={f.val("fee", fee)} error={f.err("fee")} placeholder="No fee" help="Leave empty for no fee." className="tnum" />}
             {onlineOn && (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3.5 py-3">
                 <span><b className="font-semibold text-[14px] block"><Words k="Takes online applications" /></b><span className="text-[12.5px] text-ink3"><Words k="Shown on the online form" /></span></span>
@@ -198,7 +198,7 @@ export function ClassEdit({ cls, fee, online, minAge, maxAge, owner, staff, feeO
               <TextField label="Lowest age" name="minAge" inputMode="numeric" defaultValue={f.val("minAge", minAge?.toString() ?? "")} error={f.err("minAge")} placeholder="Any" className="tnum" />
               <TextField label="Highest age" name="maxAge" inputMode="numeric" defaultValue={f.val("maxAge", maxAge?.toString() ?? "")} error={f.err("maxAge")} placeholder="Any" className="tnum" />
             </div>
-            <SelectField label="Owner for this class" name="ownerStaffId" options={staff} placeholder="The default owner" defaultValue={f.val("ownerStaffId", owner ?? "")} error={f.err("ownerStaffId")} help="Used when new enquiries go by class wanted." />
+            <SelectField label="Owner for this class" name="ownerStaffId" options={staff} placeholder="The default owner" defaultValue={f.val("ownerStaffId", owner ?? "")} error={f.err("ownerStaffId")} />
           </>
         )}
       </FormSheet>
@@ -261,12 +261,12 @@ export function NumbersButton({ years, yearId, prefix, nextNo, siblingWeight, si
   return (
     <>
       <Button size="sm" variant="secondary" icon={Pencil} onClick={() => setOpen(true)}><Words k="Change" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Year, numbers and priority" sub="Every change is recorded in the audit log" action={saveNumbersAction} hidden={quotaOn ? { quotasShown: "1" } : undefined} submitLabel="Save">
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Year, numbers and priority" action={saveNumbersAction} hidden={quotaOn ? { quotasShown: "1" } : undefined} submitLabel="Save">
         {(f) => (
           <>
             <SelectField label="Admission year" name="admissionYearId" options={years} placeholder="Worked out (the upcoming year with sections, else this year)" defaultValue={f.val("admissionYearId", yearId ?? "")} error={f.err("admissionYearId")} />
             <TextField label="Application number format" name="applicationPrefix" required maxLength={30} defaultValue={f.val("applicationPrefix", prefix)} error={f.err("applicationPrefix")} help={`{YYYY} becomes the year. A 4-digit number follows. Next: ${nextNo}`} className="font-mono" />
-            {siblingOn && <TextField label="Sibling priority (points)" name="siblingWeight" inputMode="numeric" defaultValue={f.val("siblingWeight", String(siblingWeight))} error={f.err("siblingWeight")} help="Added to the test score out of 100 when ranking the waiting list." className="tnum" />}
+            {siblingOn && <TextField label="Sibling priority (points)" name="siblingWeight" inputMode="numeric" defaultValue={f.val("siblingWeight", String(siblingWeight))} error={f.err("siblingWeight")} help="Added to the test score for the waiting list." className="tnum" />}
             {quotaOn && (
               <>
                 <SubHead><Words k="Share of seats by category (%)" /></SubHead>

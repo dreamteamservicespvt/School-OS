@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { CalendarDays, ClipboardCheck, ClipboardList, SearchX, ThumbsUp, Users } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -110,7 +111,7 @@ export default async function TestsPage({ searchParams }: Search) {
         <span key="v" className="text-[13.5px]">{t.venue ?? "Venue not set"}</span>,
         <div key="c"><p className="font-medium">{t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"}</p><p className="text-[12px] text-ink3">{yl(t.academicYearId)} <Words k="· out of" /> {t.maxMarks}</p></div>,
         <span key="b" className="font-semibold tnum">{all}</span>,
-        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{scored} <Words k="of" /> {all}</span></span>,
+        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum"><Words k="{n} of {n2}" vars={{ n: scored, n2: all }} /></span></span>,
       ],
       mobile: {
         title: `${formatDate(t.startsAt, tz)} · ${formatTime(t.startsAt, tz)}`, sub: `${t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"} · ${t.venue ?? t.title}`,
@@ -140,7 +141,7 @@ export default async function TestsPage({ searchParams }: Search) {
 
   return (
     <>
-      <AdmissionHead href={PATH} sub="Entrance test and interview dates, scores and remarks. Switched on in Admission Settings." actions={actions} />
+      <AdmissionHead href={PATH} sub="Entrance tests and interviews" actions={actions} />
       <div className="flex flex-col gap-4">
         <Stats items={[
           ...(testsOn ? [{ label: "Next test", value: nt ? formatDate(nt.startsAt, tz) : "None", sub: nt ? `${nt._count.bookings} booked · ${formatTime(nt.startsAt, tz)}` : "Schedule one when ready", icon: CalendarDays, tone: "brand" as const, href: nt ? `${PATH}?score=${nt.id}` : undefined }] : []),
@@ -156,17 +157,17 @@ export default async function TestsPage({ searchParams }: Search) {
         </div>
         {tab === "tests" ? (
           <Card className="overflow-hidden">
-            <CardHeader title="Entrance tests" description="Tap a test to enter scores and remarks" icon={ClipboardCheck} />
+            <CardHeader title="Entrance tests" description="Tap a test to enter scores" icon={ClipboardCheck} />
             <DataList caption="Entrance tests" rows={testRows} minWidth={720}
               {...rowList([{ key: "d", label: "Date and time" }, { key: "v", label: "Venue" }, { key: "c", label: "Class" }, { key: "b", label: "Booked", align: "right" }, { key: "s", label: "Scores entered" }])}
               empty={filtered
                 ? <EmptyState bare Icon={SearchX} title="No tests in these dates"><Words k="Try another date range." /></EmptyState>
-                : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled"><Words k="Schedule an entrance test for one or many applicants. Parents get the date, time and venue." /></EmptyState>}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} <Words k="· parents get the date, time and venue by WhatsApp or SMS" /></p>} />
+                : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled"><Words k="Parents get the date, time and venue." /></EmptyState>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} {SMS_OFFERED ? <Words k="· parents get the date, time and venue by WhatsApp or SMS" /> : <Words k="· parents get the date, time and venue by WhatsApp" />}</p>} />
           </Card>
         ) : (
           <Card className="overflow-hidden">
-            <CardHeader title="Interviews" description="15-minute slots. An interviewer is never booked twice for the same time." icon={Users} />
+            <CardHeader title="Interviews" description="15-minute slots, never double-booked" icon={Users} />
             <DataList caption="Interviews" rows={slotRows} minWidth={720}
               {...rowList([{ key: "s", label: "Slot", nowrap: true }, { key: "a", label: "Applicant" }, { key: "w", label: "Interviewer" }, { key: "o", label: "Outcome" }])}
               footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{slotRows.length} {slotRows.length === 1 ? "interview" : "interviews"}</p>}

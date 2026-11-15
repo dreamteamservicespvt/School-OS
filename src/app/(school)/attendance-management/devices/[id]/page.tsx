@@ -106,7 +106,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
         <Split side={340}>
           <Col className="min-w-0">
             <Card className="overflow-hidden">
-              <CardHeader icon={ListChecks} title="Punches" description="A punch counts only if the device is active, the person is mapped and allowed, the time is inside the attendance window, it is a school day, and it is not a repeat."
+              <CardHeader icon={ListChecks} title="Punches" description="Rejected punches do not count."
                 action={!archived && canEdit ? <ActionButton action={reprocessAction} hidden={{ deviceId: d.id }} size="md" pendingText="Re-running…"><Words k="Re-run sync" /></ActionButton> : undefined} />
               <div className="flex flex-wrap items-center gap-2 px-3 pb-3 border-b border-line">
                 <Chips label="Punches shown" value={onlyRejected ? "rejected" : "all"} options={[
@@ -128,7 +128,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
                 empty={<EmptyState bare Icon={ListChecks} title={onlyRejected ? "No rejected punches" : "No punches in these dates"}>{onlyRejected ? "Every punch received was counted." : "Punches appear here as soon as the device sends them."}</EmptyState>} />
             </Card>
             <Card>
-              <CardHeader icon={Link2} title="User mapping" description="Match each device user number to a student or staff member. Auto-match uses staff IDs and admission numbers."
+              <CardHeader icon={Link2} title="User mapping" description="Match device user numbers to students and staff."
                 action={!archived && canEdit ? <div className="flex flex-wrap gap-2"><ActionButton action={autoMatchAction} hidden={{ deviceId: d.id }} size="md" pendingText="Matching…"><Words k="Auto-match" /></ActionButton><MapUserForm action={mapUserAction} deviceId={d.id} people={data.people} /></div> : undefined} />
               <div className="px-5 pb-5 flex flex-col gap-3">
                 {data.unmapped.length > 0 && (
@@ -144,7 +144,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
                     </ul>
                   </div>
                 )}
-                {data.maps.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No users mapped yet. Auto-match after the first punches arrive, or map numbers by hand." /></p> : (
+                {data.maps.length === 0 ? <p className="text-[14px] text-ink3"><Words k="Use Auto-match after the first punches, or map by hand." /></p> : (
                   <ul className="divide-y divide-line/70">
                     {data.maps.map((m) => (
                       <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-[14px]">

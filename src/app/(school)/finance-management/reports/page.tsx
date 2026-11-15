@@ -102,7 +102,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
 
   return (
     <div>
-      <FinanceHead pageName="Finance Reports" href={HREF} sub="Every report works by financial year (April to March), with a date range inside it · also in Reports & Analytics"
+      <FinanceHead pageName="Finance Reports" href={HREF} sub="By financial year, April to March"
         viewActions={p.can.export && p.has("finance-tally") && full ? <a href={qs(`${HREF}/tally`, { fy: keep.fy, period: keep.period, from: keep.from, to: keep.to })} className={buttonClass("secondary")}><FileCode2 size={17} aria-hidden="true" /><Words k="Export for Tally" /></a> : undefined} />
       <Toolbar className="!px-0 !pt-0 mb-5 md:!flex-row">
         <UrlSelect id="fr-fy" param="fy" label="Financial year" className="md:w-72" options={yearOptions} />
@@ -116,7 +116,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
         <ReportsFrame reports={links} active={def.key}>
           {off ? (
             <Card><Empty icon={LOOK[def.key]?.icon ?? Gauge} title={off === "finance-budget" ? "Budgets are switched off" : "Accounts are switched off"}
-              body={off === "finance-budget" ? "Switch budgets on in Finance Settings to see each head’s budget against what was spent, with alerts at 80% and 100%." : "Switch Accounts on in Finance Settings for journal entries, the ledger and the trial balance."}
+              body={off === "finance-budget" ? "Switch budgets on in Finance Settings." : "Switch Accounts on in Finance Settings."}
               action={p.may("settings") ? <Link href={`${BASE}/settings`} className={buttonClass("secondary")}><Words k="Open Finance Settings" /></Link> : undefined} /></Card>
           ) : r && (
             <Stack>
@@ -132,10 +132,14 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                 <Card>
                   <CardHeader title="Money in and money out" description="By month (₹ lakh)" icon={ChartColumn} />
                   <div className="px-3 pb-2">
-                    <Bars data={[...months.entries()].map(([k, m]) => ({ k: k.split(" ")[0].slice(0, 3), v: lakh(m.inc), v2: lakh(m.exp), tip: `${k}: ${cellText(m.inc, "money")} in, ${cellText(m.exp, "money")} out` }))}
+                    {/* Income and expenses side by side in two colours: an expense bar drawn behind income was hidden (loop 4). */}
+                    <Bars pair data={[...months.entries()].map(([k, m]) => ({
+                      k: k.split(" ")[0].slice(0, 3), v: lakh(m.inc), v2: lakh(m.exp), tone2: "warn" as const,
+                      tip: `${k}: ${cellText(m.inc, "money")} in, ${cellText(m.exp, "money")} out`,
+                    }))}
                       max={ticks[3] * 1.15} ticks={ticks} ariaLabel="Income and expenses by month" />
                   </div>
-                  <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Income"], ["bg-ink3/25", "Expenses"]]} /></div>
+                  <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Income"], ["bg-warn", "Expenses"]]} /></div>
                 </Card>
               )}
               {def.key !== "income-expense" && r.chart && r.chart.length > 0 && chartMax > ZERO && !before && (

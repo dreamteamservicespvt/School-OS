@@ -74,7 +74,7 @@ export function SupportRequests({ items, schoolName }: { items: SupportItem[]; s
               <div className="flex gap-2 flex-wrap">
                 <ConfirmButton trigger={<><Check size={16} aria-hidden="true" /><Words k="Allow" /></>} triggerVariant="primary" title={`Allow DREAM TEAM to look inside for ${r.length}?`}
                   confirmLabel={`Allow for ${r.length}`} onConfirm={async () => { await run(r.id, () => answerSupportAction(r.id, "allow", null)); }}>
-                  <p>{r.who} <Words k="can open" /> {schoolName}<Words k="’s School OS from now, for" /> {r.length}<Words k=", to look only. A coloured bar shows them it is DREAM TEAM support and when it ends. You can end it earlier here." /></p>
+                  <p>{r.who} <Words k="can open" /> {schoolName}<Words k="’s School OS from now, for" /> {r.length}<Words k=", to look only. You can end it earlier here." /></p>
                 </ConfirmButton>
                 <Button variant="ghost" icon={X} onClick={() => { setDeclining(r.id); setWhy(""); }}><Words k="Decline" /></Button>
               </div>

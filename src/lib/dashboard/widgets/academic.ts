@@ -387,7 +387,7 @@ const classTeacherNoSection: Widget<"attention"> = {
     return {
       id: "academic.class-teacher-no-section", tone: "warn", icon: "Users",
       title: `${plural(without.length, "Class Teacher")} ${without.length === 1 ? "has" : "have"} no section`,
-      detail: `${someNames(without.map((s) => s.fullName), 3)}: cannot take attendance until a section is theirs (Classes & Sections, Edit, Class teacher)`,
+      detail: `${someNames(without.map((s) => s.fullName), 3)}: cannot take attendance yet`,
       action: "Set", href: "/academic-management", value: String(without.length),
     };
   },

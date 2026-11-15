@@ -255,7 +255,7 @@ export function DatesheetForm({ data }: { data: Data }) {
           <section className="flex flex-col gap-3" aria-labelledby="ds-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p id="ds-3" className="eyebrow text-ink3"><Words k="3 · Subject schedule" /></p>
-              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite">{datedCount} <Words k="of" /> {allRows.length} {mode === "multi" ? "papers" : "subjects"} <Words k="dated" /></p>}
+              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite"><Words k="{n} of {n2}" vars={{ n: datedCount, n2: allRows.length }} /> {mode === "multi" ? "papers" : "subjects"} <Words k="dated" /></p>}
             </div>
             {state?.errors?.schedule && <p role="alert" className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{state.errors.schedule}</p>}
             {chosen.length === 0 ? (
@@ -265,7 +265,7 @@ export function DatesheetForm({ data }: { data: Data }) {
                 {gradeOnlyNames.length > 0 && d.pattern !== "GRADING" && (
                   <Banner tone="info" title={`${gradeOnlyNames.join(", ")}:`}
                     action={<ButtonLink href="/academic-management/subjects" variant="secondary" size="sm"><Words k="Open Subjects" /></ButtonLink>}>
-                    {"Grades only. These subjects are set to grades only in Academic Management, Subjects, so they take a grade, with no Max marks or mark categories. To give them marks, switch grades only off there."}
+                    {"Grades only, no Max marks. To give them marks, switch grades only off in Subjects."}
                   </Banner>
                 )}
                 {!dis && (
@@ -306,7 +306,7 @@ export function DatesheetForm({ data }: { data: Data }) {
                     <details className="rounded-2xl border border-line">
                       <summary className="flex min-h-11 cursor-pointer items-center px-4 font-semibold text-[14px]"><Words k="Rooms and invigilators for each class" /></summary>
                       <div className="flex flex-col gap-4 border-t border-line p-4">
-                        <p className="text-[13px] text-ink3"><Words k="Each class starts in its own room with its subject teacher invigilating. Two classes cannot share a room or an invigilator at the same time." /></p>
+                        <p className="text-[13px] text-ink3"><Words k="Two classes cannot share a room or an invigilator at the same time." /></p>
                         {chosen.map((c) => (
                           <div key={c.id}>
                             <p className="font-semibold text-[14px] mb-1.5">{c.name}</p>
@@ -338,8 +338,8 @@ export function DatesheetForm({ data }: { data: Data }) {
             <div className="rounded-2xl border border-line p-3.5 text-[13px] text-ink2">
               <p className="font-semibold text-ink mb-1.5"><Words k="Before you save" /></p>
               <ul className="flex flex-col gap-1 list-disc pl-4">
-                <li><Words k="Subjects are listed by date and time. An empty exam date leaves the subject out." /></li>
-                <li><Words k="The pattern can be changed for one subject. Mark categories (for example Theory 80, Internal 20) are set after saving." /></li>
+                <li><Words k="A subject with no exam date is left out of the datesheet." /></li>
+                <li><Words k="Mark categories are set after saving." /></li>
                 <li><Words k="Once results are uploaded, only the title can change." /></li>
               </ul>
             </div>

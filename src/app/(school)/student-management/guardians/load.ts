@@ -22,6 +22,18 @@ export async function visibleGuardianFor(tx: Tx, who: Who, id: string) {
   return tx.guardian.findFirst({ where: { id, ...(all ? {} : { students: { some: { archivedAt: null, student: scope } } }) } });
 }
 
+/** The names of a parent's children the person may see (the edit page says a change applies to all of them). */
+export async function visibleChildNames(tx: Tx, who: Who, guardianId: string) {
+  const all = abilities(who).reach === "all" && !who.campusId;
+  const scope = all ? {} : await studentScope(tx, who);
+  const links = await tx.studentGuardian.findMany({
+    where: { guardianId, archivedAt: null, student: { AND: [scope, { archivedAt: null }] } },
+    orderBy: { createdAt: "asc" },
+    select: { student: { select: { fullName: true } } },
+  });
+  return links.map((l) => l.student.fullName);
+}
+
 /**
  * Parent 360 (03 §2, Parents & Guardians): the children, each with their
  * class this year, attendance and fees, the fees due and latest payments for

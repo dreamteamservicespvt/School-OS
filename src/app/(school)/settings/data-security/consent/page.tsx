@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { consentTexts, LANGUAGE_NAMES, READY_TEXTS } from "@/lib/data-security/consent";
+import { approvedReadyTranslation, consentTexts, isReadyEnglish, LANGUAGE_NAMES, READY_LANGUAGES, READY_TEXTS, readyTranslationDrafts } from "@/lib/data-security/consent";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { can } from "@/lib/permissions";
 import { consentLog, type ConsentCounts } from "@/lib/students/consent-log";
 import { goLiveConsentStatus } from "@/lib/parent-link/consent";
 import { ConsentForm } from "./form";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 const n = (x: number) => x.toLocaleString("en-IN");
@@ -22,6 +22,59 @@ function counts(c: ConsentCounts) {
   if (c.withdrawn) parts.push(`${n(c.withdrawn)} withdrawn`);
   if (c.notAsked) parts.push(`${n(c.notAsked)} not asked`);
   return parts.join(" · ");
+}
+
+/**
+ * What a type's form text starts from: the school's current text, or the ready English. While the
+ * English is still the ready text, a missing language is filled with its owner-approved
+ * translation (never a draft); the school saves it as a new version.
+ */
+function readyStart(key: string, current?: Record<string, string>) {
+  const ready = READY_TEXTS[key];
+  const text: Record<string, string> = current ? { ...current } : ready ? { en: ready.en } : {};
+  if (!ready || !isReadyEnglish(key, text.en)) return text;
+  for (const lang of READY_LANGUAGES) {
+    const tr = approvedReadyTranslation(key, lang);
+    if (tr && !text[lang]) text[lang] = tr.text;
+  }
+  return text;
+}
+
+/**
+ * Hindi and Telugu drafts of a ready text (owner decision 10), shown only to staff here with the
+ * English beside them. Parents keep seeing English until the owner approves a draft.
+ */
+function DraftTranslations({ consentType, schoolEnglish }: { consentType: string; schoolEnglish?: string }) {
+  const ready = READY_TEXTS[consentType];
+  const drafts = readyTranslationDrafts(consentType);
+  if (!ready || drafts.length === 0) return null;
+  return (
+    <details>
+      <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Any text="Hindi and Telugu: draft translations waiting for approval" /></summary>
+      <div className="mt-2 space-y-3">
+        <p className="text-[13.5px] text-ink-2"><Any text="Parents still see the English text until the School OS support team approves these translations." /></p>
+        {schoolEnglish && !isReadyEnglish(consentType, schoolEnglish) && (
+          <p className="text-[13.5px] text-ink-2"><Any text="Your school changed the English text, so these drafts translate the built-in text, not yours." /></p>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-ink-2"><Any text="English (built-in text)" /></p>
+            <p lang="en" className="font-medium">{ready.title}</p>
+            <p lang="en" className="whitespace-pre-line text-sm text-ink-2">{ready.en}</p>
+          </div>
+          <div className="space-y-4">
+            {drafts.map((d) => (
+              <div key={d.lang} className="space-y-1">
+                <p className="text-[13px] font-semibold"><Any text={d.name} /> · <span className="text-warn-text"><Any text="Draft translation: waiting for approval" /></span></p>
+                <p lang={d.lang} className="font-medium">{d.title}</p>
+                <p lang={d.lang} className="whitespace-pre-line text-sm text-ink-2">{d.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
+  );
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,8 +96,8 @@ export default async function ConsentPage({ searchParams }: Search) {
   const canEdit = may.edit;
   const mayRecord = can(current.permissions, "student-management", "create");
   const starts = Object.fromEntries(data.types.map((t) => [t.key, t.current
-    ? { title: t.current.title, text: t.current.text as Record<string, string>, askedOnAdmission: t.current.askedOnAdmission }
-    : { title: READY_TEXTS[t.key]?.title ?? "", text: READY_TEXTS[t.key] ? { en: READY_TEXTS[t.key].en } : {}, askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));
+    ? { title: t.current.title, text: readyStart(t.key, t.current.text as Record<string, string>), askedOnAdmission: t.current.askedOnAdmission }
+    : { title: READY_TEXTS[t.key]?.title ?? "", text: readyStart(t.key), askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));
   const chosen = typeof sp.type === "string" && data.types.some((t) => t.key === sp.type) ? sp.type : data.types[0]?.key ?? "data-processing";
 
   return (
@@ -75,16 +128,21 @@ export default async function ConsentPage({ searchParams }: Search) {
                 )}
               </CardBody>
             )}
+            {readyTranslationDrafts(t.key).length > 0 && (
+              <CardBody>
+                <DraftTranslations consentType={t.key} schoolEnglish={(t.current?.text as Record<string, string> | undefined)?.en} />
+              </CardBody>
+            )}
           </Card>
         ))}
         {data.goLive && (
           <Card id="asked-on-go-live">
-            <CardHeader title="Asked on going live" description="The consent request sent with each parent's Parent Link when the school went live on School OS." />
+            <CardHeader title="Asked on going live" description="Sent with each Parent Link at go-live." />
             <CardBody className="space-y-2">
               <p className="tnum"><strong>{n(data.goLive.asked)}</strong> {data.goLive.asked === 1 ? "parent" : "parents"} <Words k="asked ·" /> <strong>{n(data.goLive.answered)}</strong> <Words k="answered ·" /> <strong>{n(data.goLive.waiting)}</strong> <Words k="waiting" /></p>
               <ul className="space-y-1 text-[13.5px] text-ink-2 tnum">
                 {data.goLive.byType.map((t) => (
-                  <li key={t.consentType}>{data.types.find((x) => x.key === t.consentType)?.label ?? t.consentType}: {n(t.given)} <Words k="of" /> {n(t.asked)} <Words k="given ·" /> {n(t.waiting)} <Words k="waiting" />{t.refused ? ` · ${n(t.refused)} refused` : ""}{t.withdrawn ? ` · ${n(t.withdrawn)} withdrawn` : ""}</li>
+                  <li key={t.consentType}>{data.types.find((x) => x.key === t.consentType)?.label ?? t.consentType}: <Words k="{n} of {n2}" vars={{ n: n(t.given), n2: n(t.asked) }} /> <Words k="given ·" /> {n(t.waiting)} <Words k="waiting" />{t.refused ? ` · ${n(t.refused)} refused` : ""}{t.withdrawn ? ` · ${n(t.withdrawn)} withdrawn` : ""}</li>
                 ))}
               </ul>
               <p className="text-[13.5px] text-ink-2"><Words k="Remind those waiting from Communication, Parent Link, Consent forms." /></p>
@@ -92,7 +150,7 @@ export default async function ConsentPage({ searchParams }: Search) {
           </Card>
         )}
         <Card id="who-agreed">
-          <CardHeader title="Who has agreed" description="This year's students, by consent and class. A student counts as given while a parent on record has agreed (in Parent Link, on the application form or on a signed paper form)."
+          <CardHeader title="Who has agreed" description="This year's students. Given means a parent on record agreed."
             action={mayRecord ? <ButtonLink href="/settings/data-security/consent/paper" size="sm" variant="secondary"><Words k="Paper forms received" /></ButtonLink> : undefined} />
           <CardBody className="space-y-5">
             {data.log.length === 0 ? <p className="text-ink-2"><Words k="No consent texts yet, so nobody has been asked." /></p> : data.log.map((t) => (
@@ -106,7 +164,7 @@ export default async function ConsentPage({ searchParams }: Search) {
                       <thead><tr className="text-left text-ink-2"><th scope="col" className="py-1 pr-2 font-medium"><Words k="Class" /></th><th scope="col" className="px-2 font-medium"><Words k="Given" /></th><th scope="col" className="px-2 font-medium"><Words k="From paper" /></th><th scope="col" className="px-2 font-medium"><Words k="Waiting" /></th><th scope="col" className="px-2 font-medium"><Words k="Refused" /></th><th scope="col" className="px-2 font-medium"><Words k="Withdrawn" /></th><th scope="col" className="px-2 font-medium"><Words k="Not asked" /></th></tr></thead>
                       <tbody>
                         {t.classes.map((c) => (
-                          <tr key={c.classId} className="border-t border-line/70"><th scope="row" className="py-1 pr-2 text-left font-medium">{c.className}</th><td className="px-2">{c.given} <Words k="of" /> {c.total}</td><td className="px-2">{c.fromPaper}</td><td className="px-2">{c.waiting}</td><td className="px-2">{c.refused}</td><td className="px-2">{c.withdrawn}</td><td className="px-2">{c.notAsked}</td></tr>
+                          <tr key={c.classId} className="border-t border-line/70"><th scope="row" className="py-1 pr-2 text-left font-medium">{c.className}</th><td className="px-2"><Words k="{n} of {n2}" vars={{ n: c.given, n2: c.total }} /></td><td className="px-2">{c.fromPaper}</td><td className="px-2">{c.waiting}</td><td className="px-2">{c.refused}</td><td className="px-2">{c.withdrawn}</td><td className="px-2">{c.notAsked}</td></tr>
                         ))}
                       </tbody>
                     </table>

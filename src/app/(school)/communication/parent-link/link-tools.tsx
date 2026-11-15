@@ -75,7 +75,7 @@ export function ResendBar({ form }: { form: string }) {
     const r = await resendManyAction(chosen(), "");
     if (!r.ok) { setNote({ text: r.message, bad: true }); return; }
     clear();
-    setNote({ text: `The same link was resent to ${r.sent} guardian${r.sent === 1 ? "" : "s"}.${r.failed ? ` ${r.failed} could not be sent (revoked, or no mobile).` : ""}` });
+    setNote({ text: r.testMode ? `Test mode: nothing was sent (${r.sent} guardian${r.sent === 1 ? "" : "s"}).` : `The same link was resent to ${r.sent} guardian${r.sent === 1 ? "" : "s"}.${r.failed ? ` ${r.failed} could not be sent (revoked, or no mobile).` : ""}` });
     router.refresh();
   });
   return (

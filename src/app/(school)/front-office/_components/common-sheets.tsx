@@ -27,6 +27,7 @@ import { ActButton } from "./fields";
 import { sendPassAction } from "../actions";
 import { BASE, UUID, addQ, foPage, one, qs } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import type { T } from "@/lib/i18n/t";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -85,10 +86,11 @@ export async function CommonSheets({ sp, href, keepKeys }: { sp: SP; href: strin
         <CallSheet closeHref={close} purposes={p.settings.callPurposes} classes={classOpts} today={p.todayStr} follow={followUpStart(p.todayStr, p.minute)} admissions={p.current.permissions["admission-management"].see !== "none"}
           staff={data.logins.map((s) => ({ value: s.loginId, label: `${s.name} · ${s.role}` }))} defaultWho={data.logins.find((s) => s.loginId === p.current.user.id)?.loginId ?? data.logins[0]?.loginId ?? ""} />
       )}
-      {walkOpen && data.nextNo && <WalkInSheet closeHref={close} departments={p.settings.requestDepartments} nextNo={data.nextNo} />}
+      {walkOpen && data.nextNo && <WalkInSheet closeHref={close} departments={p.settings.requestDepartments} nextNo={data.nextNo}
+        preset={{ department: p.settings.requestDepartments.includes(one(sp.dept)) ? one(sp.dept) : undefined, request: one(sp.ask).slice(0, 300) || undefined, from: one(sp.from).slice(0, 120) || undefined }} />}
       {settingsOpen && <SettingsSheet closeHref={close} s={p.settings} features={[...p.features]} dayEnd={p.passEndWords} />}
       {listsOpen && <ListsSheet closeHref={close} lists={p.settings} />}
-      {data.pass && <PassSheet close={close} v={data.pass} met={data.met} canCheckOut={p.can.checkOut} canSend={p.can.register} masked={!p.can.visitorPhones} tz={p.tz} schoolName={p.current.school.name} now={now} />}
+      {data.pass && <PassSheet t={p.t} close={close} v={data.pass} met={data.met} canCheckOut={p.can.checkOut} canSend={p.can.register} masked={!p.can.visitorPhones} tz={p.tz} schoolName={p.current.school.name} now={now} />}
       {passId && !data.pass && (
         <UrlSheet title="Pass not found" closeHref={close}><p className="text-[14px] text-ink2 pb-4"><Words k="This visitor entry was not found, or it is not one you can see." /></p></UrlSheet>
       )}
@@ -108,34 +110,36 @@ function minuteOfInstant(d: Date, tz: string) {
 type PassVisitor = { id: string; passNo: string; name: string; phone: string; purpose: string; peopleCount: number; vehicleNo: string | null; timeIn: Date; timeOut: Date | null; passExpiresAt: Date; visitDate: Date; photoFileId: string | null; schoolId: string };
 
 /** Visitor pass: on screen, printed or sent to the visitor's phone (mod-frontoffice.jsx PassSheet). */
-async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, schoolName, now }: { close: string; v: PassVisitor; met: string | null; canCheckOut: boolean; canSend: boolean; masked: boolean; tz: string; schoolName: string; now: Date }) {
+async function PassSheet({ t, close, v, met, canCheckOut, canSend, masked, tz, schoolName, now }: { t: T; close: string; v: PassVisitor; met: string | null; canCheckOut: boolean; canSend: boolean; masked: boolean; tz: string; schoolName: string; now: Date }) {
   const status = visitorStatus(v, now);
   const expired = status === "Expired";
   const out = status === "Out";
   const qr = await qrSvg(`${await appOrigin()}${BASE}/visitors?check=${v.passNo}`, 140);
-  const dayWords = todayIso(tz, now) === v.visitDate.toISOString().slice(0, 10) ? "today" : dayMonth(v.visitDate);
+  const today = todayIso(tz, now) === v.visitDate.toISOString().slice(0, 10);
   const photo = v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null;
-  const sub = out ? `Checked out at ${clockAt(v.timeOut!, tz)}. This pass no longer works.` : expired ? `Expired at ${clockAt(v.passExpiresAt, tz)} on ${dayWords}. A scan shows “Expired”.` : `Valid until ${clockAt(v.passExpiresAt, tz)} today. It expires by itself.`;
+  const sub = out ? t("Checked out at {time}. This pass no longer works.", { time: clockAt(v.timeOut!, tz) })
+    : expired ? (today ? t("Expired at {time} today. A scan shows “Expired”.", { time: clockAt(v.passExpiresAt, tz) }) : t("Expired at {time} on {date}. A scan shows “Expired”.", { time: clockAt(v.passExpiresAt, tz), date: dayMonth(v.visitDate) }))
+      : t("Valid until {time} today. It expires by itself.", { time: clockAt(v.passExpiresAt, tz) });
   return (
-    <UrlSheet title={`Visitor pass ${v.passNo}`} sub={sub} closeHref={close}>
+    <UrlSheet title={t("Visitor pass {pass}", { pass: v.passNo })} sub={sub} closeHref={close}>
       <div className="flex flex-col items-center gap-4 pb-1">
         <div className={cx("w-full rounded-2xl border-2 overflow-hidden", expired || out ? "border-bad/40" : "border-line")}>
           <div className={cx("px-4 py-2.5 flex items-center justify-between", expired || out ? "bg-bad/10" : "bg-brand/10")}>
-            <span className={cx("eyebrow", expired || out ? "text-bad" : "text-brand")}><Words k="Visitor ·" /> {schoolName}</span>
+            <span className={cx("eyebrow", expired || out ? "text-bad" : "text-brand")}>{t("Visitor")} · {schoolName}</span>
             <span className="font-mono text-[12.5px] font-semibold">{v.passNo}</span>
           </div>
           <div className="p-4 flex items-center gap-4">
             <Avatar name={v.name} size={64} src={photo} />
             <div className="min-w-0 flex-1">
               <p className="font-display font-semibold text-[19px] leading-tight">{v.name}</p>
-              <p className="text-[13px] text-ink3">{v.purpose}{met ? ` · to meet ${met}` : ""}</p>
-              <p className="text-[13px] text-ink3 tnum"><Words k="In" /> {clockAt(v.timeIn, tz)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}{v.vehicleNo ? ` · ${v.vehicleNo}` : ""}</p>
+              <p className="text-[13px] text-ink3">{t.any(v.purpose)}{met ? ` · ${t("to meet {name}", { name: met })}` : ""}</p>
+              <p className="text-[13px] text-ink3 tnum">{t("Came in {time}", { time: clockAt(v.timeIn, tz) })}{v.peopleCount > 1 ? ` · ${t("{n} people", { n: v.peopleCount })}` : ""}{v.vehicleNo ? ` · ${v.vehicleNo}` : ""}</p>
               <p className="text-[12.5px] text-ink3 tnum">{masked ? maskPhone(v.phone) : showPhone(v.phone)}</p>
             </div>
           </div>
           <div className="relative flex justify-center pb-4">
-            <div className={cx("p-3 rounded-2xl bg-white shadow-card border border-line shrink-0", (expired || out) && "opacity-40")} dangerouslySetInnerHTML={{ __html: qr }} aria-label={`QR code for pass ${v.passNo}`} role="img" />
-            {(expired || out) && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-badink font-display font-semibold text-[20px] -rotate-6 shadow-pop">{out ? "Checked out" : "Expired"}</span>}
+            <div className={cx("p-3 rounded-2xl bg-white shadow-card border border-line shrink-0", (expired || out) && "opacity-40")} dangerouslySetInnerHTML={{ __html: qr }} aria-label={t("QR code for pass {pass}", { pass: v.passNo })} role="img" />
+            {(expired || out) && <span className="absolute top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl bg-bad text-badink font-display font-semibold text-[20px] -rotate-6 shadow-pop">{out ? t("Checked out") : t("Expired")}</span>}
           </div>
         </div>
         {!out && canSend && (
@@ -145,7 +149,7 @@ async function PassSheet({ close, v, met, canCheckOut, canSend, masked, tz, scho
               : <span />}
           </div>
         )}
-        {canCheckOut && !out && <ButtonLink href={addQ(close, { out: v.id })} scroll={false} variant={expired ? "primary" : "soft"} icon={LogOut} className="w-full">{expired ? "Close with the right time" : "Check out now"}</ButtonLink>}
+        {canCheckOut && !out && <ButtonLink href={addQ(close, { out: v.id })} scroll={false} variant={expired ? "primary" : "soft"} icon={LogOut} className="w-full">{expired ? t("Close with the right time") : t("Check out now")}</ButtonLink>}
       </div>
     </UrlSheet>
   );

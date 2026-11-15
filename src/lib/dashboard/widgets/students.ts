@@ -71,14 +71,17 @@ const consentAttention: Widget<"attention"> = {
   homes: ["leader", "class-teacher", "office"],
   allowed: worksWithStudents,
   async load(c) {
+    // Layman loop 2 (15 Nov): a teacher cannot send the request, so the item only pushed real work down. It shows
+    // to those who send it (blueprint 01 §2: "with a button to send the consent request").
+    const can = await canOf(c);
+    if (!can.manage) return null;
     const g = await guardiansWithoutConsent(c);
     if (!g.without) return null;
-    const can = await canOf(c);
     return {
       id: "students.no-consent", tone: "warn", icon: "BadgeCheck",
       // "7 of 25" (live test 17): the reader sees the rest gave consent, not "unknown".
       title: `${n(g.without)} of ${plural(g.total, "guardian")} ${g.without === 1 ? "has" : "have"} not given data consent`,
-      detail: can.manage ? "Send the consent request through Parent Link from the list" : "Of the students you teach · the office sends the request through Parent Link",
+      detail: "Send the consent request through Parent Link from the list",
       action: "See list", href: `${BASE}/guardians?consent=not-given`, value: String(g.without),
     };
   },
@@ -98,11 +101,12 @@ const classesOverview: Widget<"panel"> = {
     const unplaced = c.filters.classId ? 0 : unplacedAll;
     if (!tiles.length && !unplaced) return null;
     const total = tiles.reduce((s, t) => s + t.total, 0);
-    // Students not yet in a section are shown too, so the classes and they add up to the Students number (gap list G36).
+    // Students not yet in a section are shown too, so the classes and they add up to the Students number (gap list G36);
+    // the line leads with that same number, never a smaller one (layman loop 4).
     return {
       slot: "main",
       panel: {
-        kind: "classes-overview", title: "Classes overview", sub: `${n(total)} students studying in ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}${unplaced ? ` · ${n(unplaced)} not yet in a section` : ""}`, total, href: BASE,
+        kind: "classes-overview", title: "Classes overview", sub: `${plural(total + unplaced, "student")} · ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}${unplaced ? ` · ${n(unplaced)} not yet in a section` : ""}`, total, href: BASE,
         classes: tiles.map((t) => ({ id: t.id, name: t.name, total: t.total, href: `${BASE}?class=${t.id}`, sections: t.sections.map((s) => ({ ...s, href: `${BASE}?class=${t.id}&section=${s.id}` })) })),
         ...(unplaced ? { unplaced: { count: unplaced, href: `${BASE}?section=none` } } : {}),
       },

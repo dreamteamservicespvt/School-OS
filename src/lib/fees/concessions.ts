@@ -190,7 +190,7 @@ export async function giveConcession(tx: Tx, ctx: SchoolContext, input: Concessi
       type: input.type === "SCHOLARSHIP" ? "scholarship" : "concession",
       recordType: "Concession",
       recordId: c.id,
-      summary: `${what} of ${formatRupees(estimate)} for ${student.fullName}`,
+      summary: `${what}: ${formatRupees(estimate)} off for ${student.fullName}`,
       amountPaise: estimate,
       reason: input.reason,
     });

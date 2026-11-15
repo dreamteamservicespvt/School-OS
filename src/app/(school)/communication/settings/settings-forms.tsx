@@ -124,16 +124,17 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
 
 // ── Delivery ──────────────────────────────────────────────────────────────
 
-export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }: { retryLimit: number; backup: Record<string, { on: boolean; waitMinutes: number }>; backupTypes: Opt[]; noticeApproval: string }) {
+// showBackup: the SMS backup choices are hidden while SMS is not used (SMS_OFFERED); the saved choices are kept as they are.
+export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval, showBackup = true }: { retryLimit: number; backup: Record<string, { on: boolean; waitMinutes: number }>; backupTypes: Opt[]; noticeApproval: string; showBackup?: boolean }) {
   const [retry, setRetry] = useState(String(retryLimit));
   const [b, setB] = useState(backup);
   const [approval, setApproval] = useState(noticeApproval);
   const { msg, pending, save } = useSave();
   return (
     <div className="space-y-4">
-      <fieldset>
+      {showBackup && <fieldset>
         <legend className="mb-1 font-medium"><Words k="SMS backup" /></legend>
-        <p className="mb-2 text-sm text-ink3"><Words k="Anyone whose WhatsApp or app message fails, or is not read within the wait time, gets the same message by SMS. Backup SMS use the message type’s SMS template with a DLT template ID and use credits." /></p>
+        <p className="mb-2 text-sm text-ink3"><Words k="If WhatsApp or app fails or is not read in time, the same message goes by SMS. Backup SMS need a DLT template and use credits." /></p>
         <ul className="space-y-2">
           {backupTypes.map((t) => (
             <li key={t.value} className="flex flex-wrap items-center gap-3">
@@ -147,7 +148,7 @@ export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }
             </li>
           ))}
         </ul>
-      </fieldset>
+      </fieldset>}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block font-medium"><Words k="Retry limit for failed messages" />
           <select value={retry} onChange={(e) => setRetry(e.target.value)} className={`${input} mt-1 block w-full`}>
@@ -194,7 +195,7 @@ export function QueryRulesForm({ on, hours, types, escalateToId, people, rating 
           {people.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
       </label>
-      <label className="flex items-center gap-3"><Toggle on={rate} onChange={setRate} label="Rating request on or off" /> <span><Words k="Ask the requester to rate how it was handled (1 to 5) when a query is closed" /></span></label>
+      <label className="flex items-center gap-3"><Toggle on={rate} onChange={setRate} label="Rating request on or off" /> <span><Words k="Ask the requester to rate it (1 to 5) when a query is closed" /></span></label>
       <Problem msg={msg} />
       <Button loading={pending} loadingText="Saving" onClick={() => save(() => saveQueryRulesAction({ on: isOn, hours: Object.fromEntries(Object.entries(h).map(([k, v]) => [k, Number(v)])), escalateToId: esc, rating: rate }))}><Words k="Save query rules" /></Button>
     </div>
@@ -355,7 +356,7 @@ export function ParentLinkForm({ on, shows, switches, autoSend, codeMinutes, dev
             </label></li>
           ))}
         </ul>
-        <p className="mt-1 text-sm text-ink3"><Words k="Fees and Pay, receipts, attendance this month, the datesheet and report cards are added here as their modules are switched on." /></p>
+        <p className="mt-1 text-sm text-ink3"><Words k="More parts show here as their modules are switched on." /></p>
       </fieldset>
       <label className="flex items-center gap-3"><Toggle on={auto} onChange={setAuto} label="Send links on admission" /> <span><Words k="Send links automatically when an admission is approved" />{templateHref && <> (<a href={templateHref} className="text-brand underline"><Words k="template" /></a>)</>}</span></label>
       <div className="grid gap-4 sm:grid-cols-2">

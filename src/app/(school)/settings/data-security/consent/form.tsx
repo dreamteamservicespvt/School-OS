@@ -40,11 +40,11 @@ export function ConsentForm({ types, languages, starts, initialType }: {
       {languages.map((l, i) => (
         <TextArea key={l.code} label={`Text in ${l.name}`} name={`text_${l.code}`} rows={6} required={i === 0}
           defaultValue={v?.[`text_${l.code}`] ?? start.text[l.code] ?? ""} error={state?.errors?.[`text_${l.code}`]}
-          help={i === 0 ? "{school} is replaced with the school's name." : "Optional. Guardians who read this language see it; otherwise they see the first one."} />
+          help={i === 0 ? "{school} is replaced with the school's name." : "Optional. Without it, guardians see the first language."} />
       ))}
       <CheckboxField name="askedOnAdmission" label="Asked on the admission form" defaultChecked={v ? v.askedOnAdmission === "on" : start.askedOnAdmission} />
       </div>
-      <p className="text-sm text-ink-2"><Words k="Saving makes a new version. Guardians who agreed earlier keep the version they agreed to; you can ask them to agree again through Parent Link." /></p>
+      <p className="text-sm text-ink-2"><Words k="Saving makes a new version. Guardians who agreed keep their version; ask them again through Parent Link." /></p>
       <SubmitButton pendingText="Saving…"><Words k="Save new version" /></SubmitButton>
     </form>
   );

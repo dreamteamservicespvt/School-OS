@@ -3,6 +3,7 @@
 // Parent Link (school staff): send to existing families (preview, then send),
 // resend, revoke or reissue with a reason, and consent requests with
 // reminders. Principal and School Admin only.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { revalidatePath } from "next/cache";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
@@ -12,11 +13,18 @@ import { assertLinkOnCampus, guardianIdsIn, linkCampusWhere } from "@/lib/commun
 import { guardiansWithoutLinks, ParentLinkProblem, reissueLink, resendLink, revokeLink, REVOKE_REASONS, sendToFamilies } from "@/lib/parent-link/links";
 import { remindConsent, requestConsent, standingConsents } from "@/lib/parent-link/consent";
 import { channelSetups, type Channel } from "@/lib/messaging/channels";
+import { inTestMode } from "@/lib/messaging/providers";
 import { creditBalances, creditsFor } from "@/lib/messaging/credits";
 import { templateByKey } from "@/lib/messaging/templates";
 import { MessagingProblem, NOT_SENT } from "@/lib/messaging/send";
 
 const uuid = /^[0-9a-f-]{36}$/;
+
+/** Links go by WhatsApp; in test mode nothing leaves School OS, so a screen must never say "on its way" (layman loop 3). */
+async function whatsappTestMode(tx: Parameters<Parameters<typeof withSchool>[1]>[0], ctx: Parameters<typeof channelSetups>[1]) {
+  return inTestMode((await channelSetups(tx, ctx)).whatsapp);
+}
+const TEST_MODE = "Test mode: nothing was sent.";
 
 async function manager(action: "create" | "edit" = "create") {
   const access = await commAction(action);
@@ -50,7 +58,7 @@ async function whoLabel(tx: Parameters<Parameters<typeof withSchool>[1]>[0], sch
 /** The guardians chosen: only those of the person's campus when they are limited to one. */
 const pick = (who: Who, campusId: string | null | undefined) => ({ classIds: who.kind === "class" ? [who.id!] : [], sectionIds: who.kind === "section" ? [who.id!] : [], campusId: campusId ?? null });
 
-export type FamiliesPreview = { ok: true; label: string; total: number; todo: number; alreadyHave: number; channel: string; credits: number; balance: number | null; scheduled: string | null } | { ok: false; message: string };
+export type FamiliesPreview = { ok: true; label: string; total: number; todo: number; alreadyHave: number; channel: string; credits: number; balance: number | null; scheduled: string | null; testMode: boolean } | { ok: false; message: string };
 
 /** P11 preview: how many families get a new link, by which channel, and the credits it uses. */
 export async function previewFamilies(form: FormData): Promise<FamiliesPreview> {
@@ -68,21 +76,23 @@ export async function previewFamilies(form: FormData): Promise<FamiliesPreview> 
       const all = await guardianIdsIn(tx, ctx, pick(who, access.scope.campusId));
       const todo = await guardiansWithoutLinks(tx, ctx, all);
       const setups = await channelSetups(tx, ctx);
-      const channel: Channel | null = wanted === "whatsapp" || wanted === "sms" ? wanted : setups.whatsapp.isOn ? "whatsapp" : setups.sms.isOn ? "sms" : null;
-      if (!channel || !setups[channel].isOn) return { ok: false as const, message: "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." };
+      // Links never go by SMS while it is not offered (SMS_OFFERED, owner 15 Nov 2026).
+      const smsOk = SMS_OFFERED;
+      const channel: Channel | null = wanted === "whatsapp" || (wanted === "sms" && smsOk) ? wanted : setups.whatsapp.isOn ? "whatsapp" : smsOk && setups.sms.isOn ? "sms" : null;
+      if (!channel || !setups[channel].isOn) return { ok: false as const, message: smsOk ? "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." : "WhatsApp is switched off, so links cannot be sent. Switch it on in Settings, SMS, WhatsApp & Email." };
       const t = await templateByKey(tx, ctx, "parent-link", channel);
       const v = t ? await tx.templateVersion.findFirst({ where: { templateId: t.id, isCurrent: true }, orderBy: { language: "asc" } }) : null;
       if (channel === "sms" && !v?.dltTemplateId) return { ok: false as const, message: "The Parent Link SMS template has no DLT template ID yet; DREAM TEAM adds it. Send by WhatsApp for now." };
       const per = creditsFor(channel, (v?.body ?? "").replace("{link}", "https://x.in/p/" + "x".repeat(43)));
       const balances = await creditBalances(tx, ctx);
-      return { ok: true as const, label: await whoLabel(tx, ctx.schoolId, who, access.scope.campusId), total: all.length, todo: todo.length, alreadyHave: all.length - todo.length, channel, credits: per * todo.length, balance: balances[channel], scheduled: scheduledAt ? at : null };
+      return { ok: true as const, label: await whoLabel(tx, ctx.schoolId, who, access.scope.campusId), total: all.length, todo: todo.length, alreadyHave: all.length - todo.length, channel, credits: per * todo.length, balance: balances[channel], scheduled: scheduledAt ? at : null, testMode: inTestMode(setups[channel]) };
     });
   } catch (e) {
     return { ok: false, message: fail(e) };
   }
 }
 
-export type FamiliesResult = { ok: true; made: number; alreadyHad: number; queued: number; skipped: string[]; messageId: string | null } | { ok: false; message: string };
+export type FamiliesResult = { ok: true; made: number; alreadyHad: number; queued: number; skipped: string[]; messageId: string | null; testMode: boolean } | { ok: false; message: string };
 
 export async function sendFamiliesAction(form: FormData): Promise<FamiliesResult> {
   try {
@@ -96,10 +106,11 @@ export async function sendFamiliesAction(form: FormData): Promise<FamiliesResult
     const r = await withSchool(access.current.ctx, async (tx) => {
       const ctx = access.current.ctx;
       const ids = await guardianIdsIn(tx, ctx, pick(who, access.scope.campusId));
-      return sendToFamilies(tx, ctx, ids, { channel: wanted === "whatsapp" || wanted === "sms" ? wanted : null, scheduledAt, audienceLabel: `Parent Links: ${await whoLabel(tx, ctx.schoolId, who, access.scope.campusId)}` });
+      const sent = await sendToFamilies(tx, ctx, ids, { channel: wanted === "whatsapp" || wanted === "sms" ? wanted : null, scheduledAt, audienceLabel: `Parent Links: ${await whoLabel(tx, ctx.schoolId, who, access.scope.campusId)}` });
+      return { ...sent, testMode: await whatsappTestMode(tx, ctx) };
     });
     revalidatePath("/communication/parent-link");
-    return { ok: true, made: r.made, alreadyHad: r.alreadyHad, queued: r.result?.queued ?? 0, skipped: (r.result?.skipped ?? []).map((s) => `${s.count} ${s.reason}`), messageId: r.result?.messageId ?? null };
+    return { ok: true, made: r.made, alreadyHad: r.alreadyHad, queued: r.result?.queued ?? 0, skipped: (r.result?.skipped ?? []).map((s) => `${s.count} ${s.reason}`), messageId: r.result?.messageId ?? null, testMode: r.testMode };
   } catch (e) {
     return { ok: false, message: fail(e) };
   }
@@ -109,11 +120,12 @@ export async function resendAction(linkId: string, channel: string): Promise<str
   if (!uuid.test(linkId)) return "This link was not found.";
   try {
     const access = await manager("edit");
-    await withSchool(access.current.ctx, async (tx) => {
+    const test = await withSchool(access.current.ctx, async (tx) => {
       await assertLinkOnCampus(tx, access.current.ctx, linkId, access.scope.campusId);
-      return resendLink(tx, access.current.ctx, linkId, channel === "whatsapp" || channel === "sms" ? channel : null);
+      await resendLink(tx, access.current.ctx, linkId, channel === "whatsapp" || channel === "sms" ? channel : null);
+      return whatsappTestMode(tx, access.current.ctx);
     });
-    await flash({ message: "The same link was sent again. Phones already confirmed keep working.", tone: "success" });
+    await flash({ message: test ? `Link ready. ${TEST_MODE}` : "The same link was sent again. Phones already confirmed keep working.", tone: "success" });
   } catch (e) {
     return fail(e);
   }
@@ -121,7 +133,7 @@ export async function resendAction(linkId: string, channel: string): Promise<str
 }
 
 /** Resend the same link to several guardians ticked in the list (active links only). */
-export async function resendManyAction(linkIds: string[], channel: string): Promise<{ ok: true; sent: number; failed: number } | { ok: false; message: string }> {
+export async function resendManyAction(linkIds: string[], channel: string): Promise<{ ok: true; sent: number; failed: number; testMode: boolean } | { ok: false; message: string }> {
   const ids = [...new Set(linkIds)].filter((id) => uuid.test(id));
   if (!ids.length) return { ok: false, message: "Tick at least one link." };
   if (ids.length > 200) return { ok: false, message: "Resend to at most 200 guardians at a time, or use Send to existing families." };
@@ -130,7 +142,9 @@ export async function resendManyAction(linkIds: string[], channel: string): Prom
     const ch = channel === "whatsapp" || channel === "sms" ? channel : null;
     let sent = 0;
     let failed = 0;
+    let testMode = false;
     await withSchool(access.current.ctx, async (tx) => {
+      testMode = await whatsappTestMode(tx, access.current.ctx);
       // Another campus's guardians' links count as not sent for a person limited to one campus.
       const active = await tx.parentLink.findMany({ where: { schoolId: access.current.ctx.schoolId, id: { in: ids }, status: "ACTIVE", ...(await linkCampusWhere(tx, access.current.ctx, access.scope.campusId)) }, select: { id: true } });
       failed = ids.length - active.length;
@@ -139,7 +153,7 @@ export async function resendManyAction(linkIds: string[], channel: string): Prom
       }
     });
     revalidatePath("/communication/parent-link");
-    return { ok: true, sent, failed };
+    return { ok: true, sent, failed, testMode };
   } catch (e) {
     return { ok: false, message: fail(e) };
   }
@@ -154,13 +168,13 @@ export async function revokeAction(linkId: string, mode: "revoke" | "reissue", r
   const reason = reasonKey === "Other" ? note : note ? `${reasonKey}: ${note}` : reasonKey;
   try {
     const access = await manager("edit");
-    const out = await withSchool(access.current.ctx, async (tx) => {
+    const { out, test } = await withSchool(access.current.ctx, async (tx) => {
       await assertLinkOnCampus(tx, access.current.ctx, linkId, access.scope.campusId);
-      if (mode === "reissue") return (await reissueLink(tx, access.current.ctx, linkId, reason, channel === "whatsapp" || channel === "sms" ? channel : null)).id;
+      if (mode === "reissue") return { out: (await reissueLink(tx, access.current.ctx, linkId, reason, channel === "whatsapp" || channel === "sms" ? channel : null)).id, test: await whatsappTestMode(tx, access.current.ctx) };
       await revokeLink(tx, access.current.ctx, linkId, reason);
-      return null;
+      return { out: null, test: false };
     });
-    await flash({ message: out ? "The old link stopped working. A new link is on its way to the registered mobile." : "The link stopped working on every phone.", tone: "success" });
+    await flash({ message: out ? (test ? `The old link stopped working. A new link is ready. ${TEST_MODE}` : "The old link stopped working. A new link is on its way to the registered mobile.") : "The link stopped working on every phone.", tone: "success" });
     revalidatePath("/communication/parent-link");
     if (out) return { newId: out };
   } catch (e) {

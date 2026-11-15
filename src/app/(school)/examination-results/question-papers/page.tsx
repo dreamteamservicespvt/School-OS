@@ -100,7 +100,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
     if (base.tab !== "bank") for (const [k, v] of periodQuery(raw)) p.set(k, v);
     return withYear(`${PATH}${p.size ? `?${p}` : ""}`, page);
   };
-  const sub = s.manage ? "Question bank by chapter and difficulty, and papers made from it" : "Questions and papers for the subjects you teach";
+  const sub = s.manage ? "Question bank and papers made from it" : "Questions and papers for the subjects you teach";
 
   const toolbar = (
     <Toolbar>
@@ -114,7 +114,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
   if (options.length === 0) {
     body = (
       <EmptyState title="No subjects to work on" Icon={CircleHelp}>
-        <p>{s.manage ? "Add subjects to classes in Academic Management first." : "Question Papers shows the subjects given to you in Teacher Allocation. Ask the Exam In-charge if one is missing."}</p>
+        <p>{s.manage ? "Add subjects to classes in Academic Management first." : "Ask the Exam In-charge if a subject is missing."}</p>
       </EmptyState>
     );
   } else if (tab === "papers") {
@@ -160,7 +160,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
             ...(page.writable ? [{ key: "a", label: <span className="sr-only"><Words k="Actions" /></span>, align: "right" as const, render: (x: (typeof bank.rows)[number]) => <ArchiveQuestionButton id={x.id} text={x.text} /> }] : []),
           ]}
           mobile={(x) => ({ icon: CircleHelp, title: x.text, sub: `${x.chapter} · ${typeLabel(x.type)} · ${x.marks} mark${x.marks === 1 ? "" : "s"}`, pills: <Pill tone={DIFF_TONE[x.difficulty] ?? "neutral"}>{difficultyLabel(x.difficulty)}</Pill> })}
-          footer={<span><Words k="Showing" /> {bank.rows.length ? (pageNo - 1) * BANK_PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * BANK_PAGE + bank.rows.length} <Words k="of" /> {bank.total}{pages > 1 && <> · {pageNo > 1 && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo - 1) })}><Words k="Previous" /></a>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo + 1) })}><Words k="Next" /></a>}</>}{!chosen && page.writable ? " · Choose a class and subject to make a paper from ticked questions" : ""}</span>} />
+          footer={<span><Words k="Showing {from} to {to} of {total}" vars={{ from: bank.rows.length ? (pageNo - 1) * BANK_PAGE + 1 : 0, to: (pageNo - 1) * BANK_PAGE + bank.rows.length, total: bank.total }} />{pages > 1 && <> · {pageNo > 1 && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo - 1) })}><Words k="Previous" /></a>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo + 1) })}><Words k="Next" /></a>}</>}{!chosen && page.writable ? " · Choose a class and subject to make a paper from ticked questions" : ""}</span>} />
       </Card>
     );
   }

@@ -38,20 +38,20 @@ describe("the approval rule summary", () => {
   const names = { role: (k: string) => ({ accountant: "Accountant", principal: "Principal", "school-admin": "School Admin" })[k] ?? k, person: () => "Lakshmi Rao" };
   it("reads like the spec", () => {
     expect(ruleSummary("Refund", [{ approverRole: "accountant", upToPaise: "500000" }, { approverRole: "principal" }], 2, names))
-      .toBe("Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. Moves on if nobody decides in 2 days.");
+      .toBe("Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. If nobody decides in 2 days, it moves to the Principal.");
   });
   it("covers one approver, a named person, tiers and escalation", () => {
-    expect(ruleSummary("Expense", [{ approverRole: "principal" }], 1, names)).toBe("Expenses: the Principal approves. Moves on if nobody decides in 1 day.");
-    expect(ruleSummary("Staff leave", [{ approverUserId: "x" }, { approverRole: "principal" }], 3, names)).toBe("Staff leave: Lakshmi Rao approves; if not decided in time, it moves to the Principal. Moves on if nobody decides in 3 days.");
+    expect(ruleSummary("Expense", [{ approverRole: "principal" }], 1, names)).toBe("Expenses: the Principal approves.");
+    expect(ruleSummary("Staff leave", [{ approverUserId: "x" }, { approverRole: "principal" }], 3, names)).toBe("Staff leave: Lakshmi Rao approves. If nobody decides in 3 days, it moves to the Principal.");
     expect(ruleSummary("Purchase", [{ approverRole: "accountant", upToPaise: "500000" }, { approverRole: "principal", upToPaise: "5000000" }], 2, names))
-      .toBe("Purchases: up to ₹5,000 the Accountant approves; up to ₹50,000, the Principal; above that, the Principal. Moves on if nobody decides in 2 days.");
+      .toBe("Purchases: up to ₹5,000 the Accountant approves; up to ₹50,000, the Principal; above that, the Principal. If nobody decides in 2 days, it moves to the Principal.");
   });
 });
 
 describe("Done when 6: refunds above ₹5,000 go to the Principal", () => {
   it("routes ₹6,000 to the Principal and ₹2,000 to the Accountant", async () => {
     const { summary } = await withSchool(c(admin.id), (tx) => saveRule(tx, c(admin.id), "refund", { steps: [{ approverRole: "accountant", upToPaise: "500000" }, { approverRole: "principal" }], escalateAfterDays: 2 }));
-    expect(summary).toBe("Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. Moves on if nobody decides in 2 days.");
+    expect(summary).toBe("Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. If nobody decides in 2 days, it moves to the Principal.");
     const big = await ask(teacher.id, "refund", 6000);
     const small = await ask(teacher.id, "refund", 2000);
     expect(big.currentApproverRole).toBe("principal");

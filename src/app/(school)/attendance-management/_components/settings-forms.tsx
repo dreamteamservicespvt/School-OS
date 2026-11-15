@@ -50,8 +50,8 @@ export function PunchMethodsForm({ action, v }: { action: Action; v: SettingsVal
             options={[{ value: "day", label: "Once a day (class teacher)" }, { value: "period", label: "Every period (period-wise, from the Time Table)" }]} />
           <Checks name="studentMethods" label="Ways to mark students" options={METHODS} values={v.studentMethods} error={f.err("studentMethods")} />
           <Checks name="staffMethods" label="Ways to mark staff" options={METHODS} values={v.staffMethods} error={f.err("staffMethods")}
-            help="Device, QR and Mobile switch on Devices & QR. Campus area makes check-ins count only inside the school." />
-          <CheckboxField label="Offline mode for Take Attendance" name="offline" defaultChecked={v.offline} help="For poor internet: attendance stays on the teacher's phone and is sent when online. A second save of the same day becomes a correction request." />
+            help="Device, QR and Mobile are set on Devices & QR." />
+          <CheckboxField label="Offline mode for Take Attendance" name="offline" defaultChecked={v.offline} help="For poor internet: saved on the phone, sent when online." />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Punches count from" name="punchWindowStart" type="time" required defaultValue={f.val("punchWindowStart", v.punchWindowStart)} error={f.err("punchWindowStart")} />
             <TextField label="Punches count until" name="punchWindowEnd" type="time" required defaultValue={f.val("punchWindowEnd", v.punchWindowEnd)} error={f.err("punchWindowEnd")} />
@@ -94,7 +94,7 @@ export function LateRulesForm({ action, v, roles }: { action: Action; v: Setting
             <TextField label="Staff start at" name="staffStartTime" type="time" required defaultValue={f.val("staffStartTime", v.staffStartTime)} error={f.err("staffStartTime")} help="Staff on a shift follow their shift." />
             <TextField label="Staff are late after (minutes)" name="staffLateAfterMin" type="number" min={0} max={240} required defaultValue={f.val("staffLateAfterMin", String(v.staffLateAfterMin))} error={f.err("staffLateAfterMin")} />
             <TextField label="Staff coming in after this are half-day" name="staffHalfDayAfter" type="time" defaultValue={f.val("staffHalfDayAfter", v.staffHalfDayAfter)} error={f.err("staffHalfDayAfter")} help="Empty means no half-day rule." />
-            <TextField label="Attendance locks at" name="lockTime" type="time" required defaultValue={f.val("lockTime", v.lockTime)} error={f.err("lockTime")} help="After this, a change needs a correction request through Approvals." />
+            <TextField label="Attendance locks at" name="lockTime" type="time" required defaultValue={f.val("lockTime", v.lockTime)} error={f.err("lockTime")} help="Later changes need a correction request." />
           </div>
           <Checks name="lockOverrideRoles" label="Who may still change attendance after the lock (audited)" options={roles} values={v.lockOverrideRoles} error={f.err("lockOverrideRoles")} />
         </div>
@@ -111,7 +111,7 @@ export function NotificationsForm({ action, v }: { action: Action; v: SettingsVa
       {(f) => (
         <div className="space-y-6">
           <section className="space-y-3">
-            <CheckboxField label="Absence message to parents" name="absenceAlertOn" defaultChecked={v.absenceAlertOn} help="One message per student per day, never for students on approved leave. Its text and channels are set in Communication." />
+            <CheckboxField label="Absence message to parents" name="absenceAlertOn" defaultChecked={v.absenceAlertOn} help="Text and channels are set in Communication." />
             <TextField label="Wait before sending (minutes)" name="absenceDelayMinutes" type="number" min={0} max={240} required defaultValue={f.val("absenceDelayMinutes", String(v.absenceDelayMinutes))} error={f.err("absenceDelayMinutes")} help="A mistake can be fixed before the message goes." className="sm:max-w-xs" />
           </section>
           <CheckboxField label="Late-arrival message to parents" name="lateAlertOn" defaultChecked={v.lateAlertOn} />

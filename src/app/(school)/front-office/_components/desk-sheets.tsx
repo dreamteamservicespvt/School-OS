@@ -21,7 +21,7 @@ import { mobileDigits } from "@/lib/front-office/words";
 import { addNoteAction, callFollowUpAction, clearNoteAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -37,7 +37,7 @@ function Duplicates({ admissions }: { admissions: boolean }) {
       </Banner>
       <label className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3 text-[14px]">
         <input type="checkbox" name="force" className="w-5 h-5 accent-[var(--color-brand)]" />
-        <span><b className="font-semibold"><Words k="Yes, save this as a new enquiry" /></b><span className="block text-[12.5px] text-ink3"><Words k="For a brother or sister, or a different family with the same phone. Tick this, then press the button below again." /></span></span>
+        <span><b className="font-semibold"><Words k="Yes, save this as a new enquiry" /></b><span className="block text-[12.5px] text-ink3"><Words k="For a sibling or another family. Tick, then press the button again." /></span></span>
       </label>
     </div>
   );
@@ -46,7 +46,7 @@ function Duplicates({ admissions }: { admissions: boolean }) {
 /** New enquiry: the short form from Admission Management (A3). */
 export function EnquirySheet({ closeHref, classes, preset, source, admissions }: { closeHref: string; classes: Opt[]; preset?: { name: string; phone: string; visitorId: string } | null; source: "walk-in" | "phone"; admissions: boolean }) {
   return (
-    <SheetForm title="New enquiry" sub="Goes straight to Admission Management with an owner and a follow-up reminder." closeHref={closeHref} action={enquiryAction}
+    <SheetForm title="New enquiry" sub="Goes straight to Admission Management" closeHref={closeHref} action={enquiryAction}
       submitLabel="Send to Admissions" pendingText="Sending…" hidden={preset ? { visitorId: preset.visitorId } : undefined}>
       <Duplicates admissions={admissions} />
       <SText name="childName" label="Child’s name" required placeholder="Full name" maxLength={120} autoComplete="off" />
@@ -64,7 +64,7 @@ export function EnquirySheet({ closeHref, classes, preset, source, admissions }:
 /** Log a call: incoming or outgoing; admission enquiries and complaints go on in the same step. */
 export function CallSheet({ closeHref, purposes, classes, staff, defaultWho, today, follow, admissions }: { closeHref: string; purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; follow: { date: string; time: string }; admissions: boolean }) {
   return (
-    <SheetForm title="Log a call" sub="Known parents and enquiries are recognised from the number." closeHref={closeHref} action={logCallAction} submitLabel={<CallSubmit />} pendingText="Saving…">
+    <SheetForm title="Log a call" closeHref={closeHref} action={logCallAction} submitLabel={<CallSubmit />} pendingText="Saving…">
       <CallFields purposes={purposes} classes={classes} staff={staff} defaultWho={defaultWho} today={today} followAt={follow} admissions={admissions} />
     </SheetForm>
   );
@@ -75,7 +75,7 @@ const purposeListeners = new Set<(v: string) => void>();
 function CallSubmit() {
   const [p, setP] = useState(purposeNow);
   useEffect(() => { purposeListeners.add(setP); return () => { purposeListeners.delete(setP); }; }, []);
-  return <>{p === "Admission enquiry" ? "Save call and enquiry" : p === "Complaint" ? "Save and send as a query" : "Save call"}</>;
+  return <Words k={p === "Admission enquiry" ? "Save call and enquiry" : p === "Complaint" ? "Save and send as a query" : "Save call"} />;
 }
 
 function CallFields({ purposes, classes, staff, defaultWho, today, followAt, admissions }: { purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; followAt: { date: string; time: string }; admissions: boolean }) {
@@ -85,6 +85,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
   const [why, setWhy] = useState(purpose.value);
   const [known, setKnown] = useState<KnownPhone | null>(null);
   const [follow, setFollow] = useState(fu.value === "on");
+  const t = useT();
   const [, start] = useTransition();
   const nameRef = useRef<HTMLInputElement>(null);
   const asked = useRef("");
@@ -107,7 +108,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
       <PhoneBox id="cl-phone" name="phone" label="Phone" required onPhone={onPhone} />
       {known && (
         <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 -mt-2 animate-fade" role="status">
-          <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" /><span className="text-ink2"><b className="text-ink font-semibold">{known.name}.</b> {known.who}</span>
+          <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" /><span className="text-ink2"><b className="text-ink font-semibold">{known.name}.</b> {t.any(known.who)}</span>
         </div>
       )}
       <FieldShell label="Name" id="cl-name" required error={name.error}>
@@ -115,7 +116,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
       </FieldShell>
       <FieldShell label="Purpose" id="cl-purpose" required error={purpose.error}>
         <KeepSelect id="cl-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
-          {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
+          {purposes.map((p) => <option key={p} value={p}>{t.any(p)}</option>)}
         </KeepSelect>
       </FieldShell>
       {why === "Admission enquiry" && (
@@ -159,17 +160,22 @@ export function FollowUpSheet({ closeHref, call, staff, start }: { closeHref: st
 type FromHit = { guardianId: string; studentId: string; label: string; student: string; admissionNo: string };
 
 /** Walk-in request: routed to a department with a request number. */
-export function WalkInSheet({ closeHref, departments, nextNo }: { closeHref: string; departments: string[]; nextNo: string }) {
+type WalkInPreset = { department?: string; request?: string; from?: string };
+
+export function WalkInSheet({ closeHref, departments, nextNo, preset }: { closeHref: string; departments: string[]; nextNo: string; preset?: WalkInPreset }) {
+  const t = useT();
+  // Opened for one department (the student page's "fee balance" link): the sheet says so (layman loop 4).
+  const dept = preset?.department ? t.any(preset.department) : null;
   return (
-    <SheetForm title="Walk-in request" sub="For example a bonafide certificate or a fee statement. The person gets a request number." closeHref={closeHref} action={walkInAction}
-      submitLabel="Send to department" pendingText="Sending…">
-      <WalkInFields departments={departments} nextNo={nextNo} />
+    <SheetForm title={dept ? t("Request to {dept}", { dept }) : "Walk-in request"} sub={dept ? t("{dept} replies to the person. They get a request number.", { dept }) : "The person gets a request number."} closeHref={closeHref} action={walkInAction}
+      submitLabel={dept ? t("Send to {dept}", { dept }) : "Send to department"} pendingText="Sending…">
+      <WalkInFields departments={departments} nextNo={nextNo} preset={preset} />
     </SheetForm>
   );
 }
 
-function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: string }) {
-  const from = useTyped("fromName", "");
+function WalkInFields({ departments, nextNo, preset }: { departments: string[]; nextNo: string; preset?: WalkInPreset }) {
+  const from = useTyped("fromName", preset?.from ?? "");
   const [q, setQ] = useState(from.value);
   const [hits, setHits] = useState<FromHit[]>([]);
   const [chosen, setChosen] = useState<FromHit | null>(null);
@@ -184,7 +190,7 @@ function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: 
   };
   return (
     <>
-      <FieldShell label="From" id="wi-from" required error={from.error} help="Search a parent or student, or type a name and phone">
+      <FieldShell label="From" id="wi-from" required error={from.error} help="Search, or type a name and phone">
         <div className="relative">
           <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
           <input id="wi-from" name="fromName" value={q} onChange={(e) => onType(e.target.value)} placeholder="Parent or student name" autoComplete="off" maxLength={120}
@@ -204,8 +210,8 @@ function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: 
         </ul>
       )}
       {!chosen && <PhoneBox id="wi-phone" name="fromPhone" label="Phone" help="To send the request number on WhatsApp" />}
-      <SArea name="request" label="Request" required rows={2} maxLength={300} placeholder="For example: bonafide certificate for passport" />
-      <SSelect name="department" label="Department" required options={departments.map((d) => ({ value: d, label: d }))} placeholder="Choose" />
+      <SArea name="request" label="Request" required rows={2} maxLength={300} placeholder="For example: bonafide certificate for passport" start={preset?.request} />
+      <SSelect name="department" label="Department" required options={departments.map((d) => ({ value: d, label: d }))} placeholder="Choose" start={preset?.department} />
       <div className="grid grid-cols-2 gap-3">
         <FieldShell label="Request number" id="wi-no" help="Made automatically">
           <input id="wi-no" value={nextNo} readOnly className={cx(inputCls(false), "h-11 font-mono bg-sunken/60")} />
@@ -245,7 +251,7 @@ export function NoteClear({ id }: { id: string }) {
   return (
     <form action={run} className="shrink-0">
       <input type="hidden" name="noteId" value={id} />
-      <IconButton type="submit" icon={X} label="Clear note" size={30} disabled={pending} />
+      <IconButton type="submit" icon={X} label="Clear note" size={44} disabled={pending} />
       {state && !state.ok && <span className="sr-only" role="alert">{state.message}</span>}
     </form>
   );

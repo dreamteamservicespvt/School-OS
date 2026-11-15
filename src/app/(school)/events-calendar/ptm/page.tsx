@@ -117,8 +117,8 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const classOptions = async () => withSchool(ctx, (tx) => tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } }));
   const byParents = p.settings.ptmParentBooking;
   const sub = p.can.own
-    ? `Only your own PTM slots and notes. ${byParents ? "Parents book a slot on Parent Link; the office can book for them." : "The office books slots for parents who call or come in."}`
-    : `Parent–teacher meetings: slots per teacher, booked ${byParents ? "by parents on Parent Link or by the office" : "by the office for parents"}, with notes.`;
+    ? (byParents ? "Your PTM slots and notes. Parents book on Parent Link." : "Your PTM slots and notes. The office books for parents.")
+    : (byParents ? "Parents book on Parent Link, or the office books for them." : "The office books a slot for each parent.");
   const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}><Words k="Plan a PTM" /></ButtonLink>} />;
   const planSheet = plan && doing === "plan" ? await (async () => {
     const cls = await classOptions();
@@ -312,7 +312,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="One parent per slot. The % on a booked slot is the student’s homework done this year. Parents get a confirmation and a reminder the evening before" />{byParents ? ", and can change or cancel on Parent Link until the day before" : ""}. {d.teachers.length} <Words k="teachers." /></p>
+            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="One parent per slot. The % is the student’s homework done this year." /> {d.teachers.length} <Words k="teachers." /></p>
           </Card>
         )}
 
@@ -339,7 +339,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                           {done ? <Pill tone="ok"><Words k="Notes saved" /></Pill> : c.arrivedAt ? <Pill tone="brand"><Words k="Arrived" /></Pill> : null}
                         </>
                       )}
-                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}><Words k="Book" /></ButtonLink> : null)
+                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}><Words k="Book@@verb" /></ButtonLink> : null)
                         : <ButtonLink size="sm" variant="secondary" href={here({ do: "meet", slot: c.id })} scroll={false}><Words k="Open" /></ButtonLink>}
                     </div>
                   </li>

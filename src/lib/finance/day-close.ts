@@ -61,7 +61,8 @@ export async function expectedCash(tx: Tx, ctx: SchoolContext, date: Date) {
 async function dayTotals(tx: Tx, ctx: SchoolContext, date: Date) {
   const entries = await tx.dayBookEntry.findMany({ where: { schoolId: ctx.schoolId, date, section: { notIn: ["opening", "transfer"] } }, select: { direction: true, section: true, amountPaise: true } });
   const t = dayBookTotals(entries);
-  return { income: t.income, expense: t.expense, net: t.net, entries: entries.length };
+  // incomeEntries: counted as the Day Book's "Total income" counts them (layman loop 2: "2 entries" against "1 transaction").
+  return { income: t.income, expense: t.expense, net: t.net, entries: entries.length, incomeEntries: t.incomeCount };
 }
 
 /** Days after the Day Book is closed through, up to today, that have entries: they wait to be counted and closed, oldest first. */
@@ -132,7 +133,7 @@ export async function closeDay(tx: Tx, ctx: SchoolContext, input: CloseInput) {
   if (difference !== ZERO) {
     const who = ctx.userId ? (await tx.userLogin.findUnique({ where: { id: ctx.userId }, select: { displayName: true } }))?.displayName : null;
     for (const to of await loginsWithRole(tx, ctx, "principal")) {
-      await notify(tx, ctx, { to, type: "day-close", text: `Day Book for ${formatDate(input.date)} closed with cash ${difference > ZERO ? `${formatRupees(difference)} more` : `${formatRupees(-difference)} short`}${who ? ` by ${who}` : ""}: ${close.differenceReason}`, link: dayHref(input.date) });
+      await notify(tx, ctx, { to, type: "day-close", key: difference > ZERO ? (who ? "Day Book for {date} closed with cash {amount} more by {name}: {reason}" : "Day Book for {date} closed with cash {amount} more: {reason}") : (who ? "Day Book for {date} closed with cash {amount} short by {name}: {reason}" : "Day Book for {date} closed with cash {amount} short: {reason}"), values: { date: formatDate(input.date), amount: formatRupees(difference > ZERO ? difference : -difference), name: who ?? "", reason: close.differenceReason }, link: dayHref(input.date) });
     }
   }
   return { close, expected, difference, totals };
@@ -167,7 +168,7 @@ export async function reopenDay(tx: Tx, ctx: SchoolContext, closeId: string, rea
     after: { closed: false, reason: opts.undo ? "Undone straight after closing" : why },
   });
   if (!opts.undo && close.closedById) {
-    await notify(tx, ctx, { to: close.closedById, type: "day-close", text: `Day Book for ${formatDate(close.date)} was reopened: ${why}. Count and close it again when it is right.`, link: dayHref(close.date) });
+    await notify(tx, ctx, { to: close.closedById, type: "day-close", key: "Day Book for {date} was reopened: {reason}. Count and close it again when it is right.", values: { date: formatDate(close.date), reason: why }, link: dayHref(close.date) });
   }
   return close;
 }

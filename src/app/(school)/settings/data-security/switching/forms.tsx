@@ -40,7 +40,7 @@ export function ExpectedForm({ values, money }: { values: ExpectedValues; money?
           {lines.map((f) => <TextField key={f.key} label={f.label} name={f.key} inputMode="decimal" defaultValue={v(f.key)} error={state?.errors?.[f.key]} />)}
         </div>
       )}
-      <TextField label="Go-live date" name="goLiveDate" type="date" defaultValue={v("goLiveDate")} error={state?.errors?.goLiveDate} help="The first day School OS is your record. Any day of the year works. Fees due before it belong to the old software, and finance records start on it." />
+      <TextField label="Go-live date" name="goLiveDate" type="date" defaultValue={v("goLiveDate")} error={state?.errors?.goLiveDate} help="The first day School OS is your record. Fees due before it stay with the old software." />
       <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save and compare" /></SubmitButton>
     </form>
   );

@@ -20,7 +20,7 @@ import { CorrectionForm } from "../../_components/correction-form";
 import { UrlFilters } from "../../_components/url-filters";
 import { requestCorrectionAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Request a correction") };
@@ -33,6 +33,7 @@ const many = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [
 export default async function CorrectionPage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, features, settings, tz, today, now } = await attendancePage("edit");
+  const t = await getT();
   const forWhom = one(sp.for) === "staff" ? "staff" : "student";
   const wantedDate = one(sp.date);
   const date = wantedDate && /^\d{4}-\d{2}-\d{2}$/.test(wantedDate) && day(wantedDate) <= today ? day(wantedDate) : today;
@@ -70,18 +71,17 @@ export default async function CorrectionPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the old marks are kept"
-        actions={<ButtonLink href={back} icon={ArrowLeft}><Words k="Back to the" /> {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="The principal approves it. Old marks are kept."
+        actions={<ButtonLink href={back} icon={ArrowLeft}>{forWhom === "staff" ? <Words k="Back to staff attendance" /> : <Words k="Back to the register" />}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
         <Banner tone="bad" title="Not for your role."><Words k="Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong." /></Banner>
       ) : forWhom === "student" && data.sections.length === 0 ? (
-        <EmptyState title="No classes to correct" Icon={Users}><Words k="Only the class teacher corrects a class's attendance. Subject teachers can see the register; ask the class teacher to correct a mark." /></EmptyState>
+        <EmptyState title="No classes to correct" Icon={Users}><Words k="Only the class teacher corrects a class's attendance. Ask them to correct a mark." /></EmptyState>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
-            <CardHeader title={forWhom === "staff" ? `Staff attendance, ${dayText(date)}` : `${data.section?.name ?? ""}, ${dayText(date)}${periodNo ? `, period ${periodNo}` : ""}`}
-              description="The request goes to Approvals. When it is approved the register changes, and the old marks are kept." />
+            <CardHeader title={forWhom === "staff" ? t("Staff attendance, {date}", { date: dayText(date) }) : periodNo ? t("{name}, {date}, period {n}", { name: data.section?.name ?? "", date: dayText(date), n: periodNo }) : `${data.section?.name ?? ""}, ${dayText(date)}`} />
             <CardBody>
               <UrlFilters fields={[
                 ...(forWhom === "student" ? [{ name: "section", label: "Class and section", type: "select" as const, value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) }] : []),
@@ -96,6 +96,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
               )}
               {data.people && data.people.length > 0 && !(data.info && !data.info.on) ? (
                 <CorrectionForm key={`${data.section?.id}:${isoDay(date)}`} action={requestCorrectionAction} forWhom={forWhom} people={data.people}
+                  startStatus={settings.defaultStatus === "none" ? null : "present"}
                   statuses={data.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone }))}
                   hidden={{ forWhom, sectionId: data.section?.id ?? "", date: isoDay(date), periodNo: String(periodNo) }} />
               ) : data.people && data.people.length === 0 ? (

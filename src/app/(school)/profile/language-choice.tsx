@@ -43,7 +43,7 @@ export function LanguageChoice({ chosen, languages, schoolDefault }: { chosen: L
           );
         })}
       </div>
-      <p className="mt-3 text-[12.5px] text-ink3">{t("Screens show in this language. Names, numbers and dates stay as they are written. Words not yet translated show in English.")}</p>
+      <p className="mt-3 text-[12.5px] text-ink3">{t("Words not yet translated show in English.")}</p>
     </div>
   );
 }

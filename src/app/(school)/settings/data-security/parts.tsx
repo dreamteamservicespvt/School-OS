@@ -22,7 +22,7 @@ export function ExportButton({ disabled }: { disabled: boolean }) {
   return (
     <ConfirmButton trigger="Prepare full export" triggerVariant="primary" title="Prepare a full export of school data?" confirmLabel="Prepare full export"
       onConfirm={async () => { const p = await requestExportAction(); if (!p) router.refresh(); return p; }}>
-      <Words k="It holds personal details of students, parents and staff. Keep the file safe and delete it from your computer when you no longer need it. School Admins will see this export in the security alerts and the export log." />
+      <Words k="It holds personal details. Keep the file safe and delete it when done. School Admins see every export." />
     </ConfirmButton>
   );
 }
@@ -37,7 +37,7 @@ export function TwoStepSwitch({ on }: { on: boolean }) {
   ) : (
     <ConfirmButton trigger="Switch on two-step login" triggerVariant="primary" title="Switch on two-step login?" confirmLabel="Switch on two-step login"
       onConfirm={async () => { const p = await setTwoStepAction(true); if (!p) router.refresh(); return p; }}>
-      <Words k={"People in roles that need it will be asked for a one-time code at their next sign-in. Check each of them has an email address or phone number in Users & Permissions first."} />
+      <Words k={"Roles that need it get a code at their next sign-in. First check each person has an email or phone in Users & Permissions."} />
     </ConfirmButton>
   );
 }

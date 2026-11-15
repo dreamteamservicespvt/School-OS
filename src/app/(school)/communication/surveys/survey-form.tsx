@@ -72,7 +72,7 @@ export function SurveyForm({ data }: { data: SurveyFormData }) {
     <form onSubmit={(e) => { e.preventDefault(); save(false); }} noValidate className="flex flex-col gap-5 lg:gap-6">
       {message && <Banner tone="bad" title={message} />}
       <Card>
-        <CardHeader title="The survey" icon={ClipboardList} description="Choice, rating, text and date questions. Each person answers once." />
+        <CardHeader title="The survey" icon={ClipboardList} description="Choice, rating, text and date questions." />
         <div className="px-5 pb-5 flex flex-col gap-4">
           <FieldShell label="Title" id="sv-title" required error={titleErr}>
             <input id="sv-title" value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} className={cx(inputCls(titleErr), "h-11")} aria-invalid={Boolean(titleErr)} />
@@ -122,7 +122,7 @@ export function SurveyForm({ data }: { data: SurveyFormData }) {
       </Card>
 
       <Card>
-        <CardHeader title="Who answers" icon={Users} description="Each person gets their own link by WhatsApp or email. Opted-out parents are left out." />
+        <CardHeader title="Who answers" icon={Users} description="Opted-out parents are left out." />
         <div className="px-5 pb-5 flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <FieldShell label="Send to" id="sv-aud" required help={count == null ? "Counting…" : `${count.toLocaleString("en-IN")} ${count === 1 ? "person" : "people"} with a phone or email`}>
@@ -135,7 +135,7 @@ export function SurveyForm({ data }: { data: SurveyFormData }) {
             </FieldShell>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-            <div><p className="text-[14px] font-semibold"><Words k="Anonymous answers" /></p><p className="text-[12.5px] text-ink3"><Words k="Names are not stored with the answers. Only who has answered is kept, for reminders." /></p></div>
+            <div><p className="text-[14px] font-semibold"><Words k="Anonymous answers" /></p><p className="text-[12.5px] text-ink3"><Words k="Names are not stored with the answers. Who answered is kept, for reminders." /></p></div>
             <Switch on={anonymous} onChange={setAnonymous} label="Anonymous answers" id="sv-anon" />
           </div>
         </div>

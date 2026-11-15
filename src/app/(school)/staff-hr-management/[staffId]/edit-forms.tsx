@@ -13,7 +13,7 @@ import { FormDialog, type Action } from "../_components/forms";
 import { SignInChoice } from "../_components/sign-in-choice";
 import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
-import { Pencil } from "lucide-react";
+import { IdCard, Pencil } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
 import { ShareMenu } from "@/components/ui/share-menu";
 
@@ -53,7 +53,7 @@ export function ContactForm({ v, action }: { v: ProfileValues; action: Action })
     <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Contact" action={action} submitLabel="Save contact" hidden={{ staffId: v.staffId }}>
       {(f) => (
         <>
-          <TextField label="Phone" name="phone" required inputMode="numeric" defaultValue={f.val("phone", v.phone)} error={f.err("phone")} help="10-digit mobile. Changing it clears the verified mark unless you tick it again." />
+          <TextField label="Phone" name="phone" required inputMode="numeric" defaultValue={f.val("phone", v.phone)} error={f.err("phone")} help="10-digit mobile. Changing it clears the verified mark." />
           <TextField label="Email" name="email" type="email" defaultValue={f.val("email", v.email)} error={f.err("email")} />
           <CheckboxField name="phoneVerified" label="Phone verified" defaultChecked={v.phoneVerified} />
           <CheckboxField name="emailVerified" label="Email verified" defaultChecked={v.emailVerified} />
@@ -69,9 +69,9 @@ export function EmploymentForm({ v, action, designations, departments, staff, ca
     <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Staff ID" name="staffCode" required defaultValue={f.val("staffCode", v.staffCode)} error={f.err("staffCode")} help="Unique in the school. It is checked before saving." />
+          <TextField label="Staff ID" name="staffCode" required defaultValue={f.val("staffCode", v.staffCode)} error={f.err("staffCode")} help="Must be unique." />
           <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={f.val("joiningDate", v.joiningDate)} error={f.err("joiningDate")} />
-          <SelectField label="Designation" name="designation" required defaultValue={f.val("designation", v.designation)} options={designations} error={f.err("designation")} help="To record a promotion with its date and reason, use Promotions." />
+          <SelectField label="Designation" name="designation" required defaultValue={f.val("designation", v.designation)} options={designations} error={f.err("designation")} help="For a promotion, use Promotions." />
           <SelectField label="Department" name="departmentId" defaultValue={f.val("departmentId", v.departmentId)} options={departments} placeholder="No department" error={f.err("departmentId")} />
           <SelectField label="Employment type" name="employmentType" defaultValue={f.val("employmentType", v.employmentType)} options={types.map((t) => ({ value: t, label: t }))} error={f.err("employmentType")} />
           <SelectField label="Reporting manager" name="reportingToId" defaultValue={f.val("reportingToId", v.reportingToId)} options={staff.filter((s) => s.value !== v.staffId)} placeholder="None" error={f.err("reportingToId")} />
@@ -108,7 +108,7 @@ export function RestrictedForm({ v, action }: { v: ProfileValues; action: Action
     <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Restricted details" action={action} submitLabel="Save restricted details" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <>
-          <Alert tone="info"><Words k="Numbers are stored encrypted. Leave a number empty to keep the one on file. Only the last 4 characters go into the history." /></Alert>
+          <Alert tone="info"><Words k="Numbers are stored encrypted. Leave one empty to keep it." /></Alert>
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" autoComplete="off" error={f.err("aadhaar")} placeholder="12 digits" />
             <TextField label="PAN" name="pan" autoComplete="off" error={f.err("pan")} placeholder="ABCDE1234F" />
@@ -265,7 +265,8 @@ export function SwitchLoginForm({ staffId, on, action }: { staffId: string; on: 
 export function ReprintForm({ staffId }: { staffId: string }) {
   const [reason, setReason] = useState("");
   const [open, setOpen] = useState(false);
-  if (!open) return <Button size="sm" variant="secondary" onClick={() => setOpen(true)}><Words k="Print ID card" /></Button>;
+  // The same size as the other header buttons beside it (layman loop 5).
+  if (!open) return <Button variant="secondary" icon={IdCard} onClick={() => setOpen(true)}><Words k="Print ID card" /></Button>;
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line p-3">
       <TextField label="Reason for printing again" name="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Card lost" />

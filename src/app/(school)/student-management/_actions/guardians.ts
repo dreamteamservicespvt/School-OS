@@ -9,17 +9,23 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { withSchool, type Tx } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { checkbox, formValues, indianMobile, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, text, type FormState } from "@/lib/forms";
+import { checkbox, formValues, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, type FormState } from "@/lib/forms";
 import { loadVisibleStudent, type Who } from "@/lib/students/access";
 import { createGuardian, linkGuardian, mergeGuardians, parentLinkProvider, PhoneOnRecord, setGuardianPhoto, setPickup, setPrimary, setRestriction, unlinkGuardian, updateGuardian } from "@/lib/students/guardians";
 import { IMAGE_TYPES, saveFile } from "@/lib/files";
+import { personName } from "@/lib/validate-name";
 import { requestConsent, withdrawConsent } from "@/lib/students/consent";
 import { CONSENT_TYPES, LANGUAGES, RELATIONS } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
 import { studentScope } from "@/lib/students/access";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
+import { visibleChildNames } from "../guardians/load";
+import { phoneShow } from "@/lib/students/show";
+import { channelSetups } from "@/lib/messaging/channels";
+import { inTestMode } from "@/lib/messaging/providers";
 
 const profile = (id: string) => `${BASE}/students/${id}`;
+const NO_PHONE_SAVED = "Phone missing: no Parent Link or messages until a phone is added.";
 const MERGE_OTHER_CAMPUS = "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.";
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
@@ -137,10 +143,13 @@ export async function linkSettingsAction(linkId: string, _prev: FormState, fd: F
 
 // ---------- Add / edit a parent ----------
 
+/** A parent may have no phone (owner decision 15): empty saves as "Phone missing". */
+const parentPhone = optionalIndianMobile("Phone").refine((v) => v === null || /^[6-9]/.test(v), { message: "Phone must start with 6, 7, 8 or 9." });
+
 const guardianSchema = z.object({
   relationship: z.enum(RELATIONS, { message: "Choose the relation." }),
-  name: text("Full name", 120),
-  phone: indianMobile("Phone"),
+  name: personName("Full name"),
+  phone: parentPhone,
   altPhone: optionalIndianMobile("Other phone"),
   email: optionalEmail(),
   occupation: optionalText("Occupation", 100),
@@ -167,11 +176,17 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
   if (restricted && !can.seeRestricted) return { ok: false, message: "Only the School Admin or Principal can set a custody or access restriction.", errors: { restricted: "Only the School Admin or Principal can set this." }, values };
   if (restricted && !restriction) return { ok: false, message: "Write the restriction note.", errors: { restriction: "Write the restriction note." }, values };
   let savedId = guardianId;
+  let saved = "Parent details saved.";
   try {
     await withSchool(current.ctx, async (tx) => {
       if (guardianId) {
         await visibleGuardian(tx, current, guardianId);
-        await updateGuardian(tx, current.ctx, guardianId, input, { sendLinkToNewPhone: sendLink });
+        const before = await tx.guardian.findFirst({ where: { id: guardianId }, select: { phone: true } });
+        const after = await updateGuardian(tx, current.ctx, guardianId, input, { sendLinkToNewPhone: sendLink });
+        // Layman loop 2: say the new phone and that it is for every child of this parent.
+        const kids = (await visibleChildNames(tx, current, guardianId)).length;
+        const forKids = kids > 1 ? ` for ${kids === 2 ? "both" : `all ${kids}`} children` : "";
+        if (before && before.phone !== after.phone) saved = after.phone ? `Phone changed to ${phoneShow(after.phone)}${forKids}.` : `Phone removed${forKids}. ${NO_PHONE_SAVED}`;
         return;
       }
       if (studentId) await loadVisibleStudent(tx, current, studentId);
@@ -188,7 +203,8 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
     }
     return attemptForm(values, async () => { throw e; });
   }
-  await flash({ message: guardianId ? "Parent details saved." : studentId ? `${input.name} added and linked.` : `${input.name} added.` });
+  const noPhone = !guardianId && !input.phone ? ` ${NO_PHONE_SAVED}` : "";
+  await flash({ message: guardianId ? saved : studentId ? `${input.name} added and linked.${noPhone}` : `${input.name} added.${noPhone}`, ...(noPhone ? { tone: "info" as const } : {}) });
   revalidatePath(`${BASE}/guardians`);
   redirect(studentId ? profile(studentId) : `${BASE}/guardians/${savedId}`);
 }
@@ -292,12 +308,18 @@ export async function parentLinkAction(fd: FormData) {
   const guardianId = String(fd.get("guardianId") ?? "");
   const op = fd.get("op") === "revoke" ? "revoke" : "resend";
   let to = "";
+  let testMode = false;
   const r = await attempt(() => withSchool(current.ctx, async (tx) => {
-    await visibleGuardian(tx, current, guardianId);
+    const g = await visibleGuardian(tx, current, guardianId);
+    if (!g.phone) throw new StudentProblem(`Add a phone first. ${g.name} has no phone, so Parent Link cannot be sent.`);
     to = op === "revoke" ? await provider.revoke(tx, current.ctx, guardianId) : await provider.resend(tx, current.ctx, guardianId);
+    testMode = inTestMode((await channelSetups(tx, current.ctx)).whatsapp);
   }));
   if (r) return r;
   // Messages are queued here and delivered by the worker: say so, never "sent" (QA PEOPLE-15).
-  await flash({ message: op === "revoke" ? `Parent Link revoked. A new link is on its way to ${to}.` : `Parent Link is on its way to ${to}.` });
+  // In test mode nothing leaves School OS, so never "on its way" (layman loop 3, day one).
+  await flash({ message: testMode
+    ? (op === "revoke" ? "Parent Link revoked. New link ready. Test mode: nothing was sent." : "Link ready. Test mode: nothing was sent.")
+    : op === "revoke" ? `Parent Link revoked. A new link is on its way to ${to}.` : `Parent Link is on its way to ${to}.` });
   revalidatePath(`${BASE}/guardians/${guardianId}`);
 }

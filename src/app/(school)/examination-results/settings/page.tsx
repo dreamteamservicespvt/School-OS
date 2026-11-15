@@ -58,7 +58,7 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
 
   return (
     <>
-      <PageTop page={page} href={PATH} sub="Exam types, mark categories, grade scale, pass rules, patterns, boards and the final result" />
+      <PageTop page={page} href={PATH} />
       <div className="flex max-w-5xl flex-col gap-5 lg:gap-6">
         <Card>
           <CardHeader title="Exam types" description="Offered when adding a datesheet" icon={ListChecks} />
@@ -75,7 +75,7 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
 
         <div className="grid gap-5 lg:gap-6 xl:grid-cols-2">
           <Card>
-            <CardHeader title="Mark categories" description="Parts a subject's marks can be split into on a datesheet, such as Theory 80 and Internal 20" icon={SlidersHorizontal} />
+            <CardHeader title="Mark categories" description="Such as Theory 80 and Internal 20" icon={SlidersHorizontal} />
             <NameList kind="markCategory" items={data.categories} canEdit={canEdit} what="mark category" example="For example Oral or Lab record" />
           </Card>
           <Card>
@@ -93,11 +93,11 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
 
         <div className="grid gap-5 lg:gap-6 xl:grid-cols-2">
           <Card>
-            <CardHeader title="Exam pattern per class" description="The pattern a new datesheet starts with: Percentage, Grading or CGPA. Each exam can still choose its own." icon={Layers} />
+            <CardHeader title="Exam pattern per class" description="New datesheets start with this. An exam can change it." icon={Layers} />
             <ClassPatternsEditor classes={data.classes} patterns={s.classPatterns} options={PATTERNS.map((p) => ({ value: p.value, label: p.label }))} canEdit={canEdit} />
           </Card>
           <Card>
-            <CardHeader title="Per board" description="For schools running two boards: a grade scale and a report card format for each board. A class follows its own board, set in Academic Management." icon={Scale} />
+            <CardHeader title="Per board" description="For two boards: a grade scale and report card for each" icon={Scale} />
             <BoardsEditor boards={data.boards} values={s.boards} on={on("exam-boards")} canEdit={canEdit} schoolScale={schoolScale?.name ?? "not set"}
               scales={data.scales.map((x) => ({ id: x.id, name: x.name }))}
               formats={BASES.filter((b) => (REPORT_FORMATS as readonly string[]).includes(b.key)).map((b) => ({ value: b.key, label: b.label }))} />
@@ -110,17 +110,17 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
         </Card>
 
         <Card>
-          <CardHeader title="Competencies" description="Competency-based assessment: competencies per subject and their levels, graded on report cards" icon={Target} />
+          <CardHeader title="Competencies" description="Competencies per subject, graded on report cards" icon={Target} />
           <CompetencyList items={data.competencies} subjects={data.subjects} canEdit={canEdit} on={on("exam-competencies")} />
         </Card>
 
         <Card>
-          <CardHeader title="Remark phrases" description="The sentences remark suggestions are made of. Each suggestion shows the marks, attendance or homework behind every sentence" icon={MessageSquareText} />
+          <CardHeader title="Remark phrases" description="Sentences used for remark suggestions" icon={MessageSquareText} />
           <RemarkPhrasesEditor bank={readPhrases(s.remarkPhrases)} canEdit={canEdit} on={on("exam-remark-suggestions")} />
         </Card>
 
         <Card>
-          <CardHeader title="Switched on for this school" description="Parts of Examination & Results the school can use or leave off" icon={ToggleRight} divided />
+          <CardHeader title="Switched on for this school" icon={ToggleRight} divided />
           {EXAM_FEATURES.map((k) => <FeatureSwitch key={k} k={k} title={FEATURE_WORDS[k].title} sub={FEATURE_WORDS[k].sub} on={on(k)} canEdit={canEdit} />)}
         </Card>
       </div>

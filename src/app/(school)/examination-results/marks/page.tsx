@@ -25,7 +25,7 @@ import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { LockExamButton, RemindBar, RemindButton } from "./marks-ui";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Marks Entry") };
@@ -40,6 +40,7 @@ const STATUS_ICON = { NOT_STARTED: CircleDashed, IN_PROGRESS: PencilLine, SUBMIT
 export default async function MarksEntryPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
   const page = await examPage(raw);
+  const t = await getT();
   if (page.scope.office && !page.scope.manage) redirect("/no-access");
   if (!page.year) return (<><PageTop page={page} href={PATH} /><NoYear /></>);
   const year = page.year;
@@ -85,9 +86,9 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const late = pending.filter(overdue);
 
   const dueBanner = late.length > 0
-    ? <Banner tone="bad" title={`${plural(late.length, "paper")} ${late.length === 1 ? "is" : "are"} past the marks due date.`}>{page.scope.manage ? (checksOnly ? "Remind the teachers who have not finished." : "Remind the teachers, or open a paper to enter marks for them.") : "Enter and submit these first."}</Banner>
+    ? <Banner tone="bad" title={late.length === 1 ? t("1 paper is past the marks due date.") : t("{n} papers are past the marks due date.", { n: late.length })}>{t(page.scope.manage ? (checksOnly ? "Remind the teachers who have not finished." : "Remind the teachers, or open a paper to enter marks for them.") : "Enter and submit these first.")}</Banner>
     : dues.length > 0
-      ? <Banner tone="info" title={`Marks are due by ${formatDate(dues[dues.length - 1], tz)}.`}>{plural(pending.length, "paper")} <Words k="still" /> {pending.length === 1 ? "needs" : "need"} <Words k="marks" />{dues[0].getTime() !== dues[dues.length - 1].getTime() ? `; the first is due ${formatDate(dues[0], tz)}` : ""}<Words k=". Marks save as they are typed." /></Banner>
+      ? <Banner tone="info" title={t("Marks are due by {date}.", { date: formatDate(dues[dues.length - 1], tz) })}>{pending.length === 1 ? t("1 paper still needs marks") : t("{n} papers still need marks", { n: pending.length })}{dues[0].getTime() !== dues[dues.length - 1].getTime() ? t("; the first is due {date}", { date: formatDate(dues[0], tz) }) : ""}<Words k=". Marks save as they are typed." /></Banner>
       : null;
 
   // Teachers: their own papers, grouped by exam (08 §5, 05-roles "Own").
@@ -99,7 +100,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
     const order = { IN_PROGRESS: 0, NOT_STARTED: 1, SUBMITTED: 2, LOCKED: 3 };
     return (
       <>
-        <PageTop page={page} href={PATH} sub={`${[...new Set(all.map((r) => r.subjectName))].join(", ") || "Your subjects"} · only your subjects and classes`} />
+        <PageTop page={page} href={PATH} sub={`${[...new Set(all.map((r) => r.subjectName))].join(", ") || t("Your subjects")} · ${t("only your subjects and classes")}`} />
         <div className="flex flex-col gap-5 lg:gap-6">
           {dueBanner}
           {all.length > 0 && (
@@ -115,7 +116,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                 action={page.scope.datesheets && page.writable
                   ? <ButtonLink href="/examination-results/datesheet/new" variant="secondary"><Words k="Add datesheet" /></ButtonLink>
                   : <ButtonLink href="/examination-results/datesheet" variant="secondary"><Words k="See datesheets" /></ButtonLink>}>
-                <Words k="Papers appear here once a datesheet with your subjects is published. If a subject is missing, ask the Exam In-charge to check Teacher Allocation." />
+                <Words k="Papers appear here once a datesheet is published. Subject missing? Ask the Exam In-charge." />
               </EmptyState>
             )
           ) : groups.map(([id, title]) => {
@@ -123,7 +124,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
             const closed = list.every((r) => !open(r));
             return (
               <Card key={id}>
-                <CardHeader title={title} description={closed ? "Submitted. A change needs a reason and an approval." : `${plural(list.length, "paper")} · ${list.filter((r) => !open(r)).length} submitted`} icon={closed ? Lock : ClipboardCheck} />
+                <CardHeader title={title} description={closed ? t("Submitted. A change needs a reason and an approval.") : `${list.length === 1 ? t("1 paper") : t("{n} papers", { n: list.length })} · ${t("{n} submitted", { n: list.filter((r) => !open(r)).length })}`} icon={closed ? Lock : ClipboardCheck} />
                 <ul className="px-2 pb-2">
                   {list.map((r) => {
                     const Ic = STATUS_ICON[r.status];
@@ -135,7 +136,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                             <p className="font-semibold text-[14.5px] truncate">{r.subjectName} · {r.sectionLabel}</p>
                             {/* Wraps, so "Overdue" is never cut off on a phone (layman test, 390 px). */}
                             <p className={cx("text-[12.5px] leading-snug", overdue(r) ? "text-bad font-medium" : "text-ink3")}>
-                              {overdue(r) && <b className="font-semibold"><Words k="Overdue" />: </b>}{r.status === "LOCKED" ? `${r.of} of ${r.of} · locked` : `${r.done} of ${r.of} entered`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${overdue(r) ? "was due" : "due"} ${formatDate(r.due, tz)}` : ""}{r.waiting ? ` · ${plural(r.waiting, "change")} waiting` : ""}
+                              {overdue(r) && <b className="font-semibold"><Words k="Overdue" />: </b>}{r.status === "LOCKED" ? t("{n} of {n2} · locked", { n: r.of, n2: r.of }) : `${t("{n} of {n2} complete", { n: r.done, n2: r.of })}${r.partly ? ` · ${t("{n} missing a mark", { n: r.partly })}` : ""}`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${t(overdue(r) ? "was due {date}" : "due {date}", { date: formatDate(r.due, tz) })}` : ""}{r.waiting ? ` · ${r.waiting === 1 ? t("1 change waiting") : t("{n} changes waiting", { n: r.waiting })}` : ""}
                             </p>
                             {open(r) && <Progress value={r.of ? (r.done / r.of) * 100 : 0} className="mt-1.5 max-w-xs" />}
                           </div>
@@ -163,7 +164,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const stats: StatItem[] = [
     { label: "Papers", value: inRange.length, sub: examId ? exams.find((e) => e.id === examId)?.title : "All exams", icon: ClipboardCheck, href: link({ status: "" }) },
     { label: "Submitted or locked", value: count("SUBMITTED") + count("LOCKED"), sub: `${count("LOCKED")} locked`, tone: "ok", icon: Lock, href: link({ status: "SUBMITTED" }) },
-    { label: "In progress", value: count("IN_PROGRESS"), sub: "Being entered now", tone: "warn", icon: PencilLine, href: link({ status: "IN_PROGRESS" }) },
+    { label: "In progress", value: count("IN_PROGRESS"), sub: "Some marks in", tone: "warn", icon: PencilLine, href: link({ status: "IN_PROGRESS" }) },
     { label: "Not started", value: count("NOT_STARTED"), sub: plural(teachersBehind.size, "teacher"), tone: count("NOT_STARTED") ? "bad" : undefined, icon: CircleDashed, href: link({ status: "NOT_STARTED" }) },
   ];
   const exportHref = `/examination-results/export?${new URLSearchParams({ kind: "entry-status", ...(examId ? { exam: examId } : {}), ...(one(raw.year) ? { year: one(raw.year) } : {}), ...Object.fromEntries(periodQuery(raw)) })}`;
@@ -171,7 +172,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <PageTop page={page} href={PATH} sub={`${examTitle ?? "Every exam"} · marks entry status for every paper`}>
+      <PageTop page={page} href={PATH} sub={`${examTitle ?? t("Every exam")} · ${t("marks entry status for every paper")}`}>
         {page.writable && examId && count("SUBMITTED") > 0 && <LockExamButton examId={examId} title={examTitle ?? "this exam"} />}
         {page.writable && behind.length > 0 && <RemindButton keys={behind.map((r) => `${r.entryId}|${r.sectionId}`)} teachers={teachersBehind.size} papers={behind.length} />}
       </PageTop>
@@ -200,12 +201,12 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
             columns={[
               { key: "p", label: "Paper", render: (r) => <><p className="font-semibold">{r.subjectName} · {r.sectionLabel}</p><p className="text-[12.5px] text-ink3">{r.examTitle} · {formatDate(r.date, tz)}</p></> },
               { key: "t", label: "Teacher", render: (r) => r.teachers.length ? <div className="flex items-center gap-2"><Avatar name={r.teachers[0].name} size={28} /><span className="text-[13.5px]">{r.teachers.map((t) => t.name).join(", ")}</span></div> : <span className="text-ink3 text-[13px]"><Words k="Not given" /></span> },
-              { key: "e", label: "Entered", render: (r) => <div className="w-40"><Progress value={r.of ? (r.done / r.of) * 100 : 0} tone={open(r) ? "brand" : "ok"} /><p className="text-[12.5px] text-ink3 mt-1 tnum">{r.done} <Words k="of" /> {r.of} <Words k="entered" />{r.waiting ? <span className="text-warn"> · {r.waiting} <Words k="waiting" /></span> : null}</p></div> },
-              { key: "d", label: "Marks due", nowrap: true, render: (r) => r.due ? <span className={cx("text-[13px]", overdue(r) ? "text-bad font-medium" : "text-ink3")}>{overdue(r) ? "Overdue " : ""}{formatDate(r.due, tz)}</span> : <span className="text-ink3 text-[13px]"><Words k="No date" /></span> },
+              { key: "e", label: "Entered", render: (r) => <div className="w-40"><Progress value={r.of ? (r.done / r.of) * 100 : 0} tone={open(r) ? "brand" : "ok"} /><p className="text-[12.5px] text-ink3 mt-1 tnum"><Words k="{n} of {n2}" vars={{ n: r.done, n2: r.of }} /> <Words k="complete" />{r.partly ? <> · {r.partly} <Words k="missing a mark" /></> : null}{r.waiting ? <span className="text-warn"> · {r.waiting} <Words k="waiting" /></span> : null}</p></div> },
+              { key: "d", label: "Marks due", nowrap: true, render: (r) => r.due ? <span className={cx("text-[13px]", overdue(r) ? "text-bad font-medium" : "text-ink3")}>{overdue(r) ? `${t("Overdue")} ` : ""}{formatDate(r.due, tz)}</span> : <span className="text-ink3 text-[13px]"><Words k="No date" /></span> },
               { key: "s", label: "Status", nowrap: true, render: (r) => <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> },
             ]}
-            mobile={(r) => ({ icon: STATUS_ICON[r.status], iconTone: PAPER_STATUS_TONE[r.status], title: `${r.subjectName} · ${r.sectionLabel}`, sub: `${r.teachers[0]?.name ?? "No teacher"} · ${r.done} of ${r.of}${overdue(r) ? " · overdue" : ""}`, pills: <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> })}
-            footer={<span><Words k="Showing" /> {shown.length ? (pageNo - 1) * PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * PAGE + shown.length} <Words k="of" /> {rows.length}{pages > 1 && <> · {pageNo > 1 && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
+            mobile={(r) => ({ icon: STATUS_ICON[r.status], iconTone: PAPER_STATUS_TONE[r.status], title: `${r.subjectName} · ${r.sectionLabel}`, sub: `${r.teachers[0]?.name ?? t("No teacher")} · ${t("{n} of {n2}", { n: r.done, n2: r.of })}${r.partly ? ` · ${t("{n} missing a mark", { n: r.partly })}` : ""}${overdue(r) ? ` · ${t("Overdue")}` : ""}`, pills: <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> })}
+            footer={<span><Words k="Showing {from} to {to} of {total}" vars={{ from: shown.length ? (pageNo - 1) * PAGE + 1 : 0, to: (pageNo - 1) * PAGE + shown.length, total: rows.length }} />{pages > 1 && <> · {pageNo > 1 && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
         </Card>
       </div>
     </>

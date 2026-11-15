@@ -12,6 +12,8 @@ import { formatDate } from "../format";
 import { SettingsProblem } from "./common";
 import { DOCUMENT_TYPES_VAULT } from "./profile-rules";
 import { schoolRoles } from "../school-roles";
+import { word } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 export type DocVersion = { fileId: string; uploadedAt: string; uploadedById: string | null; fileName: string };
 
@@ -155,15 +157,14 @@ export async function remindExpiringDocuments(tx: Tx, ctx: SchoolContext, now = 
   });
   for (const d of due) {
     const past = d.expiresOn! < now;
-    const text = past
-      ? `${d.title} (${d.docType}) expired on ${formatDate(d.expiresOn!, school?.timeZone)}. Upload the renewed paper.`
-      : `${d.title} (${d.docType}) expires on ${formatDate(d.expiresOn!, school?.timeZone)}. Start the renewal.`;
+    const key: MessageKey = past ? "{title} ({type}) expired on {date}. Upload the renewed paper." : "{title} ({type}) expires on {date}. Start the renewal.";
+    const values = { title: d.title, type: word(d.docType), date: formatDate(d.expiresOn!, school?.timeZone) };
     const sent = new Set<string>();
     for (const p of people) {
       if (sent.has(p.userLoginId)) continue;
       if (!mayOpenDocument(d, p.roles.map((r) => r.role.key))) continue;
       sent.add(p.userLoginId);
-      await notify(tx, ctx, { to: p.userLoginId, type: "document-expiry", text, link: `/settings/school-profile?doc=${d.id}#documents`, groupKey: "school-document-expiry", mergedText: (n) => `${n} school documents expire soon or have expired` });
+      await notify(tx, ctx, { to: p.userLoginId, type: "document-expiry", key, values, link: `/settings/school-profile?doc=${d.id}#documents`, groupKey: "school-document-expiry", mergedKey: "{n} school documents expire soon or have expired" });
     }
     await tx.schoolDocument.update({ where: { id: d.id }, data: { reminderSentFor: d.expiresOn } });
   }

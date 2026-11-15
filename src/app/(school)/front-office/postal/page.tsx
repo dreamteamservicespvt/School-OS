@@ -77,7 +77,7 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
 
   return (
     <div>
-      <FoHead pageName="Postal & Deliveries" href={HREF} sub="Letters, couriers and parcels received and sent. The person it is for is told on the app."
+      <FoHead pageName="Postal & Deliveries" href={HREF} sub="Letters, couriers and parcels"
         actions={desk ? <>
           <ButtonLink href={addQ(here, { do: "sent" })} scroll={false} variant="secondary" icon={Send}><Words k="Record sent item" /></ButtonLink>
           <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="primary" icon={PackagePlus}><Words k="Record received item" /></ButtonLink>

@@ -150,7 +150,7 @@ export async function referToCounselling(tx: Tx, ctx: SchoolContext, input: { st
     },
   });
   if (counsellorId) {
-    await notify(tx, ctx, { to: counsellorId, type: "counselling-referral", text: `New counselling referral: ${student.fullName}`, link: `/student-management/behaviour/counselling/${c.id}` });
+    await notify(tx, ctx, { to: counsellorId, type: "counselling-referral", key: "New counselling referral: {name}", values: { name: student.fullName }, link: `/student-management/behaviour/counselling/${c.id}` });
   }
   await writeAudit(tx, ctx, { action: "created", recordType: "Counselling Case", recordId: c.id, after: { studentId: input.studentId, counsellorId } });
   return c;

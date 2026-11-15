@@ -193,7 +193,7 @@ export function PhotoEditor({ name, src }: { name: string; src: string | null })
       </button>
 
       <Dialog open={open} onClose={close} title={src ? "Change my photo" : "Add my photo"}
-        sub={pic ? "Drag to move it. Zoom with the slider, the mouse wheel or two fingers." : "Shown next to your name in School OS. Only people in this school see it."}
+        sub={pic ? "Drag to move. Use the slider to zoom." : "Only people in this school see it."}
         footer={pic ? (
           <>
             <Button variant="secondary" onClick={() => { setPic(null); setView(START); }} disabled={busy}><Words k="Choose another" /></Button>

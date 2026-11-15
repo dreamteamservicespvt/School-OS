@@ -61,7 +61,8 @@ describe("publishing a datesheet with \"Message parents now\" on", () => {
     const sent = await sentFor(id);
     expect(sent.length).toBeGreaterThan(0);
     for (const m of sent) {
-      expect(m.text).toContain(`starts on ${formatDate(next, "UTC")}`);
+      // In each parent's language (Padma reads Telugu), so the date is checked, not the English words around it.
+      expect(m.text).toContain(formatDate(next, "UTC"));
       expect(m.text).not.toContain(formatDate(past, "UTC"));
     }
   });

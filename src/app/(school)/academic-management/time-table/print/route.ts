@@ -2,6 +2,7 @@
 // or ?all=1, for a version (?version=) or the one in force. ?format=pdf
 // downloads the same pages as a PDF.
 import { requireAction } from "@/lib/current";
+import { PermissionDeniedError } from "@/lib/permissions";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
@@ -16,7 +17,12 @@ import { todayIn } from "@/lib/academic/common";
 
 async function handleGET(req: Request) {
   const url = new URL(req.url);
-  const { current } = await requireAction("academic-management", "view");
+  // A role without Academic Management gets a plain refusal, not a server error (security review 2026-11-15).
+  let current;
+  try { ({ current } = await requireAction("academic-management", "view")); } catch (e) {
+    if (e instanceof PermissionDeniedError) return new Response(e.message, { status: 403, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    throw e;
+  }
   const ctx = current.ctx;
   const today = todayIn(current.school.timeZone);
   const pdf = url.searchParams.get("format") === "pdf";

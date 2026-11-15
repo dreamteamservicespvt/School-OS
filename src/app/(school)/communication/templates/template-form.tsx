@@ -13,6 +13,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 
 type Text = { language: string; subject: string; body: string; dltTemplateId: string; locked: boolean; saved: boolean };
 export type TemplateFormData = {
@@ -115,7 +116,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-5 lg:gap-6">
       {state && !state.ok && state.message && <Banner tone="bad" title={state.message} />}
       <Card>
-        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : "DREAM TEAM registers SMS texts on the telecom DLT portal for you"} />
+        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : SMS_OFFERED ? "DREAM TEAM registers SMS texts on the telecom DLT portal for you" : "Choose the channel, then type the text in each language"} />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <FieldShell label="Name" id="t-name" required error={err("name")}>
             <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}
@@ -137,7 +138,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
       </Card>
 
       <Card className="min-w-0">
-        <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it where the cursor is."
+        <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it."
           action={unused.length > 0 ? (
             <div className="flex gap-2">
               <label htmlFor="t-addlang" className="sr-only"><Words k="Add a language" /></label>
@@ -182,8 +183,8 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                   <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px]">
                     <p className="font-semibold"><Words k="DLT template ID" /></p>
                     {cur.dltTemplateId
-                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. If you change this text, it needs a new ID, which DREAM TEAM adds." /></span></p>
-                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM registers this text on the DLT portal and adds its ID. SMS from it waits until then." /></p>}
+                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. Changing the text needs a new ID." /></span></p>
+                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM adds its DLT ID. SMS waits until then." /></p>}
                   </div>
                 )}
               </div>

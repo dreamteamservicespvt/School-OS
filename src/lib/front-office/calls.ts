@@ -152,7 +152,7 @@ export async function logCall(tx: Tx, ctx: SchoolContext, current: Pick<Current,
     });
     taskId = task.id;
     await writeAudit(tx, ctx, { action: "created", recordType: "Task", recordId: task.id, after: { title: task.title, assignedToId: input.followUp.loginId, dueAt: input.followUp.at.toISOString(), from: "call log" } });
-    await notify(tx, ctx, { to: input.followUp.loginId, type: "task", text: `Follow-up: call ${name} back at ${clockAt(input.followUp.at, opts.timeZone)}.`, link: `/dashboard/tasks?task=${task.id}` }, now);
+    await notify(tx, ctx, { to: input.followUp.loginId, type: "task", key: "Follow-up: call {name} back at {time}.", values: { name, time: clockAt(input.followUp.at, opts.timeZone) }, link: `/dashboard/tasks?task=${task.id}` }, now);
     if (status === "CLOSED") status = "FOLLOW_UP";
   }
   const c = await tx.callLogEntry.create({
@@ -177,7 +177,7 @@ export async function setCallFollowUp(tx: Tx, ctx: SchoolContext, id: string, fo
   });
   await tx.callLogEntry.update({ where: { id }, data: { followUpAt: followUp.at, followUpLoginId: followUp.loginId, taskId: task.id, status: c.status === "QUERY" ? "QUERY" : "FOLLOW_UP" } });
   await writeAudit(tx, ctx, { action: "follow-up-set", recordType: "Call Log Entry", recordId: id, before: { followUpAt: c.followUpAt?.toISOString() ?? null }, after: { followUpAt: followUp.at.toISOString(), loginId: followUp.loginId, taskId: task.id } });
-  await notify(tx, ctx, { to: followUp.loginId, type: "task", text: `Follow-up: call ${c.name} back at ${clockAt(followUp.at, opts.timeZone)}.`, link: `/dashboard/tasks?task=${task.id}` }, now);
+  await notify(tx, ctx, { to: followUp.loginId, type: "task", key: "Follow-up: call {name} back at {time}.", values: { name: c.name, time: clockAt(followUp.at, opts.timeZone) }, link: `/dashboard/tasks?task=${task.id}` }, now);
   return c;
 }
 

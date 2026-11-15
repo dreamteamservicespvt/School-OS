@@ -117,7 +117,8 @@ describe("Fee Settings decide", () => {
     expect(r.status).toBe("sent");
     const row = await withSchool(g.ctx, (tx) => tx.feeReminder.findFirstOrThrow({ where: { studentId: g.sita.id, onceKey: reminderOnceKey(g.sita.id, d("2026-07-10")) } }));
     const channels = await withSchool(g.ctx, (tx) => tx.messageRecipient.findMany({ where: { messageId: row.messageId! }, select: { channel: true } }));
-    expect(new Set(channels.map((c) => c.channel))).toEqual(new Set(["sms"]));
+    // SMS is not used for now (owner, 15 Nov, src/lib/messaging/sms-offered.ts): a rule saved with SMS goes by WhatsApp.
+    expect(new Set(channels.map((c) => c.channel))).toEqual(new Set(["whatsapp"]));
   });
 });
 

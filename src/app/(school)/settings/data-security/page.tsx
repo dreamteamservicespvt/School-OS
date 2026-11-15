@@ -75,7 +75,7 @@ export default async function DataSecurityPage() {
               <p className="text-xl font-semibold"><Words k="Last backup:" /> {backupWords(backup.at, tz)}</p>
             ) : (
               <Alert tone="info" title="Backups start before your real data goes in">
-                <Words k="DREAM TEAM switches on nightly copies of your school's records and files before you start using School OS for real. Ask DREAM TEAM support if you are not sure." />
+                <Words k="The School OS support team switches on nightly copies for you." />
               </Alert>
             )}
             {data.files.setUp ? (
@@ -84,11 +84,11 @@ export default async function DataSecurityPage() {
                 {data.files.waiting === 0 ? `All ${data.files.total} files are in the backup.` : `${data.files.waiting} of ${data.files.total} files wait for the next copy, which runs every hour.`}
               </p>
             ) : (
-              <p className="text-sm text-ink-2"><Words k="Files (photos, documents, receipts): DREAM TEAM switches on their copies at the same time." /></p>
+              <p className="text-sm text-ink-2"><Words k="Files (photos, documents, receipts): switched on at the same time." /></p>
             )}
             {data.files.setUp && (data.files.problems > 0 || data.files.lastRunFailed) && (
               <Alert tone="warning" title="Some files could not be copied at the last run">
-                {data.files.problems > 0 ? `${data.files.problems} file${data.files.problems === 1 ? "" : "s"} could not be copied. ` : ""}<Words k="DREAM TEAM has been told and is checking. Your files are still safe where they are, and the copy is tried again every hour." />
+                {data.files.problems > 0 ? `${data.files.problems} file${data.files.problems === 1 ? "" : "s"} could not be copied. ` : ""}<Words k="The School OS support team is checking. Your files are safe; it tries again every hour." />
               </Alert>
             )}
             {backup.restoreTestedAt ? (
@@ -96,23 +96,23 @@ export default async function DataSecurityPage() {
                 <p><Words k="Last restore test: passed on" /> {formatDate(backup.restoreTestedAt, tz)}{backup.restoreSchools !== null ? `. Every school's records${backup.restoreFiles !== null ? ` and ${backup.restoreFiles} files` : ""} were checked on the copy.` : "."}</p>
               ) : (
                 <Alert tone="warning" title={`The last restore test, on ${formatDate(backup.restoreTestedAt, tz)}, found a problem`}>
-                  <Words k="DREAM TEAM has been told and is fixing it. Your data in School OS is not affected; this was a test on a copy." />
+                  <Words k="The School OS support team is fixing it. Your data is not affected." />
                 </Alert>
               )
             ) : (
               <p className="text-sm text-ink-2"><Words k="Last restore test: none recorded on this server yet." /></p>
             )}
             <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">
-              <li><Words k="The database is backed up continuously, with a full copy every night; files every night." /></li>
-              <li><Words k="Copies are kept in a second, separate place in India: any moment of the last 7 days, nightly copies for 30 days, monthly copies for 1 year." /></li>
+              <li><Words k="Records are backed up all the time; files every night." /></li>
+              <li><Words k="Kept in a second place in India: last 7 days, nightly for 30 days, monthly for 1 year." /></li>
               <li><Words k="A restore is tested every month on a copy." /></li>
-              <li><Words k="To bring back your school's data as it was at a chosen moment, ask DREAM TEAM through Support. Other schools are not touched." /></li>
+              <li><Words k="To bring back old data, ask the School OS support team." /></li>
             </ul>
           </CardBody>
         </Card>
 
         <Card id="export">
-          <CardHeader title="Export all school data" description={`A ZIP with one spreadsheet (CSV) for each kind of record you may see. It is prepared in the background; the download link works for ${EXPORT_LINK_HOURS} hours.`} />
+          <CardHeader title="Export all school data" description={`A ZIP of spreadsheets (CSV). The link works for ${EXPORT_LINK_HOURS} hours.`} />
           <CardBody className="space-y-4">
             {canExport && (current.campusId ? <p className="text-ink-2"><Words k="Only someone who works for the whole school can export all school data." /></p> : <ExportButton disabled={preparing} />)}
             {data.exports.length > 0 && (
@@ -145,7 +145,7 @@ export default async function DataSecurityPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Two-step login" description="After the password, a 6-digit one-time code sent to the person's email or phone." />
+          <CardHeader title="Two-step login" description="A 6-digit code after the password, by email or phone." />
           <CardBody className="space-y-3">
             <p className="flex flex-wrap items-center gap-2">
               {data.twoStepOn ? <Badge tone="success"><Words k="On" /></Badge> : <Badge><Words k="Off" /></Badge>}
@@ -154,7 +154,7 @@ export default async function DataSecurityPage() {
                 <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k={"Users & Permissions"} /></Link>.
               </span>
             </p>
-            <p className="text-sm text-ink-2"><Words k="After the code, a device is remembered and does not ask again until the person signs out there (or does not use it for" /> {REMEMBER_DAYS} <Words k={"days). On a shared computer they tick “Shared computer” to be asked every time. If a phone is lost, another School Admin or the Principal resets two-step login in Users & Permissions."} /></p>
+            <p className="text-sm text-ink-2"><Words k="A device asks again after sign-out or" /> {REMEMBER_DAYS} <Words k="days unused." /> <Words k="Lost phone? Another School Admin or the Principal resets two-step login in Users & Permissions." /></p>
             {unreachable.length > 0 && (
               <Alert tone="warning" title={`No code can reach ${unreachable.length === 1 ? "1 person" : `${unreachable.length} people`} yet`}>
                 {unreachable.map((p) => p.displayName).join(", ")} <Words k="still sign" />{unreachable.length === 1 ? "s" : ""} <Words k="in with the password only, so nobody is locked out. Add a mobile number or email for them in" />{" "}
@@ -166,7 +166,7 @@ export default async function DataSecurityPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Security alerts" description="Unusual sign-ins, locked pickup code checks and large exports in the last 30 days." />
+          <CardHeader title="Security alerts" description="Last 30 days" />
           <CardBody>
             {data.alerts.length === 0 ? (
               <p className="text-ink-2"><Words k="Nothing unusual in the last 30 days." /></p>

@@ -8,6 +8,7 @@ import { admissionPage, BASE } from "@/lib/admission/page";
 import { stageOn, type Settings } from "@/lib/admission/settings";
 import type { Viewer } from "@/lib/admission/access";
 import { Words } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/t";
 
 export function admissionTabs(viewer: Pick<Viewer, "see" | "change">, settings: Settings): Tab[] {
   const tests = stageOn(settings, "test") || stageOn(settings, "interview");
@@ -32,7 +33,8 @@ export function admissionTabs(viewer: Pick<Viewer, "see" | "change">, settings: 
   ];
 }
 
-export async function AdmissionHead({ sub, actions, href, title = "Admissions" }: { sub?: React.ReactNode; actions?: React.ReactNode; href: string; title?: string }) {
+/** pageName: the page's own name as the big heading, with the module's name small above it (as on the Fees pages, layman loop 3). */
+export async function AdmissionHead({ sub, actions, href, title = "Admissions", pageName }: { sub?: React.ReactNode; actions?: React.ReactNode; href: string; title?: string; pageName?: string }) {
   const { current, viewer, settings } = await admissionPage();
   const tabs = admissionTabs(viewer, settings);
   const scope = viewer.see !== "all"
@@ -40,7 +42,7 @@ export async function AdmissionHead({ sub, actions, href, title = "Admissions" }
     : viewer.change === "none" ? <Pill tone="neutral" className="!h-6"><Eye size={13} aria-hidden="true" /><Words k="View only" /></Pill> : null;
   return (
     <>
-      <PageHeader title={title} href={href} userId={current.user.id} sub={<>{scope && <span className="mr-2 align-middle">{scope}</span>}{sub}</>}>
+      <PageHeader title={pageName ?? title} pinLabel={pageName ?? title} crumbs={pageName ? <span className="font-semibold"><Words k={title as MessageKey} /></span> : undefined} href={href} userId={current.user.id} sub={<>{scope && <span className="mr-2 align-middle">{scope}</span>}{sub}</>}>
         {viewer.change !== "none" ? actions : null}
       </PageHeader>
       {tabs.length > 1 && <Tabs label="Admission Management pages" tabs={tabs} />}

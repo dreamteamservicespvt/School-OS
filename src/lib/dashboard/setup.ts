@@ -3,7 +3,11 @@
 // also be marked done (or an optional one skipped) by hand. Steps of modules
 // that are not built or are switched off are hidden.
 import "server-only";
+import { offeredChannels, SMS_OFFERED } from "../messaging/sms-offered";
+import { channelSetups } from "../messaging/channels";
+import { inTestMode } from "../messaging/providers";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { currentYears } from "../academic/years";
@@ -24,16 +28,17 @@ export type SetupStep = {
 };
 
 export const SETUP_STEPS: readonly SetupStep[] = [
-  { key: "profile", label: "School profile and logo", module: "settings", href: "/settings/school-profile", sub: "Name, address, board and logo. They print on receipts, certificates and ID cards.", time: "5 minutes", button: "Add details" },
-  { key: "year", label: "Academic year, terms and timings", module: "academic-management", href: "/academic-management/settings", sub: "The year's dates, its terms, school timings and periods.", time: "5 minutes", button: "Set up the year" },
-  { key: "classes", label: "Classes and sections", module: "academic-management", href: "/academic-management", sub: "Nursery to Class 12, with the sections in each.", time: "10 minutes", button: "Add classes" },
-  { key: "subjects", label: "Subjects", module: "academic-management", href: "/academic-management/subjects", sub: "The subjects taught, and which classes take them.", time: "5 minutes", button: "Add subjects" },
+  { key: "profile", label: "School profile and logo", module: "settings", href: "/settings/school-profile", sub: "Name, address, board and logo.", time: "5 minutes", button: "Add details" },
+  { key: "year", label: "Academic year, terms and timings", module: "academic-management", href: "/academic-management/settings", sub: "Dates, terms, timings and periods.", time: "5 minutes", button: "Set up the year" },
+  { key: "classes", label: "Classes and sections", module: "academic-management", href: "/academic-management", sub: "Nursery to Class 12, with sections.", time: "10 minutes", button: "Add classes" },
+  { key: "subjects", label: "Subjects", module: "academic-management", href: "/academic-management/subjects", sub: "Subjects and the classes that take them.", time: "5 minutes", button: "Add subjects" },
   { key: "staff", label: "Staff and their logins", module: "staff-hr-management", href: "/staff-hr-management", sub: "Add your staff, then invite them to sign in.", time: "20 minutes", button: "Add staff" },
-  { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Bring your students and their parents from Excel. Every row is checked first.", time: "15 minutes", button: "Import students" },
+  { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Every row is checked first.", time: "15 minutes", button: "Import students" },
   { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management/structure", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
-  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "DREAM TEAM connects your school's Razorpay account so parents can pay online. Tell DREAM TEAM support when you want it.", time: "1 minute", button: "See status", optional: true },
-  { key: "messaging", label: "SMS and WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects WhatsApp and SMS and registers your SMS sender. You switch each one on.", time: "2 minutes", button: "Switch on" },
-  { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "The year's holidays, so attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
+  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "For online fees. Ask DREAM TEAM support to connect it.", time: "1 minute", button: "See status", optional: true },
+  // SMS is not used for now (owner 15 Nov 2026), so the step names WhatsApp only.
+  { key: "messaging", label: SMS_OFFERED ? "SMS and WhatsApp" : "WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
+  { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "Attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
   { key: "parent-link", label: "Parent Link", module: "communication", href: "/communication/parent-link", sub: "Choose what parents see, then send each guardian their own link.", time: "5 minutes", button: "Set up" },
 ];
 
@@ -47,6 +52,8 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   const years = await currentYears(tx, ctx);
   const ids = years.map((y) => y.id);
   const year = years.length ? { name: [...new Set(years.map((y) => y.name))].join(", ") } : null;
+  // Parents of studying students only: a left student's parent needs no link, and the step counts the same parents twice over (code review 2026-11-15).
+  const currentParents = { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } } satisfies Prisma.GuardianWhereInput;
   const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses, holidays] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, address: true, logoUrl: true, logoFileId: true, board: true } }),
     ids.length ? tx.term.count({ where: { academicYearId: { in: ids }, archivedAt: null } }) : 0,
@@ -57,15 +64,28 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.staff.count({ where: { archivedAt: null, status: "ACTIVE" } }),
     tx.staff.findMany({ where: { archivedAt: null, status: "ACTIVE", userLoginId: { not: null } }, select: { userLoginId: true } }),
     tx.student.count({ where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }),
-    tx.guardian.count({ where: { archivedAt: null } }),
+    tx.guardian.count({ where: currentParents }),
     tx.paymentGatewayAccount.count({ where: { archivedAt: null, isActive: true } }),
-    tx.messagingChannel.findMany({ where: { channel: { in: ["sms", "whatsapp"] }, isOn: true }, select: { channel: true } }),
-    tx.parentLink.count({ where: { status: "ACTIVE" } }),
+    channelSetups(tx, ctx),
+    tx.parentLink.findMany({ where: { status: "ACTIVE", lastSentAt: { not: null } }, select: { guardianId: true }, distinct: ["guardianId"] }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
     ids.length ? tx.feeStructure.findMany({ where: { academicYearId: { in: ids }, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
     // Holidays and vacations typed in Events & Calendar (Calendar Entry) for this year.
     ids.length ? tx.calendarEntry.count({ where: { academicYearId: { in: ids }, type: { in: ["holiday", "vacation"] }, archivedAt: null } }) : 0,
   ]);
+  // Parents (not archived) whose link was sent.
+  // campus: the setup checklist is for the whole school (School Admin and Principal), like the counts above.
+  const linked = links.length ? await tx.guardian.count({ where: { ...currentParents, id: { in: links.map((l) => l.guardianId) } } }) : 0;
+  // Fees count against the classes that have students this year (or, before any student, every class with a section).
+  // campus: the whole school's setup, every campus's current year.
+  const studying = ids.length ? await tx.enrolment.findMany({ where: { academicYearId: { in: ids }, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { classId: true }, distinct: ["classId"] }) : [];
+  const feeNeeded = studying.length ? studying.length : classes;
+  const feeSet = new Set(feeClasses.map((f) => f.classId));
+  const feeDone = studying.length ? studying.filter((e) => feeSet.has(e.classId)).length : feeSet.size;
+  // A channel switched on in test mode sends nothing, so the step is not done until it sends for real (layman loop 3).
+  const on = offeredChannels(["sms", "whatsapp"] as const).filter((c) => channels[c].isOn);
+  const live = on.filter((c) => !inTestMode(channels[c]));
+  const label = (c: string) => (c === "sms" ? "SMS" : "WhatsApp");
   const signedIn = staffWithLogin.length
     ? await tx.userLogin.count({ where: { id: { in: staffWithLogin.map((s) => s.userLoginId!) }, lastSignInAt: { not: null } } })
     : 0;
@@ -77,17 +97,23 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     subjects: subjects > 0 ? plural(subjects, "subject") : null,
     staff: staffWithLogin.length > 0 ? `${plural(staff, "staff member")}, ${n(signedIn)} ${signedIn === 1 ? "has" : "have"} signed in` : null,
     students: students > 0 ? `${plural(students, "student")}, ${plural(guardians, "parent")}` : null,
-    fees: feeClasses.length ? `${plural(feeClasses.length, "class", "classes")} with a published fee structure` : null,
+    fees: feeNeeded > 0 && feeDone >= feeNeeded ? `${plural(feeDone, "class", "classes")} with published fees` : null,
     gateway: gateways > 0 ? plural(gateways, "gateway") + " connected" : null,
-    messaging: channels.length ? channels.map((c) => (c.channel === "sms" ? "SMS" : "WhatsApp")).join(" and ") + " connected" : null,
+    messaging: live.length ? live.map(label).join(" and ") + " sending for real" : null,
     holidays: holidays > 0 ? `${plural(holidays, "holiday or vacation", "holidays and vacations")} in ${year!.name}` : null,
-    "parent-link": links > 0 ? `${plural(links, "parent")} have their link` : null,
+    "parent-link": guardians > 0 && linked >= guardians ? `${plural(linked, "parent")} ${linked === 1 ? "has" : "have"} a link` : null,
+  };
+  // How far a step is while it is not done: real counts, never "done" on the first record.
+  const progress: Record<string, string | null> = {
+    fees: feeDone > 0 && feeNeeded > 0 ? `${n(feeDone)} of ${plural(feeNeeded, "class", "classes")} have published fees.` : null,
+    messaging: on.length && !live.length ? "Test mode: nothing is sent yet. Ask DREAM TEAM to go live." : null,
+    "parent-link": linked > 0 && guardians > 0 ? `${n(linked)} of ${plural(guardians, "parent")} have a link.` : null,
   };
   return shown.map((s) => {
     const mark = marks.find((m) => m.stepKey === s.key);
     const note = auto[s.key];
     const doneByHand = mark?.status === "DONE";
-    return { ...s, done: Boolean(note) || doneByHand, doneNote: note ?? (doneByHand ? "Marked done" : null), skipped: !note && mark?.status === "SKIPPED" && Boolean(s.optional), marked: Boolean(mark) };
+    return { ...s, sub: progress[s.key] ?? s.sub, done: Boolean(note) || doneByHand, doneNote: note ?? (doneByHand ? "Marked done" : null), skipped: !note && mark?.status === "SKIPPED" && Boolean(s.optional), marked: Boolean(mark) };
   });
 }
 

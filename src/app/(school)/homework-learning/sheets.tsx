@@ -1,19 +1,20 @@
 "use client";
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState, useTransition } from "react";
 import { Archive, ChevronDown, Copy, Eye, Pencil, Send, Sparkles, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
-import { SheetForm, useTyped } from "@/components/ui/url-sheet";
+import { SheetForm, useSheetResult, useTyped } from "@/components/ui/url-sheet";
 import { MoreMenu } from "@/components/money/more-menu";
 import { cx } from "@/components/ui/cx";
 import { AttachPicker, HandInPicker } from "./_components/attach";
 import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
 
 export type DueChoice = { date: string; words: string };
@@ -31,9 +32,10 @@ export function Text({ name, label, start, required, placeholder, help, value, o
   maxLength?: number;
 }) {
   const t = useTyped(name, start);
+  const tr = useT();
   const id = `f-${name}`;
   const common = {
-    id, name, placeholder, maxLength, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
+    id, name, placeholder: placeholder ? tr.any(placeholder) : undefined, maxLength, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
     ...(onValue ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onValue(e.target.value) } : { defaultValue: t.value }),
   };
   return (
@@ -47,6 +49,7 @@ export function Text({ name, label, start, required, placeholder, help, value, o
 export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineOn, ai, startSection }: {
   closeHref: string; sections: GiveSection[]; own: boolean; today: string; defaultMax: number; onlineOn: boolean; ai: boolean; startSection?: string;
 }) {
+  const tr = useT();
   const typedSection = useTyped("sectionId", startSection ?? sections[0]?.id).value;
   const [sectionId, setSectionId] = useState(sections.some((s) => s.id === typedSection) ? typedSection : sections[0]?.id ?? "");
   const section = sections.find((s) => s.id === sectionId) ?? sections[0];
@@ -74,6 +77,9 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   const sectionErr = useTyped("sectionId").error;
   const subjectErr = useTyped("subjectId").error;
   const classError = sectionErr ?? subjectErr;
+  // "Already given": the same title, class, subject and due date (layman loop 4: two cards, two messages to parents).
+  const again = useTyped("sendAgain").error;
+  const firstOne = (useSheetResult()?.data as { link?: { href: string } } | undefined)?.link?.href;
   if (!section || !subject) return null;
 
   const pick = (id: string) => {
@@ -92,8 +98,8 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   });
 
   return (
-    <SheetForm title="Give homework" sub="Three steps: class, what to do, send. Due date is filled for you." closeHref={closeHref} action={giveHomeworkAction}
-      submitLabel={<><Send size={16} aria-hidden="true" />{`Send to ${to === "CLASS" && sameClass.length > 1 ? `all of ${section.className}` : section.label}`}</>} pendingText="Sending…"
+    <SheetForm title="Give homework" closeHref={closeHref} action={giveHomeworkAction}
+      submitLabel={<><Send size={16} aria-hidden="true" />{to === "CLASS" && sameClass.length > 1 ? <Words k="Send to all of {class}" vars={{ class: section.className }} /> : <Words k="Send to {class}" vars={{ class: section.label }} />}</>} pendingText="Sending…"
       hidden={{ sectionId: section.id, subjectId: subject.id, dueDate, due, givenTo: to, fromSuggestion: fromSuggestion ? "1" : "" }}>
       <FieldShell label="1 · Class" id="gh-class" required help="Only your classes that have students are shown" error={classError}>
         {own ? (
@@ -143,7 +149,17 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             </div>
           </div>
         )}
-        <Text name="title" label="Title" required maxLength={200} placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} />
+        {/* The box stops at 200: the count shows near the end, so a long pasted title is not cut without notice. */}
+        <Text name="title" label="Title" required maxLength={200} placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} help={title.length >= 160 ? `${title.length} / 200` : undefined} />
+        {again && (
+          <div role="alert" data-problem-for="sendAgain" data-problem-slot="sendAgain" className="rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-3 text-[13.5px]">
+            <p className="font-semibold"><Words k="This homework was already given. Send it again?" /></p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {firstOne && <ButtonLink href={firstOne} size="sm" variant="secondary"><Words k="Open the first one" /></ButtonLink>}
+              <Button type="submit" name="sendAgain" value="1" size="sm" variant="secondary"><Words k="Send again" /></Button>
+            </div>
+          </div>
+        )}
         <Text name="instructions" label="Instructions" area maxLength={4000} placeholder="What should students do?" help="Or just attach a photo of the board" value={instr} onValue={setInstr} />
         <AttachPicker />
       </div>
@@ -153,7 +169,10 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
           options={[{ value: "next", label: "Next class" }, { value: "tomorrow", label: "Tomorrow" }, { value: "pick", label: "Pick a date" }]} />
         {due === "pick"
           ? <DateInput id="gh-due" value={picked} min={today} onChange={(e) => setPicked(e.target.value)} aria-invalid={typedPick.error ? true : undefined} className={cx(inputCls(typedPick.error), "h-11 tnum mt-1")} />
-          : <p className="text-[12.5px] text-ink3">{due === "next" ? `Next ${subject.name} class: ${subject.next.words}` : `${section.tomorrow.words}, 11:59 PM`}</p>}
+          : <p className="text-[12.5px] text-ink3">{/* "Next Mathematics class: Mon 16 Nov, period 6" said whole in the screen's language (layman loop 5). */}
+            {due === "next" ? tr("Next {subject} class: {when}", { subject: tr.any(subject.name), when: /, period \d+$/.test(subject.next.words)
+              ? tr("{day}, period {n}", { day: subject.next.words.replace(/, period \d+$/, ""), n: subject.next.words.replace(/^.*, period /, "") }) : subject.next.words })
+              : tr("{day}, {time}", { day: section.tomorrow.words, time: "11:59 PM" })}</p>}
       </FieldShell>
 
       <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="self-start inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brand h-8 px-1 rounded-lg">
@@ -162,7 +181,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
       <div className={cx("flex flex-col gap-3", !more && "hidden")}>
         <FieldShell label="Given to" id="gh-to" required error={studentsT.error}>
           <Segmented value={to} onChange={setTo} className="w-full" label="Given to"
-            options={[{ value: "SECTION", label: `Whole ${section.label}` }, ...(sameClass.length > 1 ? [{ value: "CLASS", label: `All of ${section.className}` }] : []), { value: "STUDENTS", label: "Chosen students" }]} />
+            options={[{ value: "SECTION", label: tr("Whole {name}", { name: section.label }) }, ...(sameClass.length > 1 ? [{ value: "CLASS", label: tr("All of {name}", { name: section.className }) }] : []), { value: "STUDENTS", label: "Chosen students" }]} />
         </FieldShell>
         {to === "CLASS" && <p className="text-[12.5px] text-ink3 -mt-1"><Words k="Goes to" /> {sameClass.map((s) => s.label).join(", ")}: {sameClass.reduce((a, s) => a + s.students, 0)} <Words k="students." /></p>}
         {to === "STUDENTS" && (
@@ -248,7 +267,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
 export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveHomeworkAction} submitLabel="Archive homework" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2"><Words k="It leaves the lists for students, parents and teachers. Hand-ins and marks are kept, and you can undo it from the message that follows, or find it in History with Archived." /></p>
+      <p className="text-[14px] text-ink2"><Words k="It leaves the lists. Hand-ins and marks are kept. You can undo it from the message that follows." /></p>
     </SheetForm>
   );
 }
@@ -256,7 +275,7 @@ export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: 
 export function ResendSheet({ closeHref, id, title, parents, credits, channel, problem }: { closeHref: string; id: string; title: string; parents: number; credits: number; channel: string; problem: string | null }) {
   return (
     <SheetForm title={`Resend to ${parents} parents?`} closeHref={closeHref} action={resendHomeworkAction} submitLabel={`Send to ${parents} parents`} pendingText="Sending…" hidden={{ id }} submitDisabled={!!problem || parents === 0}>
-      <p className="text-[14px] text-ink2"><Words k="Only the parents who have not seen “" />{title}<Words k="”. By" /> {channel}<Words k=", with SMS backup. Cost:" /> {credits} <Words k="credits. A message cannot be unsent." /></p>
+      <p className="text-[14px] text-ink2"><Words k="Only the parents who have not seen “" />{title}<Words k="”. By" /> {channel}{SMS_OFFERED ? <Words k=", with SMS backup. Cost:" /> : <Words k=". Cost:" />} {credits} <Words k="credits. A message cannot be unsent." /></p>
       {problem && <p className="text-[13.5px] text-bad" role="alert">{problem}</p>}
     </SheetForm>
   );

@@ -124,7 +124,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
             <Txt name="assetTagPrefix" label="Asset tag prefix" start={start.assetTagPrefix} mono placeholder="AT-" />
             <Num name="assetTagWidth" label="Digits in asset tags" start={start.assetTagWidth} min={3} max={8} suffix="digits" width="w-20" />
           </Row>
-          <Row title="Purchase order numbers" sub="Followed by the financial year and a number, for example PO/2026-27/0001.">
+          <Row title="Purchase order numbers" sub="For example PO/2026-27/0001.">
             <Txt name="poPrefix" label="Purchase order prefix" start={start.poPrefix} mono placeholder="PO/" />
           </Row>
         </div>

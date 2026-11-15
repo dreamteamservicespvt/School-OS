@@ -25,6 +25,7 @@ import { firstInOrder, problemMessage, shownProblem } from "@/lib/form-problems"
 import { tx } from "@/lib/i18n/tx";
 import { useT } from "@/lib/i18n/client";
 import { screenMessage } from "@/lib/i18n/messages";
+import { calmScroll } from "./motion";
 
 type Box = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 type Ctx = { shown: (name: string, given?: string) => string | undefined };
@@ -97,9 +98,8 @@ export function bringToBox(el: HTMLElement) {
   for (let h = el.closest("[hidden]"); h; h = h.parentElement?.closest("[hidden]") ?? null) openerOf(h)?.click();
   // Two frames: a section opened by its button is drawn by React first.
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const target = el.closest<HTMLElement>("[data-field]") ?? el;
-    target.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    target.scrollIntoView({ block: "center", behavior: calmScroll() });
     el.focus({ preventScroll: true });
   }));
 }

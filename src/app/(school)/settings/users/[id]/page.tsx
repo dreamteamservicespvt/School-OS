@@ -18,6 +18,7 @@ import { Alert } from "@/components/ui/alert";
 import { AccessForm, DetailsForm, DisableButton, EnableButton, ExceptionsForm, LinkForm, ResendInvite, TwoStepReset } from "./person-forms";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { GROUP_LOGIN_RESET_WORDS } from "@/lib/auth/group-login";
 import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -127,7 +128,11 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           {mayEdit && !isSelf && (state === "DISABLED"
             ? <EnableButton userId={id} name={login.displayName} />
             : <DisableButton userId={id} name={login.displayName} devices={sessions.length} />)}
-          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && <TwoStepReset userId={id} name={login.displayName} />}
+          {/* A login used in more than one school: only School OS support resets it (owner decision 4, 15 Nov 2026). */}
+          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length === 0 && <TwoStepReset userId={id} name={login.displayName} />}
+          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length > 0 && (
+            <p className="max-w-xs text-[13px] text-ink-3"><Words k={GROUP_LOGIN_RESET_WORDS} /></p>
+          )}
         </div>
       </PageHeader>
 
@@ -183,7 +188,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
 
         {live && (
           <Card>
-            <CardHeader title="Exceptions" description="A setting here replaces what the roles give for one module, wider or narrower, for this person only." />
+            <CardHeader title="Exceptions" description="Wider or narrower than their roles, for one module." />
             <CardBody>
               {mayEdit
                 ? <ExceptionsForm userId={id} rows={MODULES.map((m) => ({ key: m.key, name: m.name, fromRoles: LEVEL_LABEL[levelOf(scoped[m.key])], exception: exceptions[m.key] ?? "" }))} />
@@ -193,7 +198,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         )}
 
         <Card>
-          <CardHeader title="What they can do" description="Their roles, scope and exceptions together. This is what School OS checks every time." />
+          <CardHeader title="What they can do" description="Roles, scope and exceptions together." />
           <CardBody>
             <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
               {MODULES.map((m) => {
@@ -235,7 +240,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         </Card>
 
         <Card>
-          <CardHeader title="Login history" description="Sign-ins and every change to this login, newest first." />
+          <CardHeader title="Login history" description="Sign-ins and changes, newest first." />
           <CardBody>
             {history.length === 0 ? <p className="text-sm text-ink-2"><Words k="Nothing yet." /></p> : (
               <ol className="divide-y divide-line">

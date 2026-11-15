@@ -23,7 +23,7 @@ export function CallNoteForm({ studentId, promise }: { studentId: string; promis
       <div className="flex flex-wrap gap-2">
         <TextField type="date" name="promisedOn" label="Promised to pay by" help={promise ? "Within 60 days. Reminders pause until then." : "Leave empty if no date was given"} error={failed?.errors?.promisedOn}
           min={promise?.min} max={promise?.max} defaultValue={failed?.values?.promisedOn} className="max-w-[220px]" />
-        {promise && <TextField name="amount" label="Amount promised (₹)" inputMode="decimal" placeholder="All overdue" help="Leave empty for everything overdue" error={failed?.errors?.amount}
+        {promise && <TextField name="amount" label="Amount promised (₹)" inputMode="decimal" placeholder="All overdue" error={failed?.errors?.amount}
           defaultValue={failed?.values?.amount} className="max-w-[200px] tnum" />}
       </div>
       {failed?.message && !failed.errors?.note && !failed.errors?.promisedOn && !failed.errors?.amount && <p className="text-[12.5px] text-bad" role="alert">{failed.message}</p>}

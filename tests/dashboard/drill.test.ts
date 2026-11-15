@@ -161,7 +161,7 @@ describe("money tiles open lists with the same numbers", () => {
     for (const key of ["principal", "accountant", "northAccountant"] as const) {
       const tile = band(await home(key), "fees.collected-today")!;
       const list = await feeList(f.who[key], tile.href!);
-      expect(tile.big, key).toBe(formatRupeesShort(list.sum));
+      expect(tile.big, key).toBe(formatRupees(list.sum));
       expect(tile.foot, key).toContain(`${list.total} payment`);
     }
     // Main and North: ₹6,000 + ₹2,000 (partial) + ₹5,000; North alone: ₹5,000.
@@ -335,7 +335,7 @@ describe("the Dashboard's filters reach every card and the lists they open", () 
     expect(present.big).toBe(band(await home("northAdmin"), "attendance.students-present")!.big);
     const fees = band(h, "fees.collected-today")!;
     expect(paramsOf(fees.href!).campus).toBe(f.north);
-    expect(fees.big).toBe(formatRupeesShort((await feeList(north, fees.href!)).sum));
+    expect(fees.big).toBe(formatRupees((await feeList(north, fees.href!)).sum));
     const applications = card(h, "admissions.pending-applications")!;
     expect(paramsOf(applications.href).campus).toBe(f.north);
     expect(num(applications.value)).toBe(await admissionList(north, applications.href));
@@ -357,7 +357,7 @@ describe("the Dashboard's filters reach every card and the lists they open", () 
     const fees = band(h, "fees.collected-today")!;
     expect(paramsOf(fees.href!)).toMatchObject({ period: "custom", from: "2026-10-10", to: "2026-10-10" });
     const list = await feeList(f.who.principal, fees.href!);
-    expect(fees.big).toBe(formatRupeesShort(list.sum));
+    expect(fees.big).toBe(formatRupees(list.sum));
     expect(list.total).toBe(1);
     const present = band(h, "attendance.students-present")!;
     expect(paramsOf(present.href!)).toMatchObject({ period: "custom", from: "2026-10-10" });
@@ -564,7 +564,7 @@ describe("a past year: the cards count that year, and the lists they open read ?
     });
     // ₹3,000 and ₹1,000 (partial) on 31 March; the ₹2,500 of 30 March is another day.
     expect(list.total).toBe(2);
-    expect(tile.big).toBe(formatRupeesShort(list.sum));
+    expect(tile.big).toBe(formatRupees(list.sum));
     expect(list.sum).toBe(BigInt(400000));
   });
 

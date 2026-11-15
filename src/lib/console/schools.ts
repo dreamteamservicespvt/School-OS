@@ -556,7 +556,7 @@ export async function disableAdmin(actor: ConsoleActor, schoolId: string, userLo
     }
     await writeAudit(tx, ctx, { action: "admin disabled by DREAM TEAM", recordType: "User Login", recordId: userLoginId, before: { status: a.status }, after: { status: "DISABLED", reason: reason.trim(), signedOutDevices: revoked }, actorNote: `DREAM TEAM: ${actor.name}` });
     const others = await tx.schoolAccess.findMany({ where: { schoolId, archivedAt: null, roles: { some: { role: { key: { in: [...ADMIN_ROLE_KEYS] } } } } }, select: { userLoginId: true } });
-    for (const o of others) await notify(tx, ctx, { to: o.userLoginId, type: "security", text: `DREAM TEAM disabled ${a.name}'s admin login at the school's request. Reason: ${reason.trim()}`, link: "/settings/users" });
+    for (const o of others) await notify(tx, ctx, { to: o.userLoginId, type: "security", key: "DREAM TEAM disabled {name}'s admin login at the school's request. Reason: {reason}", values: { name: a.name, reason: reason.trim() }, link: "/settings/users" });
     await logActivity(tx, actor, { type: "login", school: { id: schoolId, name: card.name }, text: `disabled ${a.name}’s admin login at ${card.name}. Reason: ${reason.trim()}`, from: a.status === "INVITED" ? "Invited" : "Active", to: "Disabled" });
   });
   const notice = await adminNotice(schoolId, card.name, `DREAM TEAM disabled ${a.name}'s admin login at the school's request. If this is wrong, call DREAM TEAM at once.`, userLoginId);

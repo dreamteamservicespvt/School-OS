@@ -27,7 +27,7 @@ export function OldDuesSheet({ studentId, closeHref, name, heads, start }: Commo
       closeHref={closeHref} action={addOldDuesAction} submitLabel="Add opening balance" pendingText="Adding…" hidden={{ studentId }}>
       <SMoney name="amount" label="Amount" required />
       <SSelect name="feeHeadId" label="Fee head" options={heads} start={heads[0]?.value} />
-      <SDate name="dueDate" label="Due date" start={start} help="When it was due. Old dues are usually due before this year starts." />
+      <SDate name="dueDate" label="Due date" start={start} help="Usually before this year starts." />
       <SArea name="note" label="Note" placeholder="Example: from the 2025–26 register, page 44" />
     </SheetForm>
   );
@@ -66,7 +66,7 @@ export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true,
 
 export function ChargeSheet({ studentId, closeHref, heads, start }: Common & { heads: Option[]; start: string }) {
   return (
-    <SheetForm title="Add a charge" sub="A one-off fee for this student only, like a fine, a lost library book or an extra activity."
+    <SheetForm title="Add a charge" sub="A one-off fee, like a fine or a lost book"
       closeHref={closeHref} action={addChargeAction} submitLabel="Add charge" pendingText="Adding…" hidden={{ studentId }}>
       <SSelect name="feeHeadId" label="Fee head" required options={heads} placeholder="Choose" />
       <SText name="label" label="Name on the receipt" placeholder="Example: Lost library book" maxLength={80} />
@@ -82,7 +82,7 @@ export function ChargeSheet({ studentId, closeHref, heads, start }: Common & { h
 export function AssignSheet({ studentId, closeHref, plans, own }: Common & { plans: Option[]; own: string | null }) {
   const [plan, setPlan] = useState(own ?? plans[0]?.value ?? "");
   return (
-    <SheetForm title="Assign a fee plan" sub="Pick the class plan. A plan of another class is an exception and needs a reason."
+    <SheetForm title="Assign a fee plan" sub="Pick the class plan. Another class’s plan needs a reason."
       closeHref={closeHref} action={assignPlanAction} submitLabel="Assign fee plan" pendingText="Assigning…" hidden={{ studentId }} submitDisabled={!plans.length}>
       {plans.length === 0 ? <Alert tone="info"><Words k="No fee structure is published for this year yet. Publish one in Fee Structure first." /></Alert> : (
         <>
@@ -96,7 +96,7 @@ export function AssignSheet({ studentId, closeHref, plans, own }: Common & { pla
 
 export function CertificateSheet({ studentId, closeHref, years, start }: Common & { years: Option[]; start: string }) {
   return (
-    <SheetForm title="Fee certificate" sub="For income tax: the fees paid in one financial year, with the tuition part shown on its own."
+    <SheetForm title="Fee certificate" sub="For income tax: fees paid in one financial year"
       closeHref={closeHref} action={certificateAction} submitLabel="Make certificate" pendingText="Making…" hidden={{ studentId }}>
       <SSelect name="financialYearId" label="Financial year" required options={years} start={start} />
     </SheetForm>
@@ -118,7 +118,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
     return next;
   });
   return (
-    <SheetForm title="Fee invoice" sub="What is due now is ticked. Tick more rows to ask for them early. The invoice gets its own number." closeHref={closeHref} action={invoiceAction}
+    <SheetForm title="Fee invoice" sub="What is due now is ticked. Tick more to ask early." closeHref={closeHref} action={invoiceAction}
       submitLabel={canLink && send && rows.length > 0 ? t("Make invoice and send to {name}", { name: father }) : t("Make invoice")} pendingText="Making…" hidden={{ studentId }} submitDisabled={ticked.size === 0}>
       {rows.length === 0 ? <Alert tone="info"><Words k="Nothing is left to pay, so there is nothing to invoice." /></Alert> : (
         <>
@@ -134,7 +134,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
             ))}
             <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span><Words k="Total on the invoice" /></span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
-          {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days. A sent message cannot be taken back." start onValue={setSend} />
+          {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a link to pay, valid 7 days. A sent message cannot be taken back." start onValue={setSend} />
             : <p className="text-[13px] text-ink3"><Words k="Online payment is not set up, so the invoice is made without a payment link. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." /></p>}
         </>
       )}

@@ -22,10 +22,10 @@ type Settings = { photoRequired: boolean; idProofRequired: boolean; pickupCodeCh
 
 export function SettingsSheet({ closeHref, s, features, dayEnd }: { closeHref: string; s: Settings; features: string[]; dayEnd: string }) {
   return (
-    <SheetForm title="Front Office settings" sub="The visitor policy, when passes expire, and the optional parts." closeHref={closeHref} action={settingsAction} submitLabel="Save settings" pendingText="Saving…" wide>
-      <SSwitch name="photoRequired" title="Visitor photo required" sub="A photo is taken before the pass is made" start={s.photoRequired} />
-      <SSwitch name="idProofRequired" title="Visitor ID proof required" sub="ID type and number before the pass is made. Only the last 4 are shown later." start={s.idProofRequired} />
-      <SSwitch name="pickupCodeCheck" title="Pickup code check" sub="A one-time code to the guardian’s registered mobile before a child is released" start={s.pickupCodeCheck} />
+    <SheetForm title="Front Office settings" closeHref={closeHref} action={settingsAction} submitLabel="Save settings" pendingText="Saving…" wide>
+      <SSwitch name="photoRequired" title="Visitor photo required" start={s.photoRequired} />
+      <SSwitch name="idProofRequired" title="Visitor ID proof required" sub="Only the last 4 digits show later." start={s.idProofRequired} />
+      <SSwitch name="pickupCodeCheck" title="Pickup code check" sub="A code to the guardian’s mobile before release" start={s.pickupCodeCheck} />
       <ExpiryFields passExpiry={s.passExpiry} dayEnd={dayEnd} />
       <SSelect name="slotMinutes" label="Appointment slots" start={String(s.slotMinutes)} options={[10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} minutes` }))} />
       <p className="eyebrow text-ink3 pt-1"><Words k="Optional parts" /></p>
@@ -56,7 +56,7 @@ const LIST_NAMES: [keyof Lists, string][] = [["visitorPurposes", "Visitor purpos
 
 export function ListsSheet({ closeHref, lists }: { closeHref: string; lists: Lists }) {
   return (
-    <UrlSheet title="Front Office lists" sub="Choices on the desk’s forms. Records that used a removed choice keep their words." closeHref={closeHref} wide>
+    <UrlSheet title="Front Office lists" sub="Choices on the desk’s forms" closeHref={closeHref} wide>
       <div className="flex flex-col gap-5 pb-2">
         {LIST_NAMES.map(([key, label]) => <ListEditor key={key} list={key} label={label} values={lists[key]} />)}
       </div>

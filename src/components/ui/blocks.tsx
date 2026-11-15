@@ -11,6 +11,7 @@ import { Card } from "./card";
 import { Pill } from "./badge";
 import { Avatar } from "./avatar";
 import { tx } from "@/lib/i18n/tx";
+import { Words } from "@/lib/i18n/client";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 export const TONE_TEXT: Record<string, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", info: "text-info", brand: "text-brand", neutral: "" };
@@ -35,7 +36,7 @@ export function Stats({ items, className, label = "Summary" }: { items: StatItem
           );
           const cls = cx("bg-surface text-left px-4 md:px-5 py-3.5 min-w-0 block", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href
-            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken/60 transition")}>{body}</Link>
+            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken/60 active:bg-sunken transition")}>{body}</Link>
             : <div key={m.label} className={cls}>{body}</div>;
         })}
       </div>
@@ -54,7 +55,7 @@ export function Chips({ value, options, className, label }: { value: string; opt
           return (
             <li key={o.value}>
               <Link href={o.href} scroll={false} aria-current={on ? "true" : undefined}
-                className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2",
+                className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition active:scale-[0.97] inline-flex items-center gap-2",
                   on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
                 {tx(o.label)}
                 {o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count.toLocaleString("en-IN")}</span>}
@@ -75,7 +76,7 @@ export function SegLinks({ value, options, size = "md", className, label }: { va
         const on = o.value === value;
         return (
           <Link key={o.value} href={o.href} scroll={false} aria-current={on ? "true" : undefined}
-            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1",
+            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] whitespace-nowrap flex-1",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
             {tx(o.label)}
@@ -105,7 +106,7 @@ export function Row({ avatar, avatarSrc, icon: Ic, iconTone = "neutral", title, 
       {right && <div className="shrink-0 text-right">{right}</div>}
     </>
   );
-  const cls = cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left", href && "hover:bg-sunken/70 transition", className);
+  const cls = cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left", href && "hover:bg-sunken/70 active:bg-sunken transition", className);
   return href ? <li><Link href={href} className={cls}>{body}</Link></li> : <li className={cls}>{body}</li>;
 }
 
@@ -159,7 +160,7 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
 /* ---------- Small charts ---------- */
 export function Progress({ value, tone = "brand", className }: { value: number; tone?: "brand" | "ok" | "warn" | "bad" | "info"; className?: string }) {
   const c = { brand: "bg-brand", ok: "bg-ok", warn: "bg-warn", bad: "bg-bad", info: "bg-info" }[tone];
-  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></span>;
+  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></span>;
 }
 /** Horizontal bars with labels. rows: [{ k, v, label? }] */
 export function HBars({ rows, max = 100, unit = "%", lowBelow, labelWidth = 64 }: { rows: { k: string; v: number; label?: string }[]; max?: number; unit?: string; lowBelow?: number; labelWidth?: number }) {
@@ -188,7 +189,7 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
           <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
-          <dd className="text-[14.5px] mt-0.5 break-words">{v ?? <span className="text-ink3">Not added</span>}</dd>
+          <dd className="text-[14.5px] mt-0.5 break-words">{v == null ? <span className="text-ink3">{tx("Not added")}</span> : tx(v)}</dd>
         </div>
       ))}
     </dl>
@@ -261,9 +262,9 @@ export const SubHead = ({ children }: { children: React.ReactNode }) => <p class
 export function ListFooter({ shown, total, moreHref, children }: { shown: number; total: number; moreHref?: string | null; children?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3">
-      <span className="tnum" aria-live="polite">Showing {shown.toLocaleString("en-IN")} of {total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite"><Words k="Showing {n} of {n2}" vars={{ n: shown.toLocaleString("en-IN"), n2: total.toLocaleString("en-IN") }} /></span>
       {children}
-      {moreHref && <Link href={moreHref} scroll={false} className="inline-flex items-center justify-center font-semibold whitespace-nowrap transition h-8 px-3 text-[13px] gap-1.5 rounded-lg bg-surface text-ink border border-line hover:bg-sunken">Show more</Link>}
+      {moreHref && <Link href={moreHref} scroll={false} className="inline-flex items-center justify-center font-semibold whitespace-nowrap transition h-8 px-3 text-[13px] gap-1.5 rounded-lg bg-surface text-ink border border-line hover:bg-sunken active:bg-line/60"><Words k="Show more" /></Link>}
     </div>
   );
 }

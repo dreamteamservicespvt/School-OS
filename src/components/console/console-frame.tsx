@@ -24,13 +24,13 @@ export function ConsoleFrame({ children, foot = "Every console action is written
           <p className="mt-4 text-[16px] opacity-80 leading-relaxed">Add a school, hand over its first login, and help when a school asks. Student, fee and staff details stay inside each school.</p>
         </div>
         <ul className="relative mt-10 flex flex-col gap-3 max-w-sm" aria-label="What the console does">
-          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.1s]">
+          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:30ms]">
             <School size={20} aria-hidden="true" /><span className="text-[14px]"><b>Every school</b> and its status at a glance</span>
           </li>
-          <li className="self-end rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.25s]">
+          <li className="self-end rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:60ms]">
             <Send size={20} aria-hidden="true" /><span className="text-[14px]">Invite sent to <b>the first School Admin</b></span>
           </li>
-          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.4s]">
+          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:90ms]">
             <LifeBuoy size={20} aria-hidden="true" /><span className="text-[14px]">Counts only: <b>never a student’s details</b></span>
           </li>
         </ul>

@@ -136,7 +136,7 @@ export async function archiveQuiz(tx: Tx, s: HomeworkScope, id: string) {
 async function tellOpen(tx: Tx, s: HomeworkScope, q: { id: string; sectionId: string; academicYearId: string; title: string; closesAt: Date | null }, subject: string, now: Date) {
   const students = await sectionStudents(tx, q.academicYearId, q.sectionId);
   for (const st of students) {
-    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "quiz-open", text: `New quiz in ${subject}: ${q.title}.`, link: "/homework-learning/quizzes", groupKey: "quiz-open", mergedText: (n) => `${n} new quizzes` }, now);
+    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "quiz-open", key: "New quiz in {subject}: {title}.", values: { subject, title: q.title }, link: "/homework-learning/quizzes", groupKey: "quiz-open", mergedKey: "{n} new quizzes" }, now);
   }
 }
 
@@ -283,7 +283,7 @@ export async function submitAttempt(tx: Tx, s: HomeworkScope, attemptId: string,
   await writeAudit(tx, s.ctx, { action: "submitted", recordType: "Quiz Attempt", recordId: a.id, after: { quiz: a.quiz.title, score: res.score, of: res.max, overTime } });
   if (res.waiting && a.quiz.teacherId) {
     const t = await tx.staff.findUnique({ where: { id: a.quiz.teacherId }, select: { userLoginId: true } });
-    if (t?.userLoginId) await notify(tx, s.ctx, { to: t.userLoginId, type: "quiz-to-mark", text: `${a.quiz.title}: short answers to mark.`, link: `/homework-learning/quizzes?open=${a.quiz.id}`, groupKey: `quiz-to-mark:${a.quiz.id}`, mergedText: (n) => `${a.quiz.title}: ${n} attempts with short answers to mark` });
+    if (t?.userLoginId) await notify(tx, s.ctx, { to: t.userLoginId, type: "quiz-to-mark", key: "{title}: short answers to mark.", values: { title: a.quiz.title }, link: `/homework-learning/quizzes?open=${a.quiz.id}`, groupKey: `quiz-to-mark:${a.quiz.id}`, mergedKey: "{title}: {n} attempts with short answers to mark" });
   }
   return { ...res, quiz: a.quiz, answers: clean };
 }

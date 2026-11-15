@@ -72,7 +72,7 @@ export default async function AdmissionSettingsPage() {
       <AdmissionHead href={`${BASE}/settings`} sub={`The rules for admissions at ${current.school.name}. Every change is logged.`} />
       <div className="flex flex-col gap-5 lg:gap-6 max-w-5xl">
         <Card>
-          <CardHeader title="Admission stages and approvals" description="In order. Each stage can be on or off and can need an approval." icon={Workflow} />
+          <CardHeader title="Admission stages and approvals" description="Each stage can be on or off and need an approval." icon={Workflow} />
           <StagesList canEdit={canEdit} stages={s.stageList.map((x) => ({
             key: x.key, label: x.label, on: x.on, needsApproval: Boolean(x.needsApproval), sub: x.key === "payment" && !s.applicationFeeOn ? "Turn on Application fee below first" : STAGE_SUB[x.key] ?? "",
             always: ["enquiry", "application", "decision", "admitted"].includes(x.key), approvable: x.key === "decision",
@@ -80,7 +80,7 @@ export default async function AdmissionSettingsPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Who gets new enquiries" description="The owner can still be changed by hand. The history keeps every change." icon={UserCheck} />
+          <CardHeader title="Who gets new enquiries" description="The owner can still be changed by hand." icon={UserCheck} />
           <div className="px-5 pb-5 flex flex-col gap-3">
             <OwnerRule canEdit={canEdit} rule={s.ownerRule} defaultOwner={s.defaultOwnerStaffId} turn={s.turnStaffIds} staff={staffOpts}
               rules={OWNER_RULES.map((r) => ({
@@ -101,13 +101,13 @@ export default async function AdmissionSettingsPage() {
         </Card>
 
         <Card className="overflow-hidden">
-          <CardHeader title="Papers needed per class" description="Tap a cell to switch Required, Optional or Not needed" icon={FolderOpen} />
+          <CardHeader title="Papers needed per class" description="Tap a cell to change it" icon={FolderOpen} />
           {cls.length ? <PapersTable canEdit={canEdit} classes={cls} docs={DOC_TYPES.map((d) => ({ value: d.key, label: d.label }))} cells={cells} />
             : <EmptyState bare Icon={FolderOpen} title="No classes yet"><Words k={"Add classes in Academic Management, Classes & Sections."} /></EmptyState>}
         </Card>
 
         <Card className="overflow-hidden">
-          <CardHeader title="Per class" description="Application fee, online form, age and owner for each class" icon={Users} />
+          <CardHeader title="Per class" icon={Users} />
           <ul className="border-t border-line/70 divide-y divide-line/70">
             {data.classes.map((c) => {
               const r = data.rules.get(c.id);
@@ -135,7 +135,7 @@ export default async function AdmissionSettingsPage() {
         </div>
 
         <Card className="overflow-hidden">
-          <CardHeader title="Seats, priority and quota" description="Seats per class come from Classes & Sections" icon={School} />
+          <CardHeader title="Seats, priority and quota" description="Seats come from Classes & Sections" icon={School} />
           <ul className="border-t border-line/70 divide-y divide-line/70">
             <Row title="Admit over capacity" sub={s.allowOverCapacity ? "On: a full class can still take admissions, with a warning" : "Off: a full class sends new admissions to the waiting list"}><RuleSwitch k="allowOverCapacity" on={s.allowOverCapacity} label="Admit over capacity" /></Row>
             <Row title="Waiting list" sub="Ranked by sibling, category, test score and date applied"><RuleSwitch k="waitingListOn" on={s.waitingListOn} label="Waiting list" /></Row>
@@ -151,15 +151,15 @@ export default async function AdmissionSettingsPage() {
           <ul className="border-t border-line/70 divide-y divide-line/70">
             <Row title="Online application" sub={s.onlineOn ? (onlineClasses.length ? `${onlineClasses.map((c) => c.name).join(", ")} take online applications` : "No class takes online applications yet. Open them in Per class.") : "Off: applications are made at the counter"}><RuleSwitch k="onlineOn" on={s.onlineOn} label="Online application" /></Row>
             <Row title="Application fee" sub={s.applicationFeeOn ? `${feeWords}. Paid online with Razorpay or at the counter.` : "Off"}><RuleSwitch k="applicationFeeOn" on={s.applicationFeeOn} label="Application fee" /></Row>
-            <Row title="Offer letters" sub="Made from the offer-letter design in Settings, Document Designs"><RuleSwitch k="offerLettersOn" on={s.offerLettersOn} label="Offer letters" /></Row>
-            <Row title="Campaigns" sub="Group enquiries by campaign for the source report"><RuleSwitch k="campaignsOn" on={s.campaignsOn} label="Campaigns" /></Row>
+            <Row title="Offer letters" sub="Design in Settings, Document Designs"><RuleSwitch k="offerLettersOn" on={s.offerLettersOn} label="Offer letters" /></Row>
+            <Row title="Campaigns" sub="Group enquiries by campaign"><RuleSwitch k="campaignsOn" on={s.campaignsOn} label="Campaigns" /></Row>
             <Row title="Admission year" sub={s.admissionYearId ? "Chosen by hand" : "Worked out: the upcoming year with sections, else this year"}><span className="text-[14px] font-semibold">{year?.name ?? "None open"}</span></Row>
             <Row title="Application number format" sub={`Next: ${nextNo}`}><span className="text-[13.5px] font-semibold font-mono">{s.applicationPrefix}0000</span></Row>
           </ul>
         </Card>
 
         <Card>
-          <CardHeader title="Approval limits" description="Shown here, stored in Settings, Forms & Approvals" icon={ShieldCheck}
+          <CardHeader title="Approval limits" icon={ShieldCheck}
             action={can(current.permissions, "settings", "edit") ? <ButtonLink size="sm" variant="ghost" iconRight={ChevronRight} href="/settings/forms-approvals"><Words k="Open" /></ButtonLink> : undefined} />
           <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
             <li className="flex items-center justify-between gap-3"><span className="text-ink2"><Words k="Admission decision" /></span>{decisionStage?.needsApproval ? <Pill tone="brand">{approver}</Pill> : <Pill tone="neutral"><Words k="No approval" /></Pill>}</li>

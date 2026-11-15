@@ -15,6 +15,7 @@ import { foFeaturesOn, frontOfficeSettings, passEndMinute } from "@/lib/front-of
 import { minuteNow, todayDate, todayIso } from "@/lib/front-office/time";
 import { BASE, clockOf, passLine, type ClosedDay, type FrontOfficeFeature } from "@/lib/front-office/words";
 import { isSchoolDay } from "@/lib/calendar/school-days";
+import { getT } from "@/lib/i18n/server";
 
 export { BASE };
 export const MODULE = "front-office" as const;
@@ -27,7 +28,7 @@ export const foPage = cache(async () => {
   const now = new Date();
   const todayStr = todayIso(tz, now);
   const today = todayDate(tz, now);
-  const [dates, data] = await Promise.all([
+  const [dates, data, t] = await Promise.all([
     periodSetup(current),
     withSchool(current.ctx, async (tx) => {
       const [settings, features, day] = await Promise.all([frontOfficeSettings(tx, current.ctx), foFeaturesOn(tx, current.ctx), isSchoolDay(tx, current.ctx, today, { campusId: null })]);
@@ -36,11 +37,12 @@ export const foPage = cache(async () => {
       const closedToday: ClosedDay | null = day.on ? null : { reason: day.reason, title: day.title };
       return { settings, features, passEnd, closedToday };
     }),
+    getT(),
   ]);
   const has = (f: FrontOfficeFeature) => data.features.has(f);
   const may = (page: FoPageKey) => foPageAllowed(v, page) && (page !== "postal" || has("front-office-postal"));
   const minute = minuteNow(tz, now);
-  return { current, v, can, tz, now, today, todayStr, minute, dates, ...data, passEndWords: clockOf(data.passEnd), passLine: passLine(data.passEnd, minute, data.closedToday), has, may };
+  return { current, v, can, tz, now, today, todayStr, minute, dates, ...data, passEndWords: clockOf(data.passEnd), passLine: passLine(data.passEnd, minute, data.closedToday, t), t, has, may };
 });
 
 export type FoPage = Awaited<ReturnType<typeof foPage>>;

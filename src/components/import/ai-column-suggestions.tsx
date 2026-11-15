@@ -61,7 +61,7 @@ export function AiColumnSuggestions({ ask, accept, baseHref }: {
     return (
       <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-[13.5px]">
         <Button variant="soft" size="sm" icon={Sparkles} loading={asking} loadingText="Asking…" onClick={askNow}>Suggest the columns left</Button>
-        <p className="mt-2 text-ink3">The AI assistant sees only each heading and what kind of values the column holds, never the values themselves.</p>
+        <p className="mt-2 text-ink3">The AI sees only the headings, never the values.</p>
         {(problem || (result && result.message)) && <p className="mt-1.5 text-ink2" role="status">{problem ?? result?.message}</p>}
       </div>
     );
@@ -91,7 +91,7 @@ export function AiColumnSuggestionCard({ suggestions, ticked, using = false, pro
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[12.5px] text-ink3">Tick each one you agree with. Nothing changes until you press “Use the ticked matches”, and you can still change any column.</p>
+      <p className="mt-2 text-[12.5px] text-ink3">Tick the ones you agree with. Nothing changes until you press “Use the ticked matches”.</p>
       {problem && <p className="mt-1.5 text-[13px] text-bad" role="alert">{problem}</p>}
     </Suggestion>
   );

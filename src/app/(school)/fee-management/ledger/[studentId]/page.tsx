@@ -130,6 +130,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const close = here();
   const first = card.name.split(" ")[0];
   const balance = L.balanceNow;
+  const notYet = L.comingUp.reduce((s, r) => s + r.amount, ZERO);
   const inRange = (d: Date) => !per.from || !per.to || (d >= per.from && d <= per.to);
   const entries = L.entries.filter((e) => inRange(e.date));
   const forward = per.from ? L.entries.filter((e) => e.date < per.from!).at(-1)?.balance ?? ZERO : null;
@@ -164,7 +165,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
   return (
     <div>
-      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
+      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Nothing here is ever deleted."
         actions={<>
           {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex"><Words k="Fee invoice" /></ButtonLink>}
           {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
@@ -201,9 +202,10 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               </div>
             ) : <div key={`x${i}`} className="bg-surface" />)}
             <div className="bg-surface px-4 md:px-5 py-3 min-w-0 col-span-3 lg:col-span-1">
-              <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · balance now" /></p>
+              <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · due now" /></p>
               <p className="text-[15px] font-semibold tnum mt-0.5">{formatRupees(L.yearTotal)} · <span className="text-ok">{formatRupees(L.paidTotal)}</span> · <span className={balance > ZERO ? "text-bad" : "text-ok"}>{formatRupees(balance)}</span></p>
-              <p className="text-[12px] text-ink3"><Words k="Balance includes late fees and dues raised so far" /></p>
+              {/* The gap between year total, paid and due now, spelled out (layman loop 2). */}
+              <p className="text-[12px] text-ink3 tnum">{notYet > ZERO ? <><Words k="Not due yet" /> {formatRupees(notYet)}</> : <Words k="Balance includes late fees and dues raised so far" />}</p>
             </div>
           </div>
         </Card>
@@ -222,9 +224,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         <div key={tab} className="animate-rise">
           {tab === "statement" && (
             <Card className="overflow-hidden">
-              <CardHeader title={`Statement${yearName ? `, ${yearName}` : ""}`} description="Every fee, payment, cancelled receipt, concession and late fee, with the running balance"
+              <CardHeader title={`Statement${yearName ? `, ${yearName}` : ""}`} description="With the running balance"
                 action={<ExportButton size="sm" href={qs(`${BASE}/ledger/${studentId}/export`, per.keep)} />} />
-              {entries.length === 0 && forward === null ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body={`No fees are raised for ${first} yet. Assign the class fee plan in the Fees view, or add old dues.`} /> : (
+              {entries.length === 0 && forward === null ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body="Assign a fee plan, or add old dues." /> : (
                 <>
                   <div className="hidden lg:block overflow-x-auto scroll-thin">
                     <table className="w-full text-[14px] min-w-[760px]">
@@ -262,7 +264,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "fees" && (
             <Card className="overflow-hidden">
-              <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Each fee head with its installments, oldest first"
+              <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Oldest first"
                 action={(hasPlan ? canEditFees : canAssignFees) ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: hasPlan ? "charge" : "assign" })}>{hasPlan ? "Add a charge" : "Assign fee"}</ButtonLink> : null} />
               <DataList rows={installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
                 rowClass={(r) => r.status === "Removed" && "opacity-60"}
@@ -288,7 +290,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "payments" && (
             <Card className="overflow-hidden">
-              <CardHeader title="Payments" description="Cancelled payments stay here, struck through, with the reason" />
+              <CardHeader title="Payments" description="Cancelled ones stay, struck through" />
               <DataList rows={receipts} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={640} caption="Payments"
                 footer={`${receipts.length} ${receipts.length === 1 ? "payment" : "payments"} · ${formatRupees(receipts.filter((r) => r.status === "POSTED").reduce((a, r) => a + r.amount, ZERO))} posted`}
                 empty={<Empty icon={Wallet} title="No payments yet" body={`Nothing has been paid for ${first} yet.`} />}
@@ -309,7 +311,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "partial" && (
             <Card className="overflow-hidden">
-              <CardHeader title="Partial payments" description="Payments that did not clear their row fully" />
+              <CardHeader title="Partial payments" />
               <DataList rows={partial} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={640} caption="Partial payments"
                 empty={<Empty icon={CircleCheck} title="No partial payments" body={`Every payment by ${first} cleared its row.`} />}
                 columns={[
@@ -329,10 +331,10 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "invoices" && (
             <Card>
-              <CardHeader title="Fee invoices" description="Made for what is due, each with its own number. Sent with a Razorpay link."
+              <CardHeader title="Fee invoices" description="Each sent with a link to pay"
                 action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: "invoice" })}><Words k="New invoice" /></ButtonLink> : null} />
               {invoices.length === 0 && certificates.length === 0 ? (
-                <Empty icon={FileText} title="No invoices yet" body={`Make a fee invoice for what ${first} owes now. It goes to the parent with a link to pay.`} />
+                <Empty icon={FileText} title="No invoices yet" body="Make one for what is due now." />
               ) : (
                 <ul className="px-2 pb-2">
                   {invoices.map((inv) => (
@@ -363,7 +365,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "adjust" && (
             <Card>
-              <CardHeader title="Adjustments" description="Concessions, late fees, reversals and old dues, each with its reason and who approved it"
+              <CardHeader title="Adjustments" description="Each with its reason and who approved it"
                 action={canAdjust ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}><Words k="Adjust an amount" /></ButtonLink> : null} />
               {adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
                 <ul className="px-5 pb-3">
@@ -388,7 +390,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
         {L.comingUp.length > 0 && (
           <Card>
-            <CardHeader title="Coming up" description="Not in the balance yet. Each one counts from the day it falls due." icon={CalendarDays} />
+            <CardHeader title="Coming up" description="Not in the balance yet" icon={CalendarDays} />
             <ul className="px-5 pb-4 flex flex-col">
               {L.comingUp.slice(0, 12).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2 border-t border-line/70 first:border-0 text-[14px]">
@@ -449,7 +451,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           }))} />
       )}
 
-      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} />}
+      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} stillDue={formatRupees(balance)} />}
       {data.cancel && data.cancel.status === "POSTED" && canEdit && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={here({ pay: data.cancel.id })} doneHref={close}
           needsOk={p.settings.cancelPastApproval && data.cancel.date < today} approver="the principal" />
@@ -478,7 +480,8 @@ function StatementRow({ e, href, tz }: { e: LedgerEntry; href: string | null; tz
         </p>
         <p className="text-[12.5px] text-ink3">{isCx ? `${e.cancelled!.reason} · cancelled ${formatDate(e.cancelled!.when, tz)} · stays on record` : e.sub}</p>
       </td>
-      <td className="px-3 py-2.5 font-mono text-[12px] text-ink2 whitespace-nowrap">{e.ref || "—"}</td>
+      {/* The receipt number opens the receipt (layman loop 2: it looked like plain text). */}
+      <td className="px-3 py-2.5 font-mono text-[12px] text-ink2 whitespace-nowrap">{href && e.ref ? <Link href={href} scroll={false} className="relative z-10 text-brand underline-offset-2 hover:underline">{e.ref}</Link> : e.ref || "—"}</td>
       <td className="px-3 py-2.5 text-right tnum">{e.debit > ZERO ? formatRupees(e.debit) : ""}</td>
       <td className={cx("px-3 py-2.5 text-right tnum", e.credit > ZERO && "text-ok", off && "line-through !text-ink3")}>{e.credit > ZERO ? formatRupees(e.credit) : ""}</td>
       <td className="pl-3 pr-5 py-2.5 text-right tnum font-semibold">{formatRupees(e.balance)}</td>

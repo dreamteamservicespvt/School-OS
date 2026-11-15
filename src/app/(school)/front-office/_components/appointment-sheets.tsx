@@ -4,7 +4,8 @@
 // be picked; taken times show crossed out and say why. The server checks
 // again under a lock before saving, so two desks cannot book the same time.
 
-import { useEffect, useState, useTransition } from "react";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { UserCheck } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SSwitch, SText } from "@/components/ui/sheet-fields";
@@ -15,9 +16,11 @@ import { clockOf, mobileDigits } from "@/lib/front-office/words";
 import { bookAction, lookupPhone, slotsFor } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
+import { useT, Words } from "@/lib/i18n/client";
 
-export type Slots = { leave: string | null; free: number[]; taken: { start: number; label: string; kind: string }[] } | null;
+type Slot = { start: number; label: string; kind: string };
+export type Slots = { leave: string | null; free: number[]; taken: Slot[] } | null;
 type Opt = { value: string; label: string };
 
 export function BookSheet({ closeHref, staff, days, start, slots: first, reschedule }: {
@@ -39,6 +42,8 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
   const [clash, setClash] = useState<string | null>(null);
   const [loading, load] = useTransition();
   const [known, setKnown] = useState<string | null>(null);
+  const asked = useRef("");
+  const t = useT();
   const [key, setKey] = useState(`${start.staffId}|${start.day}|${start.length}`);
 
   const want = `${staffId}|${day}|${length}`;
@@ -54,13 +59,13 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
     return () => { live = false; };
   }, [want, key, staffId, day, length, reschedule?.id]);
 
-  const who = staff.find((s) => s.value === staffId)?.label.split(" · ")[0] ?? "This person";
+  const who = staff.find((s) => s.value === staffId)?.label.split(" · ")[0] ?? t("This person");
   const chosenOk = at != null && Boolean(slots?.free.includes(at));
   const atError = typedAt.error;
 
   return (
-    <SheetForm wide title={reschedule ? `Reschedule ${reschedule.name}` : "Book appointment"} sub="Only free times can be picked. If someone else books the same time first, you will be asked to pick another." closeHref={closeHref}
-      action={bookAction} submitLabel={reschedule ? "Reschedule" : "Book"} pendingText={reschedule ? "Moving…" : "Booking…"}
+    <SheetForm wide title={reschedule ? t("Reschedule {name}", { name: reschedule.name }) : "Book appointment"} sub="Only free times can be picked." closeHref={closeHref}
+      action={bookAction} submitLabel={reschedule ? "Reschedule" : "Book appointment"} pendingText={reschedule ? "Moving…" : "Booking…"}
       hidden={{ startMin: chosenOk ? String(at) : "", lengthMin: String(length), ...(reschedule ? { rescheduleId: reschedule.id } : {}) }}>
       <div className="grid sm:grid-cols-2 gap-3">
         <FieldShell label="With" id="bk-who" required error={typedStaff.error}>
@@ -78,30 +83,32 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
         <div id="bk-time" className="flex flex-wrap gap-1.5 min-h-9" aria-busy={loading || undefined}>
           {loading ? <span className="text-[13px] text-ink3 inline-flex items-center gap-2"><Spinner size={16} /><Words k="Checking free times…" /></span>
             : !slots ? <p className="text-[13.5px] text-bad"><Words k="This day could not be loaded. Pick another day or person." /></p>
-              : slots.leave ? <p className="text-[13.5px] text-bad">{who} <Words k="is not available on this day (" />{slots.leave.toLowerCase()}<Words k="). Pick another day or person." /></p>
-                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} <Words k="has no free" /> {length}<Words k="-minute slot on this day. Pick another day, a shorter meeting or another person." /></p>
+              : slots.leave ? <p className="text-[13.5px] text-bad">{t("{name} is not available on this day ({why}). Pick another day or person.", { name: who, why: t.any(slots.leave).toLowerCase() })}</p>
+                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{t("{name} has no free {n}-minute slot on this day. Pick another day or person.", { name: who, n: length })}</p>
                   : <>
-                    {slots.free.map((m) => (
-                      <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}
-                        className={cx("h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border transition", at === m ? "bg-brand text-brandink border-brand" : "border-line text-ink2 hover:border-brand hover:text-brand")}>{clockOf(m)}</button>
-                    ))}
-                    {slots.taken.slice(0, 8).map((x) => (
-                      <button type="button" key={`${x.start}${x.label}`} title={x.label} onClick={() => { setAt(null); setClash(`${who} already has ${x.kind === "teach" ? "a class" : "a meeting"} at ${clockOf(x.start)}. Pick another slot.`); }}
-                        className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> <Words k="taken" /></span></button>
-                    ))}
+                    {/* Free and taken times in time order, so a taken time sits in its place (layman loop 2). */}
+                    {[...slots.free.map((m) => ({ start: m, taken: null as Slot | null })), ...slots.taken.filter((x) => !slots.free.includes(x.start)).map((x) => ({ start: x.start, taken: x as Slot | null }))]
+                      .sort((p, q) => p.start - q.start)
+                      .map(({ start: m, taken: x }) => (x ? (
+                        <button type="button" key={`t${x.start}${x.label}`} title={x.label} onClick={() => { setAt(null); setClash(x.kind === "teach" ? t("{name} already has a class at {time}. Pick another slot.", { name: who, time: clockOf(x.start) }) : t("{name} already has a meeting at {time}. Pick another slot.", { name: who, time: clockOf(x.start) })); }}
+                          className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> <Words k="taken" /></span></button>
+                      ) : (
+                        <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}
+                          className={cx("h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border transition", at === m ? "bg-brand text-brandink border-brand" : "border-line text-ink2 hover:border-brand hover:text-brand")}>{clockOf(m)}</button>
+                      )))}
                   </>}
         </div>
       </FieldShell>
       <SegField name="lengthPick" label="Length" required start={String(start.length)} onChange={(v) => { setLength(Number(v)); setAt(null); }}
-        options={[{ value: "15", label: "15 min" }, { value: "30", label: "30 min" }, { value: "45", label: "45 min" }]} />
+        options={[15, 30, 45].map((n) => ({ value: String(n), label: t("{n} min", { n }) }))} />
       <div className="grid sm:grid-cols-2 gap-3">
         <PhoneBox id="bk-phone" name="visitorPhone" label="Visitor phone" required start={reschedule?.phone}
-          onPhone={async (v) => { const d = mobileDigits(v); if (!d) { setKnown(null); return; } const k = await lookupPhone(d); setKnown(k ? `${k.name} · ${k.who}` : null); }} />
+          onPhone={async (v) => { const d = mobileDigits(v); if (d.length !== 10) { asked.current = ""; setKnown(null); return; } if (d === asked.current) return; asked.current = d; const k = await lookupPhone(d); setKnown(k ? `${k.name} · ${k.who}` : null); }} />
         <SText name="visitorName" label="Visitor name" required maxLength={120} start={reschedule?.name} autoComplete="off" />
       </div>
-      {known && <p className="text-[13px] text-ok -mt-2 flex items-center gap-1.5"><UserCheck size={15} aria-hidden="true" />{known}</p>}
+      {known && <p className="text-[13px] text-ok -mt-2 flex items-center gap-1.5"><UserCheck size={15} aria-hidden="true" />{screenLine(t, known)}</p>}
       <SText name="purpose" label="Purpose" required maxLength={200} start={reschedule?.purpose} placeholder="For example: TC for transfer to Bengaluru" />
-      <SSwitch name="confirm" title="Send confirmation to the visitor" sub="WhatsApp, with SMS backup" start />
+      <SSwitch name="confirm" title="Send confirmation to the visitor" sub={SMS_OFFERED ? "WhatsApp, with SMS backup" : "By WhatsApp"} start />
     </SheetForm>
   );
 }

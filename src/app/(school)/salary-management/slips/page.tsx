@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, Calculator, Download, Eye, Hourglass, Info, Printer, ReceiptText, SearchX, Send, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { channelSetups } from "@/lib/messaging/channels";
+import { inTestMode } from "@/lib/messaging/providers";
 import { decryptField, maskLast4 } from "@/lib/crypto";
 import { formatRupees } from "@/lib/format";
 import { salarySettings } from "@/lib/salary/settings";
@@ -24,6 +25,7 @@ import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, MODULE, one, qs, salaryPage, salaryPeriod, type SearchParams } from "../_lib/page";
 import { sendSlipsAction } from "./actions";
 import { SlipView, type SlipPerson } from "./slip-view";
+import { slipLines } from "@/lib/salary/slips";
 import { salaryBroughtIn, sumBroughtIn } from "@/lib/salary/to-date-totals";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -58,11 +60,11 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
   const me = p.me;
   const per = salaryPeriod(sp, p.dates, "finyear");
   const href = p.level === "own" ? HREF : `${HREF}?mine=1`;
-  const head = <SalaryHead pageName="My Salary Slips" href={href} sub="Only your own slips. Nobody else’s salary shows here." />;
+  const head = <SalaryHead pageName="My Salary Slips" href={href} sub="Only your own slips" />;
   if (!me) {
     const canAdd = can(p.current.permissions, "staff-hr-management", "create");
     return <div>{head}<Card><Empty icon={UserRound} title="No staff record is linked to your login"
-      body={canAdd ? "Salary slips are for staff. Add your own staff record once and your slips show here." : "Salary slips are for staff. Ask the School Admin to link your login to your staff record."}
+      body={canAdd ? "Add your own staff record once to see your slips." : "Ask the School Admin to link your login to your staff record."}
       action={canAdd ? <ButtonLink href={`/staff-hr-management/add?login=${p.current.ctx.userId}`} variant="primary"><Words k="Add my staff record" /></ButtonLink> : undefined} /></Card></div>;
   }
   const data = await withSchool(p.current.ctx, async (tx) => {
@@ -82,6 +84,9 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
   const lineOf = new Map(data.lines.map((l) => [l.id, l]));
   const latest = data.slips[0];
   const ll = latest ? lineOf.get(latest.lineId) : null;
+  // The card shows the slip's own totals (earnings in full, loss of pay as a deduction), so card and slip agree (layman loop 2).
+  const llSlip = latest && ll ? slipLines(ll, data.adjustments.filter((a) => a.runId === latest.runId)) : [];
+  const slipTotal = (kind: "earning" | "deduction") => llSlip.filter((x) => x.kind === kind).reduce((s, x) => s + x.amountPaise, ZERO);
   const ytd = data.slips.reduce((a, s) => { const l = lineOf.get(s.lineId)!; return { pay: a.pay + l.grossPaise, pf: a.pf + l.pfPaise, pt: a.pt + l.ptPaise, tds: a.tds + l.tdsPaise }; }, { pay: data.before.gross, pf: data.before.pf, pt: data.before.pt, tds: data.before.tds });
   const fyEnd = per.to ? new Date(Date.UTC(per.to.getUTCFullYear(), per.to.getUTCMonth() + 1, 0)) : null;
   const monthsLeft = latest && fyEnd ? Math.max(0, (fyEnd.getUTCFullYear() - latest.month.getUTCFullYear()) * 12 + fyEnd.getUTCMonth() - latest.month.getUTCMonth()) : 0;
@@ -100,7 +105,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
     <div>
       {head}
       <Stack>
-        {cur && !DONE.includes(cur.status as (typeof DONE)[number]) && <Banner tone="info" title={`${monthName(cur.month)} slip:`}><Words k="ready after the Principal approves" /> {monthName(cur.month).split(" ")[0]}<Words k="’s salary. You get a message when it is." /></Banner>}
+        {cur && !DONE.includes(cur.status as (typeof DONE)[number]) && <Banner tone="info"><Words k="{month} slip: ready once the Principal approves the salary. You get a message when it is." vars={{ month: monthName(cur.month) }} /></Banner>}
         <Split side={340}>
           <Col className="[&>*]:min-w-0">
             {latest && ll ? (
@@ -108,7 +113,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
                 <div className="flex-1 min-w-0">
                   <p className="text-[12.5px] text-ink3 font-semibold">{latest.run.paidOn ? "Last paid" : "Latest"} · {monthName(latest.month)}</p>
                   <p className="font-display text-[32px] font-semibold tnum leading-tight mt-0.5">{formatRupees(ll.netPaise)}</p>
-                  <p className="text-[13px] text-ink3 mt-0.5">{latest.run.paidOn ? `Paid ${dayShort(latest.run.paidOn)}${person.bank ? ` to ${person.bank}` : ""}` : "Approved, not paid yet"} <Words k="· gross" /> {formatRupees(ll.grossPaise)}<Words k=", deductions" /> {formatRupees(ll.deductionsPaise)}</p>
+                  <p className="text-[13px] text-ink3 mt-0.5">{latest.run.paidOn ? `Paid ${dayShort(latest.run.paidOn)}${person.bank ? ` to ${person.bank}` : ""}` : "Approved, not paid yet"} <Words k="· total earnings" /> {formatRupees(slipTotal("earning"))}<Words k=", deductions" /> {formatRupees(slipTotal("deduction"))}</p>
                 </div>
                 <div className="flex gap-2">
                   <ButtonLink href={here({ slip: latest.id })} scroll={false} variant="primary" icon={Eye}><Words k="View slip" /></ButtonLink>
@@ -127,15 +132,17 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
                         <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><ReceiptText size={19} aria-hidden="true" /></span>
                         <Link href={here({ slip: s.id })} scroll={false} className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-[14.5px] truncate">{monthName(s.month)}</p>
-                          <p className="text-[12.5px] text-ink3 truncate">{s.run.paidOn ? `Paid ${dayShort(s.run.paidOn)}` : "Approved, not paid yet"} · {dayNum(Number(l.paidDays))} <Words k="days" /></p>
+                          <p className="text-[12.5px] text-ink3 truncate">{s.run.paidOn ? `Paid ${dayShort(s.run.paidOn)}` : "Approved, not paid yet"}</p>
+                          {/* Its own line: the days paid explain a smaller month and were the part cut off on a phone (layman loop 5). */}
+                          <p className="text-[12.5px] text-ink3 tnum"><Words k="Days paid" /> {dayNum(Number(l.paidDays))} / {l.daysInMonth}</p>
                         </Link>
                         <span className="font-semibold tnum text-[14.5px]">{formatRupees(l.netPaise)}</span>
-                        <a href={pdf(s.id)} download aria-label={`Download ${monthName(s.month)} slip`} className="grid size-9 place-items-center rounded-xl text-ink2 hover:bg-sunken"><Download size={18} aria-hidden="true" /></a>
+                        <a href={pdf(s.id)} download aria-label={`Download ${monthName(s.month)} slip`} className="grid size-11 place-items-center rounded-xl text-ink2 hover:bg-sunken"><Download size={18} aria-hidden="true" /></a>
                       </li>
                     );
                   })}
                 </ul>
-              ) : <Empty icon={ReceiptText} title={`No slips in ${per.label.toLowerCase()}`} body="Slips are made when the month’s salary is approved. Pick another period to see earlier ones." />}
+              ) : <Empty icon={ReceiptText} title={`No slips in ${per.label.toLowerCase()}`} body="Slips are made when the month’s salary is approved." />}
             </Card>
           </Col>
           <Col className="[&>*]:min-w-0">
@@ -165,10 +172,10 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
       {view && (
         <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(view.month)}`} sub="Only you can see this slip"
           footer={<div className="flex gap-2 justify-end flex-wrap">
-            <a href={`${pdf(view.id)}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
+            <a href={`${pdf(view.id)}&print=1`} target="_blank" rel="noopener" className={`${buttonClass("ghost")} max-md:hidden`}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
             <a href={pdf(view.id)} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" /><Words k="Download PDF" /></a>
           </div>}>
-          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} adjustments={data.adjustments.filter((a) => a.runId === view.runId)} />
+          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} adjustments={data.adjustments.filter((a) => a.runId === view.runId)} leaveHref={can(p.current.permissions, "staff-hr-management", "view") ? "/staff-hr-management/leave?view=mine" : undefined} />
         </UrlSheet>
       )}
     </div>
@@ -196,7 +203,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     const viewLine = view ? await tx.payrollLine.findUnique({ where: { id: view.lineId } }) : null;
     const viewAdjustments = view ? await tx.payrollAdjustment.findMany({ where: { runId: view.runId, staffId: view.staffId, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
     const channels = await channelSetups(tx, ctx);
-    return { settings, runs, run, slips, staff, campus, view, viewLine, viewAdjustments, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn };
+    return { settings, runs, run, slips, staff, campus, view, viewLine, viewAdjustments, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn, waTest: channels.whatsapp.isOn && inTestMode(channels.whatsapp), emailTest: channels.email.isOn && inTestMode(channels.email) };
   });
   const run = data.run;
   const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
@@ -219,7 +226,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
 
   return (
     <div>
-      <SalaryHead pageName="Salary Slips" href={HREF} sub="Made only from the approved salary · each person can download only their own"
+      <SalaryHead pageName="Salary Slips" href={HREF} sub="Each person can download only their own"
         actions={ready && notSent > 0 && data.waOn ? <ButtonLink href={here({ do: "send-unsent" })} scroll={false} variant="primary" icon={Send}><Words k="Send unsent slips" /></ButtonLink> : null}
         viewActions={p.me ? <ButtonLink href={`${HREF}?mine=1`} variant="ghost" icon={UserRound}><Words k="My slips" /></ButtonLink> : null} />
       <Stack>
@@ -236,7 +243,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
             <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="status" options={STATUS} fallback="all" label="Slip status" /></div>
           </Toolbar>
           {!run || !ready ? (
-            <Empty icon={Hourglass} title={run ? `${monthName(run.month)} slips are not made yet` : "No salary months yet"} body="Slips are made the moment the Principal approves the month’s salary, never before."
+            <Empty icon={Hourglass} title={run ? `${monthName(run.month)} slips are not made yet` : "No salary months yet"} body="Made once the Principal approves the month’s salary."
               action={<ButtonLink href={`${BASE}/generate${run ? `?run=${run.id}` : ""}`} variant="secondary" icon={ArrowUpRight}><Words k="Open Generate Salary" /></ButtonLink>} />
           ) : (
             <>
@@ -268,7 +275,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
         return (
           <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(run.month)}`} sub={`${x.fullName} · ${x.staffCode}`}
             footer={<div className="flex gap-2 justify-end flex-wrap">
-              <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
+              <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={`${buttonClass("ghost")} max-md:hidden`}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
               {p.change && singleHow && <ButtonLink href={here({ slip: null, do: "send", how: singleHow, ids: data.view.id })} scroll={false} variant="secondary" icon={Send}><Words k="Send" /></ButtonLink>}
               <a href={`${HREF}/pdf?ids=${data.view.id}`} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" /><Words k="Download PDF" /></a>
             </div>}>
@@ -278,11 +285,13 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
       })()}
       {doing === "send" && run && bulkIds.length > 0 && (
         <ConfirmSheet closeHref={here({ do: null, how: null, ids: null })} title={`Send ${bulkIds.length} salary slip${bulkIds.length === 1 ? "" : "s"} by ${howWord}?`} label={`Send to ${bulkIds.length} staff`} action={sendSlipsAction} hidden={{ ids: bulkIds.join(","), how }}>
+          {((how === "whatsapp" && data.waTest) || (how === "email" && data.emailTest)) && <Banner tone="warn" className="mb-3" title="Test mode: nothing is sent, no credits used." />}
           <p className="text-[14px] text-ink2"><Words k="Each staff member gets only their own" /> {monthName(run.month)} <Words k="slip: the message says it is ready and the slip opens in My profile, behind their login. Messages cannot be unsent." /></p>
         </ConfirmSheet>
       )}
       {doing === "send-unsent" && run && notSent > 0 && data.waOn && (
-        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${notSent} unsent salary slip${notSent === 1 ? "" : "s"}?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
+        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} slips to ${notSent} staff?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
+          {data.waTest && <Banner tone="warn" className="mb-3" title="Test mode: nothing is sent, no credits used." />}
           <p className="text-[14px] text-ink2"><Words k="By WhatsApp. Staff with no WhatsApp number on file are listed after sending; print their slips instead. Messages cannot be unsent." /></p>
         </ConfirmSheet>
       )}

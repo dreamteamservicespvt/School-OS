@@ -12,7 +12,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/controls";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { bulkApproveAction, decideAction } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 export type ApprovalRow = {
   id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
@@ -23,14 +23,25 @@ export type ApprovalRow = {
   job: string | null; reason: string | null;
   /** What the approver needs to see before deciding (the leave balance, the change asked for). */
   facts?: { label: string; value: string }[];
+  /** Same kind, words and amount as an older request still waiting: marked, and left out of "Choose all" (layman loop 2). */
+  repeat?: boolean;
 };
 
-export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
+export function ApprovalList({ rows, paged = false, total = rows.length }: { rows: ApprovalRow[]; paged?: boolean; total?: number }) {
   const router = useRouter();
+  const t = useT();
   const [picked, setPicked] = useState<string[]>([]);
   const [result, setResult] = useState<{ tone: "success" | "warning" | "danger"; text: string; skipped: { summary: string; reason: string }[] } | null>(null);
   const decidable = rows.filter((r) => r.decidable);
+  // "Choose all" never picks a repeat; it can still be ticked on its own.
+  const pickable = decidable.filter((r) => !r.repeat);
   const [busy, setBusy] = useState<string | null>(null);
+  // Money requests ask first (P4: it costs money and cannot be undone); others approve at once.
+  const approveMoney = async (r: ApprovalRow) => {
+    const problem = await decideAction(r.id, "approve", null);
+    if (problem) return problem;
+    router.refresh();
+  };
   const approve = async (r: ApprovalRow) => {
     setBusy(r.id);
     const problem = await decideAction(r.id, "approve", null);
@@ -39,8 +50,8 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
     router.refresh();
   };
   const chosen = rows.filter((r) => picked.includes(r.id));
-  const total = chosen.reduce((s, r) => s + (r.amountPaise ? BigInt(r.amountPaise) : BigInt(0)), BigInt(0));
-  const totalWords = total > BigInt(0) ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(total / BigInt(100))) : null;
+  const pickedPaise = chosen.reduce((s, r) => s + (r.amountPaise ? BigInt(r.amountPaise) : BigInt(0)), BigInt(0));
+  const totalWords = pickedPaise > BigInt(0) ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(pickedPaise / BigInt(100))) : null;
 
   return (
     <div className="space-y-3">
@@ -52,9 +63,9 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
       {decidable.length > 1 && (
         <div className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/70 bg-surface/95 backdrop-blur px-4 py-2 shadow-card">
           <label className="flex min-h-11 items-center gap-3 text-[14px] font-medium">
-            <Checkbox checked={picked.length === decidable.length} indeterminate={picked.length > 0 && picked.length < decidable.length} label="Choose all"
-              onChange={(on) => setPicked(on ? decidable.map((r) => r.id) : [])} />
-            {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : `Choose all ${decidable.length} you can decide`}
+            <Checkbox checked={pickable.length > 0 && pickable.every((r) => picked.includes(r.id))} indeterminate={picked.length > 0 && !pickable.every((r) => picked.includes(r.id))} label="Choose all"
+              onChange={(on) => setPicked(on ? pickable.map((r) => r.id) : [])} />
+            {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : paged ? t("Choose all {n} shown ({total} in all)", { n: pickable.length, total }) : `Choose all ${pickable.length} you can decide`}
           </label>
           {picked.length > 0 && (
             <ConfirmButton trigger={`Approve ${picked.length}`} triggerVariant="primary" title={`Approve ${picked.length} request${picked.length === 1 ? "" : "s"}?`}
@@ -70,7 +81,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
                 router.refresh();
               }}>
               <ul className="max-h-60 list-disc overflow-y-auto pl-5 text-sm">{chosen.map((r) => <li key={r.id}>{r.summary}{r.amount ? `: ${r.amount}` : ""}</li>)}</ul>
-              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}<Words k="Each is checked on its own; any that cannot be approved are listed after." /></p>
+              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}<Words k="Any that cannot be approved are listed after." /></p>
             </ConfirmButton>
           )}
         </div>
@@ -94,13 +105,22 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
                 <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}
                   {r.overdue && <Pill tone="bad"><Words k="Overdue" /></Pill>}
-                  <Pill tone={r.status.tone}>{r.status.label}</Pill>
+                  {r.repeat && <Pill tone="warn"><Words k="Same as another waiting request" /></Pill>}
+                  {/* Overdue already says it is waiting: one pill, not two (layman loop 4). */}
+                  {!(r.overdue && r.status.label === "Waiting") && <Pill tone={r.status.tone}>{r.status.label}</Pill>}
                 </span>
               </Link>
             </div>
             {r.decidable && (
               <div className="flex gap-2 md:shrink-0 pl-[54px] md:pl-0">
-                <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}><Words k="Approve" /></Button>
+                {r.amount && r.amountPaise && BigInt(r.amountPaise) > BigInt(0)
+                  ? (
+                    <ConfirmButton trigger={<span className="inline-flex items-center gap-1.5"><Check size={16} aria-hidden="true" /><Words k="Approve" /></span>} triggerVariant="soft"
+                      title={t("Approve {amount}?", { amount: r.amount })} confirmLabel={t("Approve {amount}", { amount: r.amount })} onConfirm={() => approveMoney(r)}>
+                      {r.summary}. <Words k="This cannot be undone." />
+                    </ConfirmButton>
+                  )
+                  : <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}><Words k="Approve" /></Button>}
                 {r.rejectable
                   ? <ButtonLink href={`/approvals/${r.id}?reject=1`} variant="ghost"><Words k="Reject" /></ButtonLink>
                   : <ButtonLink href={`/approvals/${r.id}`} variant="ghost"><Words k="Open" /></ButtonLink>}

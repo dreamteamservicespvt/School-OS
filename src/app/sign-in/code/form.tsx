@@ -9,7 +9,8 @@ import { KeepCheck } from "@/components/ui/keep-select";
 import { resendCodeAction, verifyCodeAction, type CodeState } from "../actions";
 import { useT } from "@/lib/i18n/client";
 
-export function CodeForm({ sentTo, remembers, sharedDefault = false }: { sentTo: string; remembers: boolean; sharedDefault?: boolean }) {
+/** `notice`: said instead of "We sent a code to …" on a blind code page (code sign-in), the same for every login. */
+export function CodeForm({ sentTo, notice, remembers, sharedDefault = false }: { sentTo: string; notice?: string; remembers: boolean; sharedDefault?: boolean }) {
   const t = useT();
   const [state, action, pending] = useActionState<CodeState, FormData>(verifyCodeAction, null);
   const [resent, setResent] = useState<CodeState>(null);
@@ -31,7 +32,7 @@ export function CodeForm({ sentTo, remembers, sharedDefault = false }: { sentTo:
 
   return (
     <form action={(fd) => { setResent(null); action(fd); }} className="flex flex-col gap-4" noValidate>
-      <p className="text-[15px] text-ink2">{t("We sent a 6-digit code to {to}. It works for 10 minutes.", { to: sentTo })}</p>
+      <p className="text-[15px] text-ink2">{notice ? `${notice} ${t("The code works for 10 minutes.")}` : t("We sent a 6-digit code to {to}. It works for 10 minutes.", { to: sentTo })}</p>
       {shown?.message && <Alert tone={shown.sent ? "success" : "danger"}>{shown.message}</Alert>}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="code" className="text-[13px] font-semibold text-ink2">{t("6-digit code")}</label>

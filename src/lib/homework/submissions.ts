@@ -60,7 +60,7 @@ export async function gradeSubmission(tx: Tx, s: HomeworkScope, submissionId: st
     actorNote: input.fromSuggestion ? await aiConfirmedNote(tx, s.ctx) : null,
   });
   if (student?.userLoginId) {
-    await notify(tx, s.ctx, { to: student.userLoginId, type: "homework-checked", text: input.allowResubmit ? `${hw.title}: your teacher asks you to hand in again.` : `${hw.title} is checked.`, link: "/homework-learning?tab=checked", groupKey: "homework-checked", mergedText: (n) => `${n} homework checked` });
+    await notify(tx, s.ctx, { to: student.userLoginId, type: "homework-checked", key: input.allowResubmit ? "{title}: your teacher asks you to hand in again." : "{title} is checked.", values: { title: hw.title }, link: "/homework-learning?tab=checked", groupKey: "homework-checked", mergedKey: "{n} homework checked" });
   }
   return updated;
 }
@@ -182,7 +182,7 @@ export async function submitWork(tx: Tx, s: HomeworkScope, homeworkId: string, i
   // The teacher hears about work to check (17 §4, Notifications).
   if (hw.teacherId) {
     const teacher = await tx.staff.findUnique({ where: { id: hw.teacherId }, select: { userLoginId: true } });
-    if (teacher?.userLoginId) await notify(tx, s.ctx, { to: teacher.userLoginId, type: "homework-handed-in", text: `${s.student.name} handed in ${hw.title}${late ? " (late)" : ""}.`, link: `/homework-learning/submissions?hw=${hw.id}`, groupKey: `homework-handed-in:${hw.id}`, mergedText: (n) => `${n} students handed in ${hw.title}` });
+    if (teacher?.userLoginId) await notify(tx, s.ctx, { to: teacher.userLoginId, type: "homework-handed-in", key: late ? "{name} handed in {title} (late)." : "{name} handed in {title}.", values: { name: s.student.name, title: hw.title }, link: `/homework-learning/submissions?hw=${hw.id}`, groupKey: `homework-handed-in:${hw.id}`, mergedKey: "{n} students handed in {title}" });
   }
   return { status, late, files: ids.length };
 }
@@ -208,10 +208,10 @@ export async function addComment(tx: Tx, s: HomeworkScope, submissionId: string,
   // Tell the other side.
   if (fromStudent && hw.teacherId) {
     const t = await tx.staff.findUnique({ where: { id: hw.teacherId }, select: { userLoginId: true } });
-    if (t?.userLoginId) await notify(tx, s.ctx, { to: t.userLoginId, type: "homework-comment", text: `${s.name} commented on ${hw.title}.`, link: `/homework-learning/submissions?hw=${hw.id}&open=${sub.id}`, groupKey: `homework-comment:${hw.id}` });
+    if (t?.userLoginId) await notify(tx, s.ctx, { to: t.userLoginId, type: "homework-comment", key: "{name} commented on {title}.", values: { name: s.name, title: hw.title }, link: `/homework-learning/submissions?hw=${hw.id}&open=${sub.id}`, groupKey: `homework-comment:${hw.id}` });
   } else if (!fromStudent) {
     const st = await tx.student.findUnique({ where: { id: sub.studentId }, select: { userLoginId: true } });
-    if (st?.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "homework-comment", text: `Your teacher commented on ${hw.title}.`, link: `/homework-learning?open=${hw.id}`, groupKey: `homework-comment:${hw.id}` });
+    if (st?.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "homework-comment", key: "Your teacher commented on {title}.", values: { title: hw.title }, link: `/homework-learning?open=${hw.id}`, groupKey: `homework-comment:${hw.id}` });
   }
   return c;
 }

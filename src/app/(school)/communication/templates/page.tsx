@@ -4,9 +4,10 @@ import { FileText, Plus } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
-import { CHANNELS } from "@/lib/messaging/channels";
+import { CHANNELS, offeredChannels, SMS_OFFERED } from "@/lib/messaging/channels";
 import { categoryLabel, ensureReadyTemplates, languageLabel, TEMPLATE_CATEGORIES } from "@/lib/messaging/templates";
 import { ruleTemplateIds, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { whatsappReadiness } from "@/lib/communication/whatsapp-ready";
 import { Card } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
 import { DataList } from "@/components/ui/data-list";
@@ -17,6 +18,7 @@ import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters"
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
+import { WhatsappReadyPanel } from "./whatsapp-ready";
 import { ChannelPills, CHANNEL_NAME } from "../_components/channel-pills";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -42,13 +44,15 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
     if (access.full) await ensureReadyTemplates(tx, current.ctx);
     const where = templateWhere(current.ctx, params);
     const orderBy = params.sort === "name" ? { name: params.dir } : params.sort === "updated" ? { updatedAt: params.dir } : [{ category: "asc" as const }, { name: "asc" as const }];
-    const [rows, total, firstIds, noDlt] = await Promise.all([
+    const [rows, total, firstIds, noDlt, ready] = await Promise.all([
       tx.template.findMany({ where, orderBy, ...skipTake(params), include: { versions: { where: { isCurrent: true }, orderBy: { language: "asc" } } } }),
       tx.template.count({ where }),
       ruleTemplateIds(tx, current.ctx),
-      tx.template.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } } }),
+      SMS_OFFERED ? tx.template.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } } }) : 0,
+      // The steps to WhatsApp approval, for the people who change templates.
+      access.full && !params.archived ? whatsappReadiness(tx, current.ctx) : null,
     ]);
-    return { rows, total, firstIds, noDlt };
+    return { rows, total, firstIds, noDlt, ready };
   });
   const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
   const canEdit = access.full;
@@ -59,7 +63,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
   return (
     <>
       <CommHead access={access} page="Message Templates" href="/communication/templates"
-        sub="Ready message formats in each language, with blanks like student name and due amount. Each save makes a new version."
+        sub="Ready messages with blanks, in each language. Each save makes a new version."
         actions={canEdit ? <ButtonLink href="/communication/templates/new" variant="primary" icon={Plus}><Words k="New template" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {data.noDlt > 0 && params.filters.status !== "dlt-missing" && (
@@ -68,12 +72,13 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             <Words k="No SMS can be sent from them until DREAM TEAM adds the ID." />
           </Banner>
         )}
+        {data.ready && <WhatsappReadyPanel {...data.ready} />}
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
             <UrlSearch placeholder="Template name or text" className="min-w-[14rem]" />
-            <UrlSegmented param="channel" label="Channel" options={[{ value: "", label: "All" }, ...CHANNELS.map((c) => ({ value: c, label: CHANNEL_NAME[c] ?? c }))]} />
+            <UrlSegmented param="channel" label="Channel" options={[{ value: "", label: "All" }, ...offeredChannels(CHANNELS).map((c) => ({ value: c, label: CHANNEL_NAME[c] ?? c }))]} />
             <UrlSelect param="category" label="Category" className="md:w-44" options={[{ value: "", label: "Any category" }, ...TEMPLATE_CATEGORIES.map((c) => ({ value: c.key, label: c.label }))]} />
-            <UrlSelect param="status" label="Status" className="md:w-48" options={[{ value: "", label: "Any status" }, { value: "dlt-missing", label: "No DLT ID" }, ...Object.entries(WHATSAPP_STATUS_LABEL).map(([value, label]) => ({ value, label: `WhatsApp ${label.toLowerCase()}` }))]} />
+            <UrlSelect param="status" label="Status" className="md:w-48" options={[{ value: "", label: "Any status" }, ...(SMS_OFFERED ? [{ value: "dlt-missing", label: "No DLT ID" }] : []), ...Object.entries(WHATSAPP_STATUS_LABEL).map(([value, label]) => ({ value, label: `WhatsApp ${label.toLowerCase()}` }))]} />
             {data.total > 0 && <ExportMenu href={listHref("/communication/templates/export", { ...params, page: 1 }, {})} />}
           </Toolbar>
           <DataList
@@ -87,7 +92,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             empty={
               <EmptyState bare Icon={FileText} title={filtered ? "No templates here" : "No templates yet"}
                 action={canEdit && !filtered ? <ButtonLink href="/communication/templates/new" icon={Plus}><Words k="New template" /></ButtonLink> : undefined}>
-                {filtered ? "Change the search or filters." : "Templates are ready message formats with blanks like {student_name}, in each language you use."}
+                {filtered ? "Change the search or filters." : "Ready messages with blanks like {student_name}."}
               </EmptyState>
             }
             columns={[
@@ -95,7 +100,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
               { key: "ch", label: "Channel", render: (t) => <ChannelPills channels={[t.channel]} /> },
               { key: "langs", label: "Languages", render: (t) => <span className="text-[13px]">{langs(t)}</span> },
               { key: "wa", label: "WhatsApp", nowrap: true, render: (t) => (t.channel === "whatsapp" ? <Pill tone={WA_TONE[waStatus(t.versions)]} dot>{WHATSAPP_STATUS_LABEL[waStatus(t.versions)]}</Pill> : <span className="text-ink3">–</span>) },
-              { key: "dlt", label: "DLT template ID", render: (t) => (t.channel !== "sms" ? <span className="text-ink3"><Words k="No SMS" /></span> : missing(t) ? <Pill tone="bad"><Words k="Missing" /></Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) },
+              ...(SMS_OFFERED ? [{ key: "dlt", label: "DLT template ID", render: (t: (typeof data.rows)[number]) => (t.channel !== "sms" ? <span className="text-ink3"><Words k="No SMS" /></span> : missing(t) ? <Pill tone="bad"><Words k="Missing" /></Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) }] : []),
               { key: "ver", label: "Version", align: "right", render: (t) => <span className="tnum">{ver(t)}</span> },
               { key: "used", label: "Used by", render: (t) => <span className="text-[13px] text-ink2">{usedBy(t, data.firstIds, t.id).join(", ") || "Typed messages"}</span> },
             ]}

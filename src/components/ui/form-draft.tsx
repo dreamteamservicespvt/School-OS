@@ -94,19 +94,32 @@ export type FormDraft = {
   clear: () => void;
   /** After a save that worked: forget the draft. */
   done: () => void;
+  /** Cancel pressed: forget what was typed and keep nothing (only a close by mistake keeps a draft). */
+  discard: () => void;
 };
 
 const NONE: readonly string[] = [];
 
-type Live = { form: HTMLFormElement | null; key: string; base: string; start: DraftValues; stopped: boolean };
+type Live = { form: HTMLFormElement | null; key: string; base: string; start: DraftValues; stopped: boolean; touched: boolean; back: boolean; tried: string };
+
+// List filters and paging do not make a different form: "Record expense" from page 2 is the same form.
+const LIST_PARAMS = new Set(["q", "page", "sort", "dir", "period", "from", "to", "status"]);
+function pagePlace() {
+  const kept = Array.from(new URLSearchParams(window.location.search).entries()).filter(([k]) => !LIST_PARAMS.has(k)).sort(([a], [b]) => a.localeCompare(b));
+  const q = new URLSearchParams(kept).toString();
+  return window.location.pathname + (q ? `?${q}` : "");
+}
 
 /**
  * Keeps the form's typed values in this tab until a save works.
+ * The rule (layman loop 3): Cancel throws the typing away; a close by mistake (Escape, a tap
+ * outside, Back, a refresh) keeps it, and it comes back with "Start new" next to it.
  * `name` tells forms on the same page apart (the dialog's title is enough).
+ * `maxMinutes`: an older draft is not brought back (a visitor desk: the next person is someone else).
  */
-export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: string, enabled = true, ignore: readonly string[] = NONE): FormDraft {
+export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: string, enabled = true, ignore: readonly string[] = NONE, maxMinutes = 0): FormDraft {
   const [restored, setRestored] = useState(false);
-  const live = useRef<Live>({ form: null, key: "", base: "", start: {}, stopped: false });
+  const live = useRef<Live>({ form: null, key: "", base: "", start: {}, stopped: false, touched: false, back: false, tried: "" });
 
   useEffect(() => {
     const form = formRef.current;
@@ -114,36 +127,57 @@ export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: s
     const owner = document.querySelector<HTMLElement>("[data-draft-owner]")?.dataset.draftOwner;
     if (!owner) return;
     const l = live.current;
-    // The first time this form is seen: note how it opened and bring back a kept draft.
-    // (A second run of the effect for the same form, as in development, changes nothing.)
-    if (l.form !== form) {
+    // Until the person types, how the form opened is read again and a kept draft looked for again:
+    // fields that arrive a moment after the form (or settle a moment later) count as how it opened.
+    // Before, a draft that was kept came back only some of the time (layman loop 3, E2).
+    const look = () => {
+      if (l.form !== form || l.touched || l.back || !form.isConnected) return;
       const ids = Array.from(form.querySelectorAll<HTMLInputElement>("input[type=hidden][name]")).filter((h) => !boxFor(h) && !isPrivateField(h.name, "text") && !ignore.includes(h.name)).map((h) => `${h.name}=${h.value}`).sort().join("&");
       const start = readForm(form);
-      Object.assign(l, { form, key: draftKey(owner, window.location.pathname + window.location.search, `${name}|${ids}`), base: fingerprint(start), start, stopped: false });
+      Object.assign(l, { key: draftKey(owner, pagePlace(), `${name}|${ids}`), base: fingerprint(start), start });
+      const tried = `${l.key}#${l.base}`;
+      if (l.tried === tried) return;
+      l.tried = tried;
       const kept = readDraft(store.get(l.key), l.base);
-      if (kept) {
-        writeForm(form, kept.values);
-        window.setTimeout(() => setRestored(true), 0);
-      }
-    }
+      if (!kept) return;
+      if (maxMinutes > 0 && Date.now() - kept.savedAt > maxMinutes * 60_000) { store.remove(l.key); return; }
+      l.back = true;
+      writeForm(form, kept.values);
+      window.setTimeout(() => setRestored(true), 0);
+    };
+    if (l.form !== form) {
+      Object.assign(l, { form, stopped: false, touched: false, back: false, tried: "" });
+      look();
+      window.setTimeout(look, 60);
+      window.setTimeout(look, 300);
+    } else look();
     const persist = () => {
       if (l.stopped || l.form !== form) return;
       const text = writeDraft(l.base, l.start, readForm(form));
       if (text) store.set(l.key, text);
       else store.remove(l.key);
     };
+    // Only the person's own typing and taps freeze how the form opened (not values put back by code).
+    const typed = (e: Event) => { if (e.isTrusted) l.touched = true; persist(); };
     // Typing saves at once; a click (chips, buttons that fill fields) saves after React has drawn it.
     let timer = 0;
-    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => { timer = 0; persist(); }, 60); };
-    form.addEventListener("input", persist);
-    form.addEventListener("change", persist);
+    const later = (e: Event) => { if (e.isTrusted) l.touched = true; window.clearTimeout(timer); timer = window.setTimeout(() => { timer = 0; persist(); }, 60); };
+    // The moment the sheet closes (Escape, a tap outside) the draft is saved, not only on the timer.
+    const flush = () => { if (timer) { window.clearTimeout(timer); timer = 0; } persist(); };
+    const dialog = form.closest("dialog");
+    form.addEventListener("input", typed);
+    form.addEventListener("change", typed);
     form.addEventListener("click", later);
     form.addEventListener("focusout", later);
+    dialog?.addEventListener("cancel", flush);
+    dialog?.addEventListener("close", flush);
     return () => {
-      form.removeEventListener("input", persist);
-      form.removeEventListener("change", persist);
+      form.removeEventListener("input", typed);
+      form.removeEventListener("change", typed);
       form.removeEventListener("click", later);
       form.removeEventListener("focusout", later);
+      dialog?.removeEventListener("cancel", flush);
+      dialog?.removeEventListener("close", flush);
       if (timer) { window.clearTimeout(timer); persist(); }
     };
     // Every render: a form that is drawn again as a new element (key change) is picked up.
@@ -164,6 +198,13 @@ export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: s
     }, 100);
   }, []);
 
+  const discard = useCallback(() => {
+    const l = live.current;
+    l.stopped = true;
+    if (l.key) store.remove(l.key);
+    setRestored(false);
+  }, []);
+
   const clear = useCallback(() => {
     const l = live.current;
     if (l.key) store.remove(l.key);
@@ -176,17 +217,17 @@ export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: s
     setRestored(false);
   }, []);
 
-  return useMemo(() => ({ restored, clear, done }), [restored, clear, done]);
+  return useMemo(() => ({ restored, clear, done, discard }), [restored, clear, done, discard]);
 }
 
-/** The small note shown when a form opened with what was typed last time. */
+/** Shown when a form opened with what was typed last time: carry on, or start new. */
 export function DraftHint({ draft }: { draft: FormDraft }) {
   if (!draft.restored) return null;
   return (
-    <p className="flex items-center gap-1.5 text-[12.5px] text-ink3" role="status">
-      <History size={14} aria-hidden="true" />
-      <span><Words k="Draft kept: what you typed last time." /></span>
-      <button type="button" onClick={draft.clear} className="font-medium text-brand underline-offset-2 hover:underline focus-visible:underline"><Words k="Clear" /></button>
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-warn/12 px-3 py-2 text-[13px] text-ink2" role="status">
+      <History size={15} className="text-warn shrink-0" aria-hidden="true" />
+      <span className="font-semibold"><Words k="Draft kept: what you typed last time." /></span>
+      <button type="button" onClick={draft.clear} className="ml-auto font-semibold text-brand underline-offset-2 hover:underline focus-visible:underline"><Words k="Start new" /></button>
     </p>
   );
 }
@@ -270,5 +311,5 @@ export function useStateDraft<T>(name: string, value: T, apply: (v: T) => void, 
     setRestored(false);
   }, []);
 
-  return useMemo(() => ({ restored, clear, done, resume }), [restored, clear, done, resume]);
+  return useMemo(() => ({ restored, clear, done, discard: done, resume }), [restored, clear, done, resume]);
 }

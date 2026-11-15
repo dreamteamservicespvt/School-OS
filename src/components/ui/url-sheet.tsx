@@ -19,6 +19,9 @@ import { HideWhileSaving } from "./form-message";
 import { isSummaryMessage } from "@/lib/form-problems";
 
 const CloseCtx = createContext<() => void>(() => {});
+const DiscardCtx = createContext<() => void>(() => {});
+/** Forgets what was typed in the SheetForm this is inside (for a way out that is not a mistake). */
+export const useDiscardDraft = () => useContext(DiscardCtx);
 /** Closes the sheet this is inside (goes back to the page without the sheet). */
 export const useCloseSheet = () => useContext(CloseCtx);
 
@@ -51,7 +54,7 @@ export const FormResultProvider = ResultCtx.Provider;
  * or goes to `doneHref`. On a problem it stays open, keeps what was typed and
  * shows each problem next to its field.
  */
-export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, submitLabel, pendingText, submitVariant = "primary", children, hidden, extraButtons, submitDisabled, draft: keepDraft = true }: {
+export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, submitLabel, pendingText, submitVariant = "primary", children, hidden, extraButtons, submitDisabled, draft: keepDraft = true, draftMinutes = 0 }: {
   title: string;
   sub?: React.ReactNode;
   wide?: boolean;
@@ -65,16 +68,20 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   hidden?: Record<string, string>;
   extraButtons?: React.ReactNode;
   submitDisabled?: boolean;
-  /** false: never keep what was typed. By default it stays as a draft until a save works. */
+  /** false: never keep what was typed. By default it stays as a draft until a save works or Cancel is pressed. */
   draft?: boolean;
+  /** A draft older than this many minutes is not brought back (0: the usual 12 hours). */
+  draftMinutes?: number;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState<FormState<T>, FormData>(action, null);
   const ref = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const titleId = useId();
-  const draft = useFormDraft(formRef, title, keepDraft && submitVariant !== "danger");
+  const draft = useFormDraft(formRef, title, keepDraft && submitVariant !== "danger", undefined, draftMinutes);
   const close = useCallback(() => router.replace(closeHref, { scroll: false }), [router, closeHref]);
+  // Cancel is a choice: the typing goes. Escape, a tap outside or Back keep it as a draft.
+  const cancel = () => { draft.discard(); close(); };
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
@@ -84,10 +91,17 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   // so a refused form never stays silent.
   const [unseen, setUnseen] = useState<FormState<T>>(null);
   const fieldsRef = useRef<HTMLDivElement>(null);
+  // Saved: the sheet closes once the page behind it has loaded (a few seconds on a slow phone). Until then the
+  // button stays busy, so a second tap cannot send the homework and its messages twice (layman loop 3).
+  const [settled, setSettled] = useState<FormState<T>>(null);
+  const closing = Boolean(state?.ok) && settled !== state;
   useEffect(() => {
     if (state?.ok) {
       draft.done();
       router.replace(doneHref ?? closeHref, { scroll: false });
+      // A sheet that stays open after saving (it opens again for the next one) gets its button back.
+      const t = window.setTimeout(() => setSettled(state), 10_000);
+      return () => window.clearTimeout(t);
     } else if (state) {
       const invalid = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
       invalid?.focus();
@@ -106,6 +120,7 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   const showMessage = Boolean(state && !state.ok && state.message && !summarised && (fieldErrors === 0 || unseen === state));
   return (
     <CloseCtx.Provider value={close}>
+      <DiscardCtx.Provider value={draft.discard}>
       <ResultCtx.Provider value={state as FormState<unknown>}>
         <dialog ref={ref} aria-labelledby={titleId} onClose={close} className={sheetCls(wide)}
           onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
@@ -121,12 +136,15 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
             </div>
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
               {extraButtons}
-              <Button variant="ghost" onClick={close}>Cancel</Button>
-              <SheetSubmit variant={submitVariant} pendingText={pendingText} disabled={submitDisabled}>{submitLabel}</SheetSubmit>
+              <Button variant="ghost" onClick={cancel}>Cancel</Button>
+              {closing
+                ? <Button variant={submitVariant} loading loadingText={pendingText}>{submitLabel}</Button>
+                : <SheetSubmit variant={submitVariant} pendingText={pendingText} disabled={submitDisabled}>{submitLabel}</SheetSubmit>}
             </div>
           </form>
         </dialog>
       </ResultCtx.Provider>
+      </DiscardCtx.Provider>
     </CloseCtx.Provider>
   );
 }

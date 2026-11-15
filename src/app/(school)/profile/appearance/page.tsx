@@ -21,7 +21,7 @@ export default async function AppearancePage() {
   return (
     <div className="max-w-4xl">
       <PageHeader title="Colours and text size" href="/profile/appearance" userId={u.id}
-        sub="Make School OS comfortable for your eyes. Saved to your login, so it follows you to every device."
+        sub="Saved to your login, on every device."
         crumbs={<><Link href="/profile" className="hover:text-ink hover:underline"><Words k="My profile" /></Link><ChevronRight size={13} aria-hidden="true" /><span><Words k="Appearance" /></span></>} />
       <Appearance
         theme={cleanTheme(u.theme)} accent={cleanAccent(u.accent)} textSize={cleanTextSize(u.textSize)}

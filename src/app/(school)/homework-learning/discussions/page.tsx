@@ -64,7 +64,7 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
   });
 
   const label = (s.student?.label ?? "").replace(/^Class\s+/i, "");
-  const sub = p.student ? `Class ${label} boards · ask and answer questions with your class` : p.own ? "Boards for your classes · pin, lock or hide posts" : "Class discussion boards for questions and answers";
+  const sub = p.student ? `Class ${label} boards · ask and answer questions with your class` : p.own ? "Boards for your classes" : "Class boards for questions and answers";
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { board: data.pick?.id ?? null, ...extra });
   const head = (
     <HomeworkHead page="discussions" pageName="Discussions" sub={sub}

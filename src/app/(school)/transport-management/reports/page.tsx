@@ -65,7 +65,7 @@ export default async function TransportReportsPage({ searchParams }: { searchPar
   const exportHref = qs(`${BASE}/export`, { list: "report", r: chosen.key, ...keep });
   return (
     <div>
-      <TrHead page="reports" sub={`${period.label} · the same reports are in Reports & Analytics`} />
+      <TrHead page="reports" sub={period.label} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Stats items={[
           { label: "Trips completed", value: head.completed, icon: CalendarCheck, sub: head.cancelled ? `${head.cancelled} cancelled` : period.label },

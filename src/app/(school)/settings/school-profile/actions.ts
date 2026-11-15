@@ -11,6 +11,7 @@ import {
 } from "@/lib/settings/school-profile";
 import { editDocument, setDocumentArchived, setVerified, shareDocument, uploadDocument, uploadVersion } from "@/lib/settings/vault";
 import { asFormState, runSettings } from "../run";
+import { indianMobileDigits, WHATSAPP_NUMBER_PROBLEM } from "@/lib/parent-link/contact";
 
 const PAGE = "school-profile" as const;
 
@@ -21,10 +22,19 @@ const phone = z.string().trim().transform((v) => v.replace(/[^\d+]/g, "")).refin
   return /^\d{10}$/.test(d);
 }, { message: "Phone number must have 10 digits, like 9876543210 or 040 2345 6789." }).transform((v) => v.replace(/^\+?91(?=\d{10}$)/, "").replace(/^0(?=\d{10}$)/, ""));
 
+/**
+ * School Profile "WhatsApp number for parents" (owner decision 17): empty (the office phone is used
+ * when it is a mobile), or an Indian mobile. Not sent at all: left as it is.
+ */
+const parentWhatsapp = z.string().trim().optional()
+  .refine((v) => !v || indianMobileDigits(v) !== null, { message: WHATSAPP_NUMBER_PROBLEM })
+  .transform((v) => (v === undefined ? undefined : indianMobileDigits(v)));
+
 const detailsSchema = z.object({
   name: text("School name", 150),
   address: text("Address", 500),
   phone,
+  parentWhatsapp,
   email: z.string().trim().min(1, "Email is needed.").refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "Email does not look right. It should be like office@school.edu.in.").transform((v) => v.toLowerCase()),
   website: optionalText("Website address", 200).refine((v) => v === null || /^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(v.replace(/^https?:\/\//i, "")), "Website address should be like www.sunriseschool.edu.in."),
   affiliationNumber: optionalText("Affiliation number", 60),
@@ -38,7 +48,9 @@ const detailsSchema = z.object({
 export async function saveDetailsAction(_: FormState, fd: FormData): Promise<FormState> {
   const parsed = parseForm(detailsSchema, fd);
   if (!parsed.ok) return parsed.state;
-  const r = await runSettings(PAGE, "edit", (tx, current) => saveDetails(tx, current.ctx, parsed.data));
+  const { parentWhatsapp: wa, ...details } = parsed.data;
+  const input = wa === undefined ? details : { ...details, parentWhatsapp: wa };
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveDetails(tx, current.ctx, input));
   if (r.ok) revalidatePath("/", "layout");
   return asFormState(r, formValues(fd), r.ok && r.data ? "School details saved." : "Nothing changed.");
 }

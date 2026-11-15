@@ -1,31 +1,60 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Paperclip } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 type Option = { value: string; label: string };
 type LeaveTypeOption = Option & { halfDay: boolean; note: string };
 
-/** Checks days, balance and periods without submitting (a submitted form is reset, losing what was typed). */
+/**
+ * Days, balance and periods, checked by itself as soon as a leave type and dates are chosen (layman loop 2:
+ * a separate "Check" tap was missed), without submitting (a submitted form is reset, losing what was typed).
+ */
 function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: FormData) => Promise<FormState<{ text: string }>> }) {
   const [state, setState] = useState<FormState<{ text: string }>>(null);
   const [pending, start] = useTransition();
-  const run = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const form = e.currentTarget.form;
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const form = box.current?.closest("form");
     if (!form) return;
-    const fd = new FormData(form);
-    start(async () => setState(await action(null, fd)));
-  };
+    const run = (e?: Event) => {
+      const name = (e?.target as HTMLInputElement | null)?.name;
+      if (name && !["leaveTypeId", "from", "to", "halfDay", "staffId", "document"].includes(name)) return;
+      const fd = new FormData(form);
+      if (!fd.get("leaveTypeId") || !fd.get("from")) return;
+      start(async () => setState(await action(null, fd)));
+    };
+    form.addEventListener("change", run);
+    return () => form.removeEventListener("change", run);
+  }, [action]);
   return (
-    <div className="sm:col-span-2" aria-live="polite">
-      <Button variant="secondary" size="sm" onClick={run} loading={pending} loadingText="Checking…"><Words k="Check days and balance" /></Button>
-      {state && <p className={`mt-1 text-sm ${state.ok ? "text-ink" : "text-danger"}`}>{state.ok ? state.data?.text : state.message}</p>}
+    <div ref={box} className="sm:col-span-2 min-h-5 text-sm" aria-live="polite">
+      {pending ? <p className="text-ink-2"><Words k="Checking…" /></p>
+        : state ? <p className={state.ok ? "text-ink font-medium" : "text-danger"}>{state.ok ? state.data?.text : state.message}</p> : null}
     </div>
+  );
+}
+
+/** The app's own upload button: the browser's "Choose File / No file chosen" stayed English in every language (layman loop 5). */
+function DocPicker() {
+  const [name, setName] = useState("");
+  return (
+    <>
+      <span className="mb-1 block text-sm font-medium"><Words k="Document" /></span>
+      <span className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line-strong bg-surface px-4 text-sm font-medium text-ink hover:bg-sunken has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+          <Paperclip size={16} aria-hidden="true" /><Words k="Add photo or file" />
+          <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="sr-only" aria-describedby="leave-doc-help"
+            onChange={(e) => setName(e.currentTarget.files?.[0]?.name ?? "")} />
+        </label>
+        {name && <span className="min-w-0 break-all text-sm text-ink-2">{name}</span>}
+      </span>
+    </>
   );
 }
 
@@ -37,13 +66,13 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
   const [half, setHalf] = useState("");
   const type = types.find((t) => t.value === typeId);
   return (
-    <FormDialog trigger={<><CalendarPlus size={17} aria-hidden="true" />{label}</>} triggerVariant="primary" title={fixedStaff ? `Apply leave for ${fixedStaff.label}` : "Apply for leave"} action={action} submitLabel="Apply"
+    <FormDialog trigger={<><CalendarPlus size={17} aria-hidden="true" />{tx(label)}</>} triggerVariant="primary" title={fixedStaff ? `Apply leave for ${fixedStaff.label}` : "Apply for leave"} action={action} submitLabel="Apply"
       pendingText="Applying…" defaultOpen={defaultOpen} multipart wide hidden={fixedStaff ? { staffId: fixedStaff.value } : undefined}>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           {staff && !fixedStaff && (
             <SelectField label="Staff member" name="staffId" options={staff} placeholder="Myself" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2"
-              help="Leave empty to apply for yourself. Applying for someone else tells them." />
+              help="Leave empty to apply for yourself." />
           )}
           <SelectField label="Leave type" name="leaveTypeId" required options={types} placeholder="Choose" defaultValue={f.val("leaveTypeId")} error={f.err("leaveTypeId")}
             onChange={(e) => setTypeId(e.target.value)} help={type?.note} className="sm:col-span-2" />
@@ -55,8 +84,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
           )}
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label htmlFor="leave-doc" className="mb-1 block text-sm font-medium"><Words k="Document" /></label>
-            <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="leave-doc-help" />
+            <DocPicker />
             <p id="leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Such as a doctor's note. Needed for some leave types and for long leave."}</p>
           </div>
           <Preview action={preview} />
@@ -96,7 +124,7 @@ export function AdjustBalanceForm({ staffId, staffName, academicYearId, types, a
       {(f) => (
         <>
           <SelectField label="Leave type" name="leaveTypeId" required options={types} placeholder="Choose" defaultValue={f.val("leaveTypeId")} error={f.err("leaveTypeId")} />
-          <TextField label="Days" name="days" required inputMode="decimal" defaultValue={f.val("days")} error={f.err("days")} help="Use a minus sign to take days away, like -1. Halves allowed, like 0.5." />
+          <TextField label="Days" name="days" required inputMode="decimal" defaultValue={f.val("days")} error={f.err("days")} help="Minus to take away, like -1. Halves allowed, like 0.5." />
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} help="Kept in the history." />
         </>
       )}
@@ -109,7 +137,7 @@ export function CarryForwardForm({ years, action }: { years: Option[]; action: A
     <FormDialog trigger="Carry forward" triggerSize="sm" title="Carry leave forward" action={action} submitLabel="Carry forward">
       {(f) => (
         <>
-          <p className="text-ink-2"><Words k="Days left at the end of the year move to the next year, for leave types with carry-forward on, up to their maximum. Running it again does not add the days twice." /></p>
+          <p className="text-ink-2"><Words k="Days left move to the next year, up to the maximum. Running it again does not add them twice." /></p>
           <SelectField label="From academic year" name="academicYearId" required options={years} defaultValue={f.val("academicYearId", years[0]?.value)} error={f.err("academicYearId")} />
         </>
       )}

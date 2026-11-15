@@ -8,7 +8,7 @@
 // clicked, tapped or typed on the page, so nothing plays before that. A check
 // that finds nothing new changes nothing and stays silent. The sound is made
 // in the browser (Web Audio); there is no sound file.
-import { setUiSoundOn, unlockUiSound } from "@/lib/ui-sound";
+import { playUiSound, setUiSoundOn, unlockUiSound } from "@/lib/ui-sound";
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -26,24 +26,6 @@ export function arrived(before: string, after: string): boolean {
   const b = Number(bt) || 0;
   const a = Number(at) || 0;
   return a > b || (a === b && Boolean(aid) && aid !== bid);
-}
-
-/** A short two-note chime, quiet, made in the browser. */
-function chime(ctx: AudioContext) {
-  const t = ctx.currentTime;
-  const gain = ctx.createGain();
-  gain.connect(ctx.destination);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-  for (const [freq, at] of [[880, 0], [1320, 0.12]] as const) {
-    const o = ctx.createOscillator();
-    o.type = "sine";
-    o.frequency.setValueAtTime(freq, t + at);
-    o.connect(gain);
-    o.start(t + at);
-    o.stop(t + at + 0.33);
-  }
 }
 
 export function BellWatch({ unread, sound }: { unread: number; sound: boolean }) {
@@ -67,7 +49,8 @@ export function BellWatch({ unread, sound }: { unread: number; sound: boolean })
     } catch { /* storage blocked: chime anyway */ }
     try {
       if (audio.current.state === "suspended") void audio.current.resume();
-      chime(audio.current);
+      // The same soft engine as every other sound (layman loop: "satisfying, not irritating").
+      playUiSound("notify");
     } catch { /* no sound on this device */ }
   }, []);
 

@@ -34,7 +34,7 @@ export function ModuleSwitch({ moduleKey, name, on, ready, hides, mayEdit }: { m
     return (
       <ConfirmButton trigger={<span className="inline-flex items-center gap-2"><SwitchLook on /><Words k="On" /></span>} triggerVariant="ghost" title={`Switch off ${name}?`} confirmLabel={`Switch off ${name}`}
         onConfirm={() => moduleAction(moduleKey, false)}>
-        {hides} {name} <Words k="disappears from the menu, search and dashboards for everyone. Nothing is deleted: switch it on again and everything is back." />
+        {hides} {name} <Words k="disappears for everyone. Nothing is deleted; switch it on to bring it back." />
       </ConfirmButton>
     );
   }
@@ -90,7 +90,7 @@ export function TemplatePicker({ templates, current, mayEdit }: { templates: { k
         {!busy && preview && !preview.ok && <Alert tone="danger">{preview.message}</Alert>}
         {!busy && preview?.ok && (
           <div className="space-y-3">
-            <p className="text-sm text-ink-2"><Words k="A template only switches modules on, never off. Settings you have already chosen are kept unless you tick the box below." /></p>
+            <p className="text-sm text-ink-2"><Words k="A template only switches modules on. Your settings stay unless you tick the box below." /></p>
             {preview.modules!.length > 0 && <div><p className="font-medium"><Words k="Modules switched on" /></p><ul className="list-disc pl-5 text-sm">{preview.modules!.map((m) => <li key={m}>{m}</li>)}</ul></div>}
             {preview.settings!.length > 0 && (
               <div><p className="font-medium"><Words k="Settings filled in" /></p>
@@ -148,7 +148,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
         <KeepCheck type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
-        <span><span className="font-medium"><Words k="AI assistant is on" /></span><span className="block text-sm text-ink-2"><Words k="The AI only prepares and suggests. A person always checks before anything is saved or sent." /></span></span>
+        <span><span className="font-medium"><Words k="AI assistant is on" /></span><span className="block text-sm text-ink-2"><Words k="The AI only suggests. A person always checks first." /></span></span>
       </label>
       {isOn && (
         <fieldset>
@@ -168,7 +168,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
       {isOn && (
         <TextField label="Most AI requests a day" name="aiDailyLimit" type="number" inputMode="numeric" min={1} max={platformLimit} className="max-w-xs"
           defaultValue={state?.values?.aiDailyLimit ?? (dailyLimit === null ? "" : String(dailyLimit))} placeholder={String(platformLimit)} disabled={!mayEdit}
-          error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most DREAM TEAM allows. After that, everyone carries on without AI until tomorrow.`} />
+          error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most allowed.`} />
       )}
       {isOn && <CharacterChoice character={(state?.values?.assistantCharacter as MascotCharacter | undefined) ?? character} mayEdit={mayEdit} error={state?.errors?.assistantCharacter} />}
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save AI assistant" /></SubmitButton>}

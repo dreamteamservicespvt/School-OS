@@ -4,7 +4,7 @@
 // was tidied, and which words still need matching. Nothing is saved here.
 
 import type { ImportColumn } from "../importer";
-import { valueType, type ColumnMatch } from "./match";
+import { dateHeading, moneyHeading, valueType, type ColumnMatch } from "./match";
 import { findOption, findSection, sectionLabel, suggestOptions, suggestSections, type Lookups, type SectionOption } from "./lookups";
 import { dateOrder, plain, splitClassSection, tidyBloodGroup, tidyDate, tidyDigits, tidyGender, tidyName, tidyPhone, tidyYesNo, type DateOrder } from "./tidy";
 
@@ -20,6 +20,8 @@ export type Choices = {
   rowChoices?: Record<string, string>;
   /** Rows an earlier import of this file brought in: not checked or brought in again. */
   done?: number[];
+  /** Column key → one value for every row with none in the file (one due date, one "salary starts from"). */
+  fill?: Record<string, string>;
 };
 
 export type Change = { key: string; from: string; to: string };
@@ -70,9 +72,16 @@ export function prepareSheet(kindKey: string, columns: ImportColumn[], grid: str
 
   // The order of day and month is worked out once per date column.
   const dateOrders: Record<string, DateOrder> = {};
+  // A plain number becomes a date (an Excel day number) only in a column whose heading says date:
+  // "Total Fee" 46000 matched to Due date was tidied into 09-12-2025 (layman loop 5).
+  const numberIsDate: Record<string, boolean> = {};
   for (const k of keys) {
-    if (valueType(kindKey, k) === "date" && m[k]?.length) dateOrders[k] = dateOrder(grid.slice(headerIndex + 1).map((r) => cellOf(r, m[k])));
+    if (valueType(kindKey, k) === "date" && m[k]?.length) {
+      dateOrders[k] = dateOrder(grid.slice(headerIndex + 1).map((r) => cellOf(r, m[k])));
+      numberIsDate[k] = m[k].some((c) => dateHeading(headers[c] ?? "") && !moneyHeading(headers[c] ?? ""));
+    }
   }
+  const fill = choices.fill ?? {};
 
   const classSame = Boolean(m.className?.length && m.sectionName?.length && m.className.join() === m.sectionName.join());
   const usesClass = keys.includes("className");
@@ -97,10 +106,11 @@ export function prepareSheet(kindKey: string, columns: ImportColumn[], grid: str
     const changes: Change[] = [];
     for (const k of keys) {
       const fromFile = k === "sectionName" && classSame ? "" : cellOf(raw, m[k]);
-      const v = fixes[k] ?? fromFile;
+      const v = fixes[k] ?? (fromFile || fill[k] || "");
       const type = valueType(kindKey, k);
       let out = v.trim();
-      if (choices.tidy && out) out = tidyValue(type, out, dateOrders[k] ?? "DMY");
+      const plainNumber = type === "date" && /^\d+(?:\.\d+)?$/.test(out.replace(/,/g, "")) && !numberIsDate[k];
+      if (choices.tidy && out && !plainNumber) out = tidyValue(type, out, dateOrders[k] ?? "DMY");
       if (out !== v.trim() && fixes[k] === undefined) changes.push({ key: k, from: v.trim(), to: out });
       values[k] = out;
     }

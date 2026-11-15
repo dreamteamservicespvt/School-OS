@@ -147,7 +147,7 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
             })}
             empty={q || show !== "all" || routeId || period.range
               ? <Empty icon={SearchX} title="Nobody matches" body="Try another route, or clear the filters." action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-              : <Empty icon={Users} title="No student uses transport yet" body="Give students a route and stop. The stop's fee is added to their fees from the start date." action={can.students ? <ButtonLink href={addQ(close, { do: "assign" })} scroll={false} variant="secondary" icon={Plus}>Give transport</ButtonLink> : undefined} />} />
+              : <Empty icon={Users} title="No student uses transport yet" body="The stop's fee is added to their fees from the start date." action={can.students ? <ButtonLink href={addQ(close, { do: "assign" })} scroll={false} variant="secondary" icon={Plus}>Give transport</ButtonLink> : undefined} />} />
           {data.rows.length > 0 && <div className="hidden lg:flex items-center gap-2 px-5 py-2 border-t border-line text-[12.5px] text-ink3"><AllTick /><span>Pick every student shown, then change, stop, add fees or print bus passes</span></div>}
         </Card>
 

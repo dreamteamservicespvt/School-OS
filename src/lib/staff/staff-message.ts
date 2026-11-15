@@ -7,7 +7,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
-import { channelSetups, CHANNEL_LABEL } from "../messaging/channels";
+import { channelSetups, CHANNEL_LABEL, offeredChannels } from "../messaging/channels";
 import { MessagingProblem, sendMessage, skippedWords, type SendResult } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 
@@ -24,7 +24,8 @@ export class StaffMessageProblem extends Error {
 /** The phone channels the school has switched on, for the "Also send by" choice. */
 export async function copyChannelsOn(tx: Tx, ctx: SchoolContext): Promise<CopyChannel[]> {
   const setups = await channelSetups(tx, ctx);
-  return COPY_CHANNELS.filter((c) => setups[c].isOn);
+  // SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026).
+  return offeredChannels(COPY_CHANNELS).filter((c) => setups[c].isOn);
 }
 
 export type StaffMessageResult = { staff: number; inApp: number; noLogin: number; channels: CopyChannel[]; copies: SendResult | null };

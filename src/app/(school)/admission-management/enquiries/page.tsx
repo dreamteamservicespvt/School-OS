@@ -34,7 +34,8 @@ import { STATUS_TONE } from "@/lib/admission/tones";
 import { periodFromSearch } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { tx } from "@/lib/i18n/tx";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Enquiries") };
@@ -131,7 +132,8 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     return y ? (y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id) ? `${y.name} mid-year` : y.name) : "";
   };
   const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id && y.campusId === year.campusId)?.name ?? ""}`.trim() : year?.name ?? "";
-  const sub = own ? `Only the enquiries you added or own · ${counts.all} ${counts.all === 1 ? "enquiry" : "enquiries"}` : `${counts.openCount} open enquiries · ${yearsText}`;
+  const t = await getT();
+  const sub = own ? `${t("Only the enquiries you added or own")} · ${counts.all === 1 ? t("1 enquiry") : t("{n} enquiries", { n: counts.all })}` : `${t("{n} open enquiries", { n: counts.openCount })} · ${t.any(yearsText)}`;
   const canAdd = viewer.change !== "none" && data.years.length > 0 && !shut;
   const full = viewer.change === "all" && !own && !shut;
   const selectable = full;
@@ -152,9 +154,9 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     const due = isOpen && e.nextFollowUpAt ? (e.nextFollowUpAt < now ? "overdue" : e.nextFollowUpAt < dayEnd ? "today" : "later") : null;
     const cls = e.classId ? n.classes.get(e.classId) ?? "" : "Not decided";
     const next = due && e.nextFollowUpAt
-      ? <span key="n" className={cx("text-[13px] tnum whitespace-nowrap", due === "overdue" ? "text-bad font-semibold" : due === "today" ? "text-warn font-semibold" : "text-ink2")}>{due === "overdue" && <CircleAlert size={13} className="inline -mt-0.5 mr-1" aria-label="Overdue" />}{whenWords(e.nextFollowUpAt, tz, now)}</span>
+      ? <span key="n" className={cx("text-[13px] tnum whitespace-nowrap", due === "overdue" ? "text-bad font-semibold" : due === "today" ? "text-warn font-semibold" : "text-ink2")}>{due === "overdue" && <CircleAlert size={13} className="inline -mt-0.5 mr-1" aria-label="Overdue" />}{tx(whenWords(e.nextFollowUpAt, tz, now))}</span>
       : <span key="n" className="text-ink3"><Words k="None" /></span>;
-    const status = <Pill key="st" tone={STATUS_TONE[e.status] ?? "neutral"}>{label(settings.statusList, e.status)}</Pill>;
+    const status = <Pill key="st" tone={STATUS_TONE[e.status] ?? "neutral"}>{tx(label(settings.statusList, e.status))}</Pill>;
     const owner = e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? "" : "No owner";
     const last = "activities" in e && Array.isArray(e.activities) ? (e.activities as { text: string }[])[0]?.text : undefined;
     return {
@@ -163,20 +165,20 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         <div key="c" className="flex items-center gap-3 min-w-0"><Avatar name={e.childName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{e.childName}</p><p className="text-[12px] text-ink3 font-mono">{e.enquiryNo ?? ""}</p></div></div>,
         ...(narrow ? [] : [
           <div key="p"><p className="leading-tight">{e.parentName}</p><p className="text-[12.5px] text-ink3 tnum">{phoneWords(e.phone)}</p></div>,
-          <div key="cl"><p className="font-medium">{cls}</p><p className="text-[12px] text-ink3">{yearLabel(e.academicYearId)}</p></div>,
+          <div key="cl"><p className="font-medium">{tx(cls)}</p><p className="text-[12px] text-ink3">{yearLabel(e.academicYearId)}</p></div>,
           view === "whatsapp"
             ? <p key="s" className="text-[13px] text-ink2 max-w-[220px] truncate">{last ? `“${last}”` : <span className="text-ink3"><Words k="No messages yet" /></span>}</p>
-            : <div key="s"><p className="text-[13.5px]">{label(settings.sourceList, e.source)}</p>{e.campaign && <p className="text-[12px] text-info whitespace-nowrap">{e.campaign.name}</p>}</div>,
+            : <div key="s"><p className="text-[13.5px]">{tx(label(settings.sourceList, e.source))}</p>{e.campaign && <p className="text-[12px] text-info whitespace-nowrap">{e.campaign.name}</p>}</div>,
         ]),
         status,
-        <span key="o" className="text-[13.5px]">{owner}</span>,
+        <span key="o" className="text-[13.5px]">{tx(owner)}</span>,
         next,
         ...(narrow ? [] : [<span key="cr" className="text-[13px] tnum">{formatDate(e.createdAt, tz)}</span>]),
       ],
       mobile: {
         title: e.childName, sub: `${e.parentName} · ${cls} · ${label(settings.sourceList, e.source)}`, avatar: e.childName,
-        pills: [<Pill key="s" tone={STATUS_TONE[e.status] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{label(settings.statusList, e.status)}</Pill>,
-          due && e.nextFollowUpAt ? <Pill key="n" tone={due === "overdue" ? "bad" : due === "today" ? "warn" : "neutral"} className="!h-[22px] !text-[11.5px]">{due === "overdue" ? "Overdue · " : ""}{whenWords(e.nextFollowUpAt, tz, now)}</Pill> : null],
+        pills: [<Pill key="s" tone={STATUS_TONE[e.status] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{tx(label(settings.statusList, e.status))}</Pill>,
+          due && e.nextFollowUpAt ? <Pill key="n" tone={due === "overdue" ? "bad" : due === "today" ? "warn" : "neutral"} className="!h-[22px] !text-[11.5px]">{due === "overdue" ? <><Words k="Overdue" /> · </> : ""}{tx(whenWords(e.nextFollowUpAt, tz, now))}</Pill> : null],
       },
     };
   });
@@ -202,13 +204,13 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     </EmptyState>
   ) : (
     <EmptyState bare Icon={Inbox} title={own ? "No enquiries of yours yet" : "No enquiries yet"} action={canAdd ? <AddEnquiryButton c={choices} /> : undefined}>
-      <Words k="Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten." />
+      <Words k="Add walk-in and phone enquiries here." />
     </EmptyState>
   );
 
   return (
     <>
-      <AdmissionHead href={PATH} sub={sub} actions={actions} />
+      <AdmissionHead href={PATH} pageName="Enquiries" sub={sub} actions={actions} />
       <ViewYearStrip year={yearView} back={backToThisYear(PATH, raw)} />
         <div className={cx("grid gap-5 lg:gap-6 items-start", panel && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
           <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
@@ -216,7 +218,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
             <Card className="overflow-hidden">
               <div className="flex flex-col gap-2.5 p-3 md:p-4 border-b border-line/70">
                 <div className="flex flex-col md:flex-row gap-2.5 md:items-center">
-                  <UrlSearch placeholder="Child, parent, phone or ENQ number" />
+                  <UrlSearch placeholder="Name, phone or ENQ no." />
                   <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" /><Words k="WhatsApp" /></> }]} />
                   {!narrow && <ExportMenu href={listHref(`${PATH}/export`, params, { page: null, id: null })} />}
                 </div>

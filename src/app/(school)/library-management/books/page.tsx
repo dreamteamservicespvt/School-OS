@@ -131,7 +131,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
             phone={(b) => {
               const c = d.counts.get(b.id) ?? ZERO;
               return { title: b.title, sub: `${b.authorText}${b.categoryId && catOf.get(b.categoryId) ? ` · ${catOf.get(b.categoryId)!.name}` : ""}`, icon: BookOpen, iconTone: "brand",
-                pills: <><Pill tone={c.available ? "ok" : "neutral"}>{c.available} <Words k="of" /> {c.total} <Words k="available" /></Pill>{c.lost > 0 && <Pill tone="warn">{c.lost} <Words k="lost" /></Pill>}</> };
+                pills: <><Pill tone={c.available ? "ok" : "neutral"}><Words k="{n} of {n2}" vars={{ n: c.available, n2: c.total }} /> <Words k="available" /></Pill>{c.lost > 0 && <Pill tone="warn">{c.lost} <Words k="lost" /></Pill>}</> };
             }}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(`${BASE}/books`, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(`${BASE}/books`, params, { page: params.page + 1 })} />}

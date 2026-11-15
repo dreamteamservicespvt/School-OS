@@ -26,6 +26,20 @@ export async function hitLimit(key: string, max: number, windowSeconds: number, 
   return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((windowStart.getTime() + windowMs - now.getTime()) / 1000)) };
 }
 
+/**
+ * Says whether `key` is already over `max` hits in this window, without counting a hit.
+ * For "wrong tries" limits: only a wrong try counts, but every try is checked.
+ */
+export async function peekLimit(key: string, max: number, windowSeconds: number, now = new Date()): Promise<LimitResult> {
+  const windowMs = windowSeconds * 1000;
+  const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
+  const rows = await prisma.$queryRaw<{ hits: number }[]>`
+    SELECT hits FROM rate_limit_bucket WHERE key = ${key} AND window_start = (${windowStart}::timestamptz AT TIME ZONE 'UTC')`;
+  const hits = Number(rows[0]?.hits ?? 0);
+  if (hits < max) return { ok: true };
+  return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((windowStart.getTime() + windowMs - now.getTime()) / 1000)) };
+}
+
 /** Plain words for a person who hit a limit. */
 export function limitMessage(r: { retryAfterSeconds: number }) {
   const mins = Math.ceil(r.retryAfterSeconds / 60);

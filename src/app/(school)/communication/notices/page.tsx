@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
-import { boardFor, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/communication/notices";
+import { boardFor, needsApproval, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/communication/notices";
 import { NOTICE_FILTERS, NOTICE_GROUPS, noticeCampusWhere, noticeCounts, noticeWhere, type NoticeGroup } from "@/lib/communication/notice-list";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -52,7 +52,9 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
       tx.notice.groupBy({ by: ["status"], where: { AND: [mineWhere, campus, { status: { not: "ARCHIVED" } }] }, _count: { _all: true } }),
       boardFor(tx, current.ctx, current.user.id, access.roleKeys),
     ]);
-    return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows) };
+    // The same rule as saving: the person who decides notice requests (or a school with no rule) needs no approval.
+    const toParentsAsked = access.canChange ? await needsApproval(tx, current.ctx, { parents: true, students: false, staff: false, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] }) : false;
+    return { rows, total, byStatus, board, counts: await noticeCounts(tx, rows), toParentsAsked };
   });
   const groupCount = (g: NoticeGroup) => data.byStatus.filter((s) => (NOTICE_GROUPS[g] as readonly string[]).includes(s.status)).reduce((a, s) => a + s._count._all, 0);
   const rank = { CRITICAL: 0, HIGH: 1, NORMAL: 2 } as const;
@@ -72,7 +74,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
   return (
     <>
       <CommHead access={access} page="Notice Board" href="/communication/notices"
-        sub={access.full ? "Circulars and notices with read tracking. Notices to parents go for approval first, unless you approve them yourself." : access.canChange ? "Notices for you are on the board, with the notices you wrote. Notices to parents go for approval first." : "Notices for you are on the board."}
+        sub={access.canChange ? (data.toParentsAsked ? "Notices to parents go for approval first." : undefined) : "Notices for you are on the board."}
         actions={access.canChange ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}><Words k="New notice" /></ButtonLink> : undefined} />
       <Split side={340}>
         <Card className="overflow-hidden min-w-0">
@@ -91,9 +93,9 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
             minWidth={620}
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/notices", listParams, { page: p }) }}
             empty={
-              <EmptyState bare Icon={Megaphone} title={filtered ? "No notices here" : group === "waiting" ? "Nothing waiting" : "No notices here"}
+              <EmptyState bare Icon={Megaphone} title={filtered ? "No notices here" : group === "waiting" ? "Nothing waiting" : "No notices yet"}
                 action={access.canChange ? <ButtonLink href="/communication/notices/new" icon={Plus}><Words k="New notice" /></ButtonLink> : undefined}>
-                {group === "waiting" ? "Drafts, scheduled notices and those waiting for approval show here." : "Try another search, or write a new notice."}
+                {group === "waiting" ? "Drafts, scheduled notices and those waiting for approval show here." : filtered ? "Try another search, or write a new notice." : "Write your first notice."}
               </EmptyState>
             }
             columns={[
@@ -107,7 +109,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
               pills: [
                 <Pill key="s" tone={STATUS_TONE[n.status]} className="!h-[22px] !text-[11.5px]">{STATUS_LABEL[n.status]}</Pill>,
                 n.priority !== "NORMAL" ? <Pill key="p" tone={PRIORITY_TONE[n.priority]} className="!h-[22px] !text-[11.5px]">{PRIORITY_LABEL[n.priority]}</Pill> : null,
-                n.guardianCount ? <Pill key="seen" tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Seen" /> {data.counts.get(n.id)?.seen ?? 0} <Words k="of" /> {n.guardianCount}</Pill> : null,
+                n.guardianCount ? <Pill key="seen" tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Seen" /> <Words k="{n} of {n2}" vars={{ n: data.counts.get(n.id)?.seen ?? 0, n2: n.guardianCount }} /></Pill> : null,
               ],
             })}
           />

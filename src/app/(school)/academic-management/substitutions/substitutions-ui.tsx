@@ -116,7 +116,7 @@ function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: s
           </fieldset>
           <fieldset aria-describedby="sub-help">
             <legend className="mb-1 text-sm font-medium"><Words k="Substitute" /> <span className="text-danger">*</span></legend>
-            <p id="sub-help" className="mb-2 text-xs text-ink-2"><Words k="Only free teachers are shown, best match first: teaches the same subject, teaches the class, fewest substitutions this week." /></p>
+            <p id="sub-help" className="mb-2 text-xs text-ink-2"><Words k="Only free teachers are shown, best match first." /></p>
             {error && <p className="text-sm text-danger" role="alert">{error}</p>}
             {list === null ? <p className="text-sm text-ink-2" aria-live="polite"><Words k="Finding free teachers…" /></p> : list.length === 0 ? (
               <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text">{chosen.length === 0 ? "Choose a period first." : "No teacher is free in all the chosen periods. Choose fewer periods."}</p>
@@ -152,7 +152,7 @@ export function MarkAbsentButton({ teachers, date }: { teachers: { id: string; n
           <SelectField label="Teacher" name="staffId" required defaultValue={v(state, "staffId")} placeholder="Choose a teacher" options={teachers.map((t) => ({ value: t.id, label: t.name }))} error={err(state, "staffId")} />
           <TextField label="Date" name="date" type="date" required defaultValue={v(state, "date", date)} error={err(state, "date")} />
           <TextField label="Note" name="note" defaultValue={v(state, "note")} placeholder="Unwell, called at 7:30" error={err(state, "note")} />
-          <p className="text-sm text-ink-2"><Words k={"Their periods that day are listed as needing a substitute. For leave, approve it in Staff & HR instead; it shows here by itself."} /></p>
+          <p className="text-sm text-ink-2"><Words k={"Their periods that day need a substitute. For leave, approve it in Staff & HR instead."} /></p>
         </>
       )}
     </FormDialog>

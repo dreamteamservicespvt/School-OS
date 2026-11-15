@@ -50,7 +50,7 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
 
   return (
     <div>
-      <TrHead page="routes" sub={data.all.length ? `${plural(data.all.length, "route")} · ${plural(stops, "stop")} · ${plural(students, "student")} · fee set per stop or per route` : "Routes with stops in order, pickup times and the transport fee"}
+      <TrHead page="routes" sub={data.all.length ? `${plural(data.all.length, "route")} · ${plural(stops, "stop")} · ${plural(students, "student")}` : undefined}
         actions={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="primary" icon={Plus}>Add route</ButtonLink> : undefined} />
       <Stack>
         <Card className="overflow-hidden">
@@ -82,12 +82,12 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
             })}
             empty={q || show !== "all"
               ? <Empty icon={SearchX} title="No route matches" body={q ? `Nothing matches “${q}”. Try a stop name.` : "No route is nearly full."} action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-              : <Empty icon={RouteIcon} title="No routes yet" body={p.can.routes ? "Add a route, then its stops in order with pickup times and the fee a month." : "The Transport In-charge adds routes, with their stops, pickup times and the fee a month. Your role can look at them once they are added."} action={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="secondary" icon={Plus}>Add route</ButtonLink> : undefined} />} />
+              : <Empty icon={RouteIcon} title="No routes yet" body={p.can.routes ? "Add a route, then its stops." : "The Transport In-charge adds the routes."} action={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="secondary" icon={Plus}>Add route</ButtonLink> : undefined} />} />
         </Card>
 
         <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 [&>*]:min-w-0 items-start">
           <Card className="overflow-hidden">
-            <CardHeader title="All routes" description="A sketch from the stops' locations. Numbers mark where each route starts." icon={MapPinned} />
+            <CardHeader title="All routes" description="Numbers mark where each route starts." icon={MapPinned} />
             <div className="px-3 pb-3"><div className="rounded-xl overflow-hidden border border-line/70">
               <TransportMap routes={data.all.map((r) => ({ id: r.route.id, number: r.route.number, name: r.route.name, stops: r.stops.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng })) }))} school={school} ariaLabel="Sketch of all bus routes" />
             </div></div>

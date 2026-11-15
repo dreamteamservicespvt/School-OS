@@ -3,7 +3,7 @@ import { CalendarClock, CalendarPlus, CalendarX2, UsersRound } from "lucide-reac
 import { withSchool } from "@/lib/db";
 import { dayPlan, type DayPlan } from "@/lib/front-office/appointments";
 import { principalFirst, principalOf } from "@/lib/front-office/staff";
-import { addDaysIso, shortDay } from "@/lib/front-office/time";
+import { addDaysIso, shortDay, weekdayOf } from "@/lib/front-office/time";
 import { APPOINTMENT_STATUS, clockOf } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -23,6 +23,8 @@ import { appointmentStatusAction, remindAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { screenLine } from "@/lib/i18n/messages";
+import type { T } from "@/lib/i18n/t";
 import { DateInput } from "@/components/ui/date-input";
 
 export async function generateMetadata() {
@@ -40,6 +42,7 @@ const SORT: Record<string, number> = { ARRIVED: 0, BOOKED: 1, DONE: 2, NO_SHOW: 
 /** Appointments (16 §2, mod-frontoffice.jsx AppointmentsPage): a staff member's day with free slots, and the day's appointments. */
 export default async function AppointmentsPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await foGuard("appointments");
+  const t = p.t;
   const sp = await searchParams;
   const ctx = p.current.ctx;
   const desk = p.can.book;
@@ -70,7 +73,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     return { staff, noPrincipal: principal.ids.size === 0, principalNames: principal.missing, chosen, schoolDays, plan, appts, re, cancel, bookOpen, bookStaff, bookDay, bookLength, bookPlan };
   });
 
-  const staffName = (id: string) => data.staff.find((s) => s.id === id)?.fullName ?? "Staff";
+  const staffName = (id: string) => data.staff.find((s) => s.id === id)?.fullName ?? t("Staff");
   const weekday = (iso: string) => ((new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
   const open = (iso: string) => data.schoolDays.size === 0 ? weekday(iso) !== 7 : data.schoolDays.has(weekday(iso));
   const nextDays: string[] = [];
@@ -78,7 +81,8 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   const bookDays: string[] = [];
   for (let i = 0; bookDays.length < 30 && i < 60; i++) { const d = addDaysIso(p.todayStr, i); if (i === 0 || open(d)) bookDays.push(d); }
   if (!bookDays.includes(data.bookDay)) bookDays.unshift(data.bookDay);
-  const dayLabel = (iso: string) => { const d = new Date(`${iso}T00:00:00Z`); const w = shortDay(d).split(",")[0]; return `${iso === p.todayStr ? "Today, " : ""}${w} ${d.getUTCDate()}`; };
+  // "Today, Sun 15" in the screen's language, the same in the day chips and the booking form's list (layman loop 4).
+  const dayLabel = (iso: string) => { const d = new Date(`${iso}T00:00:00Z`); const w = `${weekdayOf(d, t)} ${d.getUTCDate()}`; return iso === p.todayStr ? t("Today, {day}", { day: w }) : w; };
   const chosen = data.chosen;
   const keep = { staff: chosen && chosen.id !== data.staff[0]?.id ? chosen.id : null, day: isToday ? null : dayIso };
   const here = qs(HREF, keep);
@@ -90,14 +94,14 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
 
   return (
     <div>
-      <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
+      <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff"
         actions={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : null} />
       {data.noPrincipal && data.staff.length > 0 && (
         <div role="status" className="mb-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-[13.5px] text-ink2">
           <p className="font-semibold text-ink"><Words k="The Principal is not in the staff list yet, so meetings with the Principal cannot be booked." /></p>
           <p className="mt-0.5">
             {data.principalNames.length ? <>{data.principalNames.join(", ")} <Words k="has a Principal login but no staff record." /> </> : null}
-            <Words k="The School Admin adds them in Staff & HR Management > Add staff (title: Principal) and links their login. Then they show first in the list." />
+            <Words k="The School Admin adds them in Staff & HR Management > Add staff." />
           </p>
         </div>
       )}
@@ -108,7 +112,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           <Card className="overflow-hidden">
             <div className="p-3 flex flex-col gap-3 border-b border-line">
               <div>
-                <Chips value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: s.fullName, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
+                <Chips value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: `${t.any(s.designation)} · ${s.fullName}`, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <SegLinks size="sm" value={dayIso} label="Day" options={[...nextDays.map((d) => ({ value: d, label: dayLabel(d), href: qs(HREF, { staff: keep.staff, day: d === p.todayStr ? null : d }) })),
@@ -116,21 +120,21 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 <form action={HREF} className="flex items-center gap-2">
                   {keep.staff && <input type="hidden" name="staff" value={keep.staff} />}
                   <label htmlFor="ap-day" className="sr-only"><Words k="Another day" /></label>
-                  <DateInput id="ap-day" name="day" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
+                  <DateInput key={dayIso} id="ap-day" name="day" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
                   <button type="submit" className="h-9 px-3 rounded-xl border border-line text-[13px] font-semibold hover:bg-sunken"><Words k="Show" /></button>
                 </form>
-                {data.staff.length > 5 && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${s.designation}` }))} />}
-                <span className="text-[12.5px] text-ink3">{chosen.designation} · {p.settings.slotMinutes}<Words k="-minute slots" /></span>
+                {data.staff.length > 5 && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${t.any(s.designation)}` }))} />}
+                <span className="text-[12.5px] text-ink3">{t.any(chosen.designation)} · {t("{n}-minute slots", { n: p.settings.slotMinutes })}</span>
               </div>
             </div>
-            {data.plan && <Timeline plan={data.plan} dayIso={dayIso} today={p.todayStr} minute={p.minute} desk={desk} bookHref={(m) => addQ(here, { do: "book", with: chosen.id, on: dayIso, at: String(m) })} />}
+            {data.plan && <Timeline t={t} plan={data.plan} dayIso={dayIso} today={p.todayStr} minute={p.minute} desk={desk} bookHref={(m) => addQ(here, { do: "book", with: chosen.id, on: dayIso, at: String(m) })} />}
           </Card>
           <Col>
             <Card>
-              <CardHeader title={isToday ? "Today’s appointments" : `Appointments on ${shortDay(new Date(`${dayIso}T00:00:00Z`))}`} description={`${live} booked · next one first`} icon={CalendarClock}
+              <CardHeader title={isToday ? "Today’s appointments" : t("Appointments on {day}", { day: shortDay(new Date(`${dayIso}T00:00:00Z`), t) })} description={t("{n} booked · next one first", { n: live })} icon={CalendarClock}
                 action={p.can.export ? <ExportButton href={qs(`${HREF}/export`, { day: dayIso })} size="sm" /> : undefined} />
               {sorted.length === 0 ? (
-                <Empty icon={CalendarX2} title="No appointments on this day" body="Free slots show on the left. Booked times cannot be booked twice."
+                <Empty icon={CalendarX2} title="No appointments on this day" body="Tap a free time to book it."
                   action={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="px-2 pb-2">
@@ -143,10 +147,10 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                         <span className="w-14 shrink-0 text-[13px] font-semibold tnum">{clock.replace(/ (AM|PM)$/, "")}<span className="block text-[11px] text-ink3 font-medium">{clock.slice(-2)} · {a.lengthMin}m</span></span>
                         <div className="min-w-0 flex-1">
                           <p className={cx("font-semibold text-[14px] truncate", a.status === "CANCELLED" && "line-through")}>{a.visitorName}</p>
-                          <p className="text-[12.5px] text-ink3 truncate"><Words k="With" /> {staffName(a.staffId)} · {a.purpose}</p>
+                          <p className="text-[12.5px] text-ink3 truncate">{t("With {name}", { name: staffName(a.staffId) })} · {t.any(a.purpose)}</p>
                           <Pill tone={inMeeting ? "brand" : st.tone} dot={inMeeting} className="!h-5 !text-[11px] mt-1">{inMeeting ? "In meeting" : st.label}</Pill>
                         </div>
-                        {desk && <RowMenu label={`Actions for ${a.visitorName}`} items={apptItems(a, here, isToday, needsDesk)} />}
+                        {desk && <RowMenu label={t("Actions for {name}", { name: a.visitorName })} items={apptItems(a, here, isToday, needsDesk)} />}
                       </li>
                     );
                   })}
@@ -158,16 +162,16 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
       )}
       {data.bookOpen && data.bookStaff && (
         <BookSheet closeHref={here}
-          staff={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${s.designation}` }))}
+          staff={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${t.any(s.designation)}` }))}
           days={bookDays.map((d) => ({ value: d, label: dayLabel(d) }))}
           start={{ staffId: data.bookStaff, day: data.bookDay, at: /^\d+$/.test(one(sp.at)) ? Number(one(sp.at)) : null, length: data.bookLength }}
           slots={data.bookPlan ? { leave: data.bookPlan.leave, free: data.bookPlan.free, taken: data.bookPlan.segments.filter((s) => s.kind !== "noshow" && s.appointmentId !== data.re?.id).map((s) => ({ start: s.start, label: s.label, kind: s.kind })) } : null}
           reschedule={data.re ? { id: data.re.id, name: data.re.visitorName, phone: data.re.visitorPhone, purpose: data.re.purpose } : null} />
       )}
       {data.cancel && (
-        <SheetForm title={`Cancel ${data.cancel.visitorName}’s appointment?`} sub={`${shortDay(data.cancel.date)}, ${clockOf(data.cancel.startMin)} with ${staffName(data.cancel.staffId)}. A cancellation message goes to the visitor at once.`}
+        <SheetForm title={t("Cancel {name}’s appointment?", { name: data.cancel.visitorName })} sub={t("{day}, {time} with {name}. A cancellation message goes to the visitor at once.", { day: shortDay(data.cancel.date, t), time: clockOf(data.cancel.startMin), name: staffName(data.cancel.staffId) })}
           closeHref={here} action={appointmentStatusAction} hidden={{ appointmentId: data.cancel.id, status: "CANCELLED" }} submitLabel="Cancel appointment" submitVariant="danger" pendingText="Cancelling…">
-          <p className="text-[14px] text-ink2"><Words k="The time becomes free for someone else. You can undo this for a short while, but the message has already gone. If you undo, call the visitor." /></p>
+          <p className="text-[14px] text-ink2"><Words k="The time becomes free. The message has already gone; if you undo, call the visitor." /></p>
         </SheetForm>
       )}
       {(one(sp.re) || one(sp.cancel)) && !data.re && !data.cancel && (
@@ -200,13 +204,13 @@ function apptItems(a: Appt, here: string, isToday: boolean, needsDesk: boolean):
 }
 
 /** The staff member's day: busy blocks and free slots between them (mod-frontoffice.jsx scheduleFor). */
-function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPlan; dayIso: string; today: string; minute: number; desk: boolean; bookHref: (m: number) => string }) {
+function Timeline({ t, plan, dayIso, today, minute, desk, bookHref }: { t: T; plan: DayPlan; dayIso: string; today: string; minute: number; desk: boolean; bookHref: (m: number) => string }) {
   if (plan.leave) {
     return (
       <ol className="p-3 md:p-4">
         <li className="grid grid-cols-[64px_1fr] gap-3 items-start">
           <span className="text-[12.5px] font-semibold text-ink3 tnum pt-2.5">{clockOf(plan.start)}</span>
-          <div className="rounded-xl px-3.5 py-2.5 bg-bad/10 text-bad"><p className="text-[13.5px] font-semibold">{plan.leave}{dayIso === today ? " today" : ""}</p><p className="text-[12px] opacity-80 tnum">{clockOf(plan.start)} – {clockOf(plan.end)} <Words k="· no meetings can be booked" /></p></div>
+          <div className="rounded-xl px-3.5 py-2.5 bg-bad/10 text-bad"><p className="text-[13.5px] font-semibold">{dayIso === today ? t("{why} today", { why: t.any(plan.leave) }) : t.any(plan.leave)}</p><p className="text-[12px] opacity-80 tnum">{clockOf(plan.start)} – {clockOf(plan.end)} <Words k="· no meetings can be booked" /></p></div>
         </li>
       </ol>
     );
@@ -227,7 +231,7 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
   if (cur < plan.end) pushFree(plan.end);
   const past = dayIso < today;
   if (!rows.length) {
-    return <p className="p-5 text-[13.5px] text-ink3">{past ? "This day has passed. Nothing was booked." : "No free slots left on this day."}</p>;
+    return <p className="p-5 text-[13.5px] text-ink3">{past ? t("This day has passed. Nothing was booked.") : t("No free slots left on this day.")}</p>;
   }
   return (
     <ol className="p-3 md:p-4 flex flex-col gap-1.5">
@@ -239,7 +243,7 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
               {r.slots.map((m) => {
                 const words = <>{clockOf(m).replace(/ (AM|PM)$/, "")} <span className="font-normal"><Words k="free" /></span></>;
                 return desk
-                  ? <Link key={m} href={bookHref(m)} scroll={false} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition border border-dashed border-line text-ink3 hover:border-brand hover:text-brand hover:bg-brand/5 inline-flex items-center gap-1" aria-label={`Book ${clockOf(m)}`}>{words}</Link>
+                  ? <Link key={m} href={bookHref(m)} scroll={false} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition border border-dashed border-line text-ink3 hover:border-brand hover:text-brand hover:bg-brand/5 inline-flex items-center gap-1" aria-label={t("Book {time}", { time: clockOf(m) })}>{words}</Link>
                   : <span key={m} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border border-dashed border-line text-ink3 inline-flex items-center gap-1">{words}</span>;
               })}
             </div>
@@ -251,8 +255,8 @@ function Timeline({ plan, dayIso, today, minute, desk, bookHref }: { plan: DayPl
             return (
               <div className={cx("rounded-xl px-3.5 py-2.5 flex items-center gap-2", SEG[kind])}>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-semibold leading-snug">{s.label}</p>
-                  <p className="text-[12px] opacity-80 tnum">{clockOf(s.start)} – {clockOf(s.end)}{s.kind === "teach" ? " · from the Time Table" : ""}</p>
+                  <p className="text-[13.5px] font-semibold leading-snug">{screenLine(t, s.label)}</p>
+                  <p className="text-[12px] opacity-80 tnum">{clockOf(s.start)} – {clockOf(s.end)}{s.kind === "teach" ? ` · ${t("from the Time Table")}` : ""}</p>
                 </div>
                 {now ? <Pill tone="brand" dot><Words k="In progress" /></Pill> : st ? <Pill tone={st.tone}>{st.label}</Pill> : null}
               </div>

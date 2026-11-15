@@ -68,7 +68,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
       <UsersNav active="roles" />
       {!mayEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see what each role does. The School Admin changes roles." /></p>}
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        <Words k="A role is a set of things a person may do. Change a role and everyone with it changes at once. For one person only, use exceptions on their page." />
+        <Words k="Change a role and everyone with it changes. For one person, use exceptions on their page." />
       </p>
       <div className="space-y-5">
         {groups.map((g) => (
@@ -82,7 +82,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             ) : (
               <div className="p-4">
                 <EmptyState title="No roles of your own yet">
-                  <Words k="Copy a ready role and change it, for example a Fee Clerk from the Accountant role." />
+                  <Words k="Copy a ready role and change it." />
                   {mayCreate && <div className="mt-4"><ButtonLink href="/settings/users/roles/new" variant="primary"><Words k="Create a role" /></ButtonLink></div>}
                 </EmptyState>
               </div>

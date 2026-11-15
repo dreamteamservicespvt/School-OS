@@ -27,6 +27,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
 import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
+import { confirmWay } from "@/lib/auth/confirm-me";
 import { passwordRulesForLogin, passwordRuleWords } from "@/lib/auth/password-rules";
 import { LanguageChoice } from "./language-choice";
 import { getT, pageTitle } from "@/lib/i18n/server";
@@ -37,12 +38,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("My profile") };
 }
 
-function describeDevice(ua: string | null): { name: string; icon: LucideIcon } {
+function describeDevice(ua: string | null): { name: string; browser?: string; os?: string; icon: LucideIcon } {
   if (!ua) return { name: "Unknown device", icon: I.MonitorSmartphone };
   const phone = /Android|iPhone/.test(ua);
   const os = /Android/.test(ua) ? "Android phone" : /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "a computer";
   const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
-  return { name: `${browser} on ${os}`, icon: phone ? I.Smartphone : /iPad/.test(ua) ? I.Tablet : I.Monitor };
+  return { name: `${browser} on ${os}`, browser, os, icon: phone ? I.Smartphone : /iPad/.test(ua) ? I.Tablet : I.Monitor };
 }
 
 function DL({ rows }: { rows: [string, React.ReactNode][] }) {
@@ -89,6 +90,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const roleNames = current.roles.map((r) => r.name);
   const photo = await withSchool(current.ctx, (tx) => myPhotoLink(tx, current.ctx, u.id));
   const others = sessions.filter((s) => s.id !== current.session.id).length;
+  // How the person confirms it is them before a new mobile or email or switching off two-step login (only the
+  // kind and a masked contact reach the browser, never the password hash).
+  const confirm = confirmWay(u);
 
   const work: { href: string; icon: LucideIcon; title: string; sub: string; show: boolean }[] = [
     { href: "/staff-hr-management/leave", icon: I.CalendarDays, title: t("My leave"), sub: t("Ask for leave and see what is left"), show: Boolean(staff) && can("staff-hr-management") },
@@ -102,13 +106,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Your own details, password, language, devices and alerts. Only you see this page.")} />
+      <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Only you see this page.")} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
           <Alert tone="warning" title="We could not send you a sign-in code this time">
             <Words k="You signed in with your password only this time." /> {cannotReach ?? (setsUpSms
-              ? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Check SMS in Settings, SMS, WhatsApp & Email."
-              : "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin.")}
+              ? "The sign-in code could not be sent. Check SMS in Settings, SMS, WhatsApp & Email."
+              : "The sign-in code could not be sent. Ask your School Admin.")}
           </Alert>
         )}
         {withoutOld && params.newPassword === "1" && (
@@ -122,9 +126,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <PhotoEditor name={u.displayName} src={photo} />
               <div className="min-w-0">
                 <p className="font-display font-semibold text-[22px] leading-tight truncate">{u.displayName}</p>
-                <p className="text-[14px] text-ink3 truncate">{roleNames.join(", ") || "No role yet"} · {current.school.name}</p>
+                <p className="text-[14px] text-ink3 truncate">{roleNames.map((r) => t.any(r)).join(", ") || t("No role yet")} · {current.school.name}</p>
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                  {roleNames[0] && <Pill tone="brand">{roleNames[0]}</Pill>}
+                  {roleNames[0] && <Pill tone="brand">{t.any(roleNames[0])}</Pill>}
                   {staff && <Pill tone="neutral"><span className="font-mono text-[11.5px]">{staff.staffCode}</span></Pill>}
                   {twoStepOn && !cannotReach && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" /><Words k="Two-step login on" /></Pill>}
                   {/* Needed but no code can reach them: never a green "on" (live test 13). */}
@@ -133,7 +137,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </div>
             </div>
             <div className="flex gap-2">
-              <EditDetails name={u.displayName} phone={u.phone} email={u.email} />
+              <EditDetails name={u.displayName} phone={u.phone} email={u.email} confirm={confirm} />
             </div>
           </div>
         </Card>
@@ -141,20 +145,20 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <div className="grid gap-5 lg:gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
             <Card>
-              <CardHeader title={t("My details")} description={t("Changing your mobile number or email needs a one-time code")} icon={I.User} />
+              <CardHeader title={t("My details")} icon={I.User} />
               <DL rows={[
                 [t("Full name"), u.displayName],
                 [t("Mobile number"), <span key="p" className="tnum">{u.phone ?? t("Not given")}</span>],
                 [t("Email"), u.email ?? t("Not given")],
                 [t("Username"), <span key="u" className="font-mono text-[13.5px]">{u.username}</span>],
                 ...(staff ? ([[t("Staff code"), <span key="c" className="font-mono text-[13.5px]">{staff.staffCode}</span>], [t("Joined"), formatDate(staff.joiningDate)]] as [string, React.ReactNode][]) : []),
-                [t("Roles"), roleNames.join(", ") || t("None")],
+                [t("Roles"), roleNames.map((r) => t.any(r)).join(", ") || t("None")],
                 [t("Last signed in"), u.lastSignInAt ? formatDateTime(u.lastSignInAt, tz) : t("Now")],
               ]} />
             </Card>
 
             <Card id="language" className="scroll-mt-20">
-              <CardHeader title={t("Language")} description={t("The language your screens are shown in. The school chooses which languages are on.")} icon={I.Languages} />
+              <CardHeader title={t("Language")} description={t("The school chooses which languages are on.")} icon={I.Languages} />
               <LanguageChoice chosen={isLang(u.language) && languages.includes(u.language) ? cleanLang(u.language) : null} languages={languages} schoolDefault={cleanLang(current.school.defaultLanguage)} />
             </Card>
 
@@ -164,11 +168,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="flex items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0 flex-1 text-[14px]">
                     <b className="font-semibold block"><Words k="Password" /></b>
-                    <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
+                    <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? t("Last changed {date}", { date: formatDate(u.passwordChangedAt) }) : t("Set when you accepted your invite")}</span>
                   </div>
                   <PasswordButton withoutOld={withoutOld} minLength={passwordRules.minLength} rulesWords={passwordRuleWords(passwordRules, t)} />
                 </div>
-                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} />
+                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} confirm={confirm} />
               </div>
             </Card>
 
@@ -182,8 +186,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <li key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                       <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><d.icon size={19} aria-hidden="true" /></span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[14px] truncate">{d.name}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
-                        <p className="text-[12.5px] text-ink3 truncate">{me ? "Active now" : `Last used ${formatDateTime(s.lastUsedAt, tz)}`}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
+                        <p className="font-semibold text-[14px] truncate">{d.browser && d.os ? t("{browser} on {system}", { browser: d.browser, system: t.any(d.os) }) : t.any(d.name)}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
+                        <p className="text-[12.5px] text-ink3 truncate">{me ? t("Active now") : t("Last used {when}", { when: formatDateTime(s.lastUsedAt, tz) })}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
                       </div>
                       {!me && (
                         <form action={signOutDevice}>
@@ -207,7 +211,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="border-t border-line/70">
                   <div className="px-5 pt-4 pb-1">
                     <h3 className="font-semibold text-[14px]"><Words k="Remembered devices" /></h3>
-                    <p className="text-[12.5px] text-ink3"><Words k="These do not ask for the one-time code when you sign in with your password. Signing out on a device forgets it. A device not used for" /> {REMEMBER_DAYS} <Words k="days is forgotten." /></p>
+                    <p className="text-[12.5px] text-ink3"><Words k="These skip the one-time code at sign-in. A device not used for" /> {REMEMBER_DAYS} <Words k="days is forgotten." /></p>
                   </div>
                   <ul className="px-2 pb-2">
                     {remembered.map((r) => {
@@ -233,7 +237,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader title={t("My notifications")} description={t("Choose how each kind reaches you. Some cannot be switched off.")} icon={I.Bell} />
+              <CardHeader title={t("My notifications")} description={t("Some cannot be switched off.")} icon={I.Bell} />
               <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={allowed as NoteChannel[]} phone={u.phone} />
               <PushSwitch config={pushWebConfig()} schoolAllows={allowed.includes("push")} />
               <div className="border-t border-line px-5 py-4">

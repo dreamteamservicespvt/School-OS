@@ -21,6 +21,8 @@ export async function setOptOut(tx: Tx, ctx: SchoolContext, guardianId: string, 
 
 /** A parent replied STOP (or START) on WhatsApp. Every guardian on that number follows it. */
 export async function optOutByPhone(tx: Tx, ctx: SchoolContext, phone: string, optOut: boolean) {
+  // Never every parent with no phone at once (owner decision 15).
+  if (!phone.trim()) return 0;
   const guardians = await tx.guardian.findMany({ where: { schoolId: ctx.schoolId, phone, archivedAt: null, optedOut: !optOut } });
   for (const g of guardians) await setOptOut(tx, ctx, g.id, optOut, "WhatsApp reply", optOut ? "Replied STOP" : "Replied START");
   return guardians.length;

@@ -6,9 +6,10 @@ import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 
-/** Dialog on a computer, bottom sheet on a phone (design/ui-prototype/src/ui.jsx Sheet). */
+/** Dialog on a computer, bottom sheet on a phone (design/ui-prototype/src/ui.jsx Sheet).
+ *  It slides up 16 px in 200 ms while the shade behind it fades in; closing is instant, so nothing waits. */
 export const sheetCls = (wide?: boolean) => cx(
-  "p-0 text-ink bg-surface shadow-pop outline-none backdrop:bg-shade/45 backdrop:backdrop-blur-[2px] open:animate-sheet",
+  "p-0 text-ink bg-surface shadow-pop outline-none backdrop:bg-shade/45 backdrop:backdrop-blur-[2px] backdrop:animate-fade open:animate-sheet",
   "fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none max-h-[92dvh] rounded-t-3xl",
   "md:inset-0 md:m-auto md:rounded-2xl md:max-h-[88dvh]",
   wide ? "md:w-[min(42rem,calc(100vw-3rem))]" : "md:w-[min(28rem,calc(100vw-3rem))]",
@@ -25,7 +26,7 @@ export function SheetHead({ titleId, title, sub, onClose }: { titleId: string; t
           {sub && <p className="text-sm text-ink3 mt-1">{tx(sub)}</p>}
         </div>
         <button type="button" onClick={onClose} aria-label={t("Close")} title={t("Close")}
-          className="inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 size-9">
+          className="inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0 size-9">
           <X size={19} aria-hidden="true" />
         </button>
       </div>

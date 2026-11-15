@@ -12,14 +12,15 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: "bg-surface text-ink border border-line hover:bg-sunken active:bg-line/60",
   soft: "bg-brand/10 text-brand hover:bg-brand/15 active:bg-brand/20",
   ghost: "text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60",
-  danger: "bg-bad text-badink hover:brightness-110",
-  "danger-soft": "bg-bad/10 text-bad hover:bg-bad/15",
-  "danger-outline": "bg-bad/10 text-bad hover:bg-bad/15",
+  danger: "bg-bad text-badink hover:brightness-110 active:brightness-95",
+  "danger-soft": "bg-bad/10 text-bad hover:bg-bad/15 active:bg-bad/20",
+  "danger-outline": "bg-bad/10 text-bad hover:bg-bad/15 active:bg-bad/20",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-xl",
+  // Phones and tablets: at least 44 px tall so a thumb hits it (accessibility check 2026-11-15).
+  sm: "h-8 max-md:min-h-11 px-3 text-[13px] gap-1.5 rounded-lg",
+  md: "h-10 max-md:min-h-11 px-4 text-sm gap-2 rounded-xl",
   lg: "h-12 px-5 text-[15px] gap-2 rounded-xl",
 };
 
@@ -28,7 +29,8 @@ const shown = (className?: string) => (/(^|\s)hidden(\s|$)/.test(className ?? ""
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = "") {
   return cx(
-    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    // Pressed: a 2% shrink and a darker fill, so every tap is answered at once (owner 15 Nov, motion).
+    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition active:scale-[0.98] select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
     VARIANTS[variant], SIZES[size], extra,
   );
 }
@@ -60,11 +62,14 @@ export function ButtonLink({ href, variant = "secondary", size = "md", icon: Ico
 }
 
 /** A square icon-only button with a name for screen readers, and an optional count. */
+/** An invisible tap area of at least 44 px around a smaller icon button, on phones and tablets. */
+const hit = (size: number) => ({ "--hit": `${Math.min(0, (size - 44) / 2)}px` }) as React.CSSProperties;
+
 export function IconButton({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <button type="button" aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
-      style={{ width: size, height: size }}>
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
     </button>
@@ -74,8 +79,8 @@ export function IconButton({ icon: Icon, label, badge, className, size = 40, ...
 export function IconLink({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ComponentProps<typeof Link> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <Link aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
-      style={{ width: size, height: size }}>
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
     </Link>
@@ -86,7 +91,7 @@ export function CountDot({ count }: { count?: number | null }) {
   if (!count || count <= 0) return null;
   return (
     <span aria-hidden="true" className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-badink text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">
-      {count > 99 ? "99+" : count}
+      {count > 9 ? "9+" : count}
     </span>
   );
 }

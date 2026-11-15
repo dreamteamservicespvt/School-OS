@@ -34,7 +34,8 @@ import { supportRequests } from "@/lib/console/support";
 import { endsWords, lengthWords, SUPPORT_LENGTHS, SUPPORT_STATUS_WORDS } from "@/lib/console/support-entry";
 import { enterSupportAction, requestSupportAction } from "../../support/actions";
 import { ChangePlanSheet, FirstPlanSheet, NewInvoiceSheet, type Prices } from "@/components/console/billing-sheets";
-import { addAdminAction, cancelInviteAction, changeMobileAction, deleteSchoolAction, disableAdminAction, editDetailsAction, groupAction, noteAction, resendInviteAction, resetAdminAction, statusAction } from "../actions";
+import { addAdminAction, cancelInviteAction, changeMobileAction, deleteSchoolAction, disableAdminAction, editDetailsAction, groupAction, noteAction, resendInviteAction, resetAdminAction, resetGroupTwoStepAction, statusAction } from "../actions";
+import { groupLoginsOf } from "@/lib/auth/group-login";
 import { activateAction, changePlanAction, choosePlanAction, foundingAction, groupDiscountAction, sendNewInvoiceAction } from "../../billing/actions";
 import { invoiceSheet } from "../../_lib/invoice-sheets";
 
@@ -84,6 +85,8 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   const { card: s, sub, invoices, history, notes, invites, log, list, sends } = data;
   const [admins, supportRows] = await Promise.all([schoolAdmins(id), supportRequests({ schoolId: id, take: 5 }, now)]);
   const supportOpen = supportRows.find((r) => r.status === "WAITING" || r.live) ?? null;
+  // Logins this school shares with another school: only DREAM TEAM resets their two-step login (owner decision 4, 15 Nov 2026).
+  const groupLogins = c.can("reset") && s.status !== "CLOSED" ? await groupLoginsOf(id) : [];
   // What DREAM TEAM has connected for the school (07-super-admin.md §3.8); never a key.
   const conn = c.can("connect") ? await withConsoleSchool(id, async (tx) => {
     const [channels, gateways] = await Promise.all([
@@ -202,6 +205,15 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
         ) : null;
       case "reset":
         return c.can("reset") && person && person.status === "Active" ? <ResetSheet closeHref={close} schoolId={id} schoolName={s.name} userLoginId={person.userLoginId} adminName={person.name} phoneMasked={maskMobile(person.phone)} hasEmail={Boolean(person.email)} action={resetAdminAction} /> : null;
+      case "twostep": {
+        const g = groupLogins.find((x) => x.userLoginId === arg);
+        return c.can("reset") && g ? (
+          <ActSheet title={`Reset ${g.name}’s two-step login?`} sub={`A login used in ${g.schools.length} schools`} closeHref={close} action={resetGroupTwoStepAction} submitLabel="Reset two-step login"
+            hidden={{ schoolId: id, userLoginId: g.userLoginId }} reason={{ label: "Reason, and how you checked it is really them", placeholder: "Lost phone. Called back on the number in the school's record and the school's office confirmed." }}>
+            <p>Their next sign-in asks for a new code on every device, in all of these schools: <b className="text-ink">{g.schools.join(", ")}</b>. Their password stays. Each school’s Audit Log gets this, and they get a security notice.</p>
+          </ActSheet>
+        ) : null;
+      }
       case "phone":
         return c.can("reset") && person && person.status === "Active" ? <ChangeMobileSheet closeHref={close} schoolId={id} schoolName={s.name} userLoginId={person.userLoginId} adminName={person.name} phoneMasked={maskMobile(person.phone)} action={changeMobileAction} /> : null;
       case "disable": {
@@ -398,8 +410,29 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
               })}
               {people.length === 0 && <li className="border-t border-line/70"><Empty icon={UserX} title="No School Admin" body="Add a School Admin so the school can sign in and set itself up." action={c.can("invite") && live ? <Link href={to("admin")} scroll={false} className={buttonClass("primary")}><UserPlus size={17} aria-hidden="true" />Add a School Admin</Link> : undefined} /></li>}
             </ul>
-            <p className="px-5 py-3 border-t border-line/70 text-[12.5px] text-ink3">Other logins (Principal, Accountant, Teachers and the rest) belong to the school’s own Settings, Users & Permissions. The console cannot see or change them.</p>
+            <p className="px-5 py-3 border-t border-line/70 text-[12.5px] text-ink3">Other logins (Principal, Accountant, Teachers and the rest) belong to the school’s own Settings, Users & Permissions. The console cannot change them, except the two-step login of a login used in more than one school (below).</p>
           </Card>
+
+          {groupLogins.length > 0 && (
+            <Card>
+              <CardHeader title="Logins used in more than one school" description="Only DREAM TEAM resets their two-step login; the school’s own admins cannot" icon={Network} />
+              <ul>
+                {groupLogins.map((g) => (
+                  <li key={g.userLoginId} className="flex flex-col sm:flex-row sm:items-center gap-2.5 px-5 py-3.5 border-t border-line/70">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <Avatar name={g.name} size={36} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[14.5px] leading-tight">{g.name}</p>
+                        <p className="text-[12.5px] text-ink3 break-words">{g.roles.join(", ") || "No role"} · {g.schools.length} schools: {g.schools.join(", ")}</p>
+                        {g.twoStepResetAt && <p className="text-[12.5px] text-ink3">Two-step login last reset {formatDate(g.twoStepResetAt)}</p>}
+                      </div>
+                    </div>
+                    <Link href={to(`twostep:${g.userLoginId}`)} scroll={false} className={buttonClass("secondary", "sm", "self-start sm:self-center")}><KeyRound size={15} aria-hidden="true" />Reset two-step login</Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Setup progress" description="The same checklist the school sees on its Dashboard" icon={ListChecks} action={<Pill tone={s.setupDone >= s.setupTotal ? "ok" : stuck ? "warn" : "info"}>{s.setupDone} of {s.setupTotal}</Pill>} />

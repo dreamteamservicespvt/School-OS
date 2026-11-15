@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
-import { AdmissionProblem, dateTimeOf, emailOf, id, maybe, mobileOf, need, needName, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
+import { AdmissionProblem, collector, dateTimeOf, emailOf, id, maybe, mobileOf, need, needName, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
 import { admissionYear, openYears } from "@/lib/admission/settings";
 import { enquiryScope } from "@/lib/admission/access";
@@ -41,34 +41,38 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
       // The enquiry is for the campus of the class wanted, else of the year chosen, else the person's own
       // campus, in that campus's year (each campus has its own years). A person limited to one campus
       // chooses from that campus only; createEnquiry refuses another campus's class.
+      // Every field problem at once (accessibility check 15 Nov: child's name, then parent's name, one at a time).
+      const c = collector();
+      const input = {
+        childName: c.take(() => needName(fd, "childName", "Child's name", "Type the child's name in letters."), ""),
+        parentName: c.take(() => needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."), ""),
+        phone: c.take(() => mobileOf(fd, "phone"), ""),
+        email: c.take(() => emailOf(fd, "email"), null),
+        classId: optionalId(fd, "classId"),
+        source: c.take(() => need(fd, "source", "Source", 40), ""),
+        ownerStaffId: optionalId(fd, "ownerStaffId"),
+        nextFollowUpAt: c.take(() => dateTimeOf(fd, "nextFollowUpAt", "Next follow-up", w.tz), new Date()),
+        nextAction: c.take(() => maybe(fd, "nextAction", "Next action", 200), null),
+        childDob: c.take(() => optionalDateOf(fd, "childDob", "Child's date of birth"), null),
+        currentSchool: c.take(() => maybe(fd, "currentSchool", "Current school", 150), null),
+        referredBy: c.take(() => maybe(fd, "referredBy", "Referred by", 120), null),
+        notes: c.take(() => maybe(fd, "notes", "Notes", 2000), null),
+      };
       const chosen = optionalId(fd, "yearId");
       const chosenYear = chosen ? (await openYears(w.tx, w.v.campusId)).find((y) => y.id === chosen) ?? null : null;
-      if (chosen && !chosenYear) throw new AdmissionProblem("Choose a year that is open for admissions.", "yearId");
-      const classId = optionalId(fd, "classId");
+      if (chosen && !chosenYear) c.add("yearId", "Choose a year that is open for admissions.");
+      c.done();
+      const classId = input.classId;
       const cls = classId ? await w.tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null }, select: { campusId: true } }) : null;
       const campusId = cls?.campusId ?? chosenYear?.campusId ?? (await personCampusId(w.tx, w.ctx, w.v));
       if (!campusId) throw new AdmissionProblem("Add a campus in Settings first.");
       const year = chosenYear ?? (await admissionYear(w.tx, w.ctx, w.s, campusId));
       if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
-      return createEnquiry(w.tx, w.ctx, w.v, w.s, {
-        childName: needName(fd, "childName", "Child's name", "Type the child's name in letters."),
-        parentName: needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."),
-        phone: mobileOf(fd, "phone"),
-        email: emailOf(fd, "email"),
-        classId: optionalId(fd, "classId"),
-        source: need(fd, "source", "Source", 40),
-        ownerStaffId: optionalId(fd, "ownerStaffId"),
-        nextFollowUpAt: dateTimeOf(fd, "nextFollowUpAt", "Next follow-up", w.tz),
-        nextAction: maybe(fd, "nextAction", "Next action", 200),
-        childDob: optionalDateOf(fd, "childDob", "Child's date of birth"),
-        currentSchool: maybe(fd, "currentSchool", "Current school", 150),
-        referredBy: maybe(fd, "referredBy", "Referred by", 120),
-        notes: maybe(fd, "notes", "Notes", 2000),
-        customFields,
-      }, { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
+      return createEnquiry(w.tx, w.ctx, w.v, w.s, { ...input, customFields },
+        { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
     });
-    await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}/${e.id}`, label: "Open enquiry" } });
+    await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}?do=add`, label: "Add another" } });
     revalidatePath("/", "layout");
     return { ok: true, message: "Enquiry added.", data: { id: e.id } };
   } catch (err) {
@@ -82,17 +86,19 @@ export async function editEnquiryAction(_: DupState, fd: FormData): Promise<DupS
     const e = await inSchool("edit", async (w) => {
       const enquiryId = id(fd, "id", "enquiry");
       const before = await w.tx.enquiry.findFirst({ where: { id: enquiryId, AND: [enquiryScope(w.v)] }, select: { customFields: true } });
-      return editEnquiry(w.tx, w.ctx, w.v, enquiryId, {
-        childName: needName(fd, "childName", "Child's name", "Type the child's name in letters."),
-        parentName: needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."),
-        phone: mobileOf(fd, "phone"),
-        email: emailOf(fd, "email"),
+      const c = collector();
+      const input = {
+        childName: c.take(() => needName(fd, "childName", "Child's name", "Type the child's name in letters."), ""),
+        parentName: c.take(() => needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."), ""),
+        phone: c.take(() => mobileOf(fd, "phone"), ""),
+        email: c.take(() => emailOf(fd, "email"), null),
         classId: optionalId(fd, "classId"),
-        childDob: optionalDateOf(fd, "childDob", "Child's date of birth"),
-        currentSchool: maybe(fd, "currentSchool", "Current school", 150),
-        referredBy: maybe(fd, "referredBy", "Referred by", 120),
-        customFields: await customFrom(w, "enquiry", fd, before?.customFields ?? {}),
-      }, { force: str(fd, "force") === "1" });
+        childDob: c.take(() => optionalDateOf(fd, "childDob", "Child's date of birth"), null),
+        currentSchool: c.take(() => maybe(fd, "currentSchool", "Current school", 150), null),
+        referredBy: c.take(() => maybe(fd, "referredBy", "Referred by", 120), null),
+      };
+      c.done();
+      return editEnquiry(w.tx, w.ctx, w.v, enquiryId, { ...input, customFields: await customFrom(w, "enquiry", fd, before?.customFields ?? {}) }, { force: str(fd, "force") === "1" });
     });
     await flash({ message: `Details of ${e.childName} saved.` });
     revalidatePath("/", "layout");

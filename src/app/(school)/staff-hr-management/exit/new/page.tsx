@@ -37,7 +37,7 @@ export default async function NewExitPage({ searchParams }: Props) {
       <PageHeader title="Record exit" href={`${BASE}/exit/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
-          <p className="mb-4 text-ink-2"><Words k="A resignation starts the handover straight away. A retirement or termination goes to the Principal for approval first. On the last working day the login is switched off." /></p>
+          <p className="mb-4 text-ink-2"><Words k="Retirement and termination need the Principal's approval first. The login stops on the last working day." /></p>
           <NewExitForm action={startExitAction} today={isoDay(today)} fixedStaff={fixed} staff={staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.staffCode}, ${s.designation})` }))} />
         </CardBody>
       </Card>

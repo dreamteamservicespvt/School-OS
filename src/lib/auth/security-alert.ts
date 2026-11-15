@@ -10,14 +10,17 @@ import type { Tx } from "../db";
 import { notify } from "../notifications";
 import { channelsForType } from "../notification-kinds";
 import { mailIsSetUp, sendMail } from "./mail";
+import { englishNote, type NoteValues } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 /** Work to do once the change is saved (an email is never sent from inside a transaction). */
 export type AfterSave = () => Promise<void>;
 
-export async function securityAlert(tx: Tx, schoolId: string, userLoginId: string, input: { text: string; subject: string; link?: string }): Promise<AfterSave> {
+export async function securityAlert(tx: Tx, schoolId: string, userLoginId: string, input: { subject: string; link?: string } & ({ key: MessageKey; values?: NoteValues; text?: undefined } | { text: string; key?: undefined; values?: undefined })): Promise<AfterSave> {
   // Rule 4 ("not for your own actions") does not apply: the alert matters most when it was not them.
   const ctx = { schoolId, userId: null };
-  await notify(tx, ctx, { to: userLoginId, type: "security", text: input.text, link: input.link ?? "/profile#devices" });
+  await notify(tx, ctx, { to: userLoginId, type: "security", key: input.key, values: input.values, text: input.text, link: input.link ?? "/profile#devices" });
+  const text = input.key ? englishNote(input.key, input.values) : input.text;
   const login = await tx.userLogin.findUnique({ where: { id: userLoginId }, select: { email: true, displayName: true, notificationPrefs: true } });
   const email = login?.email;
   if (!login || !email || !channelsForType(login.notificationPrefs, "security").includes("email") || !mailIsSetUp()) return async () => {};
@@ -26,7 +29,7 @@ export async function securityAlert(tx: Tx, schoolId: string, userLoginId: strin
   if ((await channelSetups(tx, ctx)).email.isOn) return async () => {};
   return async () => {
     try {
-      await sendMail(email, input.subject, `Hello ${login.displayName},\n\n${input.text}\n`);
+      await sendMail(email, input.subject, `Hello ${login.displayName},\n\n${text}\n`);
     } catch (e) {
       console.error(JSON.stringify({ level: "error", event: "security-alert-mail-failed", error: e instanceof Error ? e.message : String(e) }));
     }

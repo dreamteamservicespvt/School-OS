@@ -171,7 +171,7 @@ export function RecordLeaveButton({ action, preview, find, types, today, placeho
             </FieldShell>
             {canApprove && (
               <div className="rounded-xl border border-line">
-                <SettingRow id="rl-approve" title="Approve now" sub="You may decide this leave. Turn off to send it to Approvals instead.">
+                <SettingRow id="rl-approve" title="Approve now" sub="Turn off to send it to Approvals instead.">
                   <Switch id="rl-approve" on={approveNow} onChange={setApproveNow} label="Approve now" />
                 </SettingRow>
                 {approveNow && <input type="hidden" name="approveNow" value="on" />}
@@ -249,7 +249,7 @@ export function BulkApprove({ formId, action }: { formId: string; action: Action
       </div>
       <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={`Approve ${ids.length} leave ${ids.length === 1 ? "request" : "requests"}?`}
         action={action} hidden={{ ids: ids.join(",") }} submitLabel={`Approve ${ids.length} ${ids.length === 1 ? "request" : "requests"}`} pendingText="Approving…" onSaved={clear}>
-        {() => <p className="text-[14px] text-ink2"><Words k="Each day shows as Leave in Take Attendance, and no absence message goes to the parent for those days." /></p>}
+        {() => <p className="text-[14px] text-ink2"><Words k="These days show as Leave. No absence message goes to the parent." /></p>}
       </ActionSheet>
     </>
   );

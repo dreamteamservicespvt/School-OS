@@ -22,6 +22,8 @@ import { channelInTestMode, logCodeSentBy } from "../dev-codes";
 import { CODE_MASK } from "../messaging/one-time-code";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
+import { word } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 export type PickupStudent = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; classSection: string | null; rollNo: number | null };
 
@@ -72,7 +74,7 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
   return rows.map((r) => ({ id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, classSection: enr.get(r.id)?.label ?? null, rollNo: enr.get(r.id)?.rollNo ?? null }));
 }
 
-export type PickupPerson = { guardianId: string; name: string; relationship: string; phone: string; photoFileId: string | null; restriction: string | null; allowed: boolean };
+export type PickupPerson = { guardianId: string; name: string; relationship: string; phone: string | null; photoFileId: string | null; restriction: string | null; allowed: boolean };
 
 /**
  * The student, their class teacher, today's attendance, whether today is a
@@ -162,6 +164,9 @@ export function pickupLockWords(lock: PickupCodeLock, first: string, timeZone: s
 export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: string, guardianId: string, now = new Date()) {
   const link = await tx.studentGuardian.findFirst({ where: { studentId, guardianId, archivedAt: null }, include: { guardian: true, student: { select: { firstName: true } } } });
   if (!link || !link.canPickUp || link.restriction?.trim()) throw new FrontOfficeProblem("This person is not on the student’s pickup list. Call a registered guardian.");
+  // A parent with no phone (owner decision 15) cannot get a code.
+  if (!link.guardian.phone) throw new FrontOfficeProblem("This guardian has no phone, so no code can be sent. Call another registered guardian, or add the phone in Student Management.");
+  const guardianPhone = link.guardian.phone;
   // While code checks are locked, no new code goes out: it could not be checked.
   const lock = await pickupCodeLock(tx, studentId, ctx.userId, now);
   if (lock) {
@@ -174,7 +179,7 @@ export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: stri
   const row = await tx.pickupCode.create({ data: { schoolId: ctx.schoolId, studentId, guardianId, codeHash: "pending", createdAt: now, expiresAt: new Date(now.getTime() + CODE_MINUTES * 60_000) } });
   await tx.pickupCode.update({ where: { id: row.id }, data: { codeHash: hashCode(row.id, code) } });
   const sent = await messageVisitor(tx, ctx, {
-    to: { name: link.guardian.name, phone: link.guardian.phone }, trigger: "Pickup code",
+    to: { name: link.guardian.name, phone: guardianPhone }, trigger: "Pickup code",
     // The message keeps "••••••"; the code goes only to the provider (QA SEC-01).
     text: `Code ${CODE_MASK} to collect ${link.student.firstName} from school. Give it only to the front desk. It works for ${CODE_MINUTES} minutes.`,
     about: { recordType: "Student", recordId: studentId }, code,
@@ -182,10 +187,10 @@ export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: stri
   if (sent.status !== "queued") {
     throw new FrontOfficeProblem(`The code could not be sent: ${sent.note ?? "messages are not set up"}. Verify by calling the guardian instead.`);
   }
-  const inLog = await logCodeSentBy(tx, ctx, sent.channel, { to: link.guardian.phone, purpose: "pickup", code });
-  await writeAudit(tx, ctx, { action: "pickup-code-sent", recordType: "Student", recordId: studentId, after: { guardianId, to: maskPhone(link.guardian.phone) } });
+  const inLog = await logCodeSentBy(tx, ctx, sent.channel, { to: guardianPhone, purpose: "pickup", code });
+  await writeAudit(tx, ctx, { action: "pickup-code-sent", recordType: "Student", recordId: studentId, after: { guardianId, to: maskPhone(guardianPhone) } });
   // Test mode only records the message, so the desk must not be told it was sent (QA ADMIT-03).
-  return { to: maskPhone(link.guardian.phone), channel: sent.channel, testMode: await channelInTestMode(tx, ctx, sent.channel), inLog };
+  return { to: maskPhone(guardianPhone), channel: sent.channel, testMode: await channelInTestMode(tx, ctx, sent.channel), inLog };
 }
 
 /**
@@ -245,12 +250,15 @@ async function tellLeaders(tx: Tx, ctx: SchoolContext, who: PickupWho, opts: { l
   const typedBy = ctx.userId ? (await tx.userLogin.findUnique({ where: { id: ctx.userId }, select: { displayName: true } }))?.displayName ?? null : null;
   const student = `${who.name}${who.classSection ? ` (${who.classSection})` : ""}`;
   const until = clockAt(opts.until, opts.timeZone);
-  const what = opts.lockStudent
-    ? `Pickup code checks for ${student} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour${typedBy ? `, the last typed by ${typedBy}` : ""}.`
-    : `${typedBy ?? "A person at the desk"} typed ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour, the last for ${student}. Their code checks are locked until ${until}.`;
+  const key: MessageKey = opts.lockStudent
+    ? (typedBy
+      ? "Pickup code checks for {student} are locked until {time} after {n} wrong codes in an hour, the last typed by {name}. Check with the front desk that the right person is collecting."
+      : "Pickup code checks for {student} are locked until {time} after {n} wrong codes in an hour. Check with the front desk that the right person is collecting.")
+    : "{name} typed {n} wrong pickup codes in an hour, the last for {student}. Their code checks are locked until {time}. Check with the front desk that the right person is collecting.";
+  const values = { student, time: until, n: PICKUP_WRONG_LIMIT, name: typedBy ?? word("A person at the desk") };
   const to = new Set([...(await loginsWithRole(tx, ctx, "principal")), ...(await loginsWithRole(tx, ctx, "school-admin"))]);
   for (const person of to) {
-    await notify(tx, ctx, { to: person, type: "security", text: `${what} Check with the front desk that the right person is collecting.`, link: "/settings/data-security" }, opts.now);
+    await notify(tx, ctx, { to: person, type: "security", key, values, link: "/settings/data-security" }, opts.now);
   }
 }
 
@@ -313,7 +321,7 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
     await tx.attendanceMark.update({ where: { id: mark.id }, data: { outTime: timeOut, note: [mark.note, `Early pickup ${clockAt(timeOut, opts.timeZone)} with ${person.name} (${passNo})`].filter(Boolean).join(" · ") } });
   }
   if (info.classTeacherLogin) {
-    await notify(tx, ctx, { to: info.classTeacherLogin, type: "early-pickup", text: `${info.student.name} leaves early at ${clockAt(timeOut, opts.timeZone)} with ${person.name} (${person.relationship.toLowerCase()}): ${input.reason === "Other" ? reason : reason.toLowerCase()}. Gate pass ${passNo}.`, link: `/student-management/students/${input.studentId}` }, now);
+    await notify(tx, ctx, { to: info.classTeacherLogin, type: "early-pickup", key: "{name} leaves early at {time} with {person} ({relation}): {reason}. Gate pass {pass}.", values: { name: info.student.name, time: clockAt(timeOut, opts.timeZone), person: person.name, relation: word(person.relationship.toLowerCase()), reason: input.reason === "Other" ? reason : word(reason.toLowerCase()), pass: passNo }, link: `/student-management/students/${input.studentId}` }, now);
   }
   await writeAudit(tx, ctx, {
     action: "created", recordType: "Gate Pass", recordId: pass.id,
@@ -352,7 +360,7 @@ export async function refusedPickup(tx: Tx, ctx: SchoolContext, studentId: strin
   const name = who.trim().replace(/\s+/g, " ").slice(0, 120) || "Someone not on the list";
   await writeAudit(tx, ctx, { action: "pickup-refused", recordType: "Student", recordId: studentId, after: { who: name, at: now.toISOString() } });
   if (info.classTeacherLogin) {
-    await notify(tx, ctx, { to: info.classTeacherLogin, type: "pickup-refused", text: `${name} came to collect ${info.student.name} at ${clockAt(now, opts.timeZone)} and is not on the pickup list. ${info.student.first} stays in class.`, link: `/student-management/students/${studentId}` }, now);
+    await notify(tx, ctx, { to: info.classTeacherLogin, type: "pickup-refused", key: "{person} came to collect {name} at {time} and is not on the pickup list. {first} stays in class.", values: { person: name, name: info.student.name, time: clockAt(now, opts.timeZone), first: info.student.first }, link: `/student-management/students/${studentId}` }, now);
   }
   return { student: info.student, classTeacher: info.classTeacher, told: Boolean(info.classTeacherLogin) };
 }

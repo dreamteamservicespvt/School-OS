@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Spinner } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
+import { useT } from "@/lib/i18n/client";
 
 export type UrlField =
   | { name: string; label: string; type: "select"; value: string; options: { value: string; label: string }[]; allLabel?: string }
@@ -22,6 +23,7 @@ export function UrlFilters({ fields, reset = [], children }: {
   const pathname = usePathname();
   const sp = useSearchParams();
   const [pending, start] = useTransition();
+  const t = useT();
   const go = (name: string, value: string) => {
     const next = new URLSearchParams(sp.toString());
     if (value) next.set(name, value);
@@ -35,12 +37,12 @@ export function UrlFilters({ fields, reset = [], children }: {
     <div className="mb-4 flex flex-wrap items-end gap-3">
       {fields.map((f) => (
         <label key={f.name} className="block min-w-0 flex-1 basis-40 sm:flex-none">
-          <span className="mb-1 block text-sm font-medium">{f.label}</span>
+          <span className="mb-1 block text-sm font-medium">{t.any(f.label)}</span>
           {f.type === "select" ? (
             <select value={f.value} onChange={(e) => go(f.name, e.target.value)}
               className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px] sm:w-auto sm:min-w-44">
-              {f.allLabel !== undefined && <option value="">{f.allLabel}</option>}
-              {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {f.allLabel !== undefined && <option value="">{t.any(f.allLabel)}</option>}
+              {f.options.map((o) => <option key={o.value} value={o.value}>{t.any(o.label)}</option>)}
             </select>
           ) : (
             f.type === "date" ? (

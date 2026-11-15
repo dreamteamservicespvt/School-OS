@@ -56,8 +56,11 @@ export function suggestSections(sections: SectionOption[], rawClass: string, raw
 }
 
 /** Words old files use for the designations School OS starts with (HR Settings). */
+// Layman loop 5 (15 Nov): "PET" was tidied into Teacher although Physical Education Teacher exists, and
+// "Tr." was offered as Transport Supervisor. Short forms point to one designation only, the specific one first.
 const DESIGNATION_WORDS: [RegExp, string][] = [
-  [/^(pgt|tgt|prt|ntt|pet|pti|asst ?teacher|assistant teacher|teacher|primary teacher|subject teacher|class teacher|.* teacher|trained graduate teacher|post graduate teacher|faculty|mistress|master)$/i, "Teacher"],
+  [/^(pet|pt|pti|pe teacher|pet teacher|pt teacher|physical education|physical education teacher|physical teacher|sports teacher|games teacher|physical director|pd)$/i, "Physical Education Teacher"],
+  [/^(tr|tchr|tch|pgt|tgt|prt|ntt|asst ?teacher|assistant teacher|teacher|primary teacher|subject teacher|class teacher|.* teacher|trained graduate teacher|post graduate teacher|faculty|mistress|master)$/i, "Teacher"],
   [/^(lecturer|.* lecturer|junior lecturer|senior lecturer)$/i, "Lecturer"],
   [/^(vp|vice principal|vice-principal|dy principal|deputy principal)$/i, "Vice Principal"],
   [/^(accountant|accounts|accounts officer|accounts assistant)$/i, "Accountant"],
@@ -76,18 +79,34 @@ export function findOption(options: string[], raw: string, kind: "designation" |
   if (!v) return null;
   const same = options.find((o) => plain(o) === plain(v));
   if (same) return same;
-  if (kind === "designation") {
-    for (const [re, name] of DESIGNATION_WORDS) {
-      if (re.test(v.replace(/[.]/g, ""))) { const o = options.find((x) => x === name); if (o) return o; }
-    }
+  const words = kind === "designation" ? DESIGNATION_WORDS : DEPARTMENT_WORDS;
+  const bare = v.replace(/[.]/g, "").trim();
+  for (const [re, name] of words) {
+    // The first pattern that fits decides: a word is never passed on to a more general one.
+    if (re.test(bare)) return options.find((x) => plain(x) === plain(name)) ?? null;
   }
   return null;
 }
 
+/** Short forms of department names in old files: only to a department the school has. */
+const DEPARTMENT_WORDS: [RegExp, string][] = [
+  [/^(maths?|mathematics|mat|mths)$/i, "Mathematics"],
+  [/^(sci|science|gen science|general science)$/i, "Science"],
+  [/^(eng|engl|english)$/i, "English"],
+  [/^(sst|soc|social|social science|social studies|ss)$/i, "Social Studies"],
+  [/^(cs|comp|computer|computers|computer science|it|ict)$/i, "Computer Science"],
+  [/^(pe|pt|sports|games|physical education)$/i, "Physical Education"],
+  [/^(hin|hindi)$/i, "Hindi"],
+  [/^(tel|telugu)$/i, "Telugu"],
+  [/^(admin|administration|office)$/i, "Administration"],
+];
+
+/** Words that may be meant, offered on screen but never chosen for the person. */
 export function suggestOptions(options: string[], raw: string): string[] {
   const v = plain(raw);
   return options
-    .map((o) => ({ o, d: plain(o).startsWith(v) || v.startsWith(plain(o)) ? 0 : distance(v, plain(o)) }))
+    // A start of a name counts only from three letters ("Tr" is not Transport Supervisor).
+    .map((o) => ({ o, d: v.length >= 3 && (plain(o).startsWith(v) || v.startsWith(plain(o))) ? 0 : distance(v, plain(o)) }))
     .filter((x) => x.d <= Math.max(2, Math.floor(v.length / 3)))
     .sort((a, b) => a.d - b.d)
     .slice(0, 3)

@@ -8,6 +8,8 @@ import type { SchoolContext, Tx } from "../db";
 import type { RolePermissions } from "../roles";
 import { notify } from "../notifications";
 import { loginsForCampus } from "../staff/campus-logins";
+import { type NoteValues } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 /** Active logins that arrange substitutions for a campus (those limited to another campus are left out). */
 export async function arrangerLogins(tx: Tx, ctx: SchoolContext, campusId: string): Promise<string[]> {
@@ -25,12 +27,12 @@ export async function arrangerLogins(tx: Tx, ctx: SchoolContext, campusId: strin
 }
 
 /** Tells the people who arrange substitutions that periods need cover (merged into one notice per day). */
-export async function tellArrangers(tx: Tx, ctx: SchoolContext, campusId: string, input: { text: string; date: Date }) {
+export async function tellArrangers(tx: Tx, ctx: SchoolContext, campusId: string, input: { key: MessageKey; values: NoteValues; date: Date }) {
   const day = input.date.toISOString().slice(0, 10);
   for (const to of await arrangerLogins(tx, ctx, campusId)) {
     await notify(tx, ctx, {
-      to, type: "substitution", text: input.text, link: `/academic-management/substitutions?date=${day}`,
-      groupKey: `substitutions-needed-${day}`, mergedText: (n) => `${n} notices of periods that need a substitute`,
+      to, type: "substitution", key: input.key, values: input.values, link: `/academic-management/substitutions?date=${day}`,
+      groupKey: `substitutions-needed-${day}`, mergedKey: "{n} notices of periods that need a substitute",
     });
   }
 }

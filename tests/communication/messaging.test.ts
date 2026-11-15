@@ -1,7 +1,7 @@
 // Communication's messaging API: recipients, opt-outs, scope, template
 // checks, the DLT rule, credits, scheduling, retries and the delivery job
 // (11-communication.md §5 and §9).
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import { withSchool } from "@/lib/db";
 import "@/lib/messaging/jobs";
@@ -13,6 +13,9 @@ import { creditBalances } from "@/lib/messaging/credits";
 import { updateSettings } from "@/lib/messaging/settings";
 import { handleWhatsappWebhook } from "@/lib/messaging/webhooks";
 import { addDlt, makeCommSchool, templateId } from "./fixture";
+// SMS is not offered for now (SMS_OFFERED, owner 15 Nov 2026), but its code is kept for later:
+// this file checks that code, so it switches SMS on for itself.
+vi.mock("@/lib/messaging/sms-offered", () => ({ SMS_OFFERED: true, offeredChannels: <T extends string>(list: readonly T[]) => [...list] }));
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
 

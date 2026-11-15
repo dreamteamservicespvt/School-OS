@@ -1,6 +1,7 @@
 "use server";
 
 // Send Message: check (count, cost, preview), then send or schedule.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { findStudents } from "@/lib/students/find";
@@ -167,7 +168,7 @@ export async function translateForParents(form: FormData): Promise<TranslateStat
     if (e instanceof MessagingProblem) return { ok: false, message: e.message };
     throw e;
   }
-  if (!languages.length) return { ok: false, message: "Every parent chosen reads English, or gets this by SMS or a template, so there is nothing to translate." };
+  if (!languages.length) return { ok: false, message: (SMS_OFFERED ? "Every parent chosen reads English, or gets this by SMS or a template, so there is nothing to translate." : "Every parent chosen reads English, or gets this in a template, so there is nothing to translate.") };
   const english = { text, title: read.input.title ?? null };
   const versions = await translateTyped(current.ctx, english, languages.map((l) => l.language));
   return {
@@ -224,7 +225,7 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
     return [
       ...guardians
         .filter((g) => (scope.sectionIds === "all" && !scope.campusId) || g.students.some((s) => genrol.some((e) => e.studentId === s.studentId && inScope(e))))
-        .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ••${g.phone.slice(-4)}` })),
+        .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}` })),
       ...students.map((s) => ({ type: "student" as const, id: s.id, name: s.name, detail: `Student · ${s.admissionNo}` })),
       ...staff.map((s) => ({ type: "staff" as const, id: s.id, name: s.fullName, detail: s.designation })),
     ];

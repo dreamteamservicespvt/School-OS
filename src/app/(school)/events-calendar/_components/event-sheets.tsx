@@ -42,7 +42,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
   const typeOptions = [...new Set([...(start.type ? [start.type] : []), ...types])].map((t) => ({ value: t, label: t }));
   const venueOptions = [{ value: "", label: "No venue" }, ...[...new Set([...(start.venue ? [start.venue] : []), ...venues])].map((v) => ({ value: v, label: v }))];
   return (
-    <SheetForm wide title={editing ? "Change event" : "Create event"} sub={editing ? "Changes to date, time or venue can be sent to the audience." : "It appears on the School Calendar. Reminders go through Communication."}
+    <SheetForm wide title={editing ? "Change event" : "Create event"} sub={editing ? "Changes to date, time or venue can be sent to the audience." : "It appears on the School Calendar."}
       closeHref={closeHref} action={saveEventAction} submitLabel={editing ? "Save" : "Create event"} hidden={start.id ? { eventId: start.id } : undefined}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <SText name="name" label="Name" required start={start.name} placeholder="For example: Annual Day 2027" maxLength={80} />
@@ -86,7 +86,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         <SSelect name="reminder" label="Reminder" options={reminders} start={start.reminder ?? "1d"} />
       </div>
       <SArea name="description" label="Description" rows={2} start={start.description} maxLength={1000} />
-      {editing && <SSwitch name="tell" title="Tell people if the date, time or venue changes" sub="A message goes to the parents of registered students. With no registration, it goes to everyone the event is for." start />}
+      {editing && <SSwitch name="tell" title="Tell people if the date, time or venue changes" sub="Goes to parents of registered students, or everyone the event is for." start />}
     </SheetForm>
   );
 }
@@ -181,7 +181,7 @@ export function AttendanceForm({ eventId, rows, canMark, marked }: { eventId: st
   return (
     <form action={run} className="p-4 flex flex-col gap-3">
       <input type="hidden" name="eventId" value={eventId} />
-      <p className="text-[13.5px] text-ink2">{marked ? "Marked on the day." : "Tick who came."} <b className="font-semibold tnum">{n} <Words k="of" /> {rows.length}</b> <Words k="present." /></p>
+      <p className="text-[13.5px] text-ink2">{marked ? "Marked on the day." : "Tick who came."} <b className="font-semibold tnum"><Words k="{n} of {n2}" vars={{ n: n, n2: rows.length }} /></b> <Words k="present." /></p>
       <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
         {rows.map((k) => (
           <li key={k.id} className={cx("flex items-center gap-3 rounded-xl border px-3 py-2", marks[k.id] ? "border-line" : "border-bad/30 bg-bad/[.04]")}>

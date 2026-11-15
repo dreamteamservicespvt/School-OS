@@ -23,6 +23,7 @@ import { allocate, finishPosting, notifyOnlinePayment } from "./collect";
 import { feeMessageInput, planMessage, sendMessage } from "./notify-parents";
 import { appUrl, payLinkTokenFor } from "../parent-link/token";
 import { mainBankAccount } from "../finance/settings";
+import { word } from "../notification-words";
 
 const ZERO = BigInt(0);
 
@@ -318,8 +319,11 @@ export async function confirmGatewayPayment(
     for (const to of await feeDesk(tx, ctx)) {
       await notify(tx, ctx, {
         to, type: "fee-online", link: "/fee-management/dashboard#online-check", groupKey: "fee-online-unmatched",
-        text: `An online payment of ${input.amountPaise === null ? "an unknown amount" : formatRupees(input.amountPaise)} came in from Razorpay and could not be matched to a student. Post it on the Fee Dashboard.`,
-        mergedText: (n) => `${n} online payments could not be matched to a student. Post them on the Fee Dashboard.`,
+        key: input.amountPaise === null
+          ? "An online payment of an unknown amount came in from Razorpay and could not be matched to a student. Post it on the Fee Dashboard."
+          : "An online payment of {amount} came in from Razorpay and could not be matched to a student. Post it on the Fee Dashboard.",
+        values: { amount: input.amountPaise === null ? "" : formatRupees(input.amountPaise) },
+        mergedKey: "{n} online payments could not be matched to a student. Post them on the Fee Dashboard.",
       });
     }
     return { paymentId: null, receiptNo: null, created: false };
@@ -391,7 +395,8 @@ export async function confirmGatewayPayment(
     for (const to of await feeDesk(tx, ctx)) {
       await notify(tx, ctx, {
         to, type: "fee-online", link: `/fee-management/payments/${payment.id}`, groupKey: `fee-paid-twice-${payment.id}`,
-        text: `${card?.name ?? "A student"}'s fees were paid twice online: ${formatRupees(payment.amountPaise)} more came in on a link that was already paid. It is held as advance. Refund it from Concessions & Refunds if the parent asks.`,
+        key: "{name}'s fees were paid twice online: {amount} more came in on a link that was already paid. It is held as advance. Refund it from Concessions & Refunds if the parent asks.",
+        values: { name: card?.name ?? word("A student"), amount: formatRupees(payment.amountPaise) },
       });
     }
     await log("paid-twice", payment.id);
@@ -650,11 +655,13 @@ export async function recordGatewayReversal(tx: Tx, ctx: SchoolContext, input: {
   await writeAudit(tx, ctx, { action: input.kind === "refund" ? "refunded-at-gateway" : "disputed-at-gateway", recordType: "Payment", recordId: payment.id, after: { event: input.event, reference: input.reference, amount } });
   const card = await studentCard(tx, ctx, payment.studentId);
   const receipt = await tx.receipt.findUnique({ where: { paymentId: payment.id } });
-  const what = input.kind === "refund" ? `Razorpay refunded ${amount} of` : `A parent's bank disputed ${amount} of`;
   for (const to of await feeDesk(tx, ctx)) {
     await notify(tx, ctx, {
       to, type: "fee-online", link: "/fee-management/dashboard#online-check",
-      text: `${what} ${card?.name ?? "a student"}'s online payment${receipt ? ` (receipt ${receipt.number})` : ""}. The receipt still stands: check it on the Fee Dashboard.`,
+      key: input.kind === "refund"
+        ? (receipt ? "Razorpay refunded {amount} of {name}'s online payment (receipt {receipt}). The receipt still stands: check it on the Fee Dashboard." : "Razorpay refunded {amount} of {name}'s online payment. The receipt still stands: check it on the Fee Dashboard.")
+        : (receipt ? "A parent's bank disputed {amount} of {name}'s online payment (receipt {receipt}). The receipt still stands: check it on the Fee Dashboard." : "A parent's bank disputed {amount} of {name}'s online payment. The receipt still stands: check it on the Fee Dashboard."),
+      values: { amount: input.amountPaise === null ? word(amount) : amount, name: card?.name ?? word("a student"), receipt: receipt?.number ?? "" },
     });
   }
   return row;

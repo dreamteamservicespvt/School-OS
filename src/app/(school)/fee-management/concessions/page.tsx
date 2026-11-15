@@ -191,6 +191,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     return <span className="text-[12.5px] text-ink3"><Words k="Waiting for" /> {d?.waitingFor ?? "approval"}</span>;
   };
 
+  const partApplied = (c: ConcessionRow) => c.status === "APPLIED" && c.askedPaise !== null && c.askedPaise !== c.amountPaise;
   const conColumns = (rows: ConcessionRow[]) => ({
     rows,
     rowKey: (c: ConcessionRow) => c.id,
@@ -199,7 +200,10 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     columns: [
       { key: "name", label: "Student", render: (c: ConcessionRow) => <><p className="font-semibold leading-tight">{c.name}</p><p className="text-[12.5px] text-ink3">{[c.classLabel, formatDate(c.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },
       { key: "type", label: "Type", nowrap: true, render: (c: ConcessionRow) => c.scholarshipType ?? c.typeLabel },
-      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3"><Words k="about" /> {formatRupees(c.amountPaise)}</span>}</> },
+      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => partApplied(c)
+        // Applied for less than asked: the amount given first, so the rows add up to the card (layman loop 2).
+        ? <><b className="font-semibold">{formatRupees(c.amountPaise)}</b><span className="block text-[12px] text-ink3"><Words k="asked" /> {c.value}</span></>
+        : <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3">{c.status !== "APPLIED" && <><Words k="about" /> </>}{formatRupees(c.amountPaise)}</span>}</> },
       { key: "heads", label: "Fee heads", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2">{c.heads}</span> },
       { key: "reason", label: "Reason", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2 block max-w-[220px]">{shownReason(c.reason)}{c.note && <span className="block text-ink3">{c.note}</span>}</span> },
       { key: "by", label: "Asked by", nowrap: true, render: (c: ConcessionRow) => <span className="text-[13px]">{c.askedBy}</span> },
@@ -207,7 +211,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       { key: "status", label: "Status", render: (c: ConcessionRow) => <div className="flex flex-col items-start gap-1.5"><Pill tone={status(c.status)[1]}>{status(c.status)[0]}</Pill>{decideCell(c, "concession")}</div> },
     ],
     phone: (c: ConcessionRow) => ({
-      title: c.name, sub: `${c.scholarshipType ?? c.typeLabel} · ${c.value} · ${c.heads}`, icon: BadgePercent, iconTone: status(c.status)[2],
+      title: c.name, sub: `${c.scholarshipType ?? c.typeLabel} · ${partApplied(c) ? `${formatRupees(c.amountPaise)} of ${c.value}` : c.value} · ${c.heads}`, icon: BadgePercent, iconTone: status(c.status)[2],
       pills: <><Pill tone={status(c.status)[1]} className="!h-[22px] !text-[11.5px]">{status(c.status)[0]}</Pill>{c.status === "WAITING" && decideCell(c, "concession")}</>,
     }),
   });
@@ -217,7 +221,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <FeeHead pageName="Concessions & Refunds" href={HREF} sub="Discounts, scholarships and refunds, each with a reason and who approved it"
+      <FeeHead pageName="Concessions & Refunds" href={HREF} sub="Discounts, scholarships and refunds"
         viewActions={tab !== "bulk" ? <ExportButton href={qs(`${HREF}/export`, { ...keep, tab })} /> : null}
         actions={<>
           <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink>
@@ -258,14 +262,14 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList {...conColumns(data.cons.rows)} caption="Concessions"
               footer={`Showing ${data.cons.rows.length} of ${data.cons.total}${per.range ? ` · asked ${per.words}` : ""}`}
               empty={data.cons.total === 0 && !filtered
-                ? <Empty icon={BadgePercent} title="No concessions yet" body="Discounts, sibling and staff-child concessions and late fee waivers show here with who asked and who approved." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="New concession" /></ButtonLink> : undefined} />
+                ? <Empty icon={BadgePercent} title="No concessions yet" body="They show here with who approved them." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="New concession" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No concessions match" body="Try another search, status or date." action={<Link href={tabHref("concessions")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />} />
           )}
 
           {tab === "bulk" && (
             <div>
               {data.rules.length === 0 ? (
-                <Empty icon={Gift} title="No bulk discount rules" body="Example: pay 3 months together, get 5% off. Collect Fee applies a rule by itself when a payment qualifies." />
+                <Empty icon={Gift} title="No bulk discount rules" body="Example: pay 3 months, get 5% off. Applied by itself at Collect Fee." />
               ) : (
                 <ul className="divide-y divide-line/70">
                   {data.rules.map((r) => {
@@ -337,7 +341,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList rows={data.refs.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={900} caption="Refunds"
               footer={`${data.refs.rows.length} of ${plural(data.refs.total, "refund")} · never more than was paid`}
               empty={data.refs.total === 0 && !filtered
-                ? <Empty icon={Undo2} title="No refunds" body="A refund comes from one payment and goes to Approvals. Once approved, mark it refunded with the date and reference." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
+                ? <Empty icon={Undo2} title="No refunds" body="Each refund goes to Approvals first." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No refunds match" body="Try another search, status or date." action={<Link href={tabHref("refunds")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />}
               columns={[
                 { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{[r.classLabel, formatDate(r.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },

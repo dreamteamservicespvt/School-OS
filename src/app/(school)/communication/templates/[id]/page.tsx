@@ -6,7 +6,8 @@ import { commPage } from "@/lib/communication/access";
 import { formatDateTime } from "@/lib/format";
 import { channelSetups } from "@/lib/messaging/channels";
 import { categoryLabel, languageLabel, render, sampleValues, smsParts, variableLabel, whatsappProblems } from "@/lib/messaging/templates";
-import { ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { rejectedAsWrongType, ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { isCodeTemplate } from "@/lib/messaging/blanks";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
@@ -15,6 +16,8 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
+import { MakeReadyButton } from "../whatsapp-ready";
+import { newReadyWords } from "@/lib/communication/whatsapp-ready";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -55,7 +58,11 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   const isWa = t.channel === "whatsapp";
   const missingDlt = isSms && currentVersions.some((x) => !x.dltTemplateId);
   const wa = v?.whatsappStatus ?? "NOT_SUBMITTED";
-  const waProblems = isWa && v ? whatsappProblems(v.body) : [];
+  // A code template goes in Meta's own words (Authentication), so its words here are not checked.
+  const waProblems = isWa && v && !isCodeTemplate(v.body) ? whatsappProblems(v.body) : [];
+  const wrongType = isWa && v ? rejectedAsWrongType(v) : false;
+  // Still in the first words School OS gave it, never approved: one click gives today's ready words.
+  const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED") ? newReadyWords(t.key, v.language, v.body) : null;
   const preview = v ? render(v.body, sampleValues) : null;
   const usedIn = (vid: string) => { const n = data.uses.get(vid) ?? 0; return `${n.toLocaleString("en-IN")} message${n === 1 ? "" : "s"}`; };
   const maxVersion = Math.max(1, ...currentVersions.map((x) => x.version));
@@ -89,9 +96,11 @@ export default async function TemplatePage({ params, searchParams }: { params: P
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
-        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="This SMS template cannot send SMS yet. DREAM TEAM registers the text on the DLT portal and adds its ID." /></Banner>}
-        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="A template sent for approval is approved straight away. Once DREAM TEAM connects WhatsApp, it goes to WhatsApp for real." /></Banner>}
-        {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
+        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="DREAM TEAM must add its DLT ID before it can send SMS." /></Banner>}
+        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once DREAM TEAM connects WhatsApp, they go to WhatsApp for real." /></Banner>}
+        {wrongType
+          ? <Banner tone="warn" title="Rejected by WhatsApp: wrong type."><Words k="Send it for approval again. It now goes as a code message, in WhatsApp's own words." /></Banner>
+          : v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
             <CardHeader title="The text" icon={FileText} description={v ? `Saved ${formatDateTime(v.createdAt, tz)}${v.createdById ? ` by ${data.people.get(v.createdById) ?? "staff"}` : ""} · used in ${usedIn(v.id)}` : undefined} />
@@ -112,8 +121,21 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                   <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>
                 </div>
-                {isWa && (wa === "NOT_SUBMITTED" || wa === "REJECTED") && waProblems.length > 0 && (
-                  <Banner tone="warn" title="WhatsApp would refuse these words."><ul className="list-disc pl-5">{waProblems.map((m) => <li key={m}><Any text={m} /></li>)}</ul></Banner>
+                {readyWords && (
+                  <div className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 flex flex-col gap-3">
+                    <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Words k="These are the first words School OS gave this template." /></b> <Words k="WhatsApp would refuse them. Making it ready saves a new version; the old one stays." /></p>
+                    <div>
+                      <p className="eyebrow text-ink3 mb-1.5"><Words k="New words" /></p>
+                      <div className="rounded-xl bg-surface border border-line p-3 text-[14px] leading-relaxed whitespace-pre-line break-words"><BlankText text={readyWords} /></div>
+                    </div>
+                    {canEdit && <MakeReadyButton id={t.id} />}
+                  </div>
+                )}
+                {isWa && (wa === "NOT_SUBMITTED" || wa === "REJECTED") && waProblems.length > 0 && !readyWords && (
+                  <Banner tone="warn" title="WhatsApp would refuse these words."
+                    action={canEdit ? <ButtonLink href={`/communication/templates/${t.id}/edit`} size="sm" variant="secondary" icon={Pencil}><Words k="Edit" /></ButtonLink> : undefined}>
+                    <ul className="list-disc pl-5">{waProblems.map((m) => <li key={m}><Any text={m} /></li>)}</ul>
+                  </Banner>
                 )}
                 {(isWa && access.full && !t.archivedAt) && (
                   <div className="flex gap-2 flex-wrap">

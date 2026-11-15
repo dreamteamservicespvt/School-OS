@@ -25,7 +25,7 @@ export function LabBookings({ room, today, slots, sections, bookings, canBook, c
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 id="lab-h" className="font-semibold"><Words k="Bookings of" /> {room.name}<Words k=", next two weeks" /></h2>
         {canBook && (
-          <FormDialog trigger={`Book ${room.name}`} triggerVariant="primary" title={`Book ${room.name}`} action={bookLabAction} submitLabel="Book" hidden={{ roomId: room.id }}>
+          <FormDialog trigger={`Book ${room.name}`} triggerVariant="primary" title={`Book ${room.name}`} action={bookLabAction} submitLabel="Book room" hidden={{ roomId: room.id }}>
             {(state) => (
               <>
                 <TextField label="Date" name="date" type="date" required min={today} defaultValue={v(state, "date", today)} error={err(state, "date")} />

@@ -134,7 +134,7 @@ export async function submitOnline(schoolId: string, input: OnlineSubmission, ip
     const ownerLogin = enquiry.ownerStaffId ? (await tx.staff.findUnique({ where: { id: enquiry.ownerStaffId }, select: { userLoginId: true } }))?.userLoginId : null;
     const people = ownerLogin ? [ownerLogin] : (await tx.schoolAccess.findMany({ where: { archivedAt: null, roles: { some: { role: { key: "principal", isEnabled: true } } } }, select: { userLoginId: true } })).map((a) => a.userLoginId);
     for (const to of people) {
-      await notify(tx, ctx, { to, type: "online-application", text: `New online application ${app.applicationNo}: ${app.fullName}.`, link: `/admission-management/applications/${app.id}`, groupKey: "online-application", mergedText: (n) => `${n} new online applications` });
+      await notify(tx, ctx, { to, type: "online-application", key: "New online application {number}: {name}.", values: { number: app.applicationNo, name: app.fullName }, link: `/admission-management/applications/${app.id}`, groupKey: "online-application", mergedKey: "{n} new online applications" });
     }
     return { id: app.id, applicationNo: app.applicationNo, fullName: app.fullName, token: statusToken(schoolId, app.id) };
   });

@@ -66,6 +66,13 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
     const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...inCampus(current) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } });
     const clashes = shown && scope.arrange ? await clashCheck(tx, ctx, shown.id) : [];
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: s.schoolClass.name }])).values()];
+    // Before the first Time Table: what it needs, counted (layman loop 3: the page said so only after Start).
+    const ready = scope.arrange && !versions.length ? {
+      // campus: the classes and sections above are this campus's already.
+      subjects: await tx.subjectClass.count({ where: { classId: { in: classes.map((c) => c.id) }, archivedAt: null, subject: { archivedAt: null } } }),
+      // campus: the sections above are this campus's already.
+      teachers: await tx.teacherAllocation.count({ where: { sectionId: { in: sections.map((s) => s.id) }, ...allocationActiveOn(page.today) } }),
+    } : null;
 
     let cells: PeriodCell[] = [];
     let edit: EditContext | null = null;
@@ -79,7 +86,10 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
     let all: PeriodCell[] = [];
 
     if (view === "class") {
-      sectionId = sections.some((s) => s.id === one(raw.section)) ? one(raw.section) : sections[0]?.id ?? "";
+      // Without a choice, the first section whose class has subjects (Nursery A often has none).
+      // campus: the sections above are this campus's already.
+      const mapped = sections.some((s) => s.id === one(raw.section)) ? [] : await tx.subjectClass.findMany({ where: { classId: { in: classes.map((c) => c.id) }, archivedAt: null }, select: { classId: true }, distinct: ["classId"] });
+      sectionId = sections.some((s) => s.id === one(raw.section)) ? one(raw.section) : (sections.find((s) => mapped.some((m) => m.classId === s.classId)) ?? sections[0])?.id ?? "";
       const section = sections.find((s) => s.id === sectionId);
       if (shown && section) {
         cells = await sectionGrid(tx, shown.id, section.id);
@@ -113,7 +123,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
     }
     return {
       versions: versions.map((x): VersionRow => ({ id: x.id, name: x.name, status: x.status as VersionRow["status"], effectiveFrom: x.effectiveFrom ? isoDay(x.effectiveFrom) : null, periods: x._count.periods, inForce: inForce?.id === x.id })),
-      shownId: shown?.id ?? null, slots, days, sections, teachers, clashes, classes, cells, edit, sectionId, staffId, room, roomList, labRooms, bookings, workload, all,
+      shownId: shown?.id ?? null, ready, slots, days, sections, teachers, clashes, classes, cells, edit, sectionId, staffId, room, roomList, labRooms, bookings, workload, all,
       otherYears: page.years.filter((y) => y.status !== "CLOSED").map((y) => ({ id: y.id, name: y.name })),
     };
   });
@@ -128,7 +138,9 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
   const versionQ = shown ? `&version=${shown.id}` : "";
   const yearQ = page.yearQuery ? `&${page.yearQuery}` : "";
   const hard = data.clashes.filter((c) => c.hard);
-  const soft = data.clashes.filter((c) => !c.hard);
+  // Limits and preferences are advice while a draft is made. On a published Time Table they read as
+  // "128 errors" (layman loop 4): there only clashes that break a rule are shown.
+  const soft = shown?.status === "DRAFT" ? data.clashes.filter((c) => !c.hard) : [];
   const sectionLabel = (id: string) => { const s = data.sections.find((x) => x.id === id); return s ? `${s.schoolClass.name} ${s.name}` : ""; };
   const slots = data.slots.map((s) => ({ number: s.number, label: s.label, startTime: s.startTime, endTime: s.endTime, isBreak: s.isBreak, days: s.days }));
   const freeDay = data.days.includes(Number(one(raw.day))) ? Number(one(raw.day)) : data.days.includes(todayDay) ? todayDay : data.days[0];
@@ -143,7 +155,25 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
       <ViewSwitch views={views} current={view} keep={["version"]} />
       {(scope.arrange || data.versions.length > 0) && (
         <VersionBar versions={data.versions.filter((x) => scope.arrange || x.status === "PUBLISHED")} shown={shown} yearId={year.id} canArrange={scope.arrange} writable={page.writable}
-          classes={data.classes} years={data.otherYears} today={isoDay(page.today)} hardClashes={hard.length} />
+          classes={data.classes} years={data.otherYears} today={isoDay(page.today)} hardClashes={hard.length}
+          notReady={Boolean(data.ready && (!data.slots.some((s) => !s.isBreak) || data.ready.subjects === 0))} />
+      )}
+      {data.ready && (
+        <section aria-label="Before the Time Table" className="no-print mb-4 rounded-2xl border border-line bg-surface p-4">
+          <p className="font-semibold"><Words k="A Time Table needs these first" /></p>
+          <ul className="mt-2 grid gap-1.5 text-sm">
+            {([
+              { label: "Periods", n: data.slots.filter((s) => !s.isBreak).length, href: "/academic-management/settings?tab=periods" },
+              { label: "Subjects", n: data.ready.subjects, href: "/academic-management/subjects" },
+              { label: "Teachers given", n: data.ready.teachers, href: "/academic-management/teacher-allocation" },
+            ] as const).map((r) => (
+              <li key={r.label} className="flex items-center gap-2">
+                <Link href={r.href} className="font-medium text-brand-text underline"><Words k={r.label} /></Link>
+                <span className={r.n ? "tnum text-ok" : "tnum text-ink-2"}>({r.n})</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {scope.arrange && shown && (hard.length > 0 || soft.length > 0) && (
@@ -170,7 +200,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
 
       {!shown ? (
         <EmptyState title="No Time Table yet">
-          {scope.arrange ? "Start the Time Table above. Fill it by hand or make it automatically from Teacher Allocation, then publish it." : "The Time Table appears here once the school publishes it."}
+          {scope.arrange ? "Start the Time Table above, fill it, then publish it." : "The Time Table appears here once the school publishes it."}
         </EmptyState>
       ) : data.slots.length === 0 ? (
         <EmptyState title="No periods set up">
@@ -198,7 +228,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "teacher" ? (
         !data.staffId ? (
-          <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with. Your periods then show here." /> : <Words k="Your periods show here once the office links your sign-in to your name in the staff list (Staff & HR). Ask the office." />}</EmptyState>
+          <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with." /> : <Words k="Ask the office to link your sign-in to your staff record." />}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">
@@ -309,7 +339,7 @@ function Overview({ data, day, q, versionQ, clashAt: clashList }: { data: Overvi
             {data.workload.map((w) => (
               <li key={w.id} className={`flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2 ${w.periods > w.limit ? "bg-danger-soft" : "bg-surface"}`}>
                 <Link href={q({ view: "teacher", staff: w.id })} className="font-medium hover:underline">{w.name}</Link>
-                <span className={w.periods > w.limit ? "font-medium text-danger" : "text-ink-2"}>{w.periods} <Words k="of" /> {w.limit}</span>
+                <span className={w.periods > w.limit ? "font-medium text-danger" : "text-ink-2"}><Words k="{n} of {n2}" vars={{ n: w.periods, n2: w.limit }} /></span>
               </li>
             ))}
           </ul>

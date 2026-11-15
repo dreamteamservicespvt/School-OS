@@ -6,6 +6,9 @@ import "server-only";
 import { decryptField, encryptField } from "../crypto";
 import type { SchoolContext, Tx } from "../db";
 import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappConfig, dreamTeamWhatsappSecrets, isMetaWhatsapp } from "./dream-team";
+import { offeredChannels, SMS_OFFERED } from "./sms-offered";
+
+export { offeredChannels, SMS_OFFERED };
 
 export const CHANNELS = ["whatsapp", "sms", "email", "app"] as const;
 export type Channel = (typeof CHANNELS)[number];
@@ -132,11 +135,21 @@ export function encryptSecrets(secrets: Record<string, string>) {
   return { secretsEnc: encryptField(JSON.stringify(secrets)), secretsLast4: joined ? joined.slice(-4) : null };
 }
 
-/** Is a channel ready to send right now? App notifications always are. */
+/** Is a channel ready to send right now? App notifications always are. SMS never is while SMS_OFFERED is false. */
 export async function onChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channel>> {
   const setups = await channelSetups(tx, ctx);
   const on = new Set<Channel>(["app"]);
-  for (const c of PROVIDER_CHANNELS) if (setups[c].isOn) on.add(c);
+  for (const c of offeredChannels(PROVIDER_CHANNELS)) if (setups[c].isOn) on.add(c);
+  return on;
+}
+
+/**
+ * The channels a one-time code may use (admission consent, pickup codes): onChannels, plus SMS
+ * when it is switched on even while SMS_OFFERED is false, so codes keep their SMS path.
+ */
+export async function codeChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channel>> {
+  const on = await onChannels(tx, ctx);
+  if (!SMS_OFFERED && (await channelSetups(tx, ctx)).sms.isOn) on.add("sms");
   return on;
 }
 
@@ -150,7 +163,7 @@ export function whatsappIsLive(s: Pick<ChannelSetup, "isOn" | "environment" | "p
 }
 
 /** The order "preferred" tries for each person: the first channel that can carry the message to them. */
-export const PREFERRED_ORDER: Channel[] = ["whatsapp", "sms", "email", "app"];
+export const PREFERRED_ORDER: Channel[] = offeredChannels(["whatsapp", "sms", "email", "app"] as Channel[]);
 
 /** "WhatsApp if connected, else SMS" (11-communication.md, Send Message, Channel default). */
 export async function preferredChannel(tx: Tx, ctx: SchoolContext): Promise<Channel> {

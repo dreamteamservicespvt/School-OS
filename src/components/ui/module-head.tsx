@@ -12,6 +12,9 @@ import { cx } from "./cx";
 import { Pill } from "./badge";
 import { Tabs, type Tab } from "./tabs";
 import { isPinned, togglePinned } from "@/components/shell/local-lists";
+import { useT } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
+import { moduleNameFor } from "@/components/shell/page-header";
 
 const PINS_CHANGED = "sos:pins-changed";
 function subscribe(onChange: () => void) {
@@ -31,7 +34,7 @@ export function PinButton({ label, href, userId }: { label: string; href: string
   }, [userId, label, href]);
   return (
     <button type="button" onClick={toggle} aria-pressed={pinned} aria-label={pinned ? `Unpin ${label}` : `Pin ${label} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
-      className={cx("grid size-9 place-items-center rounded-xl transition hover:bg-sunken shrink-0", pinned ? "text-brand" : "text-ink3")}>
+      className={cx("grid size-9 max-md:size-11 place-items-center rounded-xl transition hover:bg-sunken active:bg-line/60 shrink-0", pinned ? "text-brand" : "text-ink3")}>
       <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
     </button>
   );
@@ -52,19 +55,23 @@ export function ModuleHead({ title, page, href, userId, sub, scope, actions, tab
   tabs?: Tab[];
   tabsLabel?: string;
 }) {
+  const t = useT();
+  // Layman loop 5: one pattern on every page — the module's menu name small above the title.
+  const moduleName = moduleNameFor(href);
   return (
     <>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
         <div className="min-w-0">
+          {moduleName && moduleName.toLowerCase() !== title.trim().toLowerCase() && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(moduleName)}</p>}
           <div className="flex flex-wrap items-center gap-1.5">
             <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
-              {title}
-              {scope === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />View only</Pill>}
-              {scope === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />Only yours</Pill>}
+              {t.any(title)}
+              {scope === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
+              {scope === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}
             </h1>
             <PinButton label={page} href={href} userId={userId} />
           </div>
-          {sub && <p className="text-ink3 text-[15px] mt-1">{sub}</p>}
+          {sub && <p className="text-ink3 text-[15px] mt-1">{tx(sub)}</p>}
         </div>
         {actions && <div className="flex gap-2 flex-wrap items-center">{actions}</div>}
       </div>
@@ -75,9 +82,10 @@ export function ModuleHead({ title, page, href, userId, sub, scope, actions, tab
 
 /** "← Students / 7 B": the way back from a record to its list. */
 export function BackLink({ href, label, sub }: { href: string; label: string; sub?: React.ReactNode }) {
+  const t = useT();
   return (
     <Link href={href} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg">
-      <ArrowLeft size={17} aria-hidden="true" />{label} {sub && <span className="text-ink3 font-normal">/ {sub}</span>}
+      <ArrowLeft size={17} aria-hidden="true" />{t.any(label)} {sub && <span className="text-ink3 font-normal">/ {sub}</span>}
     </Link>
   );
 }

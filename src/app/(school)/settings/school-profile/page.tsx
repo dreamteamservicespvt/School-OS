@@ -14,8 +14,9 @@ import { BoardForm, ComplianceForm, LogoForm, RegionForm } from "./sections";
 import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
 import { schoolRoles } from "@/lib/school-roles";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { parentWhatsappNumber } from "@/lib/parent-link/contact";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("School Profile") };
@@ -108,7 +109,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
       {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see the school's profile here. The School Admin changes it." /></p>}
       <div className="space-y-5">
         <Card id="details" className="scroll-mt-20">
-          <CardHeader title="School details" description="Shown on screens, receipts, certificates and messages. Each section saves on its own." />
+          <CardHeader title="School details" description="Shown on screens, receipts and messages." />
           <CardBody className="space-y-8">
             <section aria-labelledby="logo-title">
               <h3 id="logo-title" className="mb-3 font-semibold"><Words k="Logo" /></h3>
@@ -119,12 +120,12 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
             </section>
             {canEdit ? (
               <DetailsForm logoHref={logoHref} initial={{
-                name: school.name, address: school.address ?? "", phone: school.phone ?? "", email: school.email ?? "", website: school.website ?? "",
+                name: school.name, address: school.address ?? "", phone: school.phone ?? "", parentWhatsapp: school.parentWhatsapp ?? "", email: school.email ?? "", website: school.website ?? "",
                 affiliationNumber: school.affiliationNumber ?? "", gstin: school.gstin ?? "", brandColor: school.brandColor ?? "",
               }} />
             ) : (
               <Facts rows={[
-                ["School name", school.name], ["Address", school.address], ["Phone", school.phone], ["Email", school.email], ["Website address", school.website],
+                ["School name", school.name], ["Address", school.address], ["Phone", school.phone], ["WhatsApp number for parents", school.parentWhatsapp ?? (parentWhatsappNumber(school) ? <Any key="wa" text="The office phone" /> : null)], ["Email", school.email], ["Website address", school.website],
                 ["Affiliation number", school.affiliationNumber], ["GSTIN", school.gstin],
                 ["Brand colour", school.brandColor ? <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-5 rounded-full border border-line" style={{ background: school.brandColor }} /><span className="font-mono">{school.brandColor}</span></span> : null],
               ]} />
@@ -133,7 +134,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="board" className="scroll-mt-20">
-          <CardHeader title="Board and curriculum" description="The board sets defaults for grading, the report card and terms. The modules offer them; each can still be changed there." />
+          <CardHeader title="Board and curriculum" description="Sets defaults for grading, report cards and terms." />
           <CardBody>
             {canEdit ? <BoardForm board={school.board ?? ""} secondBoard={prefs.secondBoard ?? ""} />
               : <Facts rows={[["Board", labelOf(BOARDS, school.board)], ["Second board", prefs.secondBoard ? labelOf(BOARDS, prefs.secondBoard) : "This school runs one board"]]} />}
@@ -141,7 +142,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="region" className="scroll-mt-20">
-          <CardHeader title="Language and region" description="Languages switched on here can be chosen for screens and for messages to parents." />
+          <CardHeader title="Language and region" description="For screens and messages to parents." />
           <CardBody>
             {canEdit ? <RegionForm languages={school.languages} defaultLanguage={school.defaultLanguage} timeZone={school.timeZone} />
               : <Facts cols="sm:grid-cols-3" rows={[
@@ -168,7 +169,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
             )}
             <p className="mt-6 border-t border-line pt-4 text-sm text-ink-2">
               <Words k="School group:" /> {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
-              {school.group ? " Settings shared by the group are set by DREAM TEAM when the group is set up; this school's own settings above always apply here." : ""}
+              {school.group ? " Settings shared by the group are set by the School OS support team when the group is set up; this school's own settings above always apply here." : ""}
             </p>
           </CardBody>
         </Card>
@@ -181,7 +182,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="documents" className="scroll-mt-20">
-          <CardHeader title="School documents" description="Registration, affiliation, NOCs and other papers, with versions, expiry reminders 30 days ahead, and sharing links that expire." />
+          <CardHeader title="School documents" description="With expiry reminders 30 days ahead." />
           <CardBody>
             <ListToolbar placeholder="Search documents" filters={[
               { key: "type", label: "Type", options: DOCUMENT_TYPES_VAULT.map((t) => ({ value: t, label: t })) },

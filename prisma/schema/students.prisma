@@ -112,8 +112,10 @@ model Guardian {
   name         String
   /// Father, Mother, Guardian, Grandparent...
   relationship String
-  /// Registered mobile for one-time codes (10 digits).
-  phone        String
+  /// Registered mobile for one-time codes (10 digits). Empty (null) when the
+  /// parent has no phone (owner decision 15, 15-11-2026): shown as "Phone
+  /// missing"; no Parent Link or messages until a phone is added.
+  phone        String?
   altPhone     String?   @map("alt_phone")
   email        String?
   dateOfBirth  DateTime? @map("date_of_birth") @db.Date

@@ -52,8 +52,11 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
     : [];
   const [classes, sections] = await Promise.all([
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true, campusId: true } }),
-    tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
+    tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true, classTeacherId: true } }),
   ]);
+  // The class teacher's name on each child's card: the parent's first person to ask (layman test loop 3).
+  const teacherIds = sections.map((x) => x.classTeacherId).filter((x): x is string => Boolean(x));
+  const teachers = teacherIds.length ? await tx.staff.findMany({ where: { schoolId: ctx.schoolId, id: { in: teacherIds }, archivedAt: null }, select: { id: true, fullName: true } }) : [];
   const joining = await joiningLabels(tx, ctx, students.filter((s) => !enrolments.some((e) => e.studentId === s.id)).map((s) => s.id), years);
   const children = students
     .map((s) => {
@@ -65,6 +68,7 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
         name: s.fullName,
         firstName: s.firstName,
         classLabel: e ? `${cls?.name ?? ""} ${sections.find((x) => x.id === e.sectionId)?.name ?? ""}`.trim() : joining.get(s.id) ?? "",
+        classTeacher: e ? teachers.find((x) => x.id === sections.find((y) => y.id === e.sectionId)?.classTeacherId)?.fullName ?? null : null,
         sectionId: e?.sectionId ?? null,
         classId: e?.classId ?? null,
         campusId: cls?.campusId ?? s.campusId,

@@ -4,12 +4,13 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { onChannels, type Channel } from "./channels";
+import { offeredChannels, onChannels, type Channel } from "./channels";
 import { planMessage, recordSend, type SendInput, type SendResult } from "./send";
 import { messageSettings, type BackupType } from "./settings";
 import { ensureReadyTemplates, templateByKey } from "./templates";
 import type { AudienceRule } from "./recipients";
 import { HELD_UNTIL_LIVE, movingIn } from "../move-in/live";
+import { makeParentLinksFor, noteParentLinksSent } from "../parent-link/message-links";
 
 export type RuleDef = {
   key: string;
@@ -102,7 +103,7 @@ export async function ruleReady(tx: Tx, ctx: SchoolContext, key: string): Promis
   if (def.audience === "parents" && (await movingIn(tx, ctx))) return { on: true, ready: false, channels: [], label: def.label, held: true };
   const on = await onChannels(tx, ctx);
   const parents = def.audience === "parents";
-  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const order: Channel[] = offeredChannels<Channel>(parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"]);
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
   const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
   const channels: Channel[] = [];
@@ -159,6 +160,8 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   const done = new Set(logged.filter((r) => r.outcome !== "not-sent").map((r) => r.recipientKey));
   const notSentBefore = new Set(logged.filter((r) => r.outcome === "not-sent").map((r) => r.recipientKey));
   const send = await automaticSend(tx, ctx, def, state, input, (key) => done.has(key) || [...done].some((d) => d.startsWith(`${key}:`)));
+  // A text with {parent_link} (exam reminder, results): parents without a Parent Link get one first.
+  const madeLinks = await makeParentLinksFor(tx, ctx, send);
   const plan = await planMessage(tx, ctx, send);
   const duplicates = done.size;
   if (plan.problems.length) {
@@ -179,6 +182,7 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
     return { status: duplicates ? "duplicate" : "nobody", duplicates };
   }
   const result = await recordSend(tx, ctx, send, { ...plan, notSent });
+  await noteParentLinksSent(tx, ctx, madeLinks, result.messageId);
   const people = new Map<string, string>();
   for (const r of plan.rows) for (const key of r.keys ?? [r.rowKey]) people.set(key, r.candidate.name);
   await logLines(tx, ctx, def.key, input.event, [...people].map(([key, name]) => ({ key, name })), plan.creditProblem ? "no-credits" : "sent", plan.creditProblem, result.messageId);
@@ -192,7 +196,7 @@ async function automaticSend(tx: Tx, ctx: SchoolContext, def: RuleDef, state: Ru
   const on = await onChannels(tx, ctx);
   const parents = def.audience === "parents";
   // Parents have no app: a parents' rule saved with "app" (Homework set used to be) uses the other channels.
-  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const order: Channel[] = offeredChannels<Channel>(parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"]);
   const templates: Partial<Record<Channel, string>> = {};
   for (const c of new Set<Channel>([...state.channels, ...order])) {
     const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;

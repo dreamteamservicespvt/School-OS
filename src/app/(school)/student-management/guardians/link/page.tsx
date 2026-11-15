@@ -53,7 +53,7 @@ export default async function LinkGuardianPage({ searchParams }: { searchParams:
       <PageHeader title="Link existing parent" href={`${BASE}/guardians/link`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">
         <Card>
-          <CardHeader title="Find the parent" description="By phone or name. Brothers and sisters then share one parent record." />
+          <CardHeader title="Find the parent" description="Search by phone or name" />
           <CardBody>
             <form method="get" className="flex flex-wrap gap-2">
               <input type="hidden" name="student" value={data.student.id} />

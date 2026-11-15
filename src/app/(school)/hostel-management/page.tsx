@@ -104,7 +104,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
         <HostelHead pageName="Roll Call & Incidents" href={BASE} mode={p.mode} />
         <Stack>
           <Views view="roll" hostel={null} />
-          <Card><Empty icon={ClipboardList} title={p.hostels.length ? "You are not a warden of any hostel yet" : "No hostel yet"} body={p.hostels.length ? "The Principal or School Admin sets each hostel's wardens in Hostel Settings." : "Add the hostels, rooms and beds in Rooms & Beds first."} /></Card>
+          <Card><Empty icon={ClipboardList} title={p.hostels.length ? "You are not a warden of any hostel yet" : "No hostel yet"} body={p.hostels.length ? "The Principal or School Admin sets wardens in Hostel Settings." : "Add the hostels, rooms and beds in Rooms & Beds first."} /></Card>
         </Stack>
       </>
     );
@@ -158,7 +158,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Roll Call & Incidents" href={BASE} mode={p.mode}
-        sub={can.rollcall ? "Morning and night roll call. Everyone is present to start with; students out on a pass are already marked." : "Morning and night roll calls, absences and the incident log."}
+        sub={can.rollcall ? "Students out on a pass are already marked." : undefined}
         actions={headActions} />
       <Stack>
         <Views view="roll" hostel={p.myHostels.length > 1 ? hostel.id : null} />
@@ -177,7 +177,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
           <Banner tone="warn" title={`${SESSION[session]} roll call for ${formatDate(date, "UTC")} is not taken yet.`}><Words k="It was due at" /> {minuteWords(rollMinute)}.{can.remind ? " Remind the warden." : ""}</Banner>
         )}
         {classAbsent > 0 && (
-          <Banner tone="info" title={`${plural(classAbsent, "boarder")} marked absent in class on ${formatDate(date, "UTC")}.`}><Words k="Shown under their names. Check they are well; a boarder absent from class is usually in the hostel or the sick room." /></Banner>
+          <Banner tone="info" title={`${plural(classAbsent, "boarder")} marked absent in class on ${formatDate(date, "UTC")}.`}><Words k="Shown under their names. Check they are well." /></Banner>
         )}
 
         <Split side={340}>
@@ -186,7 +186,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
               <CardHeader title={`${SESSION[session]} roll call · ${hostel.name}`} icon={session === "NIGHT" ? Moon : Sun}
                 description={`${formatDate(date, "UTC")}${saved ? ` · saved at ${clockAt(saved.takenAt, tz)}${saved.takenById && d.takers.get(saved.takenById) ? ` by ${d.takers.get(saved.takenById)}` : ""}` : " · not taken yet"}`} divided />
               {rows.length === 0 ? (
-                <Empty icon={ClipboardList} title="Nobody to call" body={`No student was living in ${hostel.name} then. Residents appear here once they are checked in.`} />
+                <Empty icon={ClipboardList} title="Nobody to call" body="Residents appear here once they are checked in." />
               ) : (
                 <RollCallForm key={`${hostel.id}-${dateStr}-${session}-${saved?.updatedAt.getTime() ?? 0}`} hostelId={hostel.id} date={dateStr} session={session} rows={rows} floors={hostel.floors.filter((f) => rows.some((r) => r.floor === f))} saved={Boolean(saved)} canSave={can.rollcall} editable={editable} />
               )}
@@ -306,7 +306,6 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Roll Call & Incidents" href={BASE} mode={p.mode}
-        sub="Discipline, medical and maintenance incidents, with what was done."
         actions={can.rollcall ? <ButtonLink href={href({ incident: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Record incident" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="incidents" hostel={null} />
@@ -336,7 +335,7 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { view: "incidents", page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { view: "incidents", page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">{inventoryOn ? "Maintenance incidents raise a maintenance request in Inventory Management, followed up there by the store keeper." : "Maintenance incidents are followed up from this log."} <Words k="Discipline incidents can also go to the student's behaviour record in Student Management." /></p>
+        <p className="text-[12.5px] text-ink3">{inventoryOn ? "Maintenance incidents go to the store keeper in Inventory Management." : "Maintenance incidents are followed up from this log."}</p>
       </Stack>
       {opening && (
         <IncidentSheet closeHref={href({ incident: null, student: null })} hostels={p.myHostels.map((h) => ({ id: h.id, name: h.name }))} todayStr={p.todayStr}

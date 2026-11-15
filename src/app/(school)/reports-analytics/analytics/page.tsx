@@ -60,7 +60,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
 
   return (
     <div>
-      <RepHead pageName="Analytics" href={HREF} sub="Trends you can open: tap a number or a class to see the records behind it" />
+      <RepHead pageName="Analytics" href={HREF} sub="Tap a number or a class to see its records" />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Card>
           <div className="flex flex-col lg:flex-row lg:items-end gap-3 p-4">
@@ -93,7 +93,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
         )}
         <AreaCharts view={view} pins={pins} canExport={canExport} exportOf={exportOf} drillHref={drillHref} />
         {area === "teachers" && !p.a.teacherResults && (
-          <Card><Empty icon={Lock} title="Seen by the Principal and Academic Head only" body="Results by teacher are sensitive. The syllabus summary is in Academics, Syllabus & Lesson Plans." /></Card>
+          <Card><Empty icon={Lock} title="Seen by the Principal and Academic Head only" body="Results by teacher are sensitive." /></Card>
         )}
       </div>
       {drill && (
@@ -145,7 +145,7 @@ function ChartBody({ c, drillHref }: { c: AChart; drillHref: (k: string) => stri
   return (
     <>
       {c.kind === "hbars" && c.hbars && <div className="px-5 pb-4"><HBars rows={c.hbars} max={c.max ?? 100} goal={c.goal} lowBelow={c.lowBelow} labelWidth={c.labelWidth ?? 64} unit={c.unit ?? "%"} /></div>}
-      {c.kind === "bars" && c.bars && <div className="px-3 pb-2"><Bars data={c.bars} max={c.max} ticks={c.ticks} unit={c.unit ?? ""} ariaLabel={c.title} /></div>}
+      {c.kind === "bars" && c.bars && <div className="px-3 pb-2"><Bars data={c.bars} max={c.max} ticks={c.ticks} unit={c.unit ?? ""} ariaLabel={c.title} values={c.values} /></div>}
       {c.legend && <div className="px-5 pb-4"><Legend items={c.legend} /></div>}
       {(c.drills?.length || c.note) && (
         <div className={cx("px-5 pb-4", c.kind === "hbars" && c.note && "border-t border-line/70 pt-3")}>

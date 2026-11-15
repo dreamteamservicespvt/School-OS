@@ -47,7 +47,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <StudentsHead page="Behaviour & Counselling" href={`${BASE}/behaviour/career`} sub="Career notes, entrance exams, college applications, scholarships and alumni mentors."
+      <StudentsHead page="Behaviour & Counselling" href={`${BASE}/behaviour/career`} sub="Exams, colleges, scholarships and mentors"
         subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
       <Split side={380}>
         <Col>
@@ -85,9 +85,9 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
               <ActionForm action={careerAction} submitLabel="Add" pendingText="Adding…" resetOnSuccess>
                 <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} />
                 <FormSelect name="kind" label="Kind" required options={CAREER_KINDS.map((k) => ({ value: k.key, label: k.label }))} defaultValue={kind ?? "note"} />
-                <FormText name="title" label="Title" required help="For example: JEE Main 2027, or B.Sc. Nursing at Osmania University." />
+                <FormText name="title" label="Title" required help="For example: JEE Main 2027" />
                 <FormArea name="details" label="Details" rows={2} />
-                <FormText name="college" label="College" help="For applications and scholarships." />
+                <FormText name="college" label="College" />
                 <FormText name="course" label="Course" />
                 <FormSelect name="status" label="Application status" options={APPLICATION_STATUSES.map((s) => ({ value: s, label: s }))} defaultValue="Planned" help="For college applications." />
                 <FormText name="deadline" label="Deadline" type="date" />

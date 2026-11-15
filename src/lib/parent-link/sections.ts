@@ -23,7 +23,8 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import type { Lang } from "../i18n/languages";
 
-export type ParentLinkChild = { id: string; name: string; firstName: string; classLabel: string; sectionId: string | null; classId: string | null; campusId: string | null; admissionNo: string; photoFileId: string | null };
+/** classTeacher: the name of the class teacher of the child's section this year, when set. */
+export type ParentLinkChild = { id: string; name: string; firstName: string; classLabel: string; sectionId: string | null; classId: string | null; campusId: string | null; admissionNo: string; photoFileId: string | null; classTeacher?: string | null };
 
 export type GuardianView = {
   schoolId: string;

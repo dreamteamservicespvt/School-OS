@@ -1,5 +1,6 @@
 // School words and small rules for Front Office screens (16-front-office.md).
 // Safe to use in the browser.
+import { englishT, type T } from "@/lib/i18n/t";
 
 export const BASE = "/front-office";
 
@@ -18,8 +19,8 @@ export const isNoPhotoCheck = (v: string): v is NoPhotoCheck => Object.hasOwn(NO
 
 /** Why the school is closed today, from the one school-day rule (a holiday, a Sunday, a Saturday off). */
 export type ClosedDay = { reason: "sunday" | "weekend" | "holiday" | null; title: string | null };
-/** "School is closed today (Dasara holidays)". */
-export const closedWords = (c: ClosedDay) => `School is closed today (${c.title ?? (c.reason === "holiday" ? "Holiday" : "not a working day")})`;
+/** "School is closed today (Dasara holidays)", in the screen's language when a translator is given. */
+export const closedWords = (c: ClosedDay, t: T = englishT) => t("School is closed today ({why})", { why: c.title ? t.any(c.title) : c.reason === "holiday" ? t("Holiday") : t("not a working day") });
 
 
 /**
@@ -27,9 +28,10 @@ export const closedWords = (c: ClosedDay) => `School is closed today (${c.title 
  * end of the school day by default); a visitor who comes within 15 minutes of
  * it, or later, gets an hour (passExpiryFor). A closed day is said first.
  */
-export function passLine(passEnd: number, minute: number, closed: ClosedDay | null) {
-  const pass = minute < passEnd - 15 ? `today’s passes expire by themselves at ${clockOf(passEnd)}` : `a pass made now lasts an hour`;
-  return closed ? `${closedWords(closed)} · ${pass}` : pass.charAt(0).toUpperCase() + pass.slice(1);
+export function passLine(passEnd: number, minute: number, closed: ClosedDay | null, t: T = englishT) {
+  const pass = minute < passEnd - 15 ? t("Today’s passes expire by themselves at {time}", { time: clockOf(passEnd) }) : t("A pass made now lasts an hour");
+  // After the closed-day words the English reads on in small letters ("… · today’s passes expire …").
+  return closed ? `${closedWords(closed, t)} · ${t.lang === "en" ? pass.charAt(0).toLowerCase() + pass.slice(1) : pass}` : pass;
 }
 
 export const GATE_KINDS = [

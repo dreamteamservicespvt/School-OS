@@ -32,7 +32,7 @@ export default async function StartLeavingPage({ searchParams }: { searchParams:
   return (
     <>
       <BackLink href={back} label={sp.student ? "Student profile" : "Leaving & Alumni"} />
-      <PageHeader title="Start leaving" sub={<><Words k="Fee dues, library books and other items are checked first. The TC can be issued when every check is clear. The student's status changes on the last date." /></>} href={`${BASE}/leaving/new`} userId={current.user.id} />
+      <PageHeader title="Start leaving" sub={<><Words k="Fee dues and library books are checked first. The TC is issued when all checks are clear." /></>} href={`${BASE}/leaving/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
           <ActionForm action={startLeavingAction} submitLabel="Start leaving" pendingText="Checking clearance…"

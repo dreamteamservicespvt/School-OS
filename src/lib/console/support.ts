@@ -26,6 +26,7 @@ import { deliver, type Delivered } from "./outbox";
 import { ADMIN_ROLE_KEYS } from "./measure";
 import { adminNotice, ConsoleProblem, STATUS_LABEL } from "./schools";
 import { endIn, endSupport, endsWords, expireIn, lengthWords, SUPPORT_LENGTHS, SUPPORT_RECORD, SUPPORT_WAIT_MS, supportContext, supportLink, waitedTooLong } from "./support-entry";
+import { word } from "../notification-words";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The one-time ticket from the console to the school's own address works this long. */
@@ -76,7 +77,7 @@ export async function requestSupportAccess(actor: ConsoleActor, schoolId: string
       const request = await tx.supportAccessRequest.create({ data: { forSchoolId: schoolId, schoolName: card.name, requestedById: actor.id!, requestedByName: actor.name, reason, lengthMinutes: input.lengthMinutes } });
       const ctx: SchoolContext = { schoolId, userId: null };
       for (const p of people) {
-        await notify(tx, ctx, { to: p, type: "approval", text: `${actor.name} of DREAM TEAM asks to look inside School OS for ${length} to help: “${reason}”. Allow or decline.`, link: supportLink(request.id) });
+        await notify(tx, ctx, { to: p, type: "approval", key: "{name} of DREAM TEAM asks to look inside School OS for {length} to help: “{reason}”. Allow or decline.", values: { name: actor.name, length: word(length), reason }, link: supportLink(request.id) });
       }
       await writeAudit(tx, ctx, { action: "support access asked", recordType: SUPPORT_RECORD, recordId: request.id, after: { reason, length }, actorNote: `DREAM TEAM: ${actor.name}` });
       await logActivity(tx, actor, { type: "support", school: { id: schoolId, name: card.name }, text: `asked ${card.name} for support access for ${length}: “${reason}”`, to: "Waiting" });

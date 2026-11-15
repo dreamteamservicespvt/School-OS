@@ -60,7 +60,7 @@ export async function scheduleClass(tx: Tx, s: HomeworkScope, input: ScheduleInp
   await writeAudit(tx, s.ctx, { action: "scheduled", recordType: "Online Class Session", recordId: made[0].id, after: { title, section: section.label, subject: subject.name, starts: input.startsAt.toISOString(), weeks: input.repeatWeeks } });
   const students = await sectionStudents(tx, section.yearId, section.id);
   for (const st of students) {
-    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "online-class", text: `Online class: ${title}, ${momentWords(input.startsAt, timeZone)}.`, link: "/homework-learning/online-classes", groupKey: "online-class", mergedText: (n) => `${n} online classes scheduled` }, now);
+    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "online-class", key: "Online class: {title}, {when}.", values: { title, when: momentWords(input.startsAt, timeZone) }, link: "/homework-learning/online-classes", groupKey: "online-class", mergedKey: "{n} online classes scheduled" }, now);
   }
   return { made, section: section.label };
 }
@@ -81,7 +81,7 @@ export async function cancelClass(tx: Tx, s: HomeworkScope, id: string, note: st
   await tx.onlineClassSession.update({ where: { id }, data: { status: "CANCELLED", cancelNote: why.slice(0, 200) } });
   await writeAudit(tx, s.ctx, { action: "cancelled", recordType: "Online Class Session", recordId: id, before: { status: x.status }, after: { status: "CANCELLED", note: why } });
   const students = await sectionStudents(tx, x.academicYearId, x.sectionId);
-  for (const st of students) if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "online-class", text: `Cancelled: ${x.title}. ${why}`, link: "/homework-learning/online-classes", groupKey: "online-class-cancel" }, now);
+  for (const st of students) if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "online-class", key: "Cancelled: {title}. {reason}", values: { title: x.title, reason: why }, link: "/homework-learning/online-classes", groupKey: "online-class-cancel" }, now);
   return x;
 }
 
@@ -192,7 +192,7 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, now: Date) {
       const t = await tx.staff.findUnique({ where: { id: x.teacherId }, select: { userLoginId: true } });
       if (t?.userLoginId) to.add(t.userLoginId);
     }
-    for (const u of to) await notify(tx, ctx, { to: u, type: "online-class-soon", text: `${x.title} starts at ${momentWords(x.startsAt, tz).split(", ")[1]}. Join opens ${JOIN_OPENS_MIN} minutes before.`, link: "/homework-learning/online-classes", groupKey: `online-class-soon:${x.id}` }, now);
+    for (const u of to) await notify(tx, ctx, { to: u, type: "online-class-soon", key: "{title} starts at {time}. Join opens {n} minutes before.", values: { title: x.title, time: momentWords(x.startsAt, tz).split(", ")[1], n: JOIN_OPENS_MIN }, link: "/homework-learning/online-classes", groupKey: `online-class-soon:${x.id}` }, now);
     await tx.onlineClassSession.update({ where: { id: x.id }, data: { remindedAt: now } });
   }
   return soon.length;

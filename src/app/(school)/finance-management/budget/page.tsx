@@ -160,7 +160,7 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
             ]}
             phone={(b) => ({ title: b.name, sub: `${formatRupees(b.spent + b.committed)} of ${formatRupees(b.budget)}`, icon: Gauge, iconTone: (toneOf(b.pct) === "brand" ? "neutral" : toneOf(b.pct)) as Tone, right: <span className={cx("font-semibold tnum", b.pct > 100 ? "text-bad" : b.pct >= 80 && "text-warn")}>{b.pct}%</span> })}
             empty={budgets.length === 0
-              ? <Empty icon={Calculator} title={`No budgets for ${yearWord(fy.name)} yet`} body="Set a budget for each expense head. Spending is counted from paid expenses by itself." action={p.can.create && !closed ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Set a budget" /></ButtonLink> : undefined} />
+              ? <Empty icon={Calculator} title={`No budgets for ${yearWord(fy.name)} yet`} body="Set a budget for each expense head." action={p.can.create && !closed ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Set a budget" /></ButtonLink> : undefined} />
               : <Empty icon={CircleCheck} title="No heads here" body="Nothing is over its budget." />} />
         </Card>
         {heading.length > 0 && (

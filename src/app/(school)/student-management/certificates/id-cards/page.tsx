@@ -60,11 +60,11 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <StudentsHead page="Certificates & ID Cards" href={path} sub="Student ID cards class by class, printed in batches as a print-ready PDF"
+      <StudentsHead page="Certificates & ID Cards" href={path} sub="Print ID cards class by class"
         subTabs={await certificateTabs()} subLabel="Certificates & ID Cards" />
       {data.problem && <Alert tone="warning" className="mb-4">{data.problem}</Alert>}
       {!c ? (
-        data.sections.length === 0 ? <EmptyState title="No classes this year"><Words k="Set up classes and sections in Academic Management, then print ID cards class by class." /></EmptyState> : (
+        data.sections.length === 0 ? <EmptyState title="No classes this year"><Words k="Add classes and sections in Academic Management first." /></EmptyState> : (
           <>
             <p className="mb-3 text-ink2"><Words k="Pick a class. Cards print in batches of up to" /> {ID_BATCH_SIZE} <Words k="as a print-ready PDF." /></p>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -120,7 +120,7 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
           </Card>
           {c.preview && (
             <Card className="self-start">
-              <CardHeader title="Preview a card" description="The fields shown are set in Student Settings, ID cards." />
+              <CardHeader title="Preview a card" />
               <CardBody>
                 <iframe title="ID card preview" srcDoc={c.preview} sandbox="" className="h-[60mm] w-full rounded-xl border border-line bg-sunken" />
               </CardBody>
@@ -132,11 +132,11 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
       {can.manage && (
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Reprint a replacement card" description="Lost, damaged or details changed. The old card is kept on record as replaced." />
+            <CardHeader title="Reprint a replacement card" description="The old card is marked replaced." />
             <CardBody>
               <ActionForm action={replaceCardAction} submitLabel="Record and print" pendingText="Saving…" resetOnSuccess>
                 <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} />
-                <FormText name="reason" label="Reason" required maxLength={300} help="For example: lost on the school bus." />
+                <FormText name="reason" label="Reason" required maxLength={300} />
                 <ResultLink label="Print the replacement card" />
               </ActionForm>
               {data.replacements.length > 0 && (
@@ -156,11 +156,11 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
           </Card>
           {settings.rfidOn && (
             <Card className="self-start">
-              <CardHeader title="RFID card number" description="Recorded on the student for attendance devices." />
+              <CardHeader title="RFID card number" description="For attendance devices" />
               <CardBody>
                 <ActionForm action={saveRfidAction} submitLabel="Save" pendingText="Saving…" resetOnSuccess>
                   <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} />
-                  <FormText name="rfidNo" label="RFID number" required maxLength={32} autoCapitalize="characters" help="As printed on the card, for example 04A3B2C1." />
+                  <FormText name="rfidNo" label="RFID number" required maxLength={32} autoCapitalize="characters" help="As printed on the card" />
                 </ActionForm>
               </CardBody>
             </Card>

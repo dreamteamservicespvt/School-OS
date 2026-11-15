@@ -18,6 +18,9 @@ const DAY_WORDS: Record<string, string> = { leave: "On leave", absent: "Absent",
 
 export const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
 
+/** Titles a visitor does not come to the desk to meet. */
+const NOT_MET = /\b(driver|conductor|attendant|cleaner|sweeper|gardener|mali|watchman|security guard)\b/i;
+
 type StaffLike = { id: string; fullName: string; designation: string; userLoginId: string | null };
 
 /**
@@ -51,15 +54,21 @@ export function principalFirst<T extends StaffLike>(staff: T[], ids: Set<string>
 export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minute: number): Promise<MeetOption[]> {
   const staff = await tx.staff.findMany({
     where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } },
-    select: { id: true, fullName: true, designation: true, campusId: true, userLoginId: true, status: true },
+    select: { id: true, fullName: true, designation: true, campusId: true, userLoginId: true, status: true, staffCode: true },
     orderBy: { fullName: "asc" },
   });
+  // Roles a visitor never comes to meet are left out of the list (layman loop 3: drivers and attendants in a list of 42).
+  staff.splice(0, staff.length, ...staff.filter((s) => !NOT_MET.test(s.designation)));
   if (!staff.length) return [];
+  // Two staff with the same name and title are told apart by their staff code.
+  const seen = new Map<string, number>();
+  for (const s of staff) seen.set(`${s.fullName}|${s.designation}`, (seen.get(`${s.fullName}|${s.designation}`) ?? 0) + 1);
   const hhmm = hhmmOf(minute);
   const away = await absentStaffOn(tx, ctx, today);
   const teaching = new Map<string, { label: string; until: string }>();
+  const closed = new Set<string>();
   for (const campusId of new Set(staff.map((s) => s.campusId))) {
-    if (await dayOff(tx, ctx, today, campusId)) continue;
+    if (await dayOff(tx, ctx, today, campusId)) { closed.add(campusId); continue; }
     const version = await effectiveVersion(tx, ctx, campusId, today);
     if (!version) continue;
     const now = await tx.timetablePeriod.findMany({
@@ -87,9 +96,12 @@ export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minut
       const off = away.get(s.id);
       const t = teaching.get(s.id);
       const meet = inMeeting.get(s.id);
-      const base = { id: s.id, name: s.fullName, role: s.designation, loginId: s.userLoginId };
+      const twin = (seen.get(`${s.fullName}|${staff.find((x) => x.id === s.id)!.designation}`) ?? 0) > 1;
+      const base = { id: s.id, name: s.fullName, role: twin ? `${s.designation}, ${s.staffCode}` : s.designation, loginId: s.userLoginId };
       if (off) return { ...base, now: LEAVE_WORDS[off.reason] ?? "Away today", tone: "bad" as const };
       if (s.status === "ON_LEAVE") return { ...base, now: "On leave", tone: "bad" as const };
+      // Layman loop 2: on a Sunday or holiday nobody is "free now" in school.
+      if (closed.has(s.campusId)) return { ...base, now: "School closed today: not in school", tone: "warn" as const };
       if (t) return { ...base, now: `Teaching ${t.label} till ${clockOf(minutesOf(t.until))}`, tone: "warn" as const };
       if (meet) return { ...base, now: `In a meeting till ${clockOf(meet)}`, tone: "warn" as const };
       return { ...base, now: "In school, free now", tone: "ok" as const };

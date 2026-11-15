@@ -27,14 +27,14 @@ import { DateInput } from "@/components/ui/date-input";
 
 export type HeadData = { id: string; name: string; kind: string; taxable: boolean; gstRate: string; sacCode: string; bankAccountId: string; lateFeeApplies: boolean; system: boolean };
 
-export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHref: string; head: HeadData | null; banks: Option[]; gstin: string | null; splitOn: boolean }) {
+export function HeadSheet({ closeHref, head, banks, gstin, splitOn, firstHead = false }: { closeHref: string; head: HeadData | null; banks: Option[]; gstin: string | null; splitOn: boolean; /** The school has no fee heads yet: the first is almost always Tuition. */ firstHead?: boolean }) {
   const [taxable, setTaxable] = useState(head?.taxable ?? false);
   return (
     <SheetForm title={head ? `Change ${head.name}` : "Add fee head"} sub={head ? "Name, GST and bank account. Rows already paid keep their old values." : "Then add it to the classes that pay it"}
       closeHref={closeHref} action={saveHeadAction} submitLabel={head ? "Save fee head" : "Add fee head"} pendingText="Saving…" hidden={head ? { headId: head.id } : undefined}
       extraButtons={head && !head.system ? <ArchiveHead id={head.id} name={head.name} /> : undefined}>
-      <SText name="name" label="Name" required start={head?.name} placeholder="Example: Robotics club" maxLength={80} />
-      <SSelect name="kind" label="Kind" start={head?.kind ?? "other"} options={HEAD_KINDS.map((k) => ({ value: k, label: headKindLabel(k) }))} help="Used for reports and the fee certificate (tuition is shown on its own)." />
+      <SText name="name" label="Name" required start={head?.name} placeholder={firstHead ? "Example: Tuition fee" : "Example: Robotics club"} maxLength={80} />
+      <SSelect name="kind" label="Kind" start={head?.kind ?? (firstHead ? "tuition" : "other")} options={HEAD_KINDS.map((k) => ({ value: k, label: headKindLabel(k) }))} help="Used on reports and the fee certificate" />
       <div className="rounded-xl border border-line flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
           <b className="font-semibold block"><Words k="Taxable (GST)" /></b>
@@ -48,8 +48,8 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHre
           <SText name="sacCode" label="SAC or HSN code" start={head?.sacCode} help="Printed on the tax invoice" inputMode="numeric" />
         </div>
       )}
-      {splitOn && <SSelect name="bankAccountId" label="Bank account" start={head?.bankAccountId ?? ""} options={[{ value: "", label: "Main bank account" }, ...banks]} help="Fees into different bank accounts is on" />}
-      <SSwitch name="lateFeeApplies" title="Late fee applies" sub="When on, the late fee rule in Fee Settings adds to this head when it is overdue." start={head?.lateFeeApplies ?? true} />
+      {splitOn && <SSelect name="bankAccountId" label="Bank account" start={head?.bankAccountId ?? ""} options={[{ value: "", label: "Main bank account" }, ...banks]} />}
+      <SSwitch name="lateFeeApplies" title="Late fee applies" sub="Uses the late fee rule in Fee Settings" start={head?.lateFeeApplies ?? true} />
     </SheetForm>
   );
 }
@@ -100,14 +100,14 @@ export function RowSheet({ closeHref, yearId, classId, category, className, head
   return (
     <SheetForm title={`${row ? "Change fee row" : "Add fee row"} · ${className}`} closeHref={closeHref} action={saveRowAction} pendingText="Saving…"
       sub={draft ? "Saved in the draft. Students’ fees change only when you publish." : "Saved in a new draft version. Students’ fees change only when you publish it."}
-      submitLabel="Save in draft" hidden={{ yearId, classId, category, ...(row ? { wasHeadId: row.feeHeadId } : {}) }}>
+      submitLabel="Save in draft" draft={false} hidden={{ yearId, classId, category, ...(row ? { wasHeadId: row.feeHeadId } : {}) }}>
       <SelectField name="feeHeadId" label="Fee head" required value={head} onChange={(e) => setHead(e.target.value)} options={heads} />
       <div className="grid grid-cols-2 gap-3">
         <TextField name="total" label="Amount for the year" required inputMode="decimal" value={total} className="tnum"
           onChange={(e) => { setTotal(e.target.value); setInst(make(freq, e.target.value)); }} placeholder="₹ 0" />
         <SelectField name="frequency" label="Frequency" required value={freq} onChange={(e) => { const f = e.target.value as FrequencyValue; setFreq(f); setInst(make(f, total)); }} options={FREQUENCIES.map((f) => ({ value: f.value, label: f.label }))} />
       </div>
-      <FieldShell id="inst" label="Installments" help="Due on the 10th by default. Change any name, date or amount.">
+      <FieldShell id="inst" label="Installments" help="Due on the 10th by default.">
         <ul className="flex flex-col gap-2">
           {inst.map((x, i) => (
             <li key={i} className="grid grid-cols-[1.2fr_1fr_0.9fr_auto] gap-2 items-center">
@@ -187,8 +187,12 @@ function FromDate({ start, impact, help }: { start: string; impact: ImpactWords 
  * sends it to the Principal instead (needsOk); the Principal's own change
  * applies at once, because they are the approver (owner's changes of 14 Oct 2026).
  */
-export function PublishSheet({ closeHref, structureId, version, impact, start, withoutPlan, needsOk = false, approver = false }: {
+export function PublishSheet({ closeHref, structureId, version, impact, start, withoutPlan, needsOk = false, approver = false, first = false, early = 0 }: {
   closeHref: string; structureId: string; version: number; impact: ImpactWords; start: string; withoutPlan: number;
+  /** Nobody follows the structure yet: its first publish for the class. */
+  first?: boolean;
+  /** Installments dated before the chosen date (they fall due on it for students given the plan now). */
+  early?: number;
   /** Mid-year, not the Principal: goes to Approvals. */
   needsOk?: boolean;
   /** The Principal, mid-year: applies at once. */
@@ -203,7 +207,10 @@ export function PublishSheet({ closeHref, structureId, version, impact, start, w
         : approver ? "You approve fee changes, so this applies at once, to unpaid installments only. Parents see it in Parent Link."
           : "The new version is in use from the date you choose. Paid rows never change."}
       closeHref={closeHref} action={publishAction} submitLabel={needsOk ? "Send for approval" : publishLabel} pendingText={needsOk ? "Sending…" : "Publishing…"} hidden={{ structureId }}>
-      <FromDate start={start} impact={impact} help="Unpaid installments due on or after this date follow the new version." />
+      {/* A first version given to the class at once: the switch below says who gets it, so "nobody follows it yet" would contradict it. */}
+      <FromDate start={start} impact={first && !needsOk && withoutPlan > 0 ? null : impact}
+        help={first ? (early > 0 ? t(early === 1 ? "1 installment dated before this falls due on this date." : "{n} installments dated before this fall due on this date.", { n: early }) : t("Fees apply from this date."))
+          : "Unpaid installments due on or after this date follow the new version."} />
       {needsOk && <SArea name="reason" label="Why the fees change mid-year" required rows={3} help="The Principal sees this in Approvals." />}
       {!needsOk && withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
       <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span><Words k="I have checked the amounts and installments." /></span></label>
@@ -225,7 +232,7 @@ export function PrepareSheet({ closeHref, fromYearId, toYearId, fromName, toName
   return (
     <SheetForm title={`Prepare ${toName}`} sub={`Copies every class’s structure from ${fromName} as drafts. Nothing changes for this year.`} closeHref={closeHref}
       action={prepareYearAction} submitLabel={`Open ${toName} drafts`} pendingText="Copying…" hidden={{ fromYearId, toYearId }}>
-      <SText name="percent" label="Increase amounts by (%)" start="0" inputMode="decimal" help="0 keeps the same amounts. Type 5 to add 5% to every fee. Due dates move to the new year. Check each class before you publish." />
+      <SText name="percent" label="Increase amounts by (%)" start="0" inputMode="decimal" help="0 copies the same amounts. 5 adds 5%." />
     </SheetForm>
   );
 }

@@ -16,7 +16,7 @@ export function DepartmentForm({ action, staff, d }: { action: Action; staff: Op
         <>
           <TextField label="Name" name="name" required defaultValue={f.val("name", d?.name)} error={f.err("name")} />
           <SelectField label="Head of department" name="headStaffId" options={staff} placeholder="None" defaultValue={f.val("headStaffId", d?.headStaffId)} error={f.err("headStaffId")}
-            help="Leave requests from this department go to the head first, then to the next approver in Settings, Forms & Approvals (the Principal unless changed)." />
+            help="Leave goes to the head first, then the Principal." />
         </>
       )}
     </FormDialog>
@@ -32,7 +32,7 @@ export function DesignationForm({ action, departments, roles, d }: { action: Act
           <SelectField label="Staff type" name="staffType" required defaultValue={f.val("staffType", d?.staffType ?? "Teaching")} options={[{ value: "Teaching", label: "Teaching" }, { value: "Non-teaching", label: "Non-teaching" }]} />
           <SelectField label="Usual department" name="defaultDepartmentId" options={departments} placeholder="None" defaultValue={f.val("defaultDepartmentId", d?.defaultDepartmentId)} />
           <SelectField label="Usual role" name="defaultRoleKey" options={roles} placeholder="No login by default" defaultValue={f.val("defaultRoleKey", d?.defaultRoleKey)} error={f.err("defaultRoleKey")}
-            help="Offered first in Add Staff step 2. A designation is a post; the role decides what they can open." />
+            help="The role decides what they can open." />
         </>
       )}
     </FormDialog>

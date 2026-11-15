@@ -70,7 +70,7 @@ export default async function GoLiveCheckPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-5">
           <Card>
-            <CardHeader title="Students in each class" description="Compare with the class registers or your old software's class strength report." />
+            <CardHeader title="Students in each class" description="Compare with your class registers." />
             {s.classes.length === 0 ? <CardBody><p className="text-ink-2"><Words k="No classes this year yet." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Set them up" /></Link>.</p></CardBody> : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-[15px]">
@@ -98,7 +98,7 @@ export default async function GoLiveCheckPage() {
           </Card>
           {(stop.length > 0 || look.length > 0) && (
             <Card>
-              <CardHeader title="Worth a look" description="Problems in red stop going live; the others do not." />
+              <CardHeader title="Worth a look" description="Red problems stop going live." />
               <CardBody>
                 <ul className="space-y-2">
                   {stop.map((t) => <li key={t} className="text-danger">{t}</li>)}
@@ -111,7 +111,7 @@ export default async function GoLiveCheckPage() {
           {(see.fees || see.finance) && <MoneyCard m={s.money} expected={e} see={see} />}
           {see.fees && (
             <Card>
-              <CardHeader title="Fees due before go-live" description="The fee plans cover the whole year. Months before the go-live date were the old software's, and are never billed twice." />
+              <CardHeader title="Fees due before go-live" description="Months before go-live are never billed twice." />
               <CardBody><BeforeGoLivePanel view={viewOf(s.money.before)} canSettle={canSettle} place={{ on: "go-live-check", canType: canLive }} /></CardBody>
             </Card>
           )}
@@ -119,7 +119,7 @@ export default async function GoLiveCheckPage() {
 
         <div className="space-y-5">
           <Card id={GO_LIVE_FORM_ANCHOR}>
-            <CardHeader title="What your old software says" description="Type the totals from the old software or registers. School OS shows any difference." />
+            <CardHeader title="What your old software says" description="Type the old totals. School OS shows any difference." />
             <CardBody>
               {canLive ? <ExpectedForm money={see} values={{
                 oldSoftware: s.plan?.oldSoftware ?? "", students: e.students?.toString() ?? "", staff: e.staff?.toString() ?? "", guardians: e.guardians?.toString() ?? "", goLiveDate: iso(s.plan?.goLiveDate),
@@ -130,7 +130,7 @@ export default async function GoLiveCheckPage() {
           </Card>
           {!live && (
             <Card>
-              <CardHeader title="Go live" description="On going live, the move-in is marked done, and the go-live summary is kept. Records can still be added and imports undone." />
+              <CardHeader title="Go live" description="Records can still be added and imports undone." />
               <CardBody>
                 {!canLive ? <p className="text-ink-2"><Words k="The Principal or School Admin confirms going live." /></p>
                   : stop.length ? <p className="text-ink-2"><Words k="Clear the problems in red first." /></p>

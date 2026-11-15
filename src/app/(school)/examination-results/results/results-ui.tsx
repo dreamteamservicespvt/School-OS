@@ -98,7 +98,7 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
         <ul className="flex flex-col gap-2 text-[14px] text-ink2">
           <li className="flex gap-2"><Award size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} <Words k="report cards become ready and appear on each guardian’s Parent Link" />{when === "later" ? " on that day" : ""}.</li>
           {msg && <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} <Words k="families get one message each. Cost: about" /> {n} <Words k="credits. A message cannot be unsent." /></li>}
-          <li className="flex gap-2"><History size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="The result is kept in the result history. Changing the grade scale later will not change it. The marks of these sections lock." /></li>
+          <li className="flex gap-2"><History size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="The marks of these sections lock. The result is kept in the result history." /></li>
           {when === "later" && <li className="flex gap-2"><CalendarClock size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="They publish by themselves then, if every mark is still complete. You can cancel the date until then." /></li>}
         </ul>
       </ActionSheet>

@@ -124,11 +124,16 @@ export async function tryOtp(tx: Tx, input: { purpose: string; phone: string; co
   if (!row) return { ok: false, message: "No code is waiting for this number. Send a new code." };
   if (row.expiresAt <= now) return { ok: false, message: "This code has expired (codes work for 10 minutes). Send a new code." };
   if (row.attempts >= OTP_MAX_TRIES) return { ok: false, message: "Too many wrong codes. Send a new code." };
+  // Counted before the compare, in one statement that refuses a sixth (security review 2026-11-15),
+  // so wrong codes sent at the same moment cannot all read the same count.
+  const counted = await tx.admissionOtp.updateMany({ where: { id: row.id, usedAt: null, attempts: { lt: OTP_MAX_TRIES } }, data: { attempts: { increment: 1 } } });
+  if (counted.count === 0) return { ok: false, message: "Too many wrong codes. Send a new code." };
   if (row.codeHash !== hashCode(row.id, code)) {
-    await tx.admissionOtp.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
-    const left = OTP_MAX_TRIES - row.attempts - 1;
+    const left = OTP_MAX_TRIES - (await tx.admissionOtp.findUniqueOrThrow({ where: { id: row.id }, select: { attempts: true } })).attempts;
     return { ok: false, message: left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "That code is not right. Send a new code." };
   }
+  // A right code is not a wrong try (a form checks it before saving, then again on save).
+  await tx.admissionOtp.update({ where: { id: row.id }, data: { attempts: { decrement: 1 } } });
   if (consume) await tx.admissionOtp.update({ where: { id: row.id }, data: { usedAt: now } });
   return { ok: true };
 }

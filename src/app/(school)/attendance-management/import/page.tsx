@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT = {
-  "attendance-so-far": "Starting part way through the year: one row per student with the admission number, the days the school met and the days present, up to the day before you started on School OS. Each becomes one opening total for the year, not daily marks. The year's attendance %, Early Warnings and forecasts count it from the first day. Undo takes the totals back.",
+  "attendance-so-far": "Starting part way through the year: one row per student with the admission number, days the school met and days present, up to the day before School OS. Each becomes one opening total, not daily marks. Undo takes the totals back.",
 };
 
 /** Workflow 15 (gap list G19): attendance so far, on the same engine as Switching to School OS; full Attendance Management only. */

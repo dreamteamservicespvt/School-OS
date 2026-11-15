@@ -184,7 +184,7 @@ export async function seedFrontOffice(school: SeedSchool) {
       }
       await tx.callLogEntry.create({
         data: {
-          schoolId, at: whenAt, direction: c.dir, phone: p ? p.guardian.phone : "phone" in c ? c.phone : "9000000000", name, who: p ? `${p.relationship} of ${p.student.fullName}${label(p.student.id) ? `, ${label(p.student.id)}` : ""}` : "who" in c ? c.who : "Caller",
+          schoolId, at: whenAt, direction: c.dir, phone: p ? p.guardian.phone ?? "9000000000" : "phone" in c ? c.phone : "9000000000", name, who: p ? `${p.relationship} of ${p.student.fullName}${label(p.student.id) ? `, ${label(p.student.id)}` : ""}` : "who" in c ? c.who : "Caller",
           isParent: Boolean(p), guardianId: p?.guardianId ?? null, purpose: c.purpose, note: c.note, status: taskId ? "FOLLOW_UP" : "CLOSED", followUpAt: taskId ? followAt : null, followUpLoginId: taskId ? school.users.transport : null, taskId, createdById: reception,
         },
       });

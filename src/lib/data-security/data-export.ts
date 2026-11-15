@@ -153,7 +153,8 @@ export async function runDataExport(tx: Tx, ctx: SchoolContext, payload: { expor
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {
       to: row.requestedById,
       type: "data-export",
-      text: `Your full data export is ready to download. The link works for ${EXPORT_LINK_HOURS} hours.`,
+      key: "Your full data export is ready to download. The link works for {n} hours.",
+      values: { n: EXPORT_LINK_HOURS },
       link: "/settings/data-security#export",
     });
   }

@@ -46,9 +46,9 @@ export function UrlSearch({ param = "q", placeholder, id, className, big, autoFo
   };
   return (
     <div className={cx("relative flex-1 min-w-0", className)} role="search">
-      <label htmlFor={id} className="sr-only">{label}</label>
+      <label htmlFor={id} className="sr-only">{tr.any(label)}</label>
       <Search size={big ? 22 : 18} className={cx("absolute top-1/2 -translate-y-1/2 text-ink3", big ? "left-4" : "left-3.5")} aria-hidden="true" />
-      <input id={id} type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus}
+      <input id={id} type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={tr.any(placeholder)} autoComplete="off" autoFocus={autoFocus}
         className={big
           ? "w-full h-14 rounded-2xl bg-surface border border-line pl-12 pr-12 text-[16px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 shadow-card placeholder:text-ink3 [&::-webkit-search-cancel-button]:hidden"
           : cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
@@ -68,12 +68,14 @@ export type UrlOption = { value: string; label: string };
 /** A filter select. The first option is usually "All ..." with the value "all". */
 export function UrlSelect({ param, options, id, className, label }: { param: string; options: readonly UrlOption[]; id: string; className?: string; label: string }) {
   const { set, params } = useSetParam();
+  const tr = useT();
   const value = params.get(param) ?? options[0]?.value ?? "";
   return (
     <div className={cx("relative", className)}>
-      <label htmlFor={id} className="sr-only">{label}</label>
+      <label htmlFor={id} className="sr-only">{tr.any(label)}</label>
       <select id={id} value={value} onChange={(e) => set({ [param]: e.target.value })} className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {/* "All classes", "Class 5 A" in the screen's language; names the school typed stay as typed (layman loop 5). */}
+        {options.map((o) => <option key={o.value} value={o.value}>{tr.any(o.label)}</option>)}
       </select>
       <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
     </div>

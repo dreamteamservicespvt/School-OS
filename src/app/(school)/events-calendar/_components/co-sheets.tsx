@@ -125,7 +125,7 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
 
 export function IssueSheet({ closeHref, ids, names }: { closeHref: string; ids: string[]; names: string[] }) {
   return (
-    <SheetForm title={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}?`} sub="Each gets its number now, in the design from Settings, Document Designs. Parents are told by message." closeHref={closeHref}
+    <SheetForm title={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}?`} sub="Each gets its number now. Parents are told by message." closeHref={closeHref}
       action={certificatesAction} submitLabel={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}`}>
       {ids.map((i) => <input key={i} type="hidden" name="achievementIds" value={i} />)}
       <ul className="text-[14px] text-ink2 flex flex-col gap-1 max-h-[30vh] overflow-y-auto scroll-thin">{names.map((n, i) => <li key={i}>{n}</li>)}</ul>
@@ -254,7 +254,7 @@ export function SessionSheet({ closeHref, kind, groupId, name, members, today, v
         </div>
       )}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-semibold text-ink2">{on.size} <Words k="of" /> {members.length} <Words k="present" /></p>
+        <p className="text-[13px] font-semibold text-ink2"><Words k="{n} of {n2}" vars={{ n: on.size, n2: members.length }} /> <Words k="present" /></p>
         <button type="button" className="text-[12.5px] font-semibold text-brand h-8" onClick={() => setOn(on.size === members.length ? new Set() : new Set(members.map((m) => m.id)))}>{on.size === members.length ? "Untick all" : "Tick all"}</button>
       </div>
       <ul className="flex flex-col max-h-[36vh] overflow-y-auto scroll-thin rounded-xl border border-line divide-y divide-line/60">

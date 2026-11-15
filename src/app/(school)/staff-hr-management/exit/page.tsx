@@ -63,7 +63,7 @@ export default async function StaffExitPage({ searchParams }: Search) {
   const progress = (e: Row, cls = "") => {
     if (e.status !== "IN_PROGRESS") return <Pill tone={EXIT_STATUS[e.status].tone} className={cls}>{EXIT_STATUS[e.status].label}</Pill>;
     const done = e.handover.filter((h) => h.doneAt).length;
-    return <Pill tone={done === e.handover.length ? "ok" : "warn"} className={cls}>{done} <Words k="of" /> {e.handover.length} <Words k="handed" /></Pill>;
+    return <Pill tone={done === e.handover.length ? "ok" : "warn"} className={cls}><Words k="{n} of {n2}" vars={{ n: done, n2: e.handover.length }} /> <Words k="handed" /></Pill>;
   };
 
   const columns: DataColumn<Row>[] = [
@@ -78,13 +78,13 @@ export default async function StaffExitPage({ searchParams }: Search) {
     } },
     { key: "type", label: "Type", render: (e) => exitTypeLabel(e.type) },
     { key: "last", label: "Last working day", nowrap: true, render: (e) => <span className="tnum">{formatDate(e.lastWorkingDay, tz)}</span> },
-    { key: "clearance", label: "Clearance", render: (e) => e.status === "IN_PROGRESS" ? <span className="tnum">{e.clearance.filter((c) => c.status !== "PENDING").length} <Words k="of" /> {e.clearance.length} <Words k="cleared" /></span> : <span className="text-ink3">–</span> },
+    { key: "clearance", label: "Clearance", render: (e) => e.status === "IN_PROGRESS" ? <span className="tnum"><Words k="{n} of {n2}" vars={{ n: e.clearance.filter((c) => c.status !== "PENDING").length, n2: e.clearance.length }} /> <Words k="cleared" /></span> : <span className="text-ink3">–</span> },
     { key: "state", label: "Status", render: (e) => progress(e) },
   ];
 
   return (
     <>
-      <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Resignations, retirements and terminations: handover, clearance and final settlement"
+      <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Handover, clearance and final settlement"
         actions={viewer.change === "all" ? <ButtonLink href={`${BASE}/exit/new`} variant="primary" icon={LogOut}><Words k="Record exit" /></ButtonLink> : undefined} />
 
       <Stats label="Staff exits" className="mb-5" items={[

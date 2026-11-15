@@ -8,6 +8,7 @@ import { BUILT_MODULES } from "@/lib/modules";
 import { can } from "@/lib/permissions";
 import { seesStudentFees } from "@/lib/fees/access";
 import { phoneShow, classShort } from "@/lib/students/show";
+import { PhoneMissing } from "./_lib/phone-missing";
 import { CATEGORIES, GENDERS, LIST_COLUMNS, RESULT_LABEL, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -53,7 +55,12 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
 
   const f = params.filters;
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
-  const studying = data.tiles.reduce((n, t) => n + t.total, 0);
+  const anyFilterIn = (x: typeof params) => Boolean(x.q || Object.keys(x.filters).some((k) => k !== "campus") || x.archived);
+  const inClasses = data.tiles.reduce((n, t) => n + t.total, 0);
+  // Layman loop 2: the head count, the chips and the list footer count the same students;
+  // studying students with no class this year get their own chip (the list's "section=none").
+  const noClass = !anyFilterIn(params) ? Math.max(0, data.total - inClasses) : f.section === "none" ? data.total : 0;
+  const studying = !anyFilterIn(params) ? data.total : inClasses;
   const show = new Set((settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key)).filter((k) => fieldAllowed(k, ab)));
   const feeCol = data.shows.fees;
   // The Result column once the year's final results are published (for people who see them).
@@ -61,7 +68,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
 
   const feePill = (s: Row, cls = "") => s.due === null ? null
-    : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{formatRupees(s.due)} {s.overdue ? "overdue" : "due"}</Pill>
+    : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{s.overdue ? <Words k="{amount} overdue" vars={{ amount: formatRupees(s.due) }} /> : <Words k="{amount} due" vars={{ amount: formatRupees(s.due) }} />}</Pill>
       : <Pill tone="ok" dot={!cls} className={cls}>{cls ? "Fees paid" : "Paid"}</Pill>;
   const resultPill = (s: Row, cls = "") => s.resultText === null && s.result === null ? null
     : <Pill tone={s.result === "pass" ? "ok" : s.result === "fail" ? "bad" : "warn"} className={cls}>{s.resultText ?? RESULT_LABEL[s.result!]}</Pill>;
@@ -71,7 +78,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       <div className="flex items-center gap-3">
         {show.has("photo") && <Avatar name={s.fullName} src={s.photo} size={38} />}
         <div className="min-w-0">
-          <p className="font-semibold leading-tight flex items-center gap-2">{s.fullName}{s.status !== "ACTIVE" && <Pill tone={s.status === "ADMITTED" ? "info" : "neutral"} className="!h-5 !text-[11px]">{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill>}</p>
+          <p className="font-semibold leading-tight flex items-center gap-2">{s.fullName}{s.status !== "ACTIVE" && <Pill tone={s.status === "ADMITTED" ? "info" : "neutral"} className="!h-5 !text-[11px]">{tx(s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey])}</Pill>}</p>
           {show.has("admissionNo") && <p className="text-[12.5px] text-ink3 font-mono">{s.admissionNo}</p>}
         </div>
       </div>
@@ -81,7 +88,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       : <span className="text-ink3 text-[13px]"><Words k="No class this year" /></span> }] : []),
     ...(show.has("guardian") || show.has("phone") ? [{ key: "parent", label: "Parent", render: (s: Row) => {
       const g = mainGuardian(s);
-      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{phoneShow(g.guardian.phone)}</p>}</> : <span className="text-ink3 text-[13px]"><Words k="Not added" /></span>;
+      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{g.guardian.phone ? phoneShow(g.guardian.phone) : <PhoneMissing />}</p>}</> : <span className="text-ink3 text-[13px]"><Words k="Not added" /></span>;
     } }] : []),
     ...(show.has("gender") ? [{ key: "gender", label: "Gender", render: (s: Row) => <span className="text-[13.5px]">{s.gender ?? "–"}</span> }] : []),
     ...(show.has("category") ? [{ key: "category", label: "Category", render: (s: Row) => <span className="text-[13.5px]">{s.category ?? "–"}</span> }] : []),
@@ -110,12 +117,14 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   if (params.archived) filtersInUrl.set("archived", "1");
   const anyFilter = Boolean(params.q || Object.keys(f).length || params.archived);
   const ownNote = ab.reach === "own" ? `Your classes: ${data.tiles.flatMap((t) => t.sections.map((s) => classShort(t.name, s.name))).join(", ") || "none yet"}` : null;
+  // A search by phone shows the parent's phone on the phone cards, so the match is visible (layman loop 2).
+  const byPhone = show.has("phone") && (params.q ?? "").replace(/\D/g, "").length >= 4;
   const moreHref = data.rows.length < data.total ? listHref(BASE, params, { n: shownCount + STEP, page: null }) : null;
 
   return (
     <>
       <StudentsHead page="Student List" href={BASE}
-        sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}` : "No academic year is open"}
+        sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}${noClass && f.section !== "none" ? ` · ${noClass} not in a class` : ""}` : "No academic year is open"}
         actions={<>
           {ab.manage && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden"><Words k="Import" /></ButtonLink>}
           {ab.exportList && (
@@ -158,10 +167,11 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       {!year && <Banner tone="warn" className="mb-4" title="No academic year is open."><Words k="Students have no class until the year is opened in" /> <Link className="font-semibold underline" href="/academic-management"><Words k="Academic Management" /></Link>.</Banner>}
 
       {data.tiles.length > 0 && (
-        <Chips label="Students by class" value={f.class ?? "all"} options={[
+        <Chips label="Students by class" value={f.section === "none" ? "none" : f.class ?? "all"} options={[
           // One class with students: "All" would be the same list under a second name, so only the class chip shows.
-          ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: studying, href: href({ class: null, section: null }) }]),
+          ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: inClasses, href: href({ class: null, section: null }) }]),
           ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
+          ...(noClass ? [{ value: "none", label: "Not in a class", count: noClass, href: href({ class: null, section: "none" }) }] : []),
         ]} />
       )}
       {curClass && curClass.sections.length > 0 && (
@@ -197,19 +207,22 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
             const g = mainGuardian(s);
             return {
               title: s.fullName, avatar: s.fullName, avatarSrc: show.has("photo") ? s.photo : null,
-              sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name].filter(Boolean).join(" · "),
+              sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name, byPhone && g ? phoneShow(g.guardian.phone) : null].filter(Boolean).join(" · "),
               pills: [
                 feePill(s, cardPill),
                 resultCol ? resultPill(s, cardPill) : null,
                 s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}<Words k="% present" /></Pill> : null,
-                s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill> : null,
+                s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{tx(s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey])}</Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             };
           }}
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
           empty={anyFilter ? (
             <Empty icon={SearchX} title="No students match"
-              body={params.q ? <><Words k="Nobody called “" />{params.q}<Words k="” in" /> {curClass ? curClass.name : "any class"}<Words k=". Try the admission number or the parent's phone." /></> : "Try a different class or filter."}
+              body={params.q ? (/[^\u0000-\u024F]/.test(params.q)
+                ? <Words k="Names are saved in English letters. Type “{q}” in English, like Pooja." vars={{ q: params.q }} />
+                : curClass ? <Words k="Nobody called “{q}” in {class}. Try the admission number or the parent's phone." vars={{ q: params.q, class: curClass.name }} />
+                  : <Words k="Nobody called “{q}” in any class. Try the admission number or the parent's phone." vars={{ q: params.q }} />) : "Try a different class or filter."}
               action={<ButtonLink href={BASE}><Words k="Clear filters" /></ButtonLink>} />
           ) : ab.reach === "own" ? (
             <Empty icon={Users} title="No students in your classes yet" body="You see the students of the sections you teach. Your sections are set in Academic Management, Teacher Allocation." />

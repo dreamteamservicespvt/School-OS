@@ -72,7 +72,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
   return (
     <div>
       <EvHead pageName={acc ? "Event Payments" : "Events"} href={HREF}
-        sub={acc ? "Events with a fee: what is collected, what is due and what was refunded. Read only." : "Plan events with date, venue and audience; registrations, payments and reminders where needed."}
+        sub={acc ? "Events with a fee: collected, due and refunded. Read only." : "Plan events, with registrations and payments when needed."}
         actions={full && <ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}><Words k="Create event" /></ButtonLink>} />
       <Stack>
         <Stats items={acc ? [

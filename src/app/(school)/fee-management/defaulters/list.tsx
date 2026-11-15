@@ -4,6 +4,7 @@
 // (mod-fees.jsx Defaulters and ReminderSheet). Rows open the student's
 // reminder and call history (?who=), worked out on the server.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -45,6 +46,7 @@ export type DefaulterItem = {
 };
 
 type Option = { value: string; label: string };
+const PAGE = 50;
 
 export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, empty, openAll, templates, gateway, csvHref, whoHref }: {
   rows: DefaulterItem[];
@@ -65,8 +67,11 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [send, setSend] = useState<DefaulterItem[] | null>(openAll ? rows : null);
   const [seen, setSeen] = useState({ openAll, rows });
+  // 50 a page (layman loop 2: 321 rows made one 21,000 px page). Sending to all still means every row.
+  const [page, setPage] = useState(1);
   if (seen.openAll !== openAll || seen.rows !== rows) {
     setSeen({ openAll, rows });
+    if (seen.rows !== rows) setPage(1);
     if (openAll) setSend(rows);
   }
   const closeSend = () => {
@@ -78,7 +83,10 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
     }
   };
   if (!rows.length) return <>{empty}</>;
-  const allOn = rows.every((r) => sel.has(r.id));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  const at = Math.min(page, pages);
+  const shown = rows.slice((at - 1) * PAGE, at * PAGE);
+  const allOn = shown.every((r) => sel.has(r.id));
   const toggle = (k: string) => setSel((x) => { const n = new Set(x); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const chosen = rows.filter((r) => sel.has(r.id));
   const callList = `${csvHref}${csvHref.includes("?") ? "&" : "?"}format=csv&calls=1&${chosen.map((r) => `id=${r.id}`).join("&")}`;
@@ -98,14 +106,14 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
           <caption className="sr-only"><Words k="Students with overdue fees" /></caption>
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
-              {canEdit && <th className="pl-4 pr-2 py-3 w-10"><Checkbox label="Select all" checked={allOn} indeterminate={!allOn && rows.some((r) => sel.has(r.id))} onChange={() => setSel(allOn ? new Set() : new Set(rows.map((r) => r.id)))} /></th>}
+              {canEdit && <th className="pl-4 pr-2 py-3 w-10"><Checkbox label="Select all" checked={allOn} indeterminate={!allOn && shown.some((r) => sel.has(r.id))} onChange={() => setSel((x) => { const n = new Set(x); for (const r of shown) { if (allOn) n.delete(r.id); else n.add(r.id); } return n; })} /></th>}
               {["Student", "Class", "Parent", "Overdue", "Oldest due", "Last reminder", ""].map((l, i) => (
                 <th key={i} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !canEdit && "pl-5", l === "Overdue" && "text-right")}>{l}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((d) => (
+            {shown.map((d) => (
               <tr key={d.id} className={cx("border-b border-line/70 last:border-0 transition group relative", sel.has(d.id) ? "bg-brand/5" : "hover:bg-sunken/60")}>
                 {canEdit && <td className="pl-4 pr-2 py-3 relative z-10"><Checkbox label={`Select ${d.name}`} checked={sel.has(d.id)} onChange={() => toggle(d.id)} /></td>}
                 <td className={cx("px-3 py-2.5", !canEdit && "pl-5")}>
@@ -128,7 +136,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
         </table>
       </div>
       <ul className="lg:hidden divide-y divide-line/70">
-        {rows.map((d) => (
+        {shown.map((d) => (
           <li key={d.id} className="flex items-center gap-3 px-4 py-3">
             {canEdit && <Checkbox label={`Select ${d.name}`} checked={sel.has(d.id)} onChange={() => toggle(d.id)} />}
             <Link href={whoHref[d.id]} scroll={false} className="flex items-center gap-3 min-w-0 flex-1 active:bg-sunken">
@@ -144,13 +152,22 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3"><span className="tnum">{footer}</span></div>
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap"><span className="tnum">{footer}</span>
+        {pages > 1 && (
+          <span className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" disabled={at <= 1} onClick={() => setPage(at - 1)}><Words k="Previous" /></Button>
+            <span className="tnum">{at} / {pages}</span>
+            <Button size="sm" variant="secondary" disabled={at >= pages} onClick={() => setPage(at + 1)}><Words k="Next" /></Button>
+          </span>
+        )}
+      </div>
       {send && send.length > 0 && canEdit && <ReminderSheet list={send} onClose={closeSend} onSent={() => { setSel(new Set()); closeSend(); }} templates={templates} gateway={gateway} />}
     </>
   );
 }
 
-const CHANNELS = [{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }];
+// SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026).
+const CHANNELS = [{ value: "whatsapp", label: "WhatsApp" }, ...(SMS_OFFERED ? [{ value: "sms", label: "SMS" }] : []), { value: "email", label: "Email" }];
 const OWN = "__own";
 
 function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: DefaulterItem[]; onClose: () => void; onSent: () => void; templates: Record<"whatsapp" | "sms" | "email", Option[]>; gateway: boolean }) {
@@ -210,7 +227,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         {link && <input type="hidden" name="link" value="on" />}
         {!ownWording && <input type="hidden" name="templateId" value={tpl} />}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {[["Parents", ready ? ready.recipients : "…"], ["Overdue", totalShort], ["Cost", ready ? `${ready.cost} ${ready.cost === 1 ? "credit" : "credits"}` : "…"]].map(([k, v]) => (
+          {[["Parents", ready ? ready.recipients : "…"], ["Overdue", totalShort], ["Cost", ready ? (ready.testMode ? "None (test mode)" : `${ready.cost} ${ready.cost === 1 ? "credit" : "credits"}`) : "…"]].map(([k, v]) => (
             <div key={String(k)} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display text-[19px] font-semibold tnum leading-tight truncate">{v}</p></div>
           ))}
         </div>
@@ -220,13 +237,13 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
             options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Write my own message" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>
         {ownWording && channel !== "sms" && (
-          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="Words in { } fill in by themselves for each parent: {guardian_name} becomes the parent’s name, {due_amount} their dues. You can also use {student_name}, {class}, {due_date}, {how_to_pay}, {link} and {school_name}. Do not change the words inside { }." />
+          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="Words in { } fill in by themselves: {guardian_name}, {due_amount}, {student_name}, {class}, {due_date}, {how_to_pay}, {link}, {school_name}. Do not change them." />
         )}
         {channel === "sms" && opts.length === 0 && <Alert tone="warning"><Words k="SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp." /></Alert>}
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
-            ? <SettingRow title="Add the payment link" sub="Parents with a Parent Link get it, with its Pay button; others a Razorpay link for their exact dues, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
-            : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." />}
+            ? <SettingRow title="Add the payment link" sub="A link to pay online, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
+            : <SettingRow title="Payment link" sub="Online payment is not set up. Ask DREAM TEAM support." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>
         <div>
@@ -238,13 +255,16 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
           </div>
         </div>
         {preview && !preview.ok && <Alert tone="danger">{preview.message}</Alert>}
+        {preview?.ok && preview.testMode && <Banner tone="warn" title="Test mode: nothing is sent, no credits used." />}
         {preview?.ok && (
           <Banner tone={preview.creditProblem || preview.problems.length ? "bad" : "info"}
-            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.messages} ${channelLabel} ${preview.messages === 1 ? "message" : "messages"} to ${parents(preview.recipients)}${preview.messages > preview.recipients ? " (one for each child)" : ""}. Cost: ${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}. This cannot be unsent.`}>
+            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.messages} ${channelLabel} ${preview.messages === 1 ? "message" : "messages"} to ${parents(preview.recipients)}${preview.messages > preview.recipients ? " (one for each child)" : ""}.${preview.testMode ? "" : ` Cost: ${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}. This cannot be unsent.`}`}>
+            {/* Every student on the list is counted: reached, skipped (with names) or owing nothing now (loop 4). */}
             {[
-              ...preview.skipped.map((s) => `${s.count} skipped: ${s.reason.toLowerCase()}`),
+              `${preview.reached} of ${preview.students} ${preview.students === 1 ? "student" : "students"} covered`,
+              ...preview.skipped.map((s) => `${s.count} skipped: ${s.reason.toLowerCase()}${s.names.length ? ` (${s.names.join(", ")}${s.count > s.names.length ? "…" : ""})` : ""}`),
               preview.nothingDue ? `${preview.nothingDue} owe nothing now` : null,
-            ].filter(Boolean).join(" · ") || "Nobody on this list opted out of messages."}
+            ].filter(Boolean).join(" · ")}
           </Banner>
         )}
         {state && !state.ok && state.message && <Alert tone="danger">{state.message}</Alert>}

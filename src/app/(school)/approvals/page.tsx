@@ -128,8 +128,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       link: approvalRecordLink(a),
     };
   });
+  // The same request asked again (a refund sent three times): the oldest is the one to decide, the later ones are marked.
+  const firstOf = new Map<string, string>();
+  for (const a of [...data.rows].sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())) {
+    if (!OPEN_STATUSES.includes(a.status)) continue;
+    const k = `${a.type}|${a.summary}|${a.amountPaise ?? ""}`;
+    if (!firstOf.has(k)) firstOf.set(k, a.id);
+  }
+  const myRoles = new Set(roleKeys);
   const rows: ApprovalRow[] = data.rows.map((a) => {
     const open = OPEN_STATUSES.includes(a.status);
+    const decidable = data.decidable.has(a.id);
     const last = [...((a.history as HistoryLine[]) ?? [])].reverse()[0];
     const days = data.rules.find((r) => r.type === a.type)?.escalateAfterDays ?? 2;
     return {
@@ -142,12 +151,15 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       askedByName: data.people.get(a.askedById) ?? current.user.displayName,
       asked: formatDateTime(a.createdAt, tz),
       status: statusWords(a.status, a.history),
-      waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : null) : null,
-      decidable: data.decidable.has(a.id),
-      rejectable: data.decidable.has(a.id) && data.rejectable.has(a.type),
+      // The reader who must decide is "you", whether it waits for them by name or by their role.
+      waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? (decidable && myRoles.has(a.currentApproverRole) ? "you" : `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}`) : null) : null,
+      decidable,
+      rejectable: decidable && data.rejectable.has(a.type),
+      repeat: open && firstOf.get(`${a.type}|${a.summary}|${a.amountPaise ?? ""}`) !== a.id,
       job: a.askedById === current.user.id ? null : data.jobs.get(a.askedById) ?? null,
       reason: a.reason,
-      facts: data.facts.get(a.id),
+      // Moved on after nobody decided in time: say why it reached this person.
+      facts: a.status === "ESCALATED" && decidable ? [...(data.facts.get(a.id) ?? []), { label: "Came to you", value: `the step before did not decide in ${days} working day${days === 1 ? "" : "s"}` }] : data.facts.get(a.id),
       overdue: open && workingDaysBetween(new Date(last?.at ?? a.createdAt), now) >= days,
     };
   });
@@ -158,7 +170,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <div className="max-w-5xl">
       <PageHeader title="Approvals" href="/approvals" userId={current.user.id}
-        sub={approver ? "Requests only you can decide, and the ones you asked for" : "Requests you asked for, such as leave, and where each one is"} />
+        sub={approver ? "Requests for you to decide, and your own" : "Your requests and where each one is"} />
       {support.length > 0 && <SupportRequests items={support} schoolName={current.school.name} />}
       {unfinished.length > 0 && !current.support && <UnfinishedList items={unfinished} />}
       {views.length > 1 && (
@@ -190,13 +202,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           ) : view === "mine" ? (
             <EmptyState title="Nothing waiting" Icon={CheckCheck}><Words k="New requests show up here and in your notifications." /></EmptyState>
           ) : view === "asked" ? (
-            <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Requests you send, such as leave, appear here so you can follow them." /></EmptyState>
+            <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Your leave and other requests show here." /></EmptyState>
           ) : (
             <EmptyState title="No requests yet" Icon={Inbox}><Words k="Leave, discount, refund and expense requests appear here when staff send them." /></EmptyState>
           )
       ) : (
         <>
-          <ApprovalList rows={rows} />
+          <ApprovalList rows={rows} paged={pages > 1} total={data.total} />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[13.5px] text-ink3">
             <span className="tnum">{data.total} <Words k="request" />{data.total === 1 ? "" : "s"}{pages > 1 ? ` · page ${params.page} of ${pages}` : ""}</span>
             {pages > 1 && (

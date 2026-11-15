@@ -1,5 +1,6 @@
 "use server";
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { file as oneFile, optionalText, str, strs } from "@/lib/fees/act";
 import { HomeworkProblem } from "@/lib/homework/access";
 import { archiveHomework, editHomework, giveHomework, givenWords, tellAfterGiving, type NewAttachment } from "@/lib/homework/homework";
@@ -52,7 +53,7 @@ export async function giveHomeworkAction(_prev: unknown, fd: FormData) {
       givenTo, studentIds: strs(fd, "studentIds").filter((x) => UUID.test(x)),
       startDate: day(fd, "startDate", "Start date"), dueDate: day(fd, "dueDate", "Due date"),
       maxMarks: marks(fd), onlineSubmission: str(fd, "online") === "on", fromSuggestion: str(fd, "fromSuggestion") === "1",
-      attachments: attachments(fd),
+      attachments: attachments(fd), sendAgain: str(fd, "sendAgain") === "1",
     }, today);
     const students = r.made.reduce((a, m) => a + m.students, 0);
     return { ...r, students, first: r.made[0] };
@@ -82,7 +83,7 @@ export async function archiveHomeworkAction(_prev: unknown, fd: FormData) {
 /** Resend to the parents who have not seen the homework (Seen by parent, "Resend to N"). */
 export async function resendHomeworkAction(_prev: unknown, fd: FormData) {
   return hwForm("edit", fd, async ({ tx, s }) => resendToUnseen(tx, s, uuid(fd, "id", "homework")),
-    (r) => `Homework sent again to the parents of ${plural(r.students, "student")}. With SMS backup if not read in 2 hours.`);
+    (r) => `Homework sent again to the parents of ${plural(r.students, "student")}.${SMS_OFFERED ? " With SMS backup if not read in 2 hours." : ""}`);
 }
 
 /** The Principal, School Admin, Vice Principal or Academic Head reminds a teacher about work waiting to be checked. */

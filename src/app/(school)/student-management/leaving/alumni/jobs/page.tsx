@@ -26,7 +26,7 @@ export default async function JobBoardPage() {
   return (
     <>
       <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" sub="Job board" />
-      <PageHeader title="Alumni job board" sub="Jobs posted here are shared with alumni" href={`${BASE}/leaving/alumni/jobs`} userId={current.user.id} />
+      <PageHeader title="Alumni job board" sub="Shared with alumni" href={`${BASE}/leaving/alumni/jobs`} userId={current.user.id} />
       <Split side={380}>
         <Card className="overflow-hidden">
           <CardHeader title="Open job posts" icon={Briefcase} description={`${jobs.length} post${jobs.length === 1 ? "" : "s"}`} divided={jobs.length > 0} />
@@ -62,7 +62,7 @@ export default async function JobBoardPage() {
                 <FormText name="organisation" label="Organisation" required maxLength={120} />
                 <FormText name="location" label="Location" maxLength={120} />
                 <FormArea name="description" label="Description" required rows={4} maxLength={2000} />
-                <FormText name="contact" label="How to apply" required maxLength={300} help="An email, phone number or website." />
+                <FormText name="contact" label="How to apply" required maxLength={300} help="Email, phone or website" />
                 <FormText name="applyBy" label="Apply by" type="date" />
               </ActionForm>
             </CardBody>

@@ -56,7 +56,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
               </div>
             </I18nProvider>
           ) : (
-            <p className="py-8 px-6 text-center text-ink3"><Words k="This guardian has no children studying in the school now, so the page shows “Please contact the school”." /></p>
+            <p className="py-8 px-6 text-center text-ink3"><Words k="No children in the school now, so the page shows “Please contact the school”." /></p>
           )}
         </div>
       </div>

@@ -35,7 +35,7 @@ export function ArchiveSheet({ examId, title, open, onClose, doneHref }: { examI
   return (
     <ActionSheet open={open} onClose={onClose} title={`Archive ${title}?`} confirmLabel="Archive datesheet" confirmVariant="danger" confirmIcon={<Archive size={17} />}
       doneHref={doneHref} run={() => archiveExamAction(examId)}>
-      <p><Words k="The datesheet leaves the list and its exam days come off the School Calendar and Parent Link. Nothing is deleted: find it with Show, Archived, and restore it from there." /></p>
+      <p><Words k="The datesheet leaves the list and its exam days come off the School Calendar and Parent Link. You can restore it from the archived list." /></p>
     </ActionSheet>
   );
 }
@@ -125,7 +125,7 @@ export function CategoriesButton({ entryId, subject, maxMarks, current, names, c
       </ul>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="secondary" size="sm" icon={Plus} onClick={() => setCats([...cats, { name: "", max: "" }])}><Words k="Add a category" /></Button>
-        {cats.length > 0 && <p className={cx("text-[13px] font-semibold tnum flex items-center gap-1.5", ok ? "text-ok" : "text-bad")} aria-live="polite">{!ok && <CircleAlert size={14} aria-hidden="true" />}<Words k="Adds up to" /> {sum} <Words k="of" /> {maxMarks}</p>}
+        {cats.length > 0 && <p className={cx("text-[13px] font-semibold tnum flex items-center gap-1.5", ok ? "text-ok" : "text-bad")} aria-live="polite">{!ok && <CircleAlert size={14} aria-hidden="true" />}<Words k="Adds up to" /> <Words k="{n} of {n2}" vars={{ n: sum, n2: maxMarks }} /></p>}
       </div>
       {classes > 1 && (
         <label className="flex items-start gap-3 rounded-xl border border-line px-4 py-3">

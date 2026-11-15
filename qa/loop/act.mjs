@@ -28,7 +28,7 @@ for (const s of steps) {
     }
     else if (s.fill) { await p.getByLabel(s.fill, { exact: s.exact ?? false }).first().fill(String(s.value), { timeout: 15000 }); }
     else if (s.select) { await p.getByLabel(s.select, { exact: s.exact ?? false }).first().selectOption({ label: s.value }, { timeout: 15000 }); await sleep(300); }
-    else if (s.upload) { await p.getByLabel(s.upload).first().setInputFiles(path.resolve(s.file)); await settle(); }
+    else if (s.upload) { await (s.upload === "*" ? p.locator('input[type="file"]').first() : p.getByLabel(s.upload, { exact: true }).first()).setInputFiles(path.resolve(s.file)); await settle(); }
     else if (s.wait) await sleep(s.wait * 1000);
     else if (s.shot) {
       n++;

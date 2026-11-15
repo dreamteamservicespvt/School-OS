@@ -3,7 +3,7 @@ import { withSchool } from "@/lib/db";
 import { dateWhere, momentWhere } from "@/lib/periods";
 import { gateScope, visitorScope } from "@/lib/front-office/access";
 import { checkPass, expiredWhere, statusWhere, visitorLogWhere, visitorSearch, visitorStatus } from "@/lib/front-office/visitors";
-import { addDaysIso, clockAt, dayMonth, shortDay } from "@/lib/front-office/time";
+import { addDaysIso, clockAt, dayMonth, shortDay, weekdayOf } from "@/lib/front-office/time";
 import { VISITOR_TONE, maskPhone, replyOf, showPhone, type VisitorStatus } from "@/lib/front-office/words";
 import { fileLink } from "@/lib/files";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import { CheckSheet } from "../_components/pass-check";
 import { BASE, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import type { T } from "@/lib/i18n/t";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Visitors") };
@@ -34,11 +35,11 @@ export async function generateMetadata() {
 
 const HREF = `${BASE}/visitors`;
 const STATUS_ORDER: Record<VisitorStatus, number> = { In: 0, Expired: 1, Out: 2 };
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Visitors (16 §2, mod-frontoffice.jsx VisitorsPage): the visitor log with passes, and the gate log where the school keeps one. */
 export default async function VisitorsPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await foGuard("visitors");
+  const t = p.t;
   const sp = await searchParams;
   const ctx = p.current.ctx;
   const now = p.now;
@@ -60,7 +61,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   const data = await withSchool(ctx, async (tx) => {
     const search = await visitorSearch(tx, q, !masked);
     const dr = dateWhere(range);
-    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, withOpenExpired: isToday, status: st, search, now });
+    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, withOpenExpired: isToday && st === "Expired", status: st, search, now });
     const where = countWhere(status);
     const [rows, counts, inside, oldest, todayCount, todayPeople, gateToday, expired, week, check] = await Promise.all([
       tx.visitorEntry.findMany({ where, orderBy: { timeIn: "desc" }, take: 300 }),
@@ -100,10 +101,10 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
 
   // This week: visitors by day, by purpose, average time inside.
   const days = Array.from({ length: Math.max(1, Math.min(7, dayDiff(weekStartIso, p.todayStr) + 1)) }, (_, i) => addDaysIso(weekStartIso, i));
-  const byDay = days.map((d) => ({ k: WEEKDAY[new Date(`${d}T00:00:00Z`).getUTCDay()], v: data.week.filter((w) => w.visitDate.toISOString().slice(0, 10) === d).length, tone: d === p.todayStr ? ("brand" as const) : undefined }));
+  const byDay = days.map((d) => ({ k: weekdayOf(new Date(`${d}T00:00:00Z`), t), v: data.week.filter((w) => w.visitDate.toISOString().slice(0, 10) === d).length, tone: d === p.todayStr ? ("brand" as const) : undefined }));
   const purposeCount = new Map<string, number>();
   for (const w of data.week) purposeCount.set(w.purpose, (purposeCount.get(w.purpose) ?? 0) + 1);
-  const byPurpose = [...purposeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => ({ k, v, label: String(v) }));
+  const byPurpose = [...purposeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => ({ k: t.any(k), v, label: String(v) }));
   const closed = data.week.filter((w) => w.timeOut);
   const avgInside = closed.length ? Math.round(closed.reduce((s, w) => s + (w.timeOut!.getTime() - w.timeIn.getTime()), 0) / closed.length / 60_000) : null;
   const weekMax = Math.max(4, ...byDay.map((d) => d.v));
@@ -119,7 +120,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   return (
     <div>
       <FoHead pageName="Visitors" href={HREF}
-        sub={gate ? "At the gate only: register visitors, record vehicles and check passes" : p.passLine}
+        sub={gate ? t("At the gate only: register visitors, record vehicles and check passes") : p.passLine}
         actions={<>
           {p.can.gateWork && <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}><Words k="Check a pass" /></ButtonLink>}
           {gate && gateLogOn && p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Car}><Words k="Gate entry" /></ButtonLink>}
@@ -128,16 +129,18 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
         </>} />
       <Stack>
         <Stats items={[
-          { label: "In the building now", value: String(data.inside), sub: data.oldest ? `Oldest since ${clockAt(data.oldest.timeIn, p.tz)}` : "Nobody inside", tone: "ok", icon: Users, href: qs(HREF, { status: "In", view: gate ? "log" : null }), active: view === "log" && status === "In" },
-          { label: "Visitors today", value: String(data.todayCount), sub: data.todayPeople > data.todayCount ? `${data.todayPeople} people with companions` : data.todayCount ? "No companions" : "None yet", icon: IdCard, href: qs(HREF, { view: gate ? "log" : null }), active: view === "log" && status === "all" && isToday },
-          ...(gateLogOn ? [{ label: "Gate entries today", value: String(data.gateToday.length), sub: data.gateToday.length ? [buses && `${buses} school bus${buses === 1 ? "" : "es"}`, vans && `${vans} vehicle${vans === 1 ? "" : "s"}`].filter(Boolean).join(", ") || "People on foot" : "None yet", icon: Car, href: qs(HREF, { view: gate ? null : "gate" }), active: view === "gate" }] : []),
-          { label: "Not checked out", value: String(data.expired.length), sub: "Pass expired", tone: data.expired.length ? ("bad" as const) : undefined, icon: TimerOff, href: qs(HREF, { status: "Expired", view: gate ? "log" : null }), active: view === "log" && status === "Expired" },
+          { label: "In the building now", value: String(data.inside), sub: data.oldest ? t("Oldest since {time}", { time: clockAt(data.oldest.timeIn, p.tz) }) : t("Nobody inside"), tone: "ok", icon: Users, href: qs(HREF, { status: "In", view: gate ? "log" : null }), active: view === "log" && status === "In" },
+          { label: "Visitors today", value: String(data.todayCount), sub: data.todayPeople > data.todayCount ? t("{n} people in total", { n: data.todayPeople }) : data.todayCount ? undefined : t("None yet"), icon: IdCard, href: qs(HREF, { view: gate ? "log" : null }), active: view === "log" && status === "all" && isToday },
+          ...(gateLogOn ? [{ label: "Gate entries today", value: String(data.gateToday.length), sub: data.gateToday.length ? [buses && (buses === 1 ? t("1 school bus") : t("{n} school buses", { n: buses })), vans && (vans === 1 ? t("1 vehicle") : t("{n} vehicles", { n: vans }))].filter(Boolean).join(", ") || t("People on foot") : t("None yet"), icon: Car, href: qs(HREF, { view: gate ? null : "gate" }), active: view === "gate" }] : []),
+          { label: "Not checked out", value: String(data.expired.length), sub: t("Pass expired"), tone: data.expired.length ? ("bad" as const) : undefined, icon: TimerOff, href: qs(HREF, { status: "Expired", view: gate ? "log" : null }), active: view === "log" && status === "Expired" },
         ]} />
         {firstExpired && !gate && (
-          <Banner tone="bad" title={`${data.expired.length} visitor${data.expired.length === 1 ? "" : "s"} not checked out${firstExpired.visitDate.getTime() === p.today.getTime() ? " today" : ""}:`}
+          <Banner tone="bad" title={notOutWords(t, data.expired.length, firstExpired.visitDate.getTime() === p.today.getTime())}
             action={p.can.checkOut ? <ButtonLink href={addQ(sheetHref, { out: firstExpired.id })} scroll={false} size="sm" variant="secondary" icon={LogOut}><Words k="Check out with the right time" /></ButtonLink>
               : p.can.remind ? <ActButton action={remindDeskAction} fields={{ visitorId: firstExpired.id }} label="Remind" icon="send" pendingText="Sending…" /> : undefined}>
-            {firstExpired.name}<Words k=", pass" /> {firstExpired.passNo}<Words k=", expired at" /> {clockAt(firstExpired.passExpiresAt, p.tz)} <Words k="on" /> {firstExpired.visitDate.getTime() === p.today.getTime() ? "today" : dayMonth(firstExpired.visitDate)}.
+            {firstExpired.visitDate.getTime() === p.today.getTime()
+              ? t("{name}: pass {pass} expired at {time} today.", { name: firstExpired.name, pass: firstExpired.passNo, time: clockAt(firstExpired.passExpiresAt, p.tz) })
+              : t("{name}: pass {pass} expired at {time} on {date}.", { name: firstExpired.name, pass: firstExpired.passNo, time: clockAt(firstExpired.passExpiresAt, p.tz), date: dayMonth(firstExpired.visitDate) })}
           </Banner>
         )}
         {gateLogOn && (
@@ -150,19 +153,19 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
           <Split side={300}>
             <Card className="overflow-hidden">
               <Toolbar>
-                <UrlSearch id="vis-search" placeholder={masked ? "Name, vehicle or pass number" : "Name, phone, vehicle or pass"} />
+                <UrlSearch id="vis-search" placeholder={masked ? t("Name, vehicle or pass number") : t("Name, phone, vehicle or pass")} />
                 <PeriodFilter {...p.dates} fallback="today" />
                 {p.can.export && <ExportButton href={exportHref} />}
               </Toolbar>
               <div className="px-3 pt-3 pb-1"><Chips value={status} options={statusChips} label="Visitor status" /></div>
               <DataList rows={rows} rowKey={(v) => v.id} minWidth={740} rowHref={(v) => addQ(sheetHref, { pass: v.id })} caption="Visitor log"
-                footer={`Showing ${rows.length} visitor${rows.length === 1 ? "" : "s"} · ${vp.label.toLowerCase()}${isToday && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? ", with passes not closed" : ""}`}
+                footer={`${rows.length === 1 ? t("Showing 1 visitor") : t("Showing {n} visitors", { n: rows.length })} · ${t.any(vp.label).toLowerCase()}${isToday && status === "Expired" && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? t(", and older passes not closed") : ""}`}
                 columns={[
-                  { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}</p>{v.vehicleNo && <p className="text-[12px] text-ink3 font-mono whitespace-nowrap">{v.vehicleNo}</p>}</div></div> },
-                  { key: "purpose", label: "Purpose", render: (v) => <div><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
-                  { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}><Words k="Replied:" /> {r.label}</p>}</div>; } },
-                  { key: "time", label: "In / out", nowrap: true, render: (v) => { const st = visitorStatus(v, now); return <span className="tnum text-[13px]">{v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}{clockAt(v.timeIn, p.tz)} – {v.timeOut ? clockAt(v.timeOut, p.tz) : st === "Expired" ? "?" : "now"}</span>; } },
-                  { key: "st", label: "Status", render: (v) => { const st = visitorStatus(v, now); return <div><Pill tone={VISITOR_TONE[st]} dot={st === "In"}>{st}</Pill><p className="text-[11.5px] text-ink3 font-mono mt-0.5">{v.passNo}</p></div>; } },
+                  { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${t("{n} people", { n: v.peopleCount })}` : ""}</p>{v.vehicleNo && <p className="text-[12px] text-ink3 font-mono whitespace-nowrap">{v.vehicleNo}</p>}</div></div> },
+                  { key: "purpose", label: "Purpose", render: (v) => <div className="min-w-[200px]"><p className="text-[13.5px]">{t.any(v.purpose)}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
+                  { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}><Words k="Replied:" /> {t(r.label)}</p>}</div>; } },
+                  { key: "time", label: "In / out", nowrap: true, render: (v) => { const st = visitorStatus(v, now); return <span className="tnum text-[13px]">{v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}{clockAt(v.timeIn, p.tz)} – {v.timeOut ? clockAt(v.timeOut, p.tz) : st === "Expired" ? t("not checked out") : t("now")}</span>; } },
+                  { key: "st", label: "Status", render: (v) => { const st = visitorStatus(v, now); return <div><Pill tone={VISITOR_TONE[st]} dot={st === "In"}>{t(st)}</Pill><p className="text-[11.5px] text-ink3 font-mono mt-0.5">{v.passNo}</p></div>; } },
                   { key: "act", label: "", render: (v) => (p.can.checkOut && visitorStatus(v, now) !== "Out" ? <ButtonLink href={addQ(sheetHref, { out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} className="relative z-[1]"><Words k="Check out" /></ButtonLink> : null) },
                 ]}
                 phone={(v) => {
@@ -171,10 +174,10 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                   const met = staffName(v.meetStaffId);
                   return {
                     title: v.name, avatar: v.name,
-                    sub: [v.purpose, met, `in ${clockAt(v.timeIn, p.tz)}${v.timeOut ? `, out ${clockAt(v.timeOut, p.tz)}` : ""}`].filter(Boolean).join(" · "),
+                    sub: [t.any(v.purpose), met, `${v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}${t("Came in {time}", { time: clockAt(v.timeIn, p.tz) })}${v.timeOut ? `, ${t("left {time}", { time: clockAt(v.timeOut, p.tz) })}` : ""}`].filter(Boolean).join(" · "),
                     pills: <>
-                      <Pill tone={VISITOR_TONE[st]} className="!h-[22px] !text-[11.5px]">{st}</Pill>
-                      {r && st === "In" && <Pill tone={r.tone} className="!h-[22px] !text-[11.5px]">{r.label}</Pill>}
+                      <Pill tone={VISITOR_TONE[st]} className="!h-[22px] !text-[11.5px]">{t(st)}</Pill>
+                      {r && st === "In" && <Pill tone={r.tone} className="!h-[22px] !text-[11.5px]">{t(r.label)}</Pill>}
                       {v.vehicleNo && <Pill className="!h-[22px] !text-[11.5px] font-mono">{v.vehicleNo}</Pill>}
                     </>,
                   };
@@ -191,7 +194,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                   <div className="px-5 pb-5 pt-2">
                     <p className="eyebrow text-ink3 mb-2.5"><Words k="By purpose" /></p>
                     {byPurpose.length ? <HBars rows={byPurpose} max={Math.max(1, byPurpose[0].v)} unit="" labelWidth={92} ariaLabel="Visitors by purpose this week" /> : <p className="text-[13px] text-ink3"><Words k="No visitors this week yet." /></p>}
-                    <p className="text-[12.5px] text-ink3 mt-3"><Words k="Average time inside:" /> <b className="text-ink2">{avgInside != null ? `${avgInside} minute${avgInside === 1 ? "" : "s"}` : "not known yet"}</b></p>
+                    <p className="text-[12.5px] text-ink3 mt-3"><Words k="Average time inside:" /> <b className="text-ink2">{avgInside != null ? (avgInside === 1 ? t("1 minute") : t("{n} minutes", { n: avgInside })) : t("not known yet")}</b></p>
                   </div>
                 </Card>
               </Col>
@@ -199,22 +202,22 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
           </Split>
         ) : (
           <Card className="overflow-hidden">
-            <CardHeader title="Gate log" description="Entries and exits at the main gate, with vehicle numbers and passes checked" icon={Car}
+            <CardHeader title="Gate log" description="Entries and exits at the main gate" icon={Car}
               action={<div className="flex gap-2 flex-wrap justify-end">
                 {p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} size="sm" variant="soft" icon={Plus} aria-label="Gate entry"><span className="hidden sm:inline"><Words k="Gate entry" /></span></ButtonLink>}
                 {p.can.exportGate && <ExportButton href={gateExportHref} size="sm" />}
               </div>} />
             <div className="px-5 pb-3"><PeriodFilter {...p.dates} fallback="today" prefix="g" size="sm" /></div>
             <DataList rows={data.gateRows} rowKey={(g) => g.id} minWidth={720} caption="Gate log"
-              footer={`${data.gateRows.length} entr${data.gateRows.length === 1 ? "y" : "ies"} · ${gp.label.toLowerCase()}${data.recorders.length ? ` · recorded by ${data.recorders.map((r) => r.displayName).join(", ")}` : ""}`}
+              footer={`${data.gateRows.length === 1 ? t("1 entry") : t("{n} entries", { n: data.gateRows.length })} · ${t.any(gp.label).toLowerCase()}${data.recorders.length ? ` · ${t("recorded by {names}", { names: data.recorders.map((r) => r.displayName).join(", ") })}` : ""}`}
               columns={[
-                { key: "t", label: "Time", nowrap: true, render: (g) => <span className="tnum font-semibold">{gRange.from !== gRange.to ? `${shortDay(new Date(`${localDay(g.at, p.tz)}T00:00:00Z`))}, ` : ""}{clockAt(g.at, p.tz)}</span> },
+                { key: "t", label: "Time", nowrap: true, render: (g) => <span className="tnum font-semibold">{gRange.from !== gRange.to ? `${shortDay(new Date(`${localDay(g.at, p.tz)}T00:00:00Z`), t)}, ` : ""}{clockAt(g.at, p.tz)}</span> },
                 { key: "dir", label: "In / out", render: (g) => <Pill tone={g.direction === "IN" ? "info" : "neutral"}>{g.direction === "IN" ? <LogIn size={13} aria-hidden="true" /> : <LogOut size={13} aria-hidden="true" />}{g.direction === "IN" ? "In" : "Out"}</Pill> },
-                { key: "who", label: "Person or vehicle", render: (g) => <span className="text-[13.5px] font-medium">{gateWho(g)}</span> },
+                { key: "who", label: "Person or vehicle", render: (g) => <span className="text-[13.5px] font-medium">{gateWho(g, t)}</span> },
                 { key: "veh", label: "Vehicle no.", nowrap: true, render: (g) => (g.vehicleNo ? <span className="font-mono text-[12.5px]">{g.vehicleNo}</span> : <span className="text-ink3">—</span>) },
                 { key: "p", label: "Purpose", render: (g) => <span className={cx("text-[13px]", g.gatePassId || g.visitorEntryId ? "text-ok font-semibold" : "text-ink2")}>{g.purpose || "—"}</span> },
               ]}
-              phone={(g) => ({ title: gateWho(g), sub: `${clockAt(g.at, p.tz)} · ${g.purpose || "—"}`, icon: g.direction === "IN" ? LogIn : LogOut, iconTone: g.direction === "IN" ? "info" : "neutral", pills: g.vehicleNo ? <Pill className="!h-[22px] !text-[11.5px] font-mono">{g.vehicleNo}</Pill> : undefined })}
+              phone={(g) => ({ title: gateWho(g, t), sub: `${clockAt(g.at, p.tz)} · ${g.purpose || "—"}`, icon: g.direction === "IN" ? LogIn : LogOut, iconTone: g.direction === "IN" ? "info" : "neutral", pills: g.vehicleNo ? <Pill className="!h-[22px] !text-[11.5px] font-mono">{g.vehicleNo}</Pill> : undefined })}
               empty={<Empty icon={Car} title={gRange.from === p.todayStr && gRange.to === p.todayStr ? "No gate entries yet today" : "No gate entries on these dates"} body="Vehicles, school buses and deliveries are recorded here with the time."
                 action={p.can.gateWork ? <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Plus}><Words k="Gate entry" /></ButtonLink> : <ButtonLink href={qs(HREF, { view: "gate" })} variant="secondary"><Words k="Show today" /></ButtonLink>} />} />
           </Card>
@@ -228,9 +231,15 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
 }
 
 type GateRow = { kind: string; who: string };
-function gateWho(g: GateRow) {
+function gateWho(g: GateRow, t: T) {
   const prefix = { vehicle: "Vehicle", "school-bus": "School bus", delivery: "Delivery", person: "" }[g.kind] ?? "";
-  return prefix && !g.who.toLowerCase().startsWith(prefix.toLowerCase()) ? `${prefix} · ${g.who}` : g.who;
+  return prefix && !g.who.toLowerCase().startsWith(prefix.toLowerCase()) ? `${t.any(prefix)} · ${g.who}` : g.who;
+}
+
+/** "6 visitors not checked out today:" said whole in the screen's language. */
+function notOutWords(t: T, n: number, today: boolean) {
+  if (n === 1) return today ? t("1 visitor not checked out today:") : t("1 visitor not checked out:");
+  return today ? t("{n} visitors not checked out today:", { n }) : t("{n} visitors not checked out:", { n });
 }
 
 function localDay(d: Date, tz: string) {

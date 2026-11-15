@@ -80,7 +80,7 @@ async function StaffOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   return (
     <div>
-      <HomeworkHead page="online-classes" pageName="Online Classes" sub={p.own ? "Your online classes · links, who joined and recordings" : "Online class schedule, attendance and recordings"}
+      <HomeworkHead page="online-classes" pageName="Online Classes" sub={p.own ? "Your online classes" : "Online class schedule, attendance and recordings"}
         actions={<ButtonLink href={here({ do: "schedule" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Schedule a class" /></ButtonLink>} />
       <Card className="overflow-hidden">
         <div className="p-3 border-b border-line flex flex-col md:flex-row md:items-center gap-2.5">
@@ -91,12 +91,12 @@ async function StaffOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         </div>
         <DataList rows={rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={760} caption="Online classes"
           footer={`Showing: ${per.label}${range ? ` · ${range}` : ""} · ${plural(rows.length, "online class", "online classes")}`}
-          empty={<Empty icon={Video} title="No online classes here" body="Nothing in these dates. Pick other dates, or schedule one for doubt-clearing or the holidays."
+          empty={<Empty icon={Video} title="No online classes here" body="Pick other dates, or schedule a class."
             action={editsHere ? <ButtonLink href={here({ do: "schedule" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Schedule a class" /></ButtonLink> : undefined} />}
           columns={[
             { key: "t", label: "Class", render: (r) => <div className="flex items-center gap-3"><SubIcon subject={r.subject} size={34} /><div><p className="font-semibold leading-tight">{r.title}</p><p className="text-[12.5px] text-ink3">{r.subject} · {r.sectionLabel}{!p.own && r.teacher ? ` · ${r.teacher}` : ""}</p></div></div> },
             { key: "w", label: "Date and time", nowrap: true, render: (r) => <span className="tnum">{momentWords(r.startsAt, p.tz)}<span className="block text-[12.5px] text-ink3">{r.lengthMin} <Words k="min" />{repeatWords(r)}</span></span> },
-            { key: "a", label: "Joined", render: (r) => (r.joined !== null ? <span className="tnum">{r.joined} <Words k="of" /> {r.of}</span> : <span className="text-ink3">—</span>) },
+            { key: "a", label: "Joined", render: (r) => (r.joined !== null ? <span className="tnum"><Words k="{n} of {n2}" vars={{ n: r.joined, n2: r.of }} /></span> : <span className="text-ink3">—</span>) },
             { key: "s", label: "Status", render: (r) => <Pill tone={OC_TONE[r.word]}>{r.word}</Pill> },
           ]}
           phone={(r) => ({ icon: Video, iconTone: OC_TONE[r.word], title: r.title, sub: `${r.sectionLabel} · ${momentWords(r.startsAt, p.tz)}`, pills: <Pill tone={OC_TONE[r.word]} className="!h-[22px] !text-[11.5px]">{r.word}</Pill> })} />
@@ -155,7 +155,7 @@ async function StaffOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
       )}
       {editsHere && doing === "schedule" && (data.sections.length
         ? <ScheduleSheet closeHref={here({ do: null })} sections={data.sections} start={localInput(new Date(Math.ceil((p.now.getTime() + 3600_000) / 1800_000) * 1800_000), p.tz)} />
-        : <UrlSheet closeHref={here({ do: null })} title="No classes to schedule for"><p className="text-[14px] text-ink2"><Words k="Online classes go to your own classes and subjects. Ask the school office to add your teaching allocations for this year." /></p></UrlSheet>)}
+        : <UrlSheet closeHref={here({ do: null })} title="No classes to schedule for"><p className="text-[14px] text-ink2"><Words k="Ask the school office to add your classes and subjects for this year." /></p></UrlSheet>)}
       {canWork && x && doing === "cancel" && <CancelSheet closeHref={here({ do: null })} id={x.id} title={x.title} />}
       {canWork && x && doing === "material" && <MaterialSheet closeHref={here({ do: null })} id={x.id} title={x.title} />}
       {canWork && x && doing === "attendance" && <AttendanceSheet closeHref={here({ do: null })} id={x.id} title={x.title} roster={data.roster.map((st) => ({ id: st.id, name: st.name, joined: !!joined.get(st.id) }))} />}

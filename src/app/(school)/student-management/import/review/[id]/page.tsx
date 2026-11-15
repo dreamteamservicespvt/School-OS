@@ -19,7 +19,7 @@ export default async function StudentImportFilePage({ params, searchParams }: { 
     <>
       <BackLink href={`${BASE}/import`} label="Import students" />
       <PageHeader title="Import students" href={`${BASE}/import`} userId={current.user.id} />
-      <FileReview current={current} place={PLACES.students} id={(await params).id} sp={await searchParams} />
+      <FileReview current={current} place={PLACES.students} id={(await params).id} sp={await searchParams} back={false} />
     </>
   );
 }

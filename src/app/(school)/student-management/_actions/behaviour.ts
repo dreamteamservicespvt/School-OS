@@ -34,7 +34,9 @@ const incidentSchema = z.object({
   date: dateField("Date"),
   actionTaken: optionalText("Action taken", 500),
   informParent: checkbox(),
-  points: z.string().trim().refine((v) => v === "" || /^-?\d{1,3}$/.test(v), "Points must be a whole number.").transform((v) => (v === "" ? null : Number(v))),
+  // The Points box is drawn only when behaviour points are on; with points off it is not sent at all
+  // (WhatsApp live test 15 Nov: "Report incident" failed with a bare "Required").
+  points: z.string().trim().optional().default("").refine((v) => v === "" || /^-?\d{1,3}$/.test(v), "Points must be a whole number.").transform((v) => (v === "" ? null : Number(v))),
   suspensionFrom: optionalDate("From date"),
   suspensionTo: optionalDate("To date"),
   approvedBy: optionalText("Approved by", 120),

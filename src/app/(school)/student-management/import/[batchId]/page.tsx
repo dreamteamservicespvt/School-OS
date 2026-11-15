@@ -12,7 +12,8 @@ import { ConfirmAction } from "@/components/students/confirm-action";
 import { STUDENT_IMPORT_KINDS } from "@/lib/students/import-kinds";
 import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { undoImportAction } from "../../_actions/import";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
+import { PhoneMissing } from "../../_lib/phone-missing";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,7 +35,14 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
     const students = (await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true, archivedAt: true } }))
       .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     const who = batch.importedById ? await tx.userLogin.findUnique({ where: { id: batch.importedById }, select: { displayName: true } }) : null;
-    return { batch, students, who };
+    // Parents brought in with no phone (owner decision 15): listed as "Phone missing", to add a phone later.
+    const all = batch.createdIds as string[];
+    const noPhone = all.length && !batch.undoneAt ? await tx.guardian.findMany({
+      where: { phone: null, archivedAt: null, students: { some: { archivedAt: null, studentId: { in: all } } } },
+      select: { id: true, name: true, students: { where: { archivedAt: null, studentId: { in: all } }, select: { student: { select: { fullName: true } } }, take: 2 } },
+      orderBy: { name: "asc" }, take: 31,
+    }) : [];
+    return { batch, students, who, noPhone };
   });
   if (!data) notFound();
   const { batch } = data;
@@ -70,6 +78,23 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
             {batch.undoneAt && <p className="text-ink2"><Words k="Undone" /> {formatDateTime(batch.undoneAt, tz)}.</p>}
           </CardBody>
         </Card>
+        {data.noPhone.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader title={data.noPhone.length > 30 ? "More than 30 parents have no phone" : `${data.noPhone.length} ${data.noPhone.length === 1 ? "parent has" : "parents have"} no phone`}
+              description="Brought in and marked Phone missing. They get no Parent Link or messages until a phone is added."
+              action={<ButtonLink href={`${BASE}/guardians?phone=missing`} size="sm"><Any text="See them all" /></ButtonLink>} />
+            <CardBody>
+              <ul className="divide-y divide-line text-[15px]">
+                {data.noPhone.slice(0, 30).map((g) => (
+                  <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <span className="min-w-0"><Link className="font-medium hover:underline" href={`${BASE}/guardians/${g.id}`}>{g.name}</Link>{g.students.length > 0 && <span className="text-[13.5px] text-ink2"> · {g.students.map((x) => x.student.fullName).join(", ")}</span>}</span>
+                    <PhoneMissing className="text-[13.5px]" editHref={`${BASE}/guardians/${g.id}/edit`} />
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
+        )}
         <Card>
           <CardHeader title="Skipped rows" description={bad.length ? "Download them with their problems, fix and import again." : undefined} />
           <CardBody>

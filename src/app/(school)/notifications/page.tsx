@@ -14,9 +14,10 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { isUnread, notificationPage, UNREAD } from "@/lib/notifications";
+import { noteText } from "@/lib/notification-words";
 import { markAllNotificationsRead, openNotification } from "../actions";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Notifications") };
@@ -59,6 +60,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     ]);
     return { notes, total, unread };
   });
+  // Each notification in the reader's own language (owner decision 14).
+  const t = await getT();
   const filtered = Boolean(params.q || params.filters.show || range);
   const pages = Math.max(1, Math.ceil(data.total / PAGE));
 
@@ -77,7 +80,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       {data.notes.length === 0 ? (
         <EmptyState title={filtered ? "No notifications match" : "No notifications"} Icon={filtered ? I.SearchX : I.Bell}
           action={filtered ? <Link href="/notifications" className="text-sm font-semibold text-brand hover:underline"><Words k="Clear the filters" /></Link> : undefined}>
-          {filtered ? "Change the search, the dates or the filter." : "Alerts meant for you, such as requests waiting for your approval, appear here. Each one opens the right screen."}
+          {filtered ? "Change the search, the dates or the filter." : "Alerts for you, like approvals, show here."}
         </EmptyState>
       ) : (
         <>
@@ -95,7 +98,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={cx("block text-[14.5px] leading-snug", !fresh ? "text-ink2" : "font-semibold text-ink")}>
-                          {fresh && <span className="sr-only"><Words k="New." /> </span>}{n.text}
+                          {fresh && <span className="sr-only"><Words k="New." /> </span>}{noteText(t, n)}
                           {n.count > 1 && <span className="ml-1.5 tnum text-ink3 font-medium">×{n.count}</span>}
                         </span>
                         <span className="block text-[12.5px] text-ink3 mt-1 tnum">{formatDateTime(n.createdAt, tz)}</span>
@@ -110,7 +113,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
-              <span className="text-ink3 tnum"><Words k="Page" /> {params.page} <Words k="of" /> {pages} · {data.total} <Words k="notifications" /></span>
+              <span className="text-ink3 tnum"><Words k="Page {page} of {pages}" vars={{ page: params.page, pages: pages }} /> · {data.total} <Words k="notifications" /></span>
               <span className="flex gap-2">
                 {params.page > 1 && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page - 1 })}><I.ChevronLeft size={16} aria-hidden="true" /><Words k="Newer" /></Link>}
                 {params.page < pages && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page + 1 })}><Words k="Older" /><I.ChevronRight size={16} aria-hidden="true" /></Link>}

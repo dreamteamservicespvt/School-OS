@@ -9,9 +9,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("New notice") };
 }
 
-export default async function NewNoticePage() {
+export default async function NewNoticePage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> } = {}) {
   const access = await commPage("create");
-  const data = await noticeFormData(access, null);
+  // ?to=staff, teachers or parents: a link that already knows who the notice is for.
+  const to = (await searchParams)?.to;
+  const data = await noticeFormData(access, null, typeof to === "string" ? to : null);
   const sub = data.needsApproval.all ? "Every notice goes for approval first." : data.needsApproval.parents ? "Notices to parents go for approval first." : null;
   return (
     <>

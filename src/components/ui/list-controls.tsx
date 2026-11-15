@@ -42,9 +42,9 @@ export function UrlSearch({ placeholder, id, param = "q", className }: { placeho
   return (
     <div className={cx("relative flex-1 min-w-0", className)} role="search">
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
-      <label htmlFor={id} className="sr-only">{placeholder}</label>
+      <label htmlFor={id} className="sr-only">{tr.any(placeholder)}</label>
       <input id={id} type="search" value={q} onChange={(e) => set(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); set(q, true); } }}
-        placeholder={placeholder} autoComplete="off" className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:appearance-none")} />
+        placeholder={tr.any(placeholder)} autoComplete="off" className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:appearance-none")} />
       {pending ? <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-ink3" />
         : q && <button type="button" onClick={() => set("", true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
     </div>
@@ -54,13 +54,14 @@ export function UrlSearch({ placeholder, id, param = "q", className }: { placeho
 /** A select that filters the list through the page address (kit.jsx Select). */
 export function UrlSelect({ param, label, options, allLabel, className, id }: { param: string; label: string; options: { value: string; label: string }[]; allLabel: string; className?: string; id: string }) {
   const { sp, go } = useUrl();
+  const tr = useT();
   return (
     <div className={cx("relative", className)}>
-      <label htmlFor={id} className="sr-only">{label}</label>
+      <label htmlFor={id} className="sr-only">{tr.any(label)}</label>
       <select id={id} value={sp.get(param) ?? ""} onChange={(e) => go({ [param]: e.target.value || null })}
         className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
-        <option value="">{allLabel}</option>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <option value="">{tr.any(allLabel)}</option>
+        {options.map((o) => <option key={o.value} value={o.value}>{tr.any(o.label)}</option>)}
       </select>
       <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none"><path d="m6 9 6 6 6-6" /></svg>
     </div>
@@ -71,10 +72,11 @@ export function UrlSelect({ param, label, options, allLabel, className, id }: { 
 export function UrlToggle({ param, label, value = "1" }: { param: string; label: string; value?: string }) {
   const { sp, go } = useUrl();
   const on = sp.get(param) === value;
+  const tr = useT();
   return (
     <label className="inline-flex h-11 items-center gap-2 rounded-xl px-2 text-[14px] text-ink2 font-medium cursor-pointer whitespace-nowrap">
       <input type="checkbox" checked={on} onChange={(e) => go({ [param]: e.target.checked ? value : null })} className="size-5 accent-[rgb(var(--brand))]" />
-      {label}
+      {tr.any(label)}
     </label>
   );
 }

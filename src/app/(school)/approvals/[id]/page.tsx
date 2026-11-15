@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { OPEN_STATUSES, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
+import { OPEN_STATUSES, approvalsFor, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
 import { approvalFacts } from "@/lib/approval-facts";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
 import { approvalOffCampus } from "@/lib/approval-campus";
@@ -15,6 +15,7 @@ import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
+import { ButtonLink } from "@/components/ui/button";
 import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 import { schoolRoles } from "@/lib/school-roles";
@@ -27,6 +28,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Some requests carry a line School OS wrote, not a reason the person typed (salary run, stock audit, purchase order lines, a payment's reference, a Razorpay refund). */
+function reasonLabel(a: { type: string; recordType: string | null; reason: string | null }): "Reason given" | "Note" | "Differences" | "Items" | "Reference" {
+  if (a.type === "payroll") return "Note";
+  if (a.type === "stock-audit") return "Differences";
+  if (a.type === "purchase" && a.recordType === "Purchase Order") return "Items";
+  if (a.type === "payment-verification") return "Reference";
+  if (a.type === "payment-cancellation" && /^(Disputed at the parent's bank|Refunded at Razorpay)/.test(a.reason ?? "")) return "Note";
+  return "Reason given";
+}
 
 export default async function ApprovalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const current = await requireCurrent();
@@ -54,25 +65,29 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
     ]);
     // What the approver needs to see before deciding: the leave balance, the change asked for.
     const facts = (await approvalFacts(tx, current.ctx, [a])).get(a.id) ?? [];
-    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, steps, facts, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    // Decided: the next request waiting for this person, oldest first, the same order as the Approvals list (layman loop 4).
+    const next = OPEN_STATUSES.includes(a.status) ? null
+      : await tx.approval.findFirst({ where: await approvalsFor(tx, current.ctx, roleKeys, { id: { not: a.id } }), orderBy: { createdAt: "asc" }, select: { id: true, summary: true } });
+    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, steps, facts, next, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
   // Not found and not allowed look the same, so nobody learns what exists.
   if (!data) notFound();
-  const { a, history, mayDecide, mayRejectIt, job, links, steps, facts, people, roles } = data;
+  const { a, history, mayDecide, mayRejectIt, job, links, steps, facts, next, people, roles } = data;
   const step = stepWords(a.step, steps);
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
   // No approver and no approver job: say who can fix that, not "waiting for nobody" (layman audit).
   const noApprover = !a.currentApproverId && !a.currentApproverRole;
-  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? `the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : "no one yet";
+  // The reader who must decide reads "You", whether it waits for them by name or by their role (layman loop 2).
+  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? (mayDecide && roleKeys.includes(a.currentApproverRole) ? "You" : `the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole}`) : "no one yet";
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const record = approvalRecordLink(a);
   const mine = a.askedById === current.user.id;
 
   return (
     // A long title with no spaces wraps instead of running off the screen (QA LC16).
-    <div className="pb-32 sm:pb-0 min-w-0 [&_h1]:[overflow-wrap:anywhere]">
+    <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
       <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
         crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline"><Words k="Approvals" /></Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>
@@ -82,6 +97,12 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
         {open && !noApprover && mine && <Alert tone="info"><Words k="This is your request, so you cannot approve it. It is waiting for" /> {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
         {open && !noApprover && !mine && !mayDecide && <Alert tone="info"><Words k="This request is waiting for" /> {waitingFor}<Words k=". You can see it but not decide it." /></Alert>}
         {!open && a.decisionReason && <Alert tone={a.status === "APPROVED" ? "success" : "warning"} title={status.label}>{a.decisionReason}</Alert>}
+        {next && (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+            <p className="min-w-0 flex-1 text-[14px] [overflow-wrap:anywhere]"><span className="text-ink3"><Words k="Next" />:</span> <span className="font-semibold">{next.summary}</span></p>
+            <ButtonLink href={`/approvals/${next.id}`} variant="primary" iconRight={I.ArrowRight}><Words k="Next request" /></ButtonLink>
+          </div>
+        )}
         <Card>
           <div className="flex items-center gap-3 px-5 pt-5 pb-1">
             <Avatar name={name(a.askedById)} size={44} />
@@ -107,10 +128,11 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
               <Detail label="Kind">{requestLabel(a.type)}</Detail>
               {open && <Detail label="Waiting for">{cap(waitingFor)}{a.status === "ESCALATED" ? " (moved on after nobody decided in time)" : ""}</Detail>}
               {!open && a.decidedById && <Detail label={a.status === "WITHDRAWN" ? "Withdrawn by" : "Decided by"}>{name(a.decidedById)}{a.decidedAt ? `, ${formatDateTime(a.decidedAt, tz)}` : ""}</Detail>}
-              {step && <Detail label="Step">{step}</Detail>}
+              {/* "2 of 2" alone meant nothing to a principal (layman loop 4): the last step says so. */}
+              {step && <Detail label="Step">{open && a.step >= steps ? <Words k="Last approval needed" /> : step}</Detail>}
               {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
-            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}
+            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k={reasonLabel(a)} /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}
             {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}
           </CardBody>
         </Card>
@@ -134,7 +156,7 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
           </CardBody>
         </Card>
 
-        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} startReject={startReject} />
+        <DecisionBar id={a.id} summary={a.summary} amount={a.amountPaise !== null && a.amountPaise > BigInt(0) ? formatRupees(a.amountPaise) : null} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} startReject={startReject} />
       </div>
     </div>
   );

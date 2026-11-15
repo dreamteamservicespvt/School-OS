@@ -12,7 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
-import { onChannels, type Channel } from "../messaging/channels";
+import { codeChannels, onChannels, SMS_OFFERED, type Channel } from "../messaging/channels";
 import { withCode } from "../messaging/one-time-code";
 import { maskPhone } from "./words";
 
@@ -32,9 +32,10 @@ export type DeskMessage = {
 export type DeskSend = { status: "queued" | "skipped"; channel: string; note?: string };
 
 export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessage): Promise<DeskSend> {
-  const on = await onChannels(tx, ctx);
+  // A pickup code keeps its SMS path; other messages never go by SMS while it is not offered (SMS_OFFERED).
+  const on = msg.code ? await codeChannels(tx, ctx) : await onChannels(tx, ctx);
   const channel: Channel | null = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : null;
-  if (!channel) return { status: "skipped", channel: "whatsapp", note: "No WhatsApp or SMS is set up (Settings, SMS, WhatsApp & Email)" };
+  if (!channel) return { status: "skipped", channel: "whatsapp", note: SMS_OFFERED ? "No WhatsApp or SMS is set up (Settings, SMS, WhatsApp & Email)" : "WhatsApp is not set up (Settings, SMS, WhatsApp & Email)" };
   if (!/^[6-9]\d{9}$/.test(msg.to.phone)) return { status: "skipped", channel, note: "No valid mobile number" };
   // Counted on the words as sent: the code's mask would make an SMS look like Unicode.
   const credits = creditsFor(channel, msg.code ? withCode(msg.text, msg.code) : msg.text);

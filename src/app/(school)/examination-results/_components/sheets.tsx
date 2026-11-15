@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { DraftSpot, type FormDraft } from "@/components/ui/form-draft";
 
 export type Trigger = { label: React.ReactNode; variant?: ButtonVariant; size?: ButtonSize; icon?: React.ReactNode; className?: string; ariaLabel?: string; disabled?: boolean };
@@ -46,7 +47,7 @@ export function TriggerButton({ t, onClick }: { t: Trigger; onClick: () => void 
     <button type="button" onClick={onClick} disabled={t.disabled} aria-label={t.ariaLabel} title={t.ariaLabel}
       className={buttonClass(t.variant ?? "secondary", t.size ?? "md", t.className)}>
       {t.icon && <span aria-hidden="true" className="contents">{t.icon}</span>}
-      {t.label}
+      {tx(t.label)}
     </button>
   );
 }
@@ -112,7 +113,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={cx(inputCls(), "h-11")} />
               </label>
             )}
-            {error && <ProblemInView token={error}><p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{error}</p></ProblemInView>}
+            {error && <ProblemInView token={error}><p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{tx(error)}</p></ProblemInView>}
           </form>
           {!bare && (
             <div className="border-t border-line px-5 py-3.5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -120,7 +121,8 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
               <button type="submit" form={formId} disabled={!ready || pending} aria-busy={pending || undefined}
                 className={buttonClass(confirmVariant, "md")}>
                 {pending ? <Spinning /> : confirmIcon && <span aria-hidden="true" className="contents">{confirmIcon}</span>}
-                {pending ? pendingText ?? "Working…" : confirmLabel}
+                {/* In the screen's language like every other button (layman loop 5). */}
+                {pending ? tx(pendingText ?? "Working…") : tx(confirmLabel)}
               </button>
             </div>
           )}

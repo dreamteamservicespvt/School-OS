@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Words } from "@/lib/i18n/client";
+import { FormText } from "@/components/students/action-form";
 
 /** Follows the form's "Certificate type" choice as the person changes it. */
 function useCertificateType(first: string) {
@@ -38,5 +39,17 @@ export function IssueLabel({ approval, first }: { approval: string[]; first: str
     <span ref={ref}>
       {type === "TC" ? <Words k="Send TC for approval" /> : approval.includes(type) ? <Words k="Send for approval" /> : <Words k="Issue certificate" />}
     </span>
+  );
+}
+
+/** Purpose: required (with a star) for a bonafide certificate, optional for the others. */
+export function PurposeField({ first }: { first: string }) {
+  const { ref, type } = useCertificateType(first);
+  const bonafide = type === "BONAFIDE";
+  return (
+    <>
+      <span ref={ref} hidden />
+      <FormText name="purpose" label="Purpose" required={bonafide} maxLength={200} help={bonafide ? "For example: bank account opening" : "Optional"} />
+    </>
   );
 }

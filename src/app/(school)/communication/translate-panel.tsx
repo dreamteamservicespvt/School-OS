@@ -6,6 +6,7 @@
 // English as a Suggestion to read and edit. Only when the sender ticks "Use these translations" are they
 // sent with the form, and each parent's copy ends with "Translated from English". Changing the English
 // afterwards stops the send until it is translated again or sent in English.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useEffect, useState } from "react";
 import { Languages, Sparkles, X } from "lucide-react";
 import { translateForParents, type TranslateState } from "./actions";
@@ -97,8 +98,8 @@ export function TranslatePanel({ text, title, languages, getForm, onChanged, onB
           <p className="text-[14px] font-semibold"><Words k="Translate into each parent's language" /></p>
           <p className="text-[12.5px] text-ink3 mt-0.5">
             {languages.length
-              ? `${languages.map((l) => `${l.name} (${l.messages})`).join(", ")}. You read and can change each translation before sending; their copy says "Translated from English". SMS and templates go as they are.`
-              : "Everyone chosen reads English, or gets this by SMS or a template. Nothing to translate."}
+              ? `${languages.map((l) => `${l.name} (${l.messages})`).join(", ")}. You read and can change each translation before sending; their copy says "Translated from English". ${SMS_OFFERED ? "SMS and templates go" : "Templates go"} as they are.`
+              : (SMS_OFFERED ? "Everyone chosen reads English, or gets this by SMS or a template. Nothing to translate." : "Everyone chosen reads English, or gets this in a template. Nothing to translate.")}
           </p>
         </div>
         {versions ? (
@@ -141,7 +142,7 @@ export function TranslatePanel({ text, title, languages, getForm, onChanged, onB
             <div className="pt-0.5"><Checkbox id="send-translations" checked={use} onChange={(on) => { setUse(on); onChanged(); }} label="I have read these translations. Use them." /></div>
             <label htmlFor="send-translations" className="text-[14px]">
               <span className="font-semibold"><Words k="I have read these translations. Use them." /></span>
-              <span className="block text-[12.5px] text-ink3"><Words k="Until this is ticked, everyone gets the English. A language left empty gets the English." /></span>
+              <span className="block text-[12.5px] text-ink3"><Words k="Until ticked, everyone gets the English. Empty languages get it too." /></span>
             </label>
           </div>
         </>

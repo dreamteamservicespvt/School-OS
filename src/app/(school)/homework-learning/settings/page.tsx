@@ -35,7 +35,7 @@ export default async function HomeworkSettingsPage() {
   const submission: Row[] = [
     { kind: "switch", name: "onlineSubmission", title: "Online submission", sub: "Students with a login hand in photos or files", value: st.onlineSubmission },
     { kind: "number", name: "maxFileMb", title: "Allowed files", sub: "Photos, PDF and Word, up to this size each", value: st.maxFileMb, suffix: "MB", min: 1, max: 10 },
-    { kind: "select", name: "resubmit", title: "Hand in again", sub: "Whether a student may hand in again after handing in", value: st.resubmit, options: [{ value: "per-student", label: "Per student" }, { value: "always", label: "Always" }] },
+    { kind: "select", name: "resubmit", title: "Hand in again", sub: "Who may hand in again", value: st.resubmit, options: [{ value: "per-student", label: "Per student" }, { value: "always", label: "Always" }] },
     { kind: "switch", name: "discussionOn", title: "Discussion on each homework", sub: "Comments between the teacher and the student", value: st.discussionOn },
   ];
   const late: Row[] = [
@@ -66,7 +66,7 @@ export default async function HomeworkSettingsPage() {
 
   return (
     <div className="max-w-4xl">
-      <HomeworkHead page="settings" pageName="Homework Settings" sub="Submission rules, late marking, grading and who can see which course" />
+      <HomeworkHead page="settings" pageName="Homework Settings" />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Card><CardHeader title="Submission rules" icon={Upload} /><SettingsRows section="Submission rules" rows={submission} editable={edit} /></Card>
         <Card><CardHeader title="Late marking" icon={Clock} description={`Late after the due date, 11:59 PM · Grace time: ${grace(st.graceMinutes)}`} /><SettingsRows section="Late marking" rows={late} editable={edit} /></Card>
@@ -92,7 +92,7 @@ export default async function HomeworkSettingsPage() {
         </Card>
         {p.ai && (
           <Banner tone="brand" icon={Sparkles} title="AI teacher assistant is on.">
-            <Words k="Drafts for homework, feedback and remarks are always shown as suggestions for the teacher to edit. Only the School Admin can switch it off, in Settings, Modules On/Off." />
+            <Words k="Drafts are suggestions for the teacher to edit. Only the School Admin can switch it off, in Modules On/Off." />
           </Banner>
         )}
       </div>

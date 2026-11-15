@@ -10,6 +10,8 @@ import { schoolsFor } from "@/lib/auth/access";
 import { changeAccess, disableUser, enableUser, inviteUser, linkRecord, resendInvite, resetTwoStep, setExceptions, updateDetails } from "@/lib/settings/users";
 import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn, updateRole } from "@/lib/settings/roles";
 import { asFormState, runSettings } from "../run";
+import { GROUP_LOGIN_RESET_WORDS, isGroupLogin } from "@/lib/auth/group-login";
+import { SettingsProblem } from "@/lib/settings/common";
 import { forgetSessionRules, saveSessionRules } from "@/lib/auth/session-rules";
 import { savePasswordRules } from "@/lib/auth/password-rules";
 import type { SensitiveLevel } from "@/lib/sensitive";
@@ -133,7 +135,12 @@ export async function twoStepAction(_: FormState, fd: FormData): Promise<FormSta
   const userId = String(fd.get("userId") ?? "");
   const reason = String(fd.get("reason") ?? "");
   const checkDone = String(fd.get("checkDone") ?? "");
-  const r = await runSettings(PAGE, "edit", (tx, current) => resetTwoStep(tx, current.ctx, current.roles.map((x) => x.key), userId, { reason, checkDone }));
+  // A login used in more than one school: only School OS support resets it, from the console (owner decision 4, 15 Nov 2026).
+  const group = await isGroupLogin(userId);
+  const r = await runSettings(PAGE, "edit", (tx, current) => {
+    if (group) throw new SettingsProblem(GROUP_LOGIN_RESET_WORDS);
+    return resetTwoStep(tx, current.ctx, current.roles.map((x) => x.key), userId, { reason, checkDone });
+  });
   if (!r.ok) return asFormState(r, formValues(fd), "");
   await flash({ message: `Two-step login reset for ${r.data}. They will set it up at their next sign-in.` });
   revalidatePath(`${USERS}/${userId}`);

@@ -61,7 +61,7 @@ function SheetBody({ action, hidden, submitLabel, submitIcon = Check, submitVari
       <FormProblem state={state} />
       {children(f)}
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="ghost" onClick={onCancel} disabled={pending}>{cancelLabel}</Button>
+        <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}>{cancelLabel}</Button>
         <SubmitButton variant={submitVariant} pendingText={pendingText ?? "Saving…"}>{Ic && <Ic size={17} strokeWidth={2.2} aria-hidden="true" />}{submitLabel}</SubmitButton>
       </div>
     </form>

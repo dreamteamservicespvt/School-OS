@@ -56,12 +56,12 @@ export default async function HrSettingsPage() {
 
   return (
     <>
-      <StaffHead page="HR Settings" href={`${BASE}/settings`} sub="Departments, designations, leave types and rules. Every change is logged." />
+      <StaffHead page="HR Settings" href={`${BASE}/settings`} sub="Departments, posts and leave rules" />
 
       <Split side={380}>
         <Col>
           <Card className="overflow-hidden">
-            <CardHeader title="Departments" icon={Building2} description="The head is the first leave approver for the department" divided action={<DepartmentForm action={saveDepartment} staff={staffOptions} />} />
+            <CardHeader title="Departments" icon={Building2} description="The head approves leave first" divided action={<DepartmentForm action={saveDepartment} staff={staffOptions} />} />
             {data.departments.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3"><Words k="No departments yet. Add one so leave goes to the right head." /></p> : (
               <ul className="divide-y divide-line">
                 {data.departments.map((d) => (
@@ -81,7 +81,7 @@ export default async function HrSettingsPage() {
           </Card>
 
           <Card className="overflow-hidden">
-            <CardHeader title="Designations" icon={Contact} description="Each with its staff type and the role usually given. A designation gives no access by itself." divided action={<DesignationForm action={saveDesignation} departments={deptOptions} roles={roleOptions} />} />
+            <CardHeader title="Designations" icon={Contact} description="A designation gives no access by itself." divided action={<DesignationForm action={saveDesignation} departments={deptOptions} roles={roleOptions} />} />
             <ul className="divide-y divide-line">
               {data.designations.map((d) => (
                 <li key={d.id} className={rowCls}>
@@ -100,7 +100,7 @@ export default async function HrSettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Staff record and IDs" icon={Hash} description="Staff IDs, usernames, notice period and documents" />
+            <CardHeader title="Staff record and IDs" icon={Hash} />
             <div className="px-5 pb-5">
               <GeneralForm action={saveGeneral} formats={[...USERNAME_FORMATS]} fieldChoices={FIELD_CHOICES} v={data.settings} />
             </div>
@@ -109,7 +109,7 @@ export default async function HrSettingsPage() {
 
         <Col>
           <Card className="overflow-hidden">
-            <CardHeader title="Leave types and rules" icon={CalendarDays} description="Yearly quota, carry-forward, half days and documents" divided action={<LeaveTypeForm action={saveLeaveType} groups={[...EMPLOYMENT_TYPES]} />} />
+            <CardHeader title="Leave types and rules" icon={CalendarDays} divided action={<LeaveTypeForm action={saveLeaveType} groups={[...EMPLOYMENT_TYPES]} />} />
             {data.types.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3"><Words k="No staff leave types yet." /></p> : (
               <ul className="divide-y divide-line">
                 {data.types.map((t) => {
@@ -163,7 +163,7 @@ export default async function HrSettingsPage() {
           )}
 
           <Card>
-            <CardHeader title="Leave approvers" icon={Workflow} description="Stored in Settings, Forms & Approvals" />
+            <CardHeader title="Leave approvers" icon={Workflow} />
             <div className="space-y-3 px-5 pb-5">
               <div className="flex flex-wrap items-center gap-1.5"><Pill tone="ok"><Words k="Head of department" /></Pill><ChevronRight size={15} className="text-ink3" aria-hidden="true" /><Pill tone="ok"><Words k="Next approver from the rule" /></Pill></div>
               <p className="text-[13.5px] text-ink3"><Words k="Nobody approves their own leave. When the head asks for leave, it goes to the next approver." /></p>
@@ -172,7 +172,7 @@ export default async function HrSettingsPage() {
           </Card>
 
           <Card className="overflow-hidden">
-            <CardHeader title="Optional parts" icon={SlidersHorizontal} description="Shown in Recruitment & Appraisal when on. Switching off hides them; nothing is removed." divided />
+            <CardHeader title="Optional parts" icon={SlidersHorizontal} description="Switching off hides them; nothing is removed." divided />
             <ul className="divide-y divide-line">
               {HR_FEATURES.map((f) => (
                 <li key={f.key} className={rowCls}>

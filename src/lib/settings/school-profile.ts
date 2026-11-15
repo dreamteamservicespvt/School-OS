@@ -34,6 +34,8 @@ export type DetailsInput = {
   name: string;
   address: string;
   phone: string;
+  /** "WhatsApp number for parents" (owner decision 17): a 10-digit mobile, or null for the office phone. */
+  parentWhatsapp?: string | null;
   email: string;
   website: string | null;
   affiliationNumber: string | null;

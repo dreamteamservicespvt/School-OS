@@ -72,7 +72,7 @@ function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, canc
       {/* Every bad box marked at once, the first brought into view; a message goes once the box is right. */}
       <FormProblems errors={state?.errors}>{children(helpers(state, pending))}</FormProblems>
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-        {onCancel && <Button variant="secondary" onClick={onCancel} disabled={pending}>{cancelLabel ?? "Cancel"}</Button>}
+        {onCancel && <Button variant="secondary" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}>{cancelLabel ?? "Cancel"}</Button>}
         <SubmitButton variant={submitVariant} pendingText={pendingText ?? "Saving…"}>{submitLabel}</SubmitButton>
       </div>
     </form>

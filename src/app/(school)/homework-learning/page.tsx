@@ -23,8 +23,9 @@ import { HomeworkHead } from "./_components/homework-head";
 import { FileRow, Ring, SubIcon, subjectIcon, subjectTone } from "./_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type HomeworkPage, type SearchParams } from "./_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, GiveSheet, RemindButton, SubmitSheet, type GiveSection } from "./sheets";
-import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { DayText, Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Homework") };
@@ -63,6 +64,8 @@ async function giveSections(tx: Tx, p: HomeworkPage): Promise<GiveSection[]> {
 
 async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const s = p.scope;
+  // Whole sentences in the screen's language (layman loop 5: the blue box and the footer were half English).
+  const tr = await getT();
   const per = homeworkPeriod(sp, p.dates, "thismonth");
   const tab = ["history", "archived"].includes(one(sp.tab)) ? one(sp.tab) : "current";
   const q = one(sp.q).trim().slice(0, 80);
@@ -85,12 +88,14 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     const editing = doing === "edit" && target ? await tx.homework.findFirst({ where: { id: target, archivedAt: null }, include: { attachments: { where: { archivedAt: null } } } }) : null;
     const archiving = doing === "archive" && target ? all.find((r) => r.id === target) ?? null : null;
     let checkIds: Map<string, number> | null = null;
+    // The "to check" tile counts work from every month, as the Dashboard does (layman loop 2: home said 72, the tile 0).
+    const work = await workToCheck(tx, s);
+    const toCheckAll = work.reduce((a, h) => a + h.pieces, 0);
     if (check) {
-      const work = await workToCheck(tx, s);
       const piling = check === "piling" ? new Set(pilingUp(work).map(([id]) => id)) : null;
       checkIds = new Map(work.filter((h) => !piling || (h.teacherId && piling.has(h.teacherId))).map((h) => [h.id, h.pieces]));
     }
-    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving, checkIds };
+    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving, checkIds, toCheckAll };
   });
 
   const { inP } = data;
@@ -115,14 +120,16 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const isToday = (d: Date) => d.getTime() === p.today.getTime();
   const range = per.range ? rangeWords(per.range.from, per.range.to) : "";
   const pieces = checkIds ? rows.reduce((a, r) => a + (checkIds.get(r.id) ?? 0), 0) : 0;
+  const perWords = tr.any(per.label);
+  const hwCount = rows.length === 1 ? tr("1 homework") : tr("{n} homework", { n: rows.length });
   const showing = checkIds
-    ? `Showing: work to check${check === "piling" ? ` of teachers with ${PILING_UP} or more pieces` : ""} · ${plural(pieces, "piece")} in ${plural(rows.length, "homework", "homework")}`
-    : `Showing: ${per.label}${range ? ` · ${range}` : ""} · ${plural(rows.length, "homework", "homework")}`;
+    ? `${check === "piling" ? tr("Work to check of teachers with {n} or more pieces", { n: PILING_UP }) : tr("Work to check")} · ${pieces === 1 ? tr("1 piece in {what}", { what: hwCount }) : tr("{n} pieces in {what}", { n: pieces, what: hwCount })}`
+    : `${tr("Showing: {what}", { what: perWords })}${range ? ` · ${range}` : ""} · ${hwCount}`;
   const subjectsTaught = [...new Set(data.all.filter((r) => mayWork(s, r)).map((r) => r.subject))];
   const classesTaught = [...new Set(s.pairs.map((x) => data.all.find((r) => r.sectionId === x.sectionId)?.sectionLabel).filter(Boolean))];
   const sub = mine
-    ? `${subjectsTaught.length ? subjectsTaught.join(", ") : "Your subjects"}${classesTaught.length ? ` · ${classesTaught.join(", ")}` : ""} · only your classes and subjects`
-    : `Homework given across the school · ${per.label.toLowerCase()}`;
+    ? `${subjectsTaught.length ? subjectsTaught.join(", ") : tr("Your subjects")}${classesTaught.length ? ` · ${classesTaught.join(", ")}` : ""} · ${tr("only your classes and subjects")}`
+    : `${tr("Homework given across the school")} · ${perWords.toLowerCase()}`;
   const menu = (r: HomeworkRow) => (
     <CardMenu detail={`${BASE}/homework/${r.id}`} edit={editsHere && mayWork(s, r) && !r.archived ? here({ do: "edit", id: r.id }) : undefined} archive={editsHere && mayWork(s, r) && !r.archived ? here({ do: "archive", id: r.id }) : undefined} />
   );
@@ -133,39 +140,42 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink>} />
       <Stack>
         <Band items={[
-          { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "piece")} of work for ${plural(t.classes, "class", "classes")}` },
-          { label: "Handed in", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
+          { label: `${tr("Current")} · ${perWords.toLowerCase()}`, big: String(t.given), foot: tr(t.classes === 1 ? "{n} pieces of work for 1 class" : "{n} pieces of work for {n2} classes", { n: t.assigned, n2: t.classes }) },
+          // Each tile says which homework it counts: "0% handed in" (current work, not due yet) sat next to
+          // "72 to check" (older work) with nothing to say why (layman loop 5).
+          { label: "Handed in · current", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
           subsOpen
-            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Open Submissions & Grading", href: `${BASE}/submissions` }
-            : { label: "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Teachers check these in their classes" },
+            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : data.toCheckAll), foot: "Includes older homework", href: `${BASE}?check=1` }
+            : { label: "Waiting to be checked", big: String(checkIds ? pieces : data.toCheckAll), foot: "Teachers check these in their classes" },
           { label: "Seen by parents", big: t.messaged ? `${pct(t.seen, t.seenOf)}%` : "—", foot: t.messaged ? "From WhatsApp read receipts" : "No homework messages yet" },
         ]} />
 
-        {data.overview && <Overview lines={data.overview.lines} idle={data.overview.idle.filter((t) => t.subjects.some((x) => inP.some((r) => r.subject === x)))} load={loadByDay(inP)} per={per.label} today={p.today} tz={p.tz} canRemind={p.current.permissions["homework-learning"]?.change === "all"} />}
+        {data.overview && <Overview lines={data.overview.lines} idle={data.overview.idle.filter((t) => t.subjects.some((x) => inP.some((r) => r.subject === x)))} load={loadByDay(inP)} per={perWords} today={p.today} tz={p.tz} canRemind={p.current.permissions["homework-learning"]?.change === "all"} />}
 
         <Card>
           <Toolbar>
-            <UrlSearch id="hw-search" placeholder="Search homework title" label="Search homework" />
+            <UrlSearch id="hw-search" placeholder="Search homework" label="Search homework" />
             <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
-            {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: `Class ${l}` }))]} />}
+            {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: tr("Class {name}", { name: l }) }))]} />}
             {!mine && subjectOpts.length > 1 && <UrlSelect param="subject" id="hw-sub" label="Subject" className="md:w-44" options={[{ value: "", label: "All subjects" }, ...subjectOpts.map(([v, l]) => ({ value: v, label: l }))]} />}
             <UrlSegmented param="view" fallback={p.settings.listView === "list" ? "list" : "cards"} className="hidden md:inline-flex" label="Show as"
               options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" /><Words k="Cards" /></> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" /><Words k="List" /></> }]} />
           </Toolbar>
           {checkIds && (
             <p className="px-4 pt-3 text-[13.5px] text-ink2">
-              <b className="font-semibold">{showing.replace(/^Showing: /, "")}</b>{" "}
+              <b className="font-semibold">{showing}</b>{" "}
               <Link href={BASE} className="font-semibold text-brand hover:underline"><Words k="Show all homework" /></Link>
             </p>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-3">
-            <UrlSegmented param="tab" fallback="current" label="Which homework"
-              options={[{ value: "current", label: `Current · ${cur.length}` }, { value: "history", label: `History · ${hist.length}` }, ...(tab === "archived" || editsHere ? [{ value: "archived", label: "Archived" }] : [])]} />
+            {/* Work to check comes from every month: no Current tab shown as chosen over October's past-due work (layman loop 5). */}
+            {checkIds ? <span /> : <UrlSegmented param="tab" fallback="current" label="Which homework"
+              options={[{ value: "current", label: `Current · ${cur.length}` }, { value: "history", label: `History · ${hist.length}` }, ...(tab === "archived" || editsHere ? [{ value: "archived", label: "Archived" }] : [])]} />}
             <ExportButton href={qs(`${BASE}/export`, keep)} />
           </div>
           {rows.length === 0 ? (
             <Empty icon={NotebookPen} title={tab === "current" ? "No current homework here" : tab === "archived" ? "Nothing archived" : "Nothing in history yet"}
-              body={`Nothing given in ${per.label.toLowerCase()}${range ? ` (${range})` : ""}. Pick other dates${editsHere ? ", or give homework" : ""}.`}
+              body={tr(editsHere ? "Nothing given in {when}. Pick other dates, or give homework." : "Nothing given in {when}. Pick other dates.", { when: `${perWords.toLowerCase()}${range ? ` (${range})` : ""}` })}
               action={editsHere && tab === "current" ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink> : undefined} />
           ) : view === "cards" ? (
             <>
@@ -181,16 +191,16 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                           <p className="font-semibold text-[14.5px] leading-snug hover:underline">{r.title}</p>
                           <p className="text-[12.5px] text-ink3 mt-0.5">{r.subject} <Words k="· Class" /> {r.sectionLabel}{(!mine || !mayWork(s, r)) && r.teacher && ` · ${r.teacher}`}</p>
                         </Link>
-                        {r.archived ? <Pill tone="neutral"><Words k="Archived" /></Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{r.status}</Pill> : dueToday ? <Pill tone="warn"><Words k="Due today" /></Pill> : null}
+                        {r.archived ? <Pill tone="neutral"><Words k="Archived" /></Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{tx(r.status)}</Pill> : dueToday ? <Pill tone="warn"><Words k="Due today" /></Pill> : null}
                       </div>
                       <div>
-                        <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> <Words k="assigned," /> <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> <Words k="submitted" /></span><span className="text-ink3 tnum">{r.counts.graded} <Words k="checked" /></span></div>
+                        <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> <Words k="assigned," /> <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> <Words k="submitted" /></span><span className="text-ink3 tnum">{r.counts.graded} <Words k="checked" />{r.counts.left ? <> · <Words k="{n} left the class" vars={{ n: r.counts.left }} /></> : null}</span></div>
                         <Progress value={pct(r.counts.submitted, n)} tone={r.status === "Past due" && r.counts.submitted < n ? "warn" : "brand"} />
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-ink3">
-                        <span className="tnum"><Words k="Given" /> {dayDate(r.startDate)} <Words k="· due" /> <b className={cx("font-semibold", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? "today" : dayDate(r.dueDate)}</b></span>
-                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" /><Words k="Seen by" /> {r.seen} <Words k="of" /> {n}</span>}
-                        {p.settings.cardShowsFiles && r.files > 0 && <span className="shrink-0">{plural(r.files, "file")}</span>}
+                        <span className="tnum"><Words k="Given" /> <span className="whitespace-nowrap"><DayText text={dayDate(r.startDate)} /></span> <Words k="· due" /> <b className={cx("font-semibold whitespace-nowrap", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? <Words k="today" /> : <DayText text={dayDate(r.dueDate)} />}</b></span>
+                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" /><Words k="Seen by {n} of {total}" vars={{ n: r.seen, total: n }} /></span>}
+                        {p.settings.cardShowsFiles && r.files > 0 && <span className="shrink-0">{tx(plural(r.files, "file"))}</span>}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         {subsOpen
@@ -209,12 +219,12 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
               <DataList rows={rows} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/homework/${r.id}`} minWidth={760} caption="Homework" footer={showing}
                 columns={[
                   { key: "t", label: "Homework", render: (r) => <div className="flex items-center gap-3"><SubIcon subject={r.subject} size={34} /><div><p className="font-semibold leading-tight">{r.title}</p><p className="text-[12.5px] text-ink3">{r.subject} · {r.sectionLabel}{!mine && r.teacher ? ` · ${r.teacher}` : ""}</p></div></div> },
-                  { key: "d", label: "Due", nowrap: true, render: (r) => <span className="tnum">{dayDate(r.dueDate)}</span> },
-                  { key: "c", label: "Handed in", render: (r) => <span className="tnum">{r.counts.submitted} <Words k="of" /> {r.counts.assigned}</span> },
-                  { key: "p", label: "Seen by parent", render: (r) => <span className="tnum">{r.seen === null ? "—" : `${r.seen} of ${r.counts.assigned}`}</span> },
-                  { key: "s", label: "Status", render: (r) => <Pill tone={r.archived ? "neutral" : HW_TONE[r.status]}>{r.archived ? "Archived" : r.status}</Pill> },
+                  { key: "d", label: tr("Due@@homework"), nowrap: true, render: (r) => <span className="tnum">{dayDate(r.dueDate)}</span> },
+                  { key: "c", label: "Handed in", render: (r) => <span className="tnum"><Words k="{n} of {n2}" vars={{ n: r.counts.submitted, n2: r.counts.assigned }} /></span> },
+                  { key: "p", label: "Seen by parent", render: (r) => <span className="tnum">{r.seen === null ? "—" : tr("{n} of {n2}", { n: r.seen, n2: r.counts.assigned })}</span> },
+                  { key: "s", label: "Status", render: (r) => <Pill tone={r.archived ? "neutral" : HW_TONE[r.status]}>{r.archived ? tr("Archived") : tr.any(r.status)}</Pill> },
                 ]}
-                phone={(r) => ({ icon: subjectIcon(r.subject), iconTone: subjectTone(r.subject), title: r.title, sub: `${r.sectionLabel} · due ${dayDate(r.dueDate)} · ${r.counts.submitted} of ${r.counts.assigned} in` })} />
+                phone={(r) => ({ icon: subjectIcon(r.subject), iconTone: subjectTone(r.subject), title: r.title, sub: `${r.sectionLabel} · ${tr("due {date}", { date: dayDate(r.dueDate) })} · ${tr("{n} of {n2} in", { n: r.counts.submitted, n2: r.counts.assigned })}` })} />
             </div>
           )}
         </Card>
@@ -224,7 +234,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <GiveSheet closeHref={here({ do: null })} sections={data.give} own={mine} today={iso(p.today)} defaultMax={p.settings.defaultMaxMarks} onlineOn={p.settings.onlineSubmission} ai={p.ai} startSection={sectionF || undefined} />
       ) : (
         <UrlSheet title="Give homework" closeHref={here({ do: null })}>
-          <Empty icon={Users} title="No class to give homework to" body="Homework goes to your classes that have students. Ask the Academic Head to check your Teacher Allocation, or add students to the class first." />
+          <Empty icon={Users} title="No class to give homework to" body="Your classes need students. Ask the Academic Head to check your Teacher Allocation." />
         </UrlSheet>
       ))}
       {data.editing && mayWork(s, data.editing) && (
@@ -252,7 +262,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
                 <Avatar name={t.name} size={34} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px] leading-snug truncate">{t.name} <span className="font-normal text-ink3">· {t.subjects.join(", ")}</span></p>
-                  <p className="text-[12.5px] text-ink3 truncate tnum">{t.given} <Words k="given ·" /> {t.classes.join(", ")} · {pct(t.handed, t.assigned)}<Words k="% handed in" />{t.toCheck ? ` · ${t.toCheck} to check` : ""}</p>
+                  <p className="text-[12.5px] text-ink3 truncate tnum">{t.given} <Words k="given ·" /> {t.classes.join(", ")} · {pct(t.handed, t.assigned)}<Words k="% handed in" />{t.toCheck ? <> · <Words k="{n} to check" vars={{ n: t.toCheck }} /></> : null}</p>
                 </div>
                 {canRemind && t.toCheck >= 10 && <RemindButton staffId={t.staffId} done={t.remindedAt ? formatTime(t.remindedAt, tz) : null} />}
               </li>
@@ -267,7 +277,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
         )}
       </Card>
       <Card>
-        <CardHeader title="Load on each day" description="Current homework by due date · more than one for a class on the same day shows in amber" icon={CalendarDays} />
+        <CardHeader title="Load on each day" description="Amber: more than one for a class on a day" icon={CalendarDays} />
         {load.length === 0 ? <Empty icon={CalendarCheck2} title="Nothing due" body="No current homework in these dates." /> : (
           <ul className="px-2 pb-2">
             {load.map((x) => (
@@ -315,7 +325,7 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   const head = <HomeworkHead page="homework" pageName="Homework" sub={st ? `${st.name} · ${st.label.replace(/^Class\s+/i, "Class ")}${st.rollNo ? ` · roll ${st.rollNo}` : ""} · only your own work` : "Only your own work"} />;
   if (!st || !data) {
-    return <div>{head}<Card><Empty icon={NotebookPen} title="You are not in a class this year" body="Homework shows here once the school puts you in a class for this academic year. Ask your class teacher." /></Card></div>;
+    return <div>{head}<Card><Empty icon={NotebookPen} title="You are not in a class this year" body="Ask your class teacher to add you to a class." /></Card></div>;
   }
 
   const state = (x: (typeof data.subs)[number]) => (x.status === "GRADED" ? "checked" : x.status === "SUBMITTED" || x.status === "LATE" ? "submitted" : x.status === "EXCUSED" ? "excused" : "todo");
@@ -401,7 +411,7 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             footer={can.can ? <div className="flex justify-end gap-2"><ButtonLink href={here({ open: null, submit: h.id })} scroll={false} variant={can.again ? "secondary" : "primary"} icon={can.again ? Repeat : Upload}>{can.again ? "Hand in again" : "Submit"}</ButtonLink></div> : null}>
             <div className="flex flex-col gap-4">
               {h.instructions && <p className="text-[14.5px] text-ink2 leading-relaxed whitespace-pre-line">{h.instructions}</p>}
-              {h.attachments.length > 0 && <ul>{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
+              {h.attachments.length > 0 && <ul>{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Web link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
               {(open.fileIds.length > 0 || open.note) && (
                 <div>
                   <p className="text-[13px] font-semibold text-ink2 mb-1"><Words k="What you handed in" /></p>

@@ -26,13 +26,13 @@ export function UploadDocumentForm({ staffOptions, types, action, fixedStaffId, 
           {!fixedStaffId && <SelectField label="Staff member" name="staffId" required options={staffOptions} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2" />}
           {!replace && (
             <>
-              <TextField label="Document type" name="kind" required list="staff-doc-types" defaultValue={f.val("kind")} error={f.err("kind")} help="Choose from the list or type another." />
+              <TextField label="Document type" name="kind" required list="staff-doc-types" defaultValue={f.val("kind")} error={f.err("kind")} />
               <datalist id="staff-doc-types">{types.map((t) => <option key={t} value={t} />)}</datalist>
             </>
           )}
-          <TextField label="Number on the document" name="number" defaultValue={f.val("number")} error={f.err("number")} help="Optional. ID numbers show only the last 4 digits to others." />
+          <TextField label="Number on the document" name="number" defaultValue={f.val("number")} error={f.err("number")} help="Others see only the last 4 digits." />
           <TextField label="Issue date" name="issuedOn" type="date" defaultValue={f.val("issuedOn")} error={f.err("issuedOn")} />
-          <TextField label="Expiry date" name="expiresOn" type="date" defaultValue={f.val("expiresOn")} error={f.err("expiresOn")} help="Leave empty if it never expires. Reminders go before this date." />
+          <TextField label="Expiry date" name="expiresOn" type="date" defaultValue={f.val("expiresOn")} error={f.err("expiresOn")} help="Leave empty if it never expires." />
           <div className="sm:col-span-2">
             <label htmlFor="doc-file" className="mb-1 block text-sm font-medium"><Words k="File" /> <span className="text-danger" aria-hidden="true">*</span></label>
             <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="doc-file-help" />

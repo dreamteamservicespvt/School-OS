@@ -122,7 +122,7 @@ export default async function RegisterPage({ searchParams }: Props) {
 
       {data.sections.length === 0 ? (
         <EmptyState title="No classes to show" Icon={Users} action={access.students === "all" ? <ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink> : undefined}>
-          {access.students === "all" ? "No sections are set up for this academic year yet. Add classes and sections in Academic Management." : "You are not class teacher or subject teacher of any section this year."}
+          {access.students === "all" ? "Add classes and sections in Academic Management." : "You are not class teacher or subject teacher of any section this year."}
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
@@ -161,7 +161,7 @@ export default async function RegisterPage({ searchParams }: Props) {
             <EmptyState title="No students in this section" Icon={Users}><Words k="Students appear here once they are placed in the section." /></EmptyState>
           ))}
           {subjectOnly && (
-            <Banner tone="info" title="View only: the class teacher keeps this register."><Words k="Use it to check the class strength and who was absent. To change a mark, ask the class teacher." /></Banner>
+            <Banner tone="info" title="View only: the class teacher keeps this register."><Words k="To change a mark, ask the class teacher." /></Banner>
           )}
           {canChange && (
             <p className="text-[13px] text-ink3"><Words k="Tap a mark to change it. After the lock time (" />{time12(settings.lockTime)}<Words k=") a change goes to Approvals as a correction request." /></p>
@@ -260,7 +260,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
         </div>
       )}
       {anyPast && grid.rows.length > 0 && (
-        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays, Sundays, days off and days not marked are not counted. A half day counts as half. Below" /> {threshold}<Words k="% is shown in red." /></p>
+        <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays, Sundays and unmarked days are not counted. Below" /> {threshold}<Words k="% is shown in red." /></p>
       )}
     </Card>
   );
@@ -382,9 +382,9 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub} />
       <ViewYearStrip year={yearView} back={backToThisYear(`${BASE}/register`, sp)} />
       {!data ? (
-        <EmptyState title="No academic year running now" Icon={CalendarDays}><Words k="Attendance shows here once the academic year has started and its sections are set up in Academic Management." /></EmptyState>
+        <EmptyState title="No academic year running now" Icon={CalendarDays}><Words k="Attendance shows here once the year starts and has sections." /></EmptyState>
       ) : data.cw.sections.length === 0 ? (
-        <EmptyState title="No classes to show" Icon={Users} action={<ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink>}><Words k="No sections are set up for this academic year yet. Add classes and sections in Academic Management." /></EmptyState>
+        <EmptyState title="No classes to show" Icon={Users} action={<ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink>}><Words k="Add classes and sections in Academic Management." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />

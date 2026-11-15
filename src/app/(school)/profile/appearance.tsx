@@ -126,7 +126,7 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
       </Card>
 
       <Card>
-        <CardHeader title="School colour" description="Buttons, highlights and the top band use this colour" />
+        <CardHeader title="School colour" />
         {locked && <p className="mx-5 mb-3 rounded-xl bg-info/10 px-3.5 py-2.5 text-[13.5px] text-info"><Words k="Your School Admin has chosen this colour for everyone. You can still pick light or dark." /></p>}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 px-5 pb-4" role="radiogroup" aria-label="School colour">
           {ACCENTS.map((a) => {
@@ -154,7 +154,7 @@ export function Appearance({ theme, accent, textSize, schoolAccent, schoolName, 
       </Card>
 
       <Card>
-        <CardHeader title="Text size" description="Bigger text helps on small phones" />
+        <CardHeader title="Text size" />
         <div className="grid grid-cols-2 gap-3 px-5 pb-5" role="radiogroup" aria-label="Text size">
           {([["normal", "Standard", "text-[15px]"], ["large", "Large", "text-[18px]"]] as const).map(([v, l, c]) => (
             <button key={v} type="button" role="radio" aria-checked={state.textSize === v} onClick={() => save({ textSize: v })}

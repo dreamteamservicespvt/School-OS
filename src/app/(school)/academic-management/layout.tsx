@@ -3,6 +3,7 @@ import { requirePage } from "@/lib/current";
 import { reachFor } from "@/lib/permissions";
 import { arrangesTimetable } from "@/lib/academic/scope";
 import { AcademicTabs, type AcademicTab } from "./_components/academic-tabs";
+import { PageTabs } from "@/components/shell/page-header";
 
 const BASE = "/academic-management";
 
@@ -24,12 +25,10 @@ export default async function AcademicLayout({ children }: { children: React.Rea
   const arranger = own && arrangesTimetable(current);
   const ownTabs = arranger ? [BASE, `${BASE}/time-table`, `${BASE}/substitutions`] : [`${BASE}/time-table`, `${BASE}/syllabus`];
   const tabs = own ? all.filter((t) => ownTabs.includes(t.href)) : all;
+  // The tabs show under each page's title (PageTop's PageHeader), as in every other module (layman loop 5).
   return (
-    <>
-      <Suspense fallback={<div className="mb-5 h-11 border-b border-line" />}>
-        <AcademicTabs tabs={tabs} />
-      </Suspense>
+    <PageTabs tabs={<Suspense fallback={<div className="mb-5 h-11 border-b border-line" />}><AcademicTabs tabs={tabs} /></Suspense>}>
       {children}
-    </>
+    </PageTabs>
   );
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { checkbox, dateField, indianMobile, optionalDate, optionalEmail, optionalText, text } from "../forms";
 import { BLOOD_GROUPS, EMPLOYMENT_TYPES, GENDERS } from "./settings";
 import { staffAgeProblem } from "./age";
+import { personName } from "../validate-name";
 export { ageOn, staffAgeProblem, staffAgeWarning, STAFF_MAX_AGE, STAFF_MIN_AGE } from "./age";
 
 /** The same rule as checkAadhaar() in staff.ts, kept here so the form schema needs no server import. */
@@ -19,6 +20,9 @@ const optionalChoice = (list: readonly string[], label: string) =>
 const optionalUuid = z.string().trim().refine((v) => v === "" || /^[0-9a-f-]{36}$/i.test(v), { message: "Choose from the list." }).transform((v) => (v === "" ? null : v));
 const optionalYears = z.string().trim().refine((v) => v === "" || (/^\d{1,2}$/.test(v) && Number(v) < 60), { message: "Experience must be whole years, like 6." }).transform((v) => (v === "" ? null : Number(v)));
 const notFuture = () => (d: Date | null) => !d || d.getTime() <= Date.now();
+/** A joining date more than about 3 months ahead is a typing slip (layman loop 4: 01-01-2031 saved as "Active"). */
+export const JOINING_MAX_DAYS_AHEAD = 92;
+const joiningDate = () => dateField("Joining date").refine((d) => d.getTime() <= Date.now() + JOINING_MAX_DAYS_AHEAD * 86_400_000, { message: "Joining date is far in the future. Check the year." });
 
 const checkAge = (dateOfBirth: Date | null, ctx: z.RefinementCtx) => {
   const why = staffAgeProblem(dateOfBirth);
@@ -26,11 +30,11 @@ const checkAge = (dateOfBirth: Date | null, ctx: z.RefinementCtx) => {
 };
 
 export const detailsSchema = z.object({
-  fullName: text("Full name", 120).refine((v) => /[A-Za-zऀ-෿]/.test(v), { message: "Full name must have letters." }),
+  fullName: personName("Full name"),
   phone: indianMobile("Phone"),
   designation: text("Designation", 80),
   departmentId: optionalUuid,
-  joiningDate: dateField("Joining date"),
+  joiningDate: joiningDate(),
   gender: optionalChoice(GENDERS, "gender").default(""),
   email: optionalEmail(),
   staffCode: optionalText("Staff ID", 30),
@@ -54,7 +58,7 @@ export const detailsSchema = z.object({
 });
 
 export const personalSchema = z.object({
-  fullName: text("Full name", 120),
+  fullName: personName("Full name"),
   dateOfBirth: optionalDate("Date of birth").refine(notFuture(), { message: "Date of birth cannot be in the future." }),
   gender: optionalChoice(GENDERS, "gender").default(""),
   bloodGroup: optionalChoice(BLOOD_GROUPS, "blood group").default(""),
@@ -76,7 +80,7 @@ export const employmentSchema = z.object({
   staffCode: text("Staff ID", 30),
   departmentId: optionalUuid,
   designation: text("Designation", 80),
-  joiningDate: dateField("Joining date"),
+  joiningDate: joiningDate(),
   employmentType: z.string().trim().refine((v) => (EMPLOYMENT_TYPES as readonly string[]).includes(v), { message: "Choose an employment type." }),
   reportingToId: optionalUuid,
   // A one-campus school has no Campus field in Employment (owner live test 14 Nov: saving said "Required").

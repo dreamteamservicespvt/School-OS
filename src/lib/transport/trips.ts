@@ -19,6 +19,7 @@ import { checkPoint, etas, metres, metresFromLine, type IncomingPoint, type LatL
 import { arrivingMessage, dropMessage, pickupMessage, riders } from "./messages";
 import { eveningTimes } from "./routes";
 import { alertLabel, clockOf, tripKind } from "./words";
+import { word } from "../notification-words";
 
 export const DEFAULT_EVENING = 15 * 60 + 30;
 export const DEFAULT_DAYS = [1, 2, 3, 4, 5, 6];
@@ -118,7 +119,7 @@ export async function changeForDay(tx: Tx, ctx: SchoolContext, input: { routeId:
   await writeAudit(tx, ctx, { action: "changed-for-day", recordType: "Trip", recordId: trip.id, before: { vehicleId: trip.vehicleId, driverId: trip.driverId }, after: { date: formatDate(input.date), vehicleId: after.vehicleId, driverId: after.driverId, note: input.note } });
   if (after.driverId && after.driverId !== trip.driverId) {
     const d = await tx.driver.findFirst({ where: { id: after.driverId }, select: { userLoginId: true } });
-    if (d?.userLoginId) await notify(tx, ctx, { to: d.userLoginId, type: "transport-trip", text: `You drive Route ${route.number} ${tripKind(input.kind).toLowerCase()} on ${formatDate(input.date)}.`, link: "/driver" });
+    if (d?.userLoginId) await notify(tx, ctx, { to: d.userLoginId, type: "transport-trip", key: "You drive Route {route} {trip} on {date}.", values: { route: route.number, trip: word(tripKind(input.kind).toLowerCase()), date: formatDate(input.date) }, link: "/driver" });
   }
   return { trip: after, route };
 }
@@ -327,14 +328,15 @@ export async function raiseAlert(tx: Tx, ctx: SchoolContext, a: AlertInput, s?: 
     data: { schoolId: ctx.schoolId, tripId: a.trip?.id ?? null, routeId: a.route?.id ?? a.trip?.routeId ?? null, vehicleId: a.trip?.vehicleId ?? null, kind: a.kind, text: a.text, lat: a.lat, lng: a.lng, speedKmh: a.speedKmh, at: a.at, onceKey: a.onceKey, createdById: a.by ?? null },
   });
   const settings = s ?? (await transportSettings(tx, ctx));
-  const where = a.lat != null && a.lng != null ? ` Location ${a.lat.toFixed(5)}, ${a.lng.toFixed(5)}.` : "";
   for (const to of await alertPeople(tx, ctx, a.kind, settings)) {
     await notify(tx, ctx, {
       to, type: a.kind === "EMERGENCY" ? "transport-emergency" : "transport-alert",
-      text: `${alertLabel(a.kind)}: ${a.text}.${where}`,
+      key: a.lat != null && a.lng != null ? "{kind}: {text}. Location {lat}, {lng}." : "{kind}: {text}.",
+      values: { kind: word(alertLabel(a.kind)), text: word(a.text), lat: a.lat?.toFixed(5), lng: a.lng?.toFixed(5) },
       link: `/transport-management${a.kind === "EMERGENCY" || a.kind === "BREAKDOWN" ? "" : ""}?alert=${row.id}`,
       groupKey: a.kind === "EMERGENCY" ? undefined : `transport-alert:${a.kind}`,
-      mergedText: (n) => `${n} ${alertLabel(a.kind).toLowerCase()} alerts`,
+      mergedKey: "{n} {kind} alerts",
+      mergedValues: { kind: word(alertLabel(a.kind).toLowerCase()) },
     });
   }
   await writeAudit(tx, ctx, { action: "alert", recordType: "Transport Alert", recordId: row.id, after: { kind: a.kind, text: a.text } });

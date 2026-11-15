@@ -19,7 +19,7 @@ export function Segmented({ value, onChange, options, className, size = "md", la
         const on = v === value;
         return (
           <button key={v} type="button" role="radio" aria-checked={on} onClick={() => onChange(v)}
-            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1 shrink-0",
+            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] whitespace-nowrap flex-1 shrink-0",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
             {Ic && <Ic size={15} aria-hidden="true" />}{tx(l)}
@@ -46,7 +46,7 @@ export function Checkbox({ checked, onChange, label, id, indeterminate }: { chec
   return (
     <button type="button" role="checkbox" aria-checked={indeterminate ? "mixed" : checked} aria-label={label} id={id}
       onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
-      className={cx("w-5 h-5 rounded-md border-2 grid place-items-center transition shrink-0",
+      className={cx("relative w-5 h-5 rounded-md border-2 grid place-items-center transition shrink-0 before:absolute before:-inset-3",
         checked || indeterminate ? "bg-brand border-brand text-brandink" : "border-line bg-surface hover:border-ink3")}>
       {indeterminate ? <span className="w-2.5 h-0.5 bg-current rounded" /> : checked && <Check size={13} strokeWidth={3.5} aria-hidden="true" />}
     </button>

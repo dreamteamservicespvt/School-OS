@@ -3,7 +3,7 @@
 import { id, str, UUID_RE } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { sendSlips } from "@/lib/salary/slips";
-import { skippedWords } from "@/lib/messaging/send";
+import { chargesFor, skippedWords } from "@/lib/messaging/send";
 import { campusRun, runsOnCampus } from "@/lib/salary/campus";
 import { salaryAction } from "../_lib/action";
 
@@ -24,6 +24,8 @@ export async function sendSlipsAction(_prev: unknown, fd: FormData) {
       if (!ids.length) throw new MoneyProblem("Every slip of this month is already sent.");
     }
     const r = await sendSlips(tx, ctx, ids, channel);
-    return { ...r, channel };
-  }, (r) => `${r.count} slips sent by ${r.channel === "whatsapp" ? "WhatsApp" : r.channel}. Each person gets only their own; the slip opens in My profile.${r.skipped.length ? ` Not sent: ${skippedWords(r.skipped)}.` : ""}`);
+    // Test mode records the messages and sends nothing: never say "sent" then (loop 4).
+    const test = channel !== "app" && (await chargesFor(tx, ctx, { [channel]: 1 })).testMode.length > 0;
+    return { ...r, channel, test };
+  }, (r) => r.test ? `Test mode: ${r.count} slips recorded, nothing sent, no credits used.` : `${r.count} slips sent by ${r.channel === "whatsapp" ? "WhatsApp" : r.channel}. Each person gets only their own; the slip opens in My profile.${r.skipped.length ? ` Not sent: ${skippedWords(r.skipped)}.` : ""}`);
 }

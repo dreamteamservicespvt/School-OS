@@ -139,12 +139,12 @@ export async function signIn(usernameInput: string, password: string, device: De
     const passwordOk = await verifyPassword(user.passwordHash!, password);
 
     if (!passwordOk) {
-      const failedAttempts = user.failedAttempts + 1;
+      // Counted in one statement and the lock decided from the count it returns, so wrong
+      // passwords sent at the same moment cannot all read the same count (security review 2026-11-15).
+      const counted = await prisma.userLogin.update({ where: { id: user.id }, data: { failedAttempts: { increment: 1 } }, select: { failedAttempts: true } });
+      const failedAttempts = counted.failedAttempts;
       const locks = failedAttempts >= MAX_FAILED_ATTEMPTS;
-      await prisma.userLogin.update({
-        where: { id: user.id },
-        data: { failedAttempts: locks ? 0 : failedAttempts, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null },
-      });
+      if (locks) await prisma.userLogin.update({ where: { id: user.id }, data: { failedAttempts: 0, lockedUntil: new Date(now.getTime() + LOCK_MS) } });
       await reportFailure(user.id, device);
       if (locks) {
         await reportLock(user.id, user.displayName, device);
@@ -254,7 +254,8 @@ export async function completeSignIn(userLoginId: string, schoolId: string, devi
     const where = `${describeDevice(device.userAgent)}${device.ipAddress ? ` (${device.ipAddress})` : ""}`;
     return securityAlert(tx, schoolId, userLoginId, {
       subject: "New sign-in to School OS",
-      text: `New sign-in to ${school?.name ?? "School OS"} on ${where}, ${formatDateTime(now, school?.timeZone)}. Not you? Sign out everywhere in My profile and change your password.`,
+      key: "New sign-in to {school} on {where}, {when}. Not you? Sign out everywhere in My profile and change your password.",
+      values: { school: school?.name ?? "School OS", where, when: formatDateTime(now, school?.timeZone) },
       link: "/profile#devices",
     });
   });
@@ -301,7 +302,7 @@ export type CodeSignInStart = { ok: true; token: string } | { ok: false; message
  * goes to their email and, once it is typed, a second code goes to their
  * mobile (afterRightCode). A login that cannot get both is told how else to get in.
  */
-export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver; channels?: typeof codeChannels; confirmNow?: boolean } = {}): Promise<CodeSignInStart> {
+export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver; channels?: typeof codeChannels; confirmNow?: boolean; /** The token the browser already holds (a blind code sign-in, decoy.ts). */ token?: string } = {}): Promise<CodeSignInStart> {
   const now = opts.now ?? new Date();
   const user = await findLogin(typed);
   // A login locked after wrong passwords may still sign in with a code: that is the way back in the lock message points to.
@@ -315,7 +316,7 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
     if (!can.email || !can.phone) return { ok: false, message: CODE_ALONE_WORDS };
     only = "email";
   }
-  const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only, confirmNow: opts.confirmNow });
+  const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only, confirmNow: opts.confirmNow, token: opts.token });
   if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin or DREAM TEAM support.` : started.message };
   return { ok: true, token: started.token };
 }
@@ -388,9 +389,10 @@ async function reportLock(userLoginId: string, displayName: string, device: Devi
         await notify(tx, ctx, {
           to: person,
           type: "security",
-          text: person === userLoginId
+          key: person === userLoginId
             ? "Your login was locked for 15 minutes after 5 wrong passwords. If this was not you, change your password."
-            : `${displayName}'s login was locked for 15 minutes after 5 wrong passwords.`,
+            : "{name}'s login was locked for 15 minutes after 5 wrong passwords.",
+          values: { name: displayName },
           link: person === userLoginId ? "/profile" : "/settings",
         });
       }

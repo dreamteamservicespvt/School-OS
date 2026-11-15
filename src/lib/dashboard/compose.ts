@@ -18,7 +18,9 @@ import { WIDGETS } from "./registry";
 import { BUILT_MODULES, type ModuleKey } from "../modules";
 import { daysBetween, dayWord, longDay, minuteIn, moduleOpen, plural } from "./common";
 import { schoolCalendar } from "../calendar/school-days";
-import { taskAccess, isOverdue, OPEN_TASK } from "./tasks";
+import { assignable, taskAccess, isOverdue, OPEN_TASK } from "./tasks";
+import { cachedReads } from "./read-cache";
+import type { StepState } from "./setup";
 import type { AgendaItem, AttentionItem, BandItem, Birthday, DashContext, HomeKind, Panel, PanelSlot, Viewer, Widget, WidgetKind, WidgetOutput } from "./types";
 
 /** Band order inside a home, where it differs from the registry order. Slot ids come first so they lead once wired. */
@@ -44,13 +46,15 @@ const homeRank = (w: Widget, homes: readonly HomeKind[]) => (w.homes === "any" ?
 
 export type TaskCardRow = { id: string; title: string; due: string | null; overdue: boolean; done: boolean; status: TaskStatus; by: string | null; to: string | null };
 /** One request on the home card: who asks (their job), what, and the reason they gave (owner's changes of 13 Oct 2026). */
-export type ApprovalCardRow = { id: string; who: string; as: string | null; what: string; why: string | null; amount: string | null };
+export type ApprovalCardRow = { id: string; who: string; as: string | null; kind: string; what: string; why: string | null; amount: string | null };
 
 export type Home = {
   homes: HomeKind[];
   leader: boolean;
   first: string;
   dayLine: string;
+  /** No school today (a weekly day off or a holiday): "Take attendance" is not offered. */
+  dayOff: boolean;
   band: BandItem[];
   attention: AttentionItem[];
   hiddenSeen: number;
@@ -63,12 +67,22 @@ export type Home = {
   failed: string[];
   /** The filters the numbers were worked out for (the day only on the control centre). */
   filters: DashFilters;
+  /** People a task can be given to (`people: true`), read in the Dashboard's own transactions rather than one more. */
+  people?: Awaited<ReturnType<typeof assignable>>;
 };
 
 type Collected = { [K in WidgetKind]: { w: Widget; item: unknown }[] };
 
 /** At most this many transactions load one Dashboard at once (QA PLATFORM-13). */
 const MAX_LANES = 6;
+/**
+ * How many of them one page uses (layman loop 15 Nov: a Principal's first open took over 30 s and then
+ * "School OS is busy" while five people used the server). Measured with identical reads asked once
+ * (./read-cache.ts): 2 or 3 transactions load a Principal's page as fast as 6 (about 0.45 s), because the
+ * server's own work, not the database, sets the pace. Each one holds a connection for the whole page, so
+ * 3 lets twice as many people open their Dashboard at once before the pool is full.
+ */
+const PAGE_LANES = 3;
 
 /**
  * Connections in the app's database pool: connection_limit in DATABASE_URL (the
@@ -152,6 +166,8 @@ async function yearIdsIn(tx: Tx, viewer: Viewer, year: DashContext["year"]): Pro
 
 /** Thrown inside a lane's transaction to roll it back after a job failed. */
 const RESTART = Symbol("restart");
+/** A lane that has run this long starts a new transaction before its next job (the limit is 30 s). */
+const LANE_ROTATE_MS = 10_000;
 
 /**
  * Runs the bundles in a few transactions at the same time (QA PLATFORM-13:
@@ -164,35 +180,71 @@ const RESTART = Symbol("restart");
  * nothing already loaded is lost (a settings row some modules make on first
  * read is simply made again next time).
  */
-async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | "year" | "yearIds">, queue: Job[][], lanes = laneCount(queue.length)) {
+async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | "year" | "yearIds">, queue: Job[][], lanes = Math.min(PAGE_LANES, laneCount(queue.length))) {
+  // Lanes still at work. A lane whose new transaction cannot start (no free connection in time) hands its work
+  // back to the others while any is left, rather than failing the whole page (a lane that rotated after 10 s
+  // and then waited 20 s for a connection turned a slow page into "School OS is busy").
+  const count = Math.min(lanes, queue.length);
+  let working = count;
   const lane = async () => {
-    let bundle = queue.shift();
+    let bundle: Job[] | undefined;
     let at = 0;
-    while (bundle) {
+    // A bundle another lane handed back after this one's transaction ended is still taken.
+    while (bundle || (bundle = queue.shift())) {
+      // This transaction's own state. A transaction that fails before any job ran is a real
+      // database problem (shown as such). After that it only ends the job that was running
+      // (layman loop 4: one slow widget ran a lane past the time limit, and "Transaction
+      // already closed" failed the whole home page); the lane goes on in a new transaction.
+      const run = { alive: true, started: 0, running: null as Job | null, opened: Date.now() };
       try {
-        await withSchool(viewer.ctx, async (tx) => {
+        await withSchool(viewer.ctx, async (raw) => {
+          // Identical reads in this transaction are asked once (./read-cache.ts).
+          const tx = cachedReads(raw);
           // A year chosen in the filters: that year alone (gap list G36, Done when 8).
           const chosen = base.filters.yearId ? await yearById(tx, base.filters.yearId) : null;
           const year = chosen ?? await yearIn(tx, viewer);
           const c: DashContext = { ...base, tx, year, yearIds: chosen ? [chosen.id] : await yearIdsIn(tx, viewer, year), memo: memoFor() };
-          for (; bundle; bundle = queue.shift(), at = 0) {
-            while (at < bundle.length) {
-              const job = bundle[at++];
-              try {
-                await job.run(c);
-              } catch (e) {
-                job.fail(e);
-                throw RESTART;
-              }
+          // A transaction the lane already left takes no more jobs (and no more bundles); a long one
+          // hands over to a fresh transaction between jobs, well before the time limit.
+          const stop = () => !run.alive || (run.started > 0 && Date.now() - run.opened > LANE_ROTATE_MS);
+          while (bundle) {
+            if (at >= bundle.length) {
+              if (!run.alive) return;
+              bundle = queue.shift();
+              at = 0;
+              continue;
+            }
+            if (stop()) return;
+            const job = bundle[at++];
+            run.started++;
+            run.running = job;
+            try {
+              await job.run(c);
+              run.running = null;
+            } catch (e) {
+              run.running = null;
+              if (run.alive) job.fail(e);
+              throw RESTART;
             }
           }
         }, { timeout: 30_000 });
       } catch (e) {
-        if (e !== RESTART) throw e;
+        run.alive = false;
+        if (e === RESTART) continue;
+        if (run.running) { run.running.fail(e); continue; }
+        if (!run.started) {
+          if (working > 1) {
+            if (bundle && at < bundle.length) queue.unshift(bundle.slice(at));
+            working--;
+            return;
+          }
+          throw e;
+        }
       }
     }
+    working--;
   };
-  await Promise.all(Array.from({ length: Math.min(lanes, queue.length) }, lane));
+  await Promise.all(Array.from({ length: count }, lane));
 }
 
 type Loaded = { i: number; w: Widget; items: unknown[] };
@@ -247,10 +299,11 @@ export function widgetsOpenTo(viewer: Viewer, ids: readonly string[]) {
  * exactly as their Dashboard does (Ask answers "Whose birthday is this week?"
  * with the Dashboard's own rows, gap list G27).
  */
-export async function loadWidgetsIn<K extends WidgetKind>(tx: Tx, viewer: Viewer, kind: K, ids: readonly string[], now = new Date()): Promise<WidgetOutput[K][]> {
+export async function loadWidgetsIn<K extends WidgetKind>(raw: Tx, viewer: Viewer, kind: K, ids: readonly string[], now = new Date()): Promise<WidgetOutput[K][]> {
   const list = widgetsOpenTo(viewer, ids).filter((w) => w.kind === kind);
   if (!list.length) return [];
   const tz = viewer.school.timeZone;
+  const tx = cachedReads(raw);
   const year = await yearIn(tx, viewer);
   const c: DashContext = { tx, viewer, homes: homesFor(viewer), today: todayFor(tz, now), now, tz, minuteNow: minuteIn(tz, now), filters: { campusId: null, date: null }, year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
   const out: WidgetOutput[K][] = [];
@@ -266,7 +319,7 @@ export async function loadWidgetsIn<K extends WidgetKind>(tx: Tx, viewer: Viewer
  * `filters`: the Dashboard's campus and day (./filters.ts). The person is narrowed to the campus for every card, the
  * control centre's "today" moves to the day chosen, and every link carries both, so each list opens on what was counted.
  */
-export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey>; lanes?: number; filters?: DashFilters } = {}): Promise<Home> {
+export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: readonly Widget[]; built?: ReadonlySet<ModuleKey>; lanes?: number; filters?: DashFilters; setup?: Promise<StepState[]> | null; people?: boolean } = {}): Promise<Home> {
   const now = opts.now ?? new Date();
   const tz = person.school.timeZone;
   // One campus chosen: every card counts that campus only, as if the person were limited to it (never wider than their own limit).
@@ -319,10 +372,21 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
     return { mine, given, mineTotal, givenTotal, names };
   }, errors);
   const dayJob = pageJob(({ tx, year }) => schoolDayLine(tx, viewer, today, year), errors, () => null);
+  const peopleJob = opts.people ? pageJob(({ tx }) => assignable(tx, { ctx: viewer.ctx, access }), errors) : null;
 
-  const queue: Job[][] = [...bundlesOf(list.map((w, i) => widgetJob(w, i, results, failedIds))), [seenJob], [approvalJob], [taskJob], [dayJob]];
+  // The page's own reads go in the bundle that makes the same reads, so its transaction asks them once
+  // (./read-cache.ts): the approvals count with the Waiting for you number, the school day with the
+  // attendance and calendar widgets.
+  const queue: Job[][] = bundlesOf(list.map((w, i) => widgetJob(w, i, results, failedIds)));
+  const joinBundle = (module: ModuleKey, jobs: Job[]) => {
+    const b = queue.find((x) => x.some((j) => { const w = (j as Partial<{ w: Widget }>).w; return w && (SHARES[w.module] ?? w.module) === module; }));
+    if (b) b.push(...jobs); else queue.push(jobs);
+  };
+  joinBundle("dashboard", [seenJob, approvalJob, taskJob, ...(peopleJob ? [peopleJob] : [])]);
+  joinBundle("attendance-management", [dayJob]);
+  queue.sort((a, b) => b.length - a.length);
   // A past day is over: every period of it has ended.
-  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: day && day < todayFor(tz, now) ? 24 * 60 : minuteIn(tz, now), filters }, queue, opts.lanes);
+  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: day && day < todayFor(tz, now) ? 24 * 60 : minuteIn(tz, now), filters, setup: opts.setup ?? undefined }, queue, opts.lanes);
   if (errors.length) throw errors[0];
 
   const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };
@@ -389,15 +453,26 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
     homes, leader,
     first: viewer.user.displayName.split(" ")[0],
     dayLine: [longDay(today), dayJob.value].filter(Boolean).join(" · "),
+    dayOff: /no school today$/i.test(dayJob.value ?? ""),
     band: carryAll(band, filters), attention: carryAll(attention, filters), hiddenSeen: attentionAll.length - attention.length,
     panels: carryAll(panels, filters), agenda: carryAll(agenda, filters), birthdays, filters,
     approvals: mayApprove ? {
       count: ap.count,
-      rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
+      rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, kind: requestLabel(a.type), what: shortSummary(requestLabel(a.type), a.summary), why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
     } : null,
     tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
     failed,
+    ...(peopleJob ? { people: peopleJob.value! } : {}),
   };
+}
+
+/** The request's summary without its type in front ("Attendance correction: Class 5 A" under the tag "Attendance correction"). */
+function shortSummary(kind: string, summary: string) {
+  const k = kind.toLowerCase();
+  const s = summary.trim();
+  if (!s.toLowerCase().startsWith(k)) return s;
+  const rest = s.slice(k.length).replace(/^\s*[:·\-–]\s*/, "").trim();
+  return rest || s;
 }
 
 /**

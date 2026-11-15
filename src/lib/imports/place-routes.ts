@@ -4,11 +4,11 @@
 // problems, and the rows an import left out, each to fix and bring in again.
 import "server-only";
 
-import { getCurrent } from "../current";
+import { getCurrent, isPaused, pausedAdmin } from "../current";
 import { withSchool } from "../db";
 import { can } from "../permissions";
 import { errorCsv, importKind } from "../importer";
-import { kindInfo, MoveInProblem, schoolLookups, workOn } from "../move-in/service";
+import { batchCampusWhere, fileCampusWhere, kindInfo, MoveInProblem, schoolLookups, workOn } from "../move-in/service";
 import { templateWorkbook } from "../move-in/template";
 import { safeCell } from "../move-in/prepare";
 import { ensureHrDefaults } from "../staff/settings";
@@ -16,13 +16,21 @@ import { placeRefusal } from "./place-access";
 import { placeHolds, type ImportPlace } from "./places";
 import "../import-registry";
 
+/** The signed-in person, as for every other file route: in a paused school only the School Admin and the Principal (security review 2026-11-15). */
+async function routeCurrent(): Promise<NonNullable<Awaited<ReturnType<typeof getCurrent>>> | Response> {
+  const current = await getCurrent();
+  if (!current) return new Response("Sign in first.", { status: 401 });
+  if (isPaused(current) && !pausedAdmin(current)) return new Response("This school is paused. Ask your School Admin.", { status: 403 });
+  return current;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_STORE = { "Cache-Control": "no-store" };
 
 /** The ready Excel sheet for one kind brought in at this place. */
 export async function placeTemplateResponse(place: ImportPlace, key: string) {
-  const current = await getCurrent();
-  if (!current) return new Response("Sign in first.", { status: 401 });
+  const current = await routeCurrent();
+  if (current instanceof Response) return current;
   // A kind listed for Switching to School OS, or one this module's page names (changes to students already here).
   const kind = kindInfo(key) || (place.kinds?.includes(key) ?? false) ? importKind(key) : null;
   if (!kind || !placeHolds(place, key)) return new Response("This import is not known.", { status: 404 });
@@ -45,12 +53,13 @@ export async function placeTemplateResponse(place: ImportPlace, key: string) {
 
 /** The rows of a file being checked that still have problems, with the problem beside each (P10, step 5). */
 export async function placeProblemsResponse(place: ImportPlace, id: string) {
-  const current = await getCurrent();
-  if (!current) return new Response("Sign in first.", { status: 401 });
+  const current = await routeCurrent();
+  if (current instanceof Response) return current;
   if (place.key === "settings" && !can(current.permissions, "settings", "view")) return new Response("Your role does not allow this. Ask your School Admin.", { status: 403 });
   try {
     const csv = await withSchool(current.ctx, async (tx) => {
-      const f = UUID.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null }, select: { kind: true } }) : null;
+      // One campus: another campus's file is not found (security review 2026-11-15).
+      const f = UUID.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null, ...(await fileCampusWhere(tx, current.ctx)) }, select: { kind: true } }) : null;
       if (!f || !placeHolds(place, f.kind)) throw new MoveInProblem("This file was not found.");
       if (await placeRefusal(current, place, f.kind, "create")) throw new MoveInProblem("Your role cannot see these rows.");
       const w = await workOn(tx, current.ctx, id, { check: true });
@@ -69,10 +78,10 @@ export async function placeProblemsResponse(place: ImportPlace, id: string) {
 
 /** The rows an earlier import of a kind brought in here left out, with their problems. */
 export async function placeErrorsResponse(place: ImportPlace, batchId: string) {
-  const current = await getCurrent();
-  if (!current) return new Response("Sign in first.", { status: 401 });
+  const current = await routeCurrent();
+  if (current instanceof Response) return current;
   if (!UUID.test(batchId)) return new Response("This import was not found.", { status: 404 });
-  const batch = await withSchool(current.ctx, (tx) => tx.importBatch.findUnique({ where: { id: batchId } }));
+  const batch = await withSchool(current.ctx, async (tx) => tx.importBatch.findFirst({ where: { id: batchId, ...(await batchCampusWhere(tx, current.ctx)) } }));
   if (!batch || !placeHolds(place, batch.kind)) return new Response("This import was not found.", { status: 404 });
   const why = await placeRefusal(current, place, batch.kind, "create");
   if (why) return new Response(why, { status: 403 });

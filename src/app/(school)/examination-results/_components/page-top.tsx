@@ -10,6 +10,7 @@ import { YearPicker } from "../../academic-management/_components/year-bar";
 import { withYear, type ExamPage } from "../_lib/page";
 import { ExamTabs, type ExamTab } from "./exam-tabs";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 const BASE = "/examination-results";
 
@@ -44,7 +45,7 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
   const crumbs = title ? (
     <>
       <Link href={withYear(`${BASE}/datesheet`, page)} className="hover:text-ink hover:underline"><Words k={"Examination & Results"} /></Link>
-      {back && <><ChevronRight size={13} aria-hidden="true" /><Link href={withYear(back.href, page)} className="hover:text-ink hover:underline">{back.label}</Link></>}
+      {back && <><ChevronRight size={13} aria-hidden="true" /><Link href={withYear(back.href, page)} className="hover:text-ink hover:underline">{tx(back.label)}</Link></>}
     </>
   ) : undefined;
   return (
@@ -73,7 +74,7 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
 export function BackLink({ page, href, label, sub }: { page: Pick<ExamPage, "yearQuery">; href: string; label: string; sub?: React.ReactNode }) {
   return (
     <Link href={withYear(href, page)} className="inline-flex max-w-full items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 min-h-8 px-1 rounded-lg">
-      <ArrowLeft size={17} aria-hidden="true" className="shrink-0" /><span className="shrink-0">{label}</span>{sub && <span className="text-ink3 font-normal truncate">/ {sub}</span>}
+      <ArrowLeft size={17} aria-hidden="true" className="shrink-0" /><span className="shrink-0">{tx(label)}</span>{sub && <span className="text-ink3 font-normal truncate">/ {sub}</span>}
     </Link>
   );
 }
@@ -82,7 +83,7 @@ export function BackLink({ page, href, label, sub }: { page: Pick<ExamPage, "yea
 export function NoYear() {
   return (
     <EmptyState title="No academic year yet" Icon={CalendarX2} action={<ButtonLink href="/academic-management/settings" variant="primary"><Words k="Open Academic Settings" /></ButtonLink>}>
-      <p><Words k="Exams belong to an academic year and its terms. Create the current year first in Academic Management." /></p>
+      <p><Words k="Create the current year first in Academic Management." /></p>
     </EmptyState>
   );
 }

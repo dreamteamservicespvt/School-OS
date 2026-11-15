@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cx } from "./cx";
+import { BAND_STYLE } from "./band-style";
+import { DateLabel, Line } from "@/lib/i18n/client";
 
 // The one bold moment on a page: two to four numbers on the brand colour
 // (the approved design's "School today" band, kit.jsx Band and HeroStat).
@@ -31,7 +33,7 @@ function HeroRing({ value }: { value: number }) {
   return (
     <svg width="58" height="58" className="-rotate-90 hidden lg:block shrink-0" aria-hidden="true">
       <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeOpacity=".2" strokeWidth="6" />
-      <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: "stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)" }} />
+      <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: "stroke-dashoffset .3s cubic-bezier(.23,1,.32,1)" }} />
     </svg>
   );
 }
@@ -40,7 +42,7 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
   const shown = items.slice(0, 4);
   const count = Math.max(2, shown.length);
   return (
-    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
       <div className={cx("relative grid", GRID[count])}>
@@ -49,19 +51,19 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
             <>
               <div className="min-w-0 flex-1">
                 <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">
-                  <span className="truncate">{m.label}</span>{m.href && <ChevronRight size={14} className="opacity-60 shrink-0" aria-hidden="true" />}
+                  <span className="truncate"><Line text={m.label} /></span>{m.href && <ChevronRight size={14} className="opacity-60 shrink-0" aria-hidden="true" />}
                 </p>
                 <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">
-                  {m.big}{m.of && <span className="text-[0.55em] opacity-90 font-medium"> {m.of}</span>}
+                  <Line text={m.big} />{m.of && <span className="text-[0.55em] opacity-90 font-medium"> {m.of}</span>}
                 </p>
-                {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
+                {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2"><Line text={m.foot} /></p>}
               </div>
               {m.ring != null && <HeroRing value={m.ring} />}
             </>
           );
           const cls = cx("text-left p-4 md:p-6 min-w-0 border-white/15 flex items-center gap-4", CELL[count][i]);
           return m.href
-            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-brandink")}>{body}</Link>
+            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] active:bg-white/[.12] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-current")}>{body}</Link>
             : <div key={m.key} className={cls}>{body}</div>;
         })}
       </div>
@@ -77,7 +79,7 @@ export function HBars({ rows, goal, lowBelow, labelWidth = 64 }: { rows: { key: 
         const low = lowBelow != null && r.value < lowBelow;
         const inner = (
           <>
-            <span className="text-ink2 font-medium truncate">{r.label}</span>
+            <span className="text-ink2 font-medium truncate"><DateLabel text={r.label} /></span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden">
               <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.max(0, Math.min(100, r.value))}%` }} />
               {goal != null && <span className="absolute inset-y-0 w-px bg-ink3/50" style={{ left: `${goal}%` }} />}

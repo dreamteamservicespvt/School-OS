@@ -10,9 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT: Record<string, string> = {
-  "academic-allocations": "One row per class and section, subject and teacher (staff ID or name), with Primary or Secondary and Yes when the teacher is the class teacher. Each row is an assignment as made on Teacher Allocation, from the year's start while you are moving in. A subject that has another teacher, or a section with another class teacher, waits for you to choose Hand over. Undo takes the assignments back.",
-  "academic-timetable": "One row per class and section, day and period, with the subject and the teacher (empty: the teacher assigned to the subject). The rows fill this year's draft Time Table, never the published one: check the draft on the Time Table page and publish it from a date. A teacher or room in two places at once, or a period outside the school's period plan, is shown on its row. Undo puts the draft back.",
-  "academic-syllabus": "One row per chapter, or per topic of a chapter, for a class and subject, with an optional unit, its order and the month or week it is planned for (July, Week 5, Week 2 of July). Syllabus progress and chapters running late count the plan from the first day. Undo archives what came in.",
+  "academic-allocations": "One row per section, subject and teacher (staff ID or name), with Primary or Secondary, and Yes for the class teacher. A subject that already has a teacher waits for you to choose Hand over. Undo takes the assignments back.",
+  "academic-timetable": "One row per section, day and period, with the subject and the teacher (empty: the subject's teacher). The rows fill the draft Time Table, never the published one. Clashes show on their row. Undo puts the draft back.",
+  "academic-syllabus": "One row per chapter or topic, for a class and subject, with an optional unit, order and planned month or week (July, Week 5). Undo archives what came in.",
 };
 
 /** Academic Management's own Import page (gap list G44): Teacher Allocation, the Time Table and the syllabus, on the one import engine. */

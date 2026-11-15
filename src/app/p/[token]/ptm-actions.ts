@@ -15,12 +15,22 @@ import { bookOnParentLink, cancelOnParentLink } from "@/lib/events/ptm-parent";
 import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
 import { guardianFor as accessFor } from "./guardian";
+import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
+import { dayWords } from "@/lib/i18n/dates";
+import type { T } from "@/lib/i18n/t";
+
+/** An answer in the page's language: the result lines are written in it, a refusal is matched (parentMessage). */
+async function answer(token: string, say: (t: T) => GuardianState): Promise<GuardianState> {
+  const t = await parentLinkWords(token);
+  const s = say(t);
+  return s?.message && !s.ok ? { ...s, message: parentMessage(t, s.message) } : s;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function limited(linkId: string) {
   const device = await deviceInfo();
-  for (const [key, max, seconds] of [[`pl-ptm:ip:${device.ipAddress ?? "unknown"}`, 30, 600], [`pl-ptm:link:${linkId}`, 12, 3600]] as const) {
+  for (const [key, max, seconds] of [[`pl-ptm:ip:${device.ipAddress ?? "unknown"}`, 300, 600], [`pl-ptm:link:${linkId}`, 12, 3600]] as const) {
     const r = await hitLimit(key, max, seconds);
     if (!r.ok) return limitMessage(r);
   }
@@ -41,6 +51,11 @@ function ids(form: FormData) {
 
 /** Book a free time (or move the child's booking at this PTM to it). */
 export async function bookPtmSlot(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  const r = await bookPtmSlotEn(token, form);
+  return answer(token, (t) => (typeof r === "function" ? r(t) : r));
+}
+
+async function bookPtmSlotEn(token: string, form: FormData): Promise<GuardianState | ((t: T) => GuardianState)> {
   const g = await guardianFor(token);
   if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
@@ -49,8 +64,9 @@ export async function bookPtmSlot(token: string, _prev: GuardianState, form: For
   if (stop) return { ok: false, message: stop };
   try {
     const r = await withSchool(g.ctx, (tx) => bookOnParentLink(tx, g.ctx, { guardianId: g.guardianId, studentId: x.studentId, slotId: x.slotId, today: g.today }));
-    if (r.unchanged) return { ok: true, step: "done", message: `You already have ${r.time} with ${r.teacher}.` };
-    return { ok: true, step: "done", message: r.changed ? `Changed. Your meeting with ${r.teacher} is now at ${r.time}. A confirmation message is on its way.` : `Booked: ${r.time} with ${r.teacher}. A confirmation message is on its way.` };
+    const v = { time: r.time, teacher: r.teacher };
+    if (r.unchanged) return (t: T) => ({ ok: true, step: "done", message: t("You already have {time} with {teacher}.", v) });
+    return (t: T) => ({ ok: true, step: "done", message: r.changed ? t("Changed. Your meeting with {teacher} is now at {time}. A confirmation message is on its way.", v) : t("Booked: {time} with {teacher}. A confirmation message is on its way.", v) });
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     throw e;
@@ -59,6 +75,11 @@ export async function bookPtmSlot(token: string, _prev: GuardianState, form: For
 
 /** Cancel the child's booking. */
 export async function cancelPtmSlot(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  const r = await cancelPtmSlotEn(token, form);
+  return answer(token, (t) => (typeof r === "function" ? r(t) : r));
+}
+
+async function cancelPtmSlotEn(token: string, form: FormData): Promise<GuardianState | ((t: T) => GuardianState)> {
   const g = await guardianFor(token);
   if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
@@ -67,7 +88,7 @@ export async function cancelPtmSlot(token: string, _prev: GuardianState, form: F
   if (stop) return { ok: false, message: stop };
   try {
     const r = await withSchool(g.ctx, (tx) => cancelOnParentLink(tx, g.ctx, { guardianId: g.guardianId, studentId: x.studentId, slotId: x.slotId, today: g.today }));
-    return { ok: true, step: "done", message: `Cancelled your meeting with ${r.teacher} at ${r.time} on ${r.when}. You can book again until the day before.` };
+    return (t: T) => ({ ok: true, step: "done", message: t("Cancelled your meeting with {teacher} at {time} on {date}. You can book again until the day before.", { teacher: r.teacher, time: r.time, date: dayWords(t, r.when) }) });
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     throw e;

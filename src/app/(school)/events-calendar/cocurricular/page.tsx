@@ -145,7 +145,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
 
   return (
     <div>
-      <EvHead pageName="Co-curricular & Sports" href={HREF} sub="Activities, achievements and certificates, houses, clubs and sports teams. Achievements also show on the student’s profile."
+      <EvHead pageName="Co-curricular & Sports" href={HREF} sub="Activities, achievements, houses, clubs and sports teams."
         actions={canEdit && <ButtonLink href={here({ t: null, do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Record achievement" /></ButtonLink>} />
       <Chips label="Co-curricular sections" className="mb-5" value={tab} options={tabOptions} />
 
@@ -304,7 +304,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                 { key: "c", label: "Club", render: (m) => <span className="font-semibold">{d.clubs.find((c) => c.id === m.clubId)?.name}</span> },
                 { key: "d", label: "Date", nowrap: true, render: (m) => <span className="tnum text-[13px]"><DayText text={longDay(isoOf(m.date))} /></span> },
                 { key: "t", label: "Topic", render: (m) => <span className="text-[13px] text-ink2">{m.topic ?? "—"}</span> },
-                { key: "p", label: "Present", align: "right", render: (m) => <span className="tnum">{m.presentIds.length} <Words k="of" /> {m.memberIds.length}</span> },
+                { key: "p", label: "Present", align: "right", render: (m) => <span className="tnum"><Words k="{n} of {n2}" vars={{ n: m.presentIds.length, n2: m.memberIds.length }} /></span> },
               ]}
               mobile={(m) => ({ title: d.clubs.find((c) => c.id === m.clubId)?.name ?? "Club", sub: `${shortDay(isoOf(m.date))}${m.topic ? ` · ${m.topic}` : ""}`, icon: CalendarDays, right: <span className="tnum text-[13px]">{m.presentIds.length}/{m.memberIds.length}</span> })} />
           </Card>

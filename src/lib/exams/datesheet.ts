@@ -19,6 +19,7 @@ import { examSettings } from "./settings";
 import { loadSchoolCalendar, offDayWords } from "../calendar/school-days";
 import { messageParents } from "./notify-parents";
 import { examInScope, type ExamScope } from "./scope";
+import { word } from "../notification-words";
 
 /**
  * Holidays and vacations that count for a campus: the whole school's (no campus) and the campus's own. In a school
@@ -370,7 +371,8 @@ export async function publishDatesheet(tx: Tx, ctx: SchoolContext, examId: strin
     const mine = exam.entries.filter((e) => e.invigilatorId === s.id).sort((a, b) => a.date.getTime() - b.date.getTime());
     await notify(tx, ctx, {
       to: s.userLoginId!, type: "exam-invigilation",
-      text: `${exam.title}: you are invigilating ${plural(mine.length, "paper")}, the first at ${time12(mine[0].startTime)} on ${formatDate(mine[0].date)}.`,
+      key: "{exam}: you are invigilating {papers}, the first at {time} on {date}.",
+      values: { exam: exam.title, papers: word(plural(mine.length, "paper")), time: time12(mine[0].startTime), date: formatDate(mine[0].date) },
       link: `/examination-results/datesheet/${examId}`,
     });
   }

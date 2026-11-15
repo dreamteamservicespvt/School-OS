@@ -142,7 +142,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
 
   return (
     <div>
-      <EvHead pageName="Daily Activities" href={HREF} sub="The pre-primary daily diary: meals, nap, water and activities for each child. Parents get it in the afternoon."
+      <EvHead pageName="Daily Activities" href={HREF} sub="Each child’s day. Parents get it in the afternoon."
         actions={writer && <>
           <ButtonLink variant="secondary" icon={CalendarPlus} className="hidden md:inline-flex" href={here({ do: "assign" })} scroll={false}><Words k="Assign activities" /></ButtonLink>
           <ButtonLink variant="primary" icon={Send} href={here({ do: "send" })} scroll={false}>{sentToday ? "Send again" : "Send today’s diary"}</ButtonLink>

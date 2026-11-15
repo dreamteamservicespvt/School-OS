@@ -7,7 +7,8 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { MessagingProblem, NOT_SENT, sendMessage } from "../messaging/send";
+import { MessagingProblem, NOT_SENT, sendMessage, type SendInput } from "../messaging/send";
+import { makeParentLinksFor, noteParentLinksSent } from "./message-links";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { checkCode, ParentLinkProblem, sendCode } from "./links";
 import { childrenOfGuardian } from "../students/guardian-access";
@@ -30,8 +31,14 @@ export async function currentConsentTexts(tx: Tx, ctx: SchoolContext): Promise<C
   return rows.filter((r) => (seen.has(r.consentType) ? false : (seen.add(r.consentType), true))).map((r) => ({ id: r.id, consentType: r.consentType, title: r.title, version: r.version, text: (r.text ?? {}) as Record<string, string> }));
 }
 
-export function consentWording(t: ConsentTextRow, language: string) {
-  return t.text[language] ?? t.text.en ?? Object.values(t.text)[0] ?? "";
+/**
+ * The words of a consent form in the first of these languages that the school wrote it in, with
+ * {school} filled in (as on the admission form). own: false when it is shown in another language.
+ */
+export function consentWording(t: ConsentTextRow, languages: string[], schoolName: string): { text: string; own: boolean } {
+  const lang = languages.find((l) => t.text[l]?.trim());
+  const text = (lang ? t.text[lang] : t.text.en ?? Object.values(t.text)[0]) ?? "";
+  return { text: text.replace(/\{school\}/g, schoolName), own: lang === languages[0] };
 }
 
 /** The standing consent (latest record not withdrawn) per guardian, student and type. */
@@ -111,11 +118,16 @@ async function notifyConsent(tx: Tx, ctx: SchoolContext, requestId: string, guar
   await ensureReadyTemplates(tx, ctx);
   const t = await templateByKey(tx, ctx, "consent-request", "whatsapp");
   const school = (await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } })).name;
-  return sendMessage(tx, ctx, {
+  // {parent_link}: each parent's own Parent Link (made first for a parent who has none, ./message-links.ts).
+  const input: SendInput = {
     to: { guardianIds }, channels: "preferred", templates: t ? { whatsapp: t.id } : {}, values: { title },
-    text: `Dear Parent, ${school} asks for your consent: ${title}. Please open your Parent Link to read it and agree. - ${school}`, title: trigger,
+    text: `Dear Parent, ${school} asks for your consent: ${title}. Please open your Parent Link to read it and agree: {parent_link} - ${school}`, title: trigger,
     trigger, source: { type: "Consent Request", id: requestId }, onNobody,
-  });
+  };
+  const made = await makeParentLinksFor(tx, ctx, input);
+  const sent = await sendMessage(tx, ctx, input);
+  await noteParentLinksSent(tx, ctx, made, sent.messageId);
+  return sent;
 }
 
 /** Given, waiting and withdrawn for one request. */

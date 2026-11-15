@@ -33,12 +33,16 @@ export async function requestCorrectionAction(_: FormState<unknown>, fd: FormDat
     const people = fd.getAll("people").map(String).filter((v) => UUID_RE.test(v));
     if (people.length === 0) throw new FieldProblem(forWhom === "staff" ? "Choose the staff member." : "Choose at least one student.", "people");
     if (people.length > 100) throw new FieldProblem("Choose at most 100 people in one request.", "people");
+    // A whole day with nothing saved comes as one sheet: each student's own status, one reason (layman loop 4).
+    const sheet = forWhom === "student" && str(fd, "sheet") === "1";
     const to = str(fd, "status");
-    if (!to) throw new FieldProblem("Choose the new status.", "status");
+    if (!sheet && !to) throw new FieldProblem("Choose the new status.", "status");
     const note = str(fd, "note").slice(0, 300) || null;
     const reason = str(fd, "reason").slice(0, 500);
+    const changes = people.map((p) => ({ id: p, to: sheet ? str(fd, `to:${p}`) : to, note }));
+    if (changes.some((c) => !c.to)) throw new FieldProblem("Choose a status for every student.", "people");
     const c = await withSchool(current.ctx, (tx) => requestCorrection(tx, current.ctx, access, {
-      forWhom, sectionId, date, periodNo, reason, changes: people.map((p) => ({ id: p, to, note })), today: todayIn(current.school.timeZone),
+      forWhom, sectionId, date, periodNo, reason, changes, today: todayIn(current.school.timeZone),
     }));
     createdId = c.id;
     return { id: c.id };

@@ -95,7 +95,7 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
         </div>
 
         <Card>
-          <CardHeader title="Reports" icon={FileBarChart} description="Open a report to see its rows and export it with the dates above." divided />
+          <CardHeader title="Reports" icon={FileBarChart} divided />
           <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-px bg-line/70">
             {HOSTEL_REPORT_LIST.map((x, i, all) => (
               <li key={x.key} className={cx("bg-surface", i === all.length - 1 && cx(all.length % 2 === 1 && "sm:col-span-2", all.length % 3 === 1 ? "xl:col-span-3" : all.length % 3 === 2 ? "xl:col-span-2" : "xl:col-span-1"))}>
@@ -121,7 +121,7 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
                 <SimpleTable caption={report.name} minWidth={Math.max(560, t.columns.length * 120)} rows={[...t.rows.slice(0, SHOW)]}
                   cols={t.columns.map((c) => ({ label: c.label, right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
                   foot={t.totals && t.rows.length <= SHOW ? t.columns.map((c) => cellText(t.totals![c.key], c.kind)) : undefined} />
-                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {t.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
+                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first {n} of {total}" vars={{ n: SHOW, total: t.rows.length.toLocaleString("en-IN") }} /> <Words k="rows. Export the report for all of them." /></p>}
               </>
             ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
             {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}

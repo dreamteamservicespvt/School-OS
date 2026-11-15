@@ -53,7 +53,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                 <ActionForm action={addSessionAction.bind(null, id)} submitLabel="Record session" pendingText="Saving…" resetOnSuccess className="grid gap-3 sm:grid-cols-2">
                   <FormText name="date" label="Date" type="date" required defaultValue={todayIso(tz)} max={todayIso(tz)} />
                   <FormText name="followUpOn" label="Follow-up on" type="date" />
-                  <FormArea name="summary" label="What was done" required rows={2} className="sm:col-span-2" help="A line seen by everyone who may open the case." />
+                  <FormArea name="summary" label="What was done" required rows={2} className="sm:col-span-2" help="Everyone who opens the case sees this." />
                   {notes && <FormArea name="confidential" label="Confidential notes" rows={4} className="sm:col-span-2" help="Highly restricted." />}
                 </ActionForm>
               )}
@@ -92,7 +92,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                 {data.people.length > 0 && <FormSelect name="counsellorId" label="Counsellor" placeholder="Not given yet" options={data.people.map((p) => ({ value: p.id, label: p.displayName }))} defaultValue={c.counsellorId} />}
                 <FormText name="nextSessionOn" label="Next session" type="date" defaultValue={c.nextSessionOn ? c.nextSessionOn.toISOString().slice(0, 10) : ""} />
                 <FormArea name="actionPlan" label="Action plan and follow-ups" rows={3} defaultValue={c.actionPlan} />
-                <FormArea name="outsideReferral" label="Outside referral" rows={2} defaultValue={c.outsideReferral} help="For example a child psychologist or a clinic." />
+                <FormArea name="outsideReferral" label="Outside referral" rows={2} defaultValue={c.outsideReferral} />
               </ActionForm>
             </CardBody>
           </Card>

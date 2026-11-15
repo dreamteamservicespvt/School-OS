@@ -58,7 +58,7 @@ export default async function LibrarySettingsPage({ searchParams }: { searchPara
           remindDueTomorrow: s.remindDueTomorrow, remindOverdue: s.remindOverdue, remindReservation: s.remindReservation,
         }} />
         <Card>
-          <CardHeader title="Categories and shelves" icon={FolderTree} description="Reference categories are read in the library and not lent. A category's loan days come before the member's." divided
+          <CardHeader title="Categories and shelves" icon={FolderTree} description="Reference categories are not lent." divided
             action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}><Words k="Add category" /></ButtonLink> : undefined} />
           <ul className="divide-y divide-line/70">
             {d.cats.map((c) => (

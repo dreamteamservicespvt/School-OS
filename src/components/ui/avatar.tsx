@@ -4,7 +4,8 @@ const HUES = [168, 200, 220, 260, 290, 330, 15, 35, 140, 190];
 
 /** Initials on a soft colour picked from the name, so the same person always looks the same. */
 export function Avatar({ name, size = 36, src, className, ring }: { name: string; size?: number; src?: string | null; className?: string; ring?: boolean }) {
-  const initials = name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  // First letter of each word, skipping emoji and digits (a name saved as "😀 Chintu" broke the circle, layman loop 4).
+  const initials = name.split(/\s+/).filter(Boolean).map((w) => Array.from(w).find((ch) => /\p{L}/u.test(ch))).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const hue = HUES[h % HUES.length];

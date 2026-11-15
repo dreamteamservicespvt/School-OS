@@ -50,7 +50,7 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
           </li>
         ))}
       </ul>
-      <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents. Remind sends the class teacher a message in the app." /></p>
+      <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents." /></p>
     </Card>
   );
 }
@@ -73,21 +73,19 @@ export function ClassWiseView({ cw, sort, group, href, period, today, threshold 
 
   return (
     <div className="flex flex-col gap-4">
-      <Stats items={today ? [
+      {/* A holiday or Sunday shows no count cards ("0 of 0 · Not marked yet" read as a problem): the list below says no school. */}
+      {!cw.off && <Stats items={today ? [
         { label: "Present today", value: n(sum("present")), sub: `of ${n(students)} in marked sections · ${percentText(avg)}`, icon: UserCheck },
         { label: "Absent", value: n(sum("absent")), sub: "Parents get a message", icon: UserX, tone: sum("absent") ? "bad" : undefined },
         { label: "Late", value: n(sum("late")), sub: "Counted as present", icon: Clock },
         { label: "On leave", value: n(sum("leave")), sub: "Not counted in the %", icon: CalendarDays },
-        // A holiday or Sunday has nothing to mark: "20 not marked yet" in amber was a false alarm.
-        cw.off
-          ? { label: "Sections marked", value: "No school", sub: cw.off === "Sunday" ? "Sunday" : cw.off === "Not started" ? "This date has not come yet" : cw.off, icon: ListChecks }
-          : { label: "Sections marked", value: `${marked.length} of ${shown.length}`, sub: shown.length - marked.length ? `${shown.length - marked.length} not marked yet` : "All marked", icon: ListChecks, tone: shown.length - marked.length ? "warn" : "ok" },
+        { label: "Sections marked", value: `${marked.length} of ${shown.length}`, sub: shown.length - marked.length ? `${shown.length - marked.length} not marked yet` : "All marked", icon: ListChecks, tone: shown.length - marked.length ? "warn" : "ok" },
       ] : [
         { label: "Average attendance", value: percentText(avg), sub: `${cw.sections[0]?.days ?? 0} school days`, icon: UserCheck },
         { label: "Absences, all days added up", value: n(sum("absent")), sub: "1 student away 3 days counts 3", icon: UserX },
         { label: `Below ${threshold}%`, value: n(low), sub: low ? "Sections to look at" : "None", icon: TriangleAlert, tone: low ? "bad" : undefined },
         { label: "Sections", value: n(shown.length), sub: group === "all" ? "Whole school" : cw.groups.find((g) => g.key === group)?.label, icon: LayoutGrid },
-      ]} />
+      ]} />}
       <Card className="overflow-hidden">
         <CardHeader icon={LayoutGrid} title="Class-wise attendance" description={`${rangeText} · tap a class to see its students`} />
         <Toolbar>
@@ -136,7 +134,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today, threshold 
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Red is below" /> {threshold}<Words k="% (Attendance Settings), amber below 92%, green 92% or more. Late counts as present; leave, holidays and Sundays are not counted." /></p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Red is below" /> {threshold}<Words k="%, amber below 92%, green 92% or more. Late counts as present." /></p>
       </Card>
     </div>
   );

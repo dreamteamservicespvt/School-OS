@@ -34,7 +34,9 @@ export async function decideAction(id: string, decision: Decision, note: string 
     console.error(JSON.stringify({ level: "error", event: "approval-decide", error: e instanceof Error ? e.message : String(e) }));
     return "That did not work, and nothing was changed. Please try again.";
   }
-  await flash({ message: DONE[decision] });
+  // The link names this request, so the message shows again after the next decision too (the page's message is
+  // keyed by its words: a second "Approved." in a row showed nothing, layman loop 4).
+  await flash({ message: DONE[decision], link: { href: `/approvals/${id}`, label: "Open" } });
   revalidatePath("/", "layout");
 }
 

@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { STUDENT_IMPORT_KINDS, importKindLabel } from "@/lib/students/import-kinds";
+import { shownFileName } from "@/lib/data-security/imports";
+import { leftWords } from "@/lib/importer";
 import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -32,11 +34,12 @@ export default async function ImportHistoryPage({ searchParams }: { searchParams
   });
   type Row = (typeof data.rows)[number];
   const columns: Column<Row>[] = [
-    { key: "file", label: "File", phone: "title", cell: (r) => r.fileName },
+    { key: "file", label: "File", phone: "title", cell: (r) => shownFileName(r.fileName) },
     { key: "kind", label: "Kind", cell: (r) => importKindLabel(r.kind) },
     { key: "when", label: "When", phone: "meta", cell: (r) => formatDateTime(r.createdAt, tz) },
     { key: "who", label: "By", cell: (r) => data.people.find((p) => p.id === r.importedById)?.displayName ?? "" },
-    { key: "added", label: "Added", phone: "meta", cell: (r) => `${r.added} added, ${r.skipped} skipped` },
+    // Only what happened: "37 added, 2 updated", never "0 skipped" (layman loop 5).
+    { key: "added", label: "Added", phone: "meta", cell: (r) => [`${r.added} added`, r.updated ? `${r.updated} updated` : "", leftWords((r.leftOut ?? []) as { reason: string; count: number }[]), r.skipped ? `${r.skipped} not saved` : ""].filter(Boolean).join(", ") },
     { key: "status", label: "Status", phone: "badge", cell: (r) => (r.undoneAt ? <Badge><Words k="Undone" /></Badge> : <Badge tone="success"><Words k="Imported" /></Badge>) },
   ];
   return (

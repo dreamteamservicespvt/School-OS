@@ -282,7 +282,8 @@ export async function requestDisposal(tx: Tx, ctx: SchoolContext, input: { asset
   const where = await placeWords(tx, a);
   const approval = await requestApproval(tx, ctx, {
     type: "asset-disposal", recordType: "Asset Disposal", recordId: d.id,
-    summary: `Dispose of ${a.name} ${a.tag} (${where}): ${DISPOSAL_METHOD[input.method].toLowerCase()}${input.method === "SOLD" && input.salePaise ? ` for ${formatRupees(input.salePaise)}` : ""}`,
+    // The card's amount is the asset's cost: say so beside a sale price, so the two numbers are not confused (layman loop 2).
+    summary: `Dispose of ${a.name} ${a.tag} (${where}): ${DISPOSAL_METHOD[input.method].toLowerCase()}${input.method === "SOLD" && input.salePaise ? ` for ${formatRupees(input.salePaise)}${a.costPaise !== null ? `, cost ${formatRupees(a.costPaise)}` : ""}` : ""}`,
     amountPaise: a.costPaise, reason,
   });
   await tx.assetDisposal.update({ where: { id: d.id }, data: { approvalId: approval.id } });

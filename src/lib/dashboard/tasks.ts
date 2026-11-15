@@ -12,6 +12,7 @@ import { notify } from "../notifications";
 import { dayStartUtc } from "../periods";
 import { formatDateTime } from "../format";
 import type { PermissionMap } from "../permissions";
+import { word } from "../notification-words";
 
 export type TaskAccess = "full" | "own";
 /**
@@ -101,8 +102,9 @@ export async function addTask(tx: Tx, who: Who, input: NewTask, opts: { now?: Da
   const giver = await tx.userLogin.findUnique({ where: { id: who.ctx.userId! }, select: { displayName: true } });
   await notify(tx, who.ctx, {
     to: task.assignedToId, type: "task-assigned",
-    text: `${giver?.displayName ?? "Someone"} gave you a task: ${task.title}${task.dueAt ? `, due ${formatDateTime(task.dueAt, opts.timeZone)}` : ""}`,
-    link: opts.link ?? "/dashboard/tasks", groupKey: "task-assigned", mergedText: (n) => `${n} new tasks given to you`,
+    key: task.dueAt ? "{name} gave you a task: {title}, due {when}" : "{name} gave you a task: {title}",
+    values: { name: giver?.displayName ?? word("Someone"), title: task.title, when: task.dueAt ? formatDateTime(task.dueAt, opts.timeZone) : "" },
+    link: opts.link ?? "/dashboard/tasks", groupKey: "task-assigned", mergedKey: "{n} new tasks given to you",
   });
   return task;
 }
@@ -115,7 +117,7 @@ export async function editTask(tx: Tx, who: Who, id: string, input: NewTask, now
   const after = await tx.task.update({ where: { id }, data: { ...clean, remindersSent: reminders } });
   await writeAudit(tx, who.ctx, { action: "changed", recordType: "Task", recordId: id, before: { title: t.title, assignedToId: t.assignedToId, dueAt: t.dueAt?.toISOString() ?? null, details: t.details }, after: { title: after.title, assignedToId: after.assignedToId, dueAt: after.dueAt?.toISOString() ?? null, details: after.details } });
   if (after.assignedToId !== t.assignedToId) {
-    await notify(tx, who.ctx, { to: after.assignedToId, type: "task-assigned", text: `A task was passed to you: ${after.title}`, link: "/dashboard/tasks", groupKey: "task-assigned", mergedText: (n) => `${n} new tasks given to you` });
+    await notify(tx, who.ctx, { to: after.assignedToId, type: "task-assigned", key: "A task was passed to you: {title}", values: { title: after.title }, link: "/dashboard/tasks", groupKey: "task-assigned", mergedKey: "{n} new tasks given to you" });
   }
   return after;
 }
@@ -132,7 +134,7 @@ export async function setTaskStatus(tx: Tx, who: Who, id: string, status: TaskSt
   // The giver hears when a task they gave is done.
   if (status === "DONE" && t.givenById !== t.assignedToId) {
     const doer = await tx.userLogin.findUnique({ where: { id: t.assignedToId }, select: { displayName: true } });
-    await notify(tx, who.ctx, { to: t.givenById, type: "task-done", text: `${doer?.displayName ?? "Someone"} finished: ${t.title}`, link: "/dashboard/tasks?view=given", groupKey: "task-done", mergedText: (n) => `${n} tasks you gave are done` });
+    await notify(tx, who.ctx, { to: t.givenById, type: "task-done", key: "{name} finished: {title}", values: { name: doer?.displayName ?? word("Someone"), title: t.title }, link: "/dashboard/tasks?view=given", groupKey: "task-done", mergedKey: "{n} tasks you gave are done" });
   }
   return t.status;
 }
@@ -145,7 +147,7 @@ export async function addComment(tx: Tx, who: Who, id: string, text: string) {
   const c = await tx.taskComment.create({ data: { schoolId: who.ctx.schoolId, taskId: id, authorId: who.ctx.userId!, text: clean } });
   await writeAudit(tx, who.ctx, { action: "comment added", recordType: "Task", recordId: id, after: { comment: clean } });
   const other = who.ctx.userId === t.assignedToId ? t.givenById : t.assignedToId;
-  await notify(tx, who.ctx, { to: other, type: "task-comment", text: `New comment on "${t.title}"`, link: `/dashboard/tasks?task=${t.id}`, groupKey: `task-comment:${t.id}`, mergedText: (n) => `${n} new comments on "${t.title}"` });
+  await notify(tx, who.ctx, { to: other, type: "task-comment", key: "New comment on \"{title}\"", values: { title: t.title }, link: `/dashboard/tasks?task=${t.id}`, groupKey: `task-comment:${t.id}`, mergedKey: "{n} new comments on \"{title}\"" });
   return c;
 }
 
@@ -189,8 +191,9 @@ export async function sendTaskReminders(tx: Tx, ctx: SchoolContext, now = new Da
     await tx.task.update({ where: { id: t.id }, data: { remindersSent: [...t.remindersSent, ...keys] } });
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {
       to: t.assignedToId, type: "task-due",
-      text: `Task due ${formatDateTime(due, tz)}: ${t.title}`,
-      link: `/dashboard/tasks?task=${t.id}`, groupKey: "task-due", mergedText: (n) => `${n} tasks are due soon`,
+      key: "Task due {when}: {title}",
+      values: { when: formatDateTime(due, tz), title: t.title },
+      link: `/dashboard/tasks?task=${t.id}`, groupKey: "task-due", mergedKey: "{n} tasks are due soon",
     }, now);
     sent++;
   }

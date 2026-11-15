@@ -8,6 +8,7 @@ import "server-only";
 
 import { salaryLevel } from "../../salary/access";
 import { addMonths, firstOfMonth, monthName } from "../../salary/words";
+import { payrollCoverage } from "../../salary/payroll";
 import { myStaff, n, plural } from "../common";
 import type { Viewer, Widget } from "../types";
 
@@ -51,7 +52,7 @@ const monthToDo: Widget<"attention"> = {
     const last = runs.filter((r) => r.month.getTime() === prev.getTime());
     const unpaid = last.filter((r) => r.status === "APPROVED");
     if (unpaid.length) {
-      return { id: `salary.unpaid:${prev.toISOString().slice(0, 7)}`, tone: "warn", icon: "CreditCard", title: `${MONTH(prev)} salary is approved, not paid`, detail: "Mark it paid when the bank transfer is done; it then goes in the Day Book.", action: "Mark paid", href: `${BASE}/generate?run=${unpaid[0].id}`, value: String(unpaid.length) };
+      return { id: `salary.unpaid:${prev.toISOString().slice(0, 7)}`, tone: "warn", icon: "CreditCard", title: `${MONTH(prev)} salary is approved, not paid`, detail: "Mark it paid after the bank transfer.", action: "Mark paid", href: `${BASE}/generate?run=${unpaid[0].id}`, value: String(unpaid.length) };
     }
     const lastOpen = last.filter((r) => !DONE.includes(r.status as (typeof DONE)[number]));
     if (lastOpen.length) {
@@ -76,11 +77,13 @@ const noStructure: Widget<"attention"> = {
   homes: ["accountant"],
   allowed: full,
   async load(c) {
-    const staff = await c.tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...campus(c.viewer) }, select: { id: true, fullName: true } });
-    const have = new Set((await c.tx.salaryStructure.findMany({ where: { archivedAt: null }, select: { staffId: true }, distinct: ["staffId"] })).map((s) => s.staffId));
-    const missing = staff.filter((s) => !have.has(s.id));
+    // Layman loop 2 (15 Nov): the Dashboard said 10, Generate Salary said 6. Now the one rule of Generate Salary and
+    // Salary Structures (payrollCoverage): this month's payroll of each campus in reach, a structure for this month.
+    const month = firstOfMonth(c.today);
+    const campusIds = c.viewer.campusId ? [c.viewer.campusId] : (await c.tx.campus.findMany({ where: { archivedAt: null }, select: { id: true } })).map((x) => x.id);
+    const missing = (await Promise.all(campusIds.map((id) => payrollCoverage(c.tx, id, month)))).flatMap((x) => x.missing);
     if (!missing.length) return null;
-    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of the salary until one is added.`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
+    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of ${MONTH(month)} salary until one is added.`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
   },
 };
 
@@ -95,7 +98,7 @@ const advancesToPay: Widget<"attention"> = {
     const onCampus = c.viewer.campusId ? (await c.tx.staff.findMany({ where: { campusId: c.viewer.campusId }, select: { id: true } })).map((s) => s.id) : null;
     const count = await c.tx.salaryAdvance.count({ where: { status: "APPROVED", ...(onCampus ? { staffId: { in: onCampus } } : {}) } });
     if (!count) return null;
-    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it and mark it paid; it goes in the Day Book on that date.", action: "Advances", href: `${BASE}/advances?show=unpaid`, value: String(count) };
+    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it, then mark it paid.", action: "Advances", href: `${BASE}/advances?show=unpaid`, value: String(count) };
   },
 };
 

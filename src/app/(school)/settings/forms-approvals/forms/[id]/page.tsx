@@ -49,10 +49,10 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
         {published && form.publishedAt && <p className="text-sm text-ink-2"><Words k="Published" /> {formatDateTime(form.publishedAt, current.school.timeZone)}<Words k=". Any change makes a draft until you publish again." /></p>}
 
         <Card>
-          <CardHeader title="Fields" description={`${fields.length} of at most 60. Fields can show only when another answer matches.`}
+          <CardHeader title="Fields" description={`${fields.length} of at most 60`}
             action={mayEdit && <FieldEditor mode="form" owner={id} others={fields} trigger="Add a field" triggerVariant="primary" />} />
           {fields.length === 0 ? (
-            <div className="p-5"><EmptyState title="No fields yet"><Words k={"Add the first field, for example \"Teaching quality\" as a choice of Good, Average, Needs help."} /></EmptyState></div>
+            <div className="p-5"><EmptyState title="No fields yet"><Words k="Add the first field." /></EmptyState></div>
           ) : (
             <ol>
               {fields.map((f, i) => (
@@ -76,7 +76,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
 
         {fields.length > 0 && (
           <Card>
-            <CardHeader title="Preview" description="Exactly what people will see. Try answers to check the conditional fields. Nothing typed here is saved." />
+            <CardHeader title="Preview" description="Nothing typed here is saved." />
             <CardBody>
               {form.description && <p className="mb-4 text-ink-2">{form.description}</p>}
               <CustomFieldInputs key={JSON.stringify(fields)} fields={fields} />

@@ -15,7 +15,7 @@ import { ProblemInView } from "./problem-in-view";
 import { useFieldProblem } from "./form-problems";
 import { inputCls } from "./input-style";
 import { tx } from "@/lib/i18n/tx";
-import { OptionList, Words } from "@/lib/i18n/client";
+import { OptionList, Words, useT } from "@/lib/i18n/client";
 
 /** The shared look of a text box, select or text area (./input-style.ts). */
 export { inputCls };
@@ -46,6 +46,9 @@ function describedBy(id: string, error?: string, help?: React.ReactNode) {
 export function TextField({ label, name, help, error: given, required, className, ...rest }: FieldShell & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name">) {
   const id = `${useId()}-${name}`;
   const error = useFieldProblem(name, given);
+  const t = useT();
+  // The hint inside the box in the screen's language too (layman loop 3: "First and last name" stayed English).
+  if (typeof rest.placeholder === "string") rest.placeholder = t.any(rest.placeholder);
   const { type, ...box } = rest;
   return (
     <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
@@ -66,6 +69,8 @@ export function TextField({ label, name, help, error: given, required, className
 export function TextArea({ label, name, help, error: given, required, className, rows = 3, ...rest }: FieldShell & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "name">) {
   const id = `${useId()}-${name}`;
   const error = useFieldProblem(name, given);
+  const t = useT();
+  if (typeof rest.placeholder === "string") rest.placeholder = t.any(rest.placeholder);
   return (
     <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
       <textarea id={id} name={name} rows={rows} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}

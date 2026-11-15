@@ -73,7 +73,7 @@ export function CloseStockButton({ sessionId, notScanned }: { sessionId: string;
         if (!r?.ok) return r?.message ?? "That did not work.";
         router.refresh();
       }}>
-      {notScanned > 0 ? `${notScanned} cop${notScanned === 1 ? "y is" : "ies are"} not scanned yet and will be listed as missing. Nothing is marked lost until you review the list.` : "Every copy expected on the shelves has been scanned."}
+      {notScanned > 0 ? `${notScanned} cop${notScanned === 1 ? "y is" : "ies are"} not scanned yet and will be listed as missing. Nothing is marked lost yet.` : "Every copy expected on the shelves has been scanned."}
     </ConfirmButton>
   );
 }
@@ -89,7 +89,7 @@ export function MarkLostButton({ sessionId, count }: { sessionId: string; count:
         if (!r?.ok) return r?.message ?? "That did not work.";
         router.refresh();
       }}>
-      <Words k="The copies stay in the catalogue as Lost, with this stock check as the reason. No member is charged. A copy found later can be put back on the shelf from its book's page." />
+      <Words k="They stay in the catalogue as Lost. No member is charged. A copy found later can go back on the shelf." />
     </ConfirmButton>
   );
 }

@@ -17,7 +17,7 @@ export function SurveyButtons({ id, status, waiting, invited }: { id: string; st
     <>
       {status === "DRAFT" && (
         <ConfirmButton trigger="Send now" triggerVariant="primary" title="Send this survey?" confirmLabel={invited ? `Send to ${invited.toLocaleString("en-IN")}` : "Send survey"} onConfirm={run(sendSurveyAction)}>
-          <Words k="Each person gets their own link by WhatsApp or email. After sending, the questions cannot be changed." />
+          <Words k="After sending, the questions cannot be changed." />
         </ConfirmButton>
       )}
       {status === "OPEN" && waiting > 0 && (

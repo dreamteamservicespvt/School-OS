@@ -77,7 +77,7 @@ export function SettlementForm({ exitId, sent, action }: { exitId: string; sent:
       {(f) => (
         <>
           <p className="text-ink-2">{sent ? <Words k="Mark it done once Salary Management has paid the final salary, leave encashment and any dues." />
-            : <Words k="The Accountant is told. They pay it in Generate Salary for the last month: the days up to the last working day come in by themselves; add leave encashment or recoveries with Add adjustment." />}</p>
+            : <Words k="The Accountant is told. They pay it in Generate Salary for the last month." />}</p>
           <TextArea label="Note" name="note" rows={2} defaultValue={f.val("note")} error={f.err("note")} />
         </>
       )}

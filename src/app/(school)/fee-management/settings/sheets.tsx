@@ -3,6 +3,7 @@
 // The sheets on Fee Settings (mod-fees.jsx FeeSettings): one per card. Each
 // is checked on the server and written to the audit log.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SChips, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
@@ -21,7 +22,7 @@ export function LateFeeSheet({ closeHref, s, heads }: C & { s: { on: boolean; ty
   const [type, setType] = useState(s.type);
   return (
     <SheetForm title="Late fee rules" sub="Added as its own row after the grace period. Late fees already added do not change." closeHref={closeHref} action={lateFeeAction} submitLabel="Save late fee rules" pendingText="Saving…">
-      <SSwitch name="on" title="Add late fee" sub="Off: no late fee is added to any installment." start={s.on} />
+      <SSwitch name="on" title="Add late fee" sub="Off: no late fee is added." start={s.on} />
       <SSelect name="type" label="How it is worked out" required start={type} onChange={(e) => setType(e.target.value)} options={[
         { value: "flat", label: "One amount, once" }, { value: "per-day", label: "An amount for each day late" }, { value: "percent", label: "A percent of the installment" },
       ]} />
@@ -30,7 +31,7 @@ export function LateFeeSheet({ closeHref, s, heads }: C & { s: { on: boolean; ty
           : <SMoney name="amount" label={type === "per-day" ? "Amount per day" : "Late fee"} required start={s.amount} />}
         <SText name="graceDays" label="Grace period (days)" required inputMode="numeric" start={s.grace} className="tnum" />
       </div>
-      <SMoney name="max" label="Most per installment" start={s.max} help="Optional. Empty means no upper limit." />
+      <SMoney name="max" label="Most per installment" start={s.max} help="Empty means no upper limit." />
       <SChips name="headId" label="Fee heads with late fee" options={heads} start={s.headIds} help="None chosen means every fee head that allows late fee." />
     </SheetForm>
   );
@@ -40,10 +41,10 @@ const DAY_WORDS = (d: number) => (d === 0 ? "On the due date" : d < 0 ? `${-d} $
 
 export function RemindersSheet({ closeHref, s, choices, wordsHref }: C & { s: { on: boolean; days: number[]; channel: string; min: string; quietDays: boolean }; choices: number[]; wordsHref: string }) {
   return (
-    <SheetForm title="Reminder schedule" sub="Sent by itself for each unpaid installment. Opted-out parents are skipped." closeHref={closeHref} action={remindersAction} submitLabel="Save schedule" pendingText="Saving…">
+    <SheetForm title="Reminder schedule" sub="Sent by itself for each unpaid installment" closeHref={closeHref} action={remindersAction} submitLabel="Save schedule" pendingText="Saving…">
       <SSwitch name="on" title="Send reminders by themselves" start={s.on} />
-      <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} help="A family gets at most one reminder a day, about everything it owes now." />
-      <SSelect name="channel" label="Send by" required start={s.channel} options={[{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} />
+      <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} help="At most one reminder a day per family" />
+      <SSelect name="channel" label="Send by" required start={s.channel} options={SMS_OFFERED ? [{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }] : [{ value: "whatsapp", label: "WhatsApp" }, { value: "email", label: "Email" }]} />
       <SMoney name="min" label="Only when the family owes at least" start={s.min} help="Empty or 0: any amount gets a reminder." />
       <SSwitch name="quietDays" title="Not on days the school is closed" sub="Reminders due on a holiday go on the next school day." start={s.quietDays} />
       <p className="text-[13px] text-ink3"><Words k="The words are the “Fee reminder” templates in" /> <a href={wordsHref} className="text-brand font-semibold underline"><Words k="Message Templates" /></a><Words k=". The payment link, or how to pay at the school office, is added by itself." /></p>
@@ -85,14 +86,14 @@ export function NumberingSheet({ closeHref, s }: C & { s: { taxInvoicePrefix: st
 export function AgeingSheet({ closeHref, ends }: C & { ends: string }) {
   return (
     <SheetForm title="Dues ageing groups" sub="Used on Defaulters and the outstanding report." closeHref={closeHref} action={ageingAction} submitLabel="Save groups" pendingText="Saving…">
-      <SText name="ends" label="Each group ends after (days)" required start={ends} className="tnum" help="Example: 30, 60, 90 gives 0 to 30, 31 to 60, 61 to 90 and over 90 days." />
+      <SText name="ends" label="Each group ends after (days)" required start={ends} className="tnum" help="Example: 30, 60, 90" />
     </SheetForm>
   );
 }
 
 export function RoutingSheet({ closeHref, gateways, classes, s }: C & { gateways: Option[]; classes: Option[]; s: { default: string; byClass: Record<string, string> } }) {
   return (
-    <SheetForm title="Payment gateway for each class" sub="DREAM TEAM connects the gateways; you choose which classes use them." closeHref={closeHref} action={routingAction} submitLabel="Save" pendingText="Saving…" submitDisabled={!gateways.length}>
+    <SheetForm title="Payment gateway for each class" sub="Choose which classes use each gateway" closeHref={closeHref} action={routingAction} submitLabel="Save" pendingText="Saving…" submitDisabled={!gateways.length}>
       {!gateways.length ? <Alert tone="info"><Words k="No payment gateway is connected yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." /></Alert> : (
         <>
           <SSelect name="default" label="Every class" start={s.default} options={gateways} placeholder="The first switched-on Razorpay" />
@@ -115,7 +116,7 @@ export function PaymentsSheet({ closeHref, s, modes, verifyOn }: C & { s: { veri
 
 export function CounterSheet({ closeHref, perms, roles }: C & { perms: { key: string; label: string; roles: string[] }[]; roles: Option[] }) {
   return (
-    <SheetForm title="Counter permissions" sub="Who may do each thing at the fee counter. Changes apply from the next action." closeHref={closeHref} action={counterAction} submitLabel="Save permissions" pendingText="Saving…">
+    <SheetForm title="Counter permissions" sub="Who may do each thing at the fee counter" closeHref={closeHref} action={counterAction} submitLabel="Save permissions" pendingText="Saving…">
       {perms.map((p) => <SChips key={p.key} name={p.key} label={p.label} options={roles} start={p.roles} />)}
     </SheetForm>
   );
@@ -123,7 +124,7 @@ export function CounterSheet({ closeHref, perms, roles }: C & { perms: { key: st
 
 export function HeadAccountsSheet({ closeHref, heads, accounts }: C & { heads: { id: string; name: string; accountId: string }[]; accounts: Option[] }) {
   return (
-    <SheetForm title="Bank account for each fee head" sub="Receipts and the Day Book show each head’s account. Razorpay splits online payments." closeHref={closeHref} action={headAccountsAction} submitLabel="Save" pendingText="Saving…">
+    <SheetForm title="Bank account for each fee head" sub="Each fee head to its own account" closeHref={closeHref} action={headAccountsAction} submitLabel="Save" pendingText="Saving…">
       {heads.map((h) => <SSelect key={h.id} name={`head:${h.id}`} label={h.name} start={h.accountId} options={accounts} placeholder="Main bank account" />)}
     </SheetForm>
   );

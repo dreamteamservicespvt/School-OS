@@ -96,7 +96,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
 
   return (
     <>
-      <LibHead pageName="Members & Cards" href={base} mode={p.mode} actions={actions} sub="Every student and staff member borrows automatically. Limits come from Library Settings." />
+      <LibHead pageName="Members & Cards" href={base} mode={p.mode} actions={actions} sub="Limits come from Library Settings." />
       <Stack>
         <Stats items={[
           { label: t("Students"), value: d.studentCount.toLocaleString("en-IN"), href: tabHref("students"), active: f.tab === "students" },
@@ -114,14 +114,14 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
             </div>
           </Toolbar>
           {can.members && f.tab === "students" && !f.sec && (
-            <p className="px-5 py-2.5 text-[13px] text-ink3 border-b border-line flex items-center gap-2"><IdCard size={15} aria-hidden="true" /><Words k="Choose a class to print its library cards. The card number is the admission number, as on the ID card." /></p>
+            <p className="px-5 py-2.5 text-[13px] text-ink3 border-b border-line flex items-center gap-2"><IdCard size={15} aria-hidden="true" /><Words k="Choose a class to print its library cards." /></p>
           )}
           <DataList rows={d.rows} rowKey={(m) => m.key} minWidth={900} caption={t("Library members")}
             empty={<Empty icon={f.q ? Search : UsersRound} title={t(f.tab === "blocked" ? "Nobody is blocked" : f.q ? "No members match" : "No members")} body={f.q ? t("Try another name or number.") : undefined} />}
             columns={columns}
             phone={(m) => ({
               title: m.name, sub: `${groupWords(t, m.group)} · ${m.cardNo}`, avatar: m.name,
-              right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum">{m.out} <Words k="of" /> {m.limit}</span>,
+              right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum"><Words k="{n} of {n2}" vars={{ n: m.out, n2: m.limit }} /></span>,
               pills: <>
                 {m.overdue > 0 && <Pill tone="bad">{m.overdue} <Words k="late" /></Pill>}
                 {m.finesPaise > BigInt(0) && <Pill tone="warn">{formatRupees(m.finesPaise)} <Words k="due" /></Pill>}

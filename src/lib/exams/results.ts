@@ -28,6 +28,7 @@ import { sectionStudents, sitters } from "./roster";
 import { messageParents } from "./notify-parents";
 import { refreshReportCards } from "./report-status";
 import type { ExamScope } from "./scope";
+import { word } from "../notification-words";
 
 async function boardsOn(tx: Tx, ctx: SchoolContext) {
   const f = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "exam-boards" } } });
@@ -406,7 +407,7 @@ export async function runPublication(tx: Tx, ctx: SchoolContext, publicationId: 
     const note = blocked.flatMap((b) => b.problems).join(" ");
     await tx.resultPublication.update({ where: { id: pub.id }, data: { status: "failed", note } });
     if (pub.createdById) {
-      await notify(tx, { ...ctx, userId: null }, { to: pub.createdById, type: "result-not-published", text: `Results were not published on ${formatDateTime(pub.publishOn)}: ${note}`, link: resultsLink(pub.key, pub.sectionIds[0]) });
+      await notify(tx, { ...ctx, userId: null }, { to: pub.createdById, type: "result-not-published", key: "Results were not published on {when}: {note}", values: { when: formatDateTime(pub.publishOn), note: word(note) }, link: resultsLink(pub.key, pub.sectionIds[0]) });
     }
     await writeAudit(tx, ctx, { action: "result-publish-failed", recordType: "Result Publication", recordId: pub.id, after: { note } });
     return { sections: [] as string[], students: 0, parents: 0 };

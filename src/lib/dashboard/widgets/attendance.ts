@@ -221,7 +221,7 @@ async function flagCard(c: DashContext, kind: FlagKind): Promise<AttentionItem |
     ? {
         id: "attendance.absent-streak", tone: "warn", icon: "UserX",
         title: `${plural(count, "student")} absent ${s.chronicDays} days in a row`,
-        detail: `Call the parents. The card goes when they are marked present.${review}`, action: "See students",
+        detail: `Call the parents.${review}`, action: "See students",
         href, value: String(count),
       }
     : {
@@ -277,13 +277,17 @@ const weekByClass: Widget<"panel"> = {
     // Each campus's own current year (only theirs for a person limited to one campus).
     const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.yearIds, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
     const byClass = new Map<string, { label: string; sort: number; weight: number; counted: number }>();
+    // Layman loop 2 (15 Nov): one bar left the reader guessing about the rest. Classes with nothing marked are named.
+    const unmarked = new Map<string, { label: string; sort: number }>();
     for (const sec of cw.sections) {
-      if (sec.counted === 0) continue;
+      if (sec.counted === 0) { unmarked.set(sec.classId, { label: sec.className, sort: sec.sort }); continue; }
       const row = byClass.get(sec.classId) ?? { label: sec.className, sort: sec.sort, weight: 0, counted: 0 };
       row.weight += sec.weight;
       row.counted += sec.counted;
       byClass.set(sec.classId, row);
     }
+    for (const id of byClass.keys()) unmarked.delete(id);
+    const notMarked = [...unmarked.values()].sort((a, b) => a.sort - b.sort).map((x) => x.label);
     const s = await settings(c);
     const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort)
       .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek&class=${id}` }));
@@ -291,7 +295,7 @@ const weekByClass: Widget<"panel"> = {
       slot: "main",
       panel: {
         kind: "bars", title: "Attendance this week", sub: `Students present by class, ${c.viewer.school.weekStart === "sunday" ? "Sunday" : "Monday"} to today`, icon: "UserCheck",
-        rows, goal: 90, lowBelow: s.thresholdPercent, href: `${BASE}/reports?report=trends`, linkLabel: "Attendance Reports",
+        rows, notMarked, goal: 90, lowBelow: s.thresholdPercent, href: `${BASE}/reports?report=trends`, linkLabel: "Attendance Reports",
         empty: "No attendance marked this week yet.",
       },
     };

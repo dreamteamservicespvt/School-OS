@@ -100,7 +100,7 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
   }
 }
 
-export type GuardianChoice = { guardianId: string; name: string; relation: string; phone: string; allowed: boolean; restriction: string | null };
+export type GuardianChoice = { guardianId: string; name: string; relation: string; phone: string | null; allowed: boolean; restriction: string | null };
 
 /** A resident's guardians and authorised list (who can take them out or visit). */
 export async function guardiansAction(studentId: string): Promise<GuardianChoice[]> {

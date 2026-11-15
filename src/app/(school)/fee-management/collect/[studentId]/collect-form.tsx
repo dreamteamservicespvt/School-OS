@@ -49,10 +49,10 @@ const rupeesText = (paise: number) => (paise % 100 === 0 ? String(paise / 100) :
 
 type Problem = { link?: { href: string; label: string }; warning?: boolean; code?: string };
 
-export function CollectForm({ studentId, studentName, firstName, father, rows, today, counter, advanceOn, advanceHeld, gateway, verifyModes, limit, nextDueText, studentCard }: {
+export function CollectForm({ studentId, studentName, firstName, father, rows, today, counter, advanceOn, advanceHeld, gateway, verifyModes, limit, limitPaise, nextDueText, studentCard }: {
   studentId: string; studentName: string; firstName: string; father: string; rows: DueRow[]; today: string;
   counter: { discount: boolean; waive: boolean; changeDate: boolean };
-  advanceOn: boolean; advanceHeld: string | null; gateway: boolean; verifyModes: string[]; limit: string; nextDueText: string;
+  advanceOn: boolean; advanceHeld: string | null; gateway: boolean; verifyModes: string[]; limit: string; limitPaise: number; nextDueText: string;
   studentCard: React.ReactNode;
 }) {
   const router = useRouter();
@@ -80,6 +80,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const [reason, setReason] = useState("");
   const [asked, setAsked] = useState(false);
   const [receipt, setReceipt] = useState<Collected | null>(null);
+  // The last payment stays named on the card after its receipt sheet is closed, to print again (layman loop 3).
+  const [last, setLast] = useState<Collected | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const dupRef = useRef<HTMLInputElement>(null);
@@ -93,20 +95,31 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const refText = ref.trim();
   const errRef = needRef && mode === "UPI" ? (!refText ? "Enter the UPI transaction (UTR) number" : paymentRefProblem(mode, refText) ?? "")
     : needRef && !/^[A-Za-z0-9]{6,22}$/.test(refText) ? (refText ? "This doesn’t look like a transaction number. It has 6 to 22 letters or digits." : `Enter the ${mode === "UPI" ? "UPI transaction (UTR) number" : "transaction number"}`) : "";
-  const errChqNo = mode === "CHEQUE" && !/^\d{6}$/.test(chq.no) ? "Cheque number has 6 digits" : "";
-  const errChqBank = mode === "CHEQUE" && !chq.bank.trim() ? "Enter the bank name" : "";
+  // Said as what to do: an empty box is not "has 6 digits" (layman loop 3: the grey example looked typed).
+  const errChqNo = mode === "CHEQUE" && !/^\d{6}$/.test(chq.no) ? (chq.no ? "Cheque number has 6 digits" : "Type the cheque number (6 digits)") : "";
+  const errChqBank = mode === "CHEQUE" && !chq.bank.trim() ? "Type the bank name" : "";
+  // Above the counter limit the box turns red at once, not only after Collect (layman loop 3).
+  const errDisc = discountPaise + waiveTotal > limitPaise && discountPaise > 0 ? `More than ${limit} needs the principal’s approval` : "";
   const valid = (selTotal > 0 || (advanceOn && open.length === 0)) && !errAmt && !errRef && !errChqNo && !errChqBank;
   const partial = amt > 0 && amt < owed;
   const extra = amt > owed && advanceOn ? amt - owed : 0;
   // The fee a part payment leaves unpaid: rows are paid oldest first, so it is the last ticked one when the rest fits on it.
   const lastTicked = [...rows].reverse().find((r) => ticked.has(r.id) && !waive.has(r.id));
   const leftOn = partial && lastTicked && owed - amt + discountPaise <= lastTicked.balance ? `${lastTicked.head} · ${lastTicked.label}` : null;
+  // A part payment's split on the rows before saving, oldest first (layman loop 2). Only without a discount or waiver, where the split is plain.
+  const split = new Map<string, number>();
+  if (partial && discountPaise === 0 && waiveTotal === 0) {
+    let left = amt;
+    for (const r of rows) if (ticked.has(r.id)) { const take = Math.min(left, r.balance); split.set(r.id, take); left -= take; }
+  }
 
   // A refusal stops showing once the discount it was about changes (QA issue 30).
   const [hideFor, setHideFor] = useState<unknown>(null);
   const server = state && !state.ok && hideFor !== state ? state : null;
-  const serverErr = (k: string) => server?.errors?.[k];
   const problem = server?.data as Problem | undefined;
+  // A "same payment again?" warning is said once, in its box, not also in red under the amount (layman loop 3).
+  const fieldErrors = problem?.warning ? undefined : server?.errors;
+  const serverErr = (k: string) => fieldErrors?.[k];
 
   // A new result from the server: reset the form after a payment is saved (state adjusted while rendering, not in an effect).
   const [seenState, setSeenState] = useState(state);
@@ -114,6 +127,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
     setSeenState(state);
     if (state?.ok && state.data) {
       setReceipt(state.data as Collected);
+      setLast(state.data as Collected);
       setTicked(new Set());
       setEdited(null);
       setRef("");
@@ -156,7 +170,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   return (
     <>
     <form ref={formRef} action={formAction} onSubmit={submit} noValidate className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
-      <FormProblems errors={server?.errors}>
+      <FormProblems errors={fieldErrors}>
       <input type="hidden" name="studentId" value={studentId} />
       {tickedIds.map((id) => <input key={id} type="hidden" name="dueId" value={id} />)}
       <input type="hidden" name="mode" value={mode} />
@@ -164,7 +178,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       <div className="flex flex-col gap-5 min-w-0">
         {studentCard}
         <Card className="overflow-hidden">
-          <CardHeader title="What is being paid" description="Overdue and due rows are ticked for you"
+          <CardHeader title="What is being paid" description={ticked.size ? "Due rows are ticked for you" : "Tick the rows being paid"}
             action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} <Words k="paid" /></button> : null} />
           {open.length === 0 ? (
             <Empty icon={PartyPopper} title="All fees paid for this year" body={`${firstName} has nothing due. ${nextDueText}`} />
@@ -184,7 +198,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                         <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>
                       </div>
                       <Pill tone={DUE_WORD[r.status].tone} className="hidden sm:inline-flex">{DUE_WORD[r.status].label}</Pill>
-                      <span className="w-24 text-right font-semibold tnum text-[15px]">{inr(isPaid ? r.net : r.balance)}</span>
+                      <span className="w-24 text-right tnum">
+                        <span className="block font-semibold text-[15px]">{inr(isPaid ? r.net : r.balance)}</span>
+                        {on && split.has(r.id) && <span className={cx("block text-[12px]", split.get(r.id)! >= r.balance ? "text-ok" : "text-warn")}>{split.get(r.id)! >= r.balance ? <Words k="paid in full" /> : split.get(r.id)! > 0 ? <>{inr(split.get(r.id)!)} <Words k="now" /></> : <Words k="stays due" />}</span>}
+                      </span>
                     </div>
                   </li>
                 );
@@ -202,6 +219,18 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             <h2 className="font-semibold text-[15px]"><Words k="Payment" /></h2>
             <span className="text-[13px] text-ink3 tnum">{ticked.size} {ticked.size === 1 ? "row" : "rows"} · {inr(selTotal)}</span>
           </div>
+          {last && !receipt && (
+            <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex flex-wrap items-center gap-x-3 gap-y-1.5 -mt-1" role="status">
+              <span className="flex items-center gap-1.5 min-w-0"><Check size={15} className="text-ok shrink-0" aria-hidden="true" />
+                <span><Words k="Just collected" /> <b className="tnum">{last.amount}</b>{last.receiptNo && <> · <span className="font-mono">{last.receiptNo}</span></>}</span></span>
+              {!last.waiting && (
+                <span className="flex gap-3 ml-auto">
+                  <a href={`/fee-management/payments/${last.paymentId}/receipt`} target="_blank" rel="noopener" className="font-semibold text-brand hover:underline inline-flex items-center gap-1"><Printer size={14} aria-hidden="true" /><Words k="Print" /></a>
+                  <a href={`/fee-management/payments/${last.paymentId}/receipt?download=1`} className="font-semibold text-brand hover:underline inline-flex items-center gap-1"><Download size={14} aria-hidden="true" /><Words k="PDF" /></a>
+                </span>
+              )}
+            </div>
+          )}
           {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
             help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on ${leftOn ?? "the newest fees ticked"}.` : "Change it for a part payment"}>
@@ -237,17 +266,18 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 placeholder={mode === "UPI" ? "12 digits, like 428391027714" : mode === "CARD" ? "From the card machine slip" : "UTR from the bank statement"}
                 aria-invalid={Boolean((tried && errRef) || serverErr("reference")) || undefined}
                 className={cx(inputCls((tried && errRef) || serverErr("reference")), "h-11 font-mono")} />
+              {serverErr("reference") && problem?.link && <a href={problem.link.href} target="_blank" rel="noopener" className={cx(buttonClass("secondary", "sm"), "mt-2 self-start")}><Words k="Open receipt" /></a>}
             </FieldShell>
           )}
           {mode === "CHEQUE" && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <FieldShell label="Cheque no." required id="chq-no" error={(tried && errChqNo) || serverErr("chequeNo")}>
-                  <input id="chq-no" name="chequeNo" inputMode="numeric" value={chq.no} onChange={(e) => setChq({ ...chq, no: e.target.value.replace(/\D/g, "").slice(0, 6) })} placeholder="004512"
+                  <input id="chq-no" name="chequeNo" inputMode="numeric" value={chq.no} onChange={(e) => setChq({ ...chq, no: e.target.value.replace(/\D/g, "").slice(0, 6) })} placeholder="6 digits"
                     className={cx(inputCls((tried && errChqNo) || serverErr("chequeNo")), "h-11 font-mono")} />
                 </FieldShell>
                 <FieldShell label="Bank" required id="chq-bank" error={(tried && errChqBank) || serverErr("chequeBank")}>
-                  <input id="chq-bank" name="chequeBank" value={chq.bank} onChange={(e) => setChq({ ...chq, bank: e.target.value })} placeholder="SBI, Kukatpally"
+                  <input id="chq-bank" name="chequeBank" value={chq.bank} onChange={(e) => setChq({ ...chq, bank: e.target.value })} placeholder="Bank and branch"
                     className={cx(inputCls((tried && errChqBank) || serverErr("chequeBank")), "h-11")} />
                 </FieldShell>
               </div>
@@ -266,8 +296,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             <div className={cx("flex flex-col gap-3 mt-3", !more && "hidden")}>
               {counter.discount && (
                 <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <FieldShell label="Discount" id="pay-disc" error={serverErr("discount")} help={`Up to ${limit}`}>
-                    <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setHideFor(state); }} placeholder="₹ 0" className={cx(inputCls(serverErr("discount")), "h-11 tnum")} />
+                  <FieldShell label="Discount" id="pay-disc" error={serverErr("discount") || errDisc || undefined} help={`Up to ${limit}`}>
+                    <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setHideFor(state); }} placeholder="₹ 0"
+                      aria-invalid={Boolean(serverErr("discount") || errDisc) || undefined} className={cx(inputCls(serverErr("discount") || errDisc), "h-11 tnum")} />
                   </FieldShell>
                   <FieldShell label="Reason" id="pay-disc-why" error={serverErr("discountReason")}>
                     <input id="pay-disc-why" name="discountReason" value={reason} onChange={(e) => setReason(e.target.value)} className={cx(inputCls(serverErr("discountReason")), "h-11")} placeholder="Example: father’s job loss" />

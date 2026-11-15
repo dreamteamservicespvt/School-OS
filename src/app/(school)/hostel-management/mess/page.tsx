@@ -78,7 +78,6 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Mess" href={`${BASE}/mess`} mode={p.mode}
-        sub={can.mess ? "The weekly menu with nutrition per plate, the daily head count and mess expenses." : "The weekly menu, head counts and mess expenses."}
         actions={can.mess && d.last.length > 0 ? <ActButton action={copyMenuAction} fields={{ from: isoOf(prev), to: isoOf(week) }} label={d.items.length ? "Fill gaps from last week" : "Copy last week's menu"} icon="undo" size="md" /> : undefined} />
       <Stack>
         <Views view="menu" />
@@ -152,7 +151,7 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
             ))}
           </div>
         </Card>
-        <p className="text-[12.5px] text-ink3"><Words k="Calories and protein are per plate. The meals of the day are set in Hostel Settings." /></p>
+        <p className="text-[12.5px] text-ink3"><Words k="Calories and protein are per plate." /></p>
       </Stack>
       {editing !== undefined && (
         <MenuSheet closeHref={href(week)} week={isoOf(week)} day={editDay} dayName={`${DAY_NAMES[editDay]}, ${formatDate(new Date(week.getTime() + editDay * DAY), "UTC")}`} meal={editMeal}
@@ -188,11 +187,11 @@ async function CountView({ p, sp }: { p: P; sp: Raw }) {
 
   return (
     <>
-      <HostelHead pageName="Mess" href={base} mode={p.mode} sub="How many ate each meal, against the boarders in the hostel." />
+      <HostelHead pageName="Mess" href={base} mode={p.mode} sub="How many ate each meal." />
       <Stack>
         <Views view="count" />
         <Card>
-          <CardHeader title={`Today · ${formatDate(p.today, "UTC")}`} icon={UtensilsCrossed} description="Expected: boarders checked in and not out on a pass at the meal time." divided />
+          <CardHeader title={`Today · ${formatDate(p.today, "UTC")}`} icon={UtensilsCrossed} description="Expected: boarders in the hostel at the meal time." divided />
           <ul className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 md:p-5">
             {s.meals.map((m) => {
               const row = d.today.find((x) => x.meal === m);
@@ -269,7 +268,7 @@ async function ExpensesView({ p, sp }: { p: P; sp: Raw }) {
 
   return (
     <>
-      <HostelHead pageName="Mess" href={base} mode={p.mode} sub="Groceries, gas, milk and the like. Each goes to Finance, Expenses under Hostel mess."
+      <HostelHead pageName="Mess" href={base} mode={p.mode} sub="Each goes to Finance, Expenses under Hostel mess."
         actions={can.mess ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Add expense" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="expenses" />

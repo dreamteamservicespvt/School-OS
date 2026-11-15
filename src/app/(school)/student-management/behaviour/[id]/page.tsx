@@ -51,7 +51,7 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
           )}
           {can.manage && !inc.archivedAt && (
             <ConfirmAction action={archiveIncidentAction} fields={{ id }} trigger="Archive" triggerVariant="danger-outline" title="Archive this record?" confirmLabel="Archive record" confirmVariant="danger">
-              <Words k="It leaves the behaviour timeline. Points it gave are reversed with a new entry; nothing is deleted." />
+              <Words k="Its points are reversed. Nothing is deleted." />
             </ConfirmAction>
           )}
         </div>

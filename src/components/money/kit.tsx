@@ -2,6 +2,7 @@
 // None of these need browser code: links instead of click handlers, so pages
 // written on the server can use them directly.
 
+import { BAND_STYLE } from "@/components/ui/band-style";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { ChevronRight, CircleCheck, Info, Lightbulb, Sparkles, TriangleAlert } from "lucide-react";
@@ -32,7 +33,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
             <>
               <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone ? TONE_TEXT[m.tone] : "")}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{m.sub}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
             </>
           );
           const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", m.active && "bg-brand/5", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
@@ -54,7 +55,7 @@ const BAND_CELL: Record<number, string[]> = {
 export function Band({ items, className }: { items: BandItem[]; className?: string }) {
   const n = Math.max(2, Math.min(items.length, 4));
   return (
-    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" aria-hidden="true" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" aria-hidden="true" />
       <div className={cx("relative grid", BAND_GRID[n])}>
@@ -63,7 +64,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
             <>
               <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{tx(m.foot)}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] transition", BAND_CELL[n][i]);
@@ -83,7 +84,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
     // On a phone the action goes under the words, so the words keep the full width.
     <div role={tone === "bad" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{children}</p>
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</p>
       {action && <div className="max-w-full md:shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
@@ -111,19 +112,20 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
 export function Progress({ value, tone = "brand", className }: { value: number; tone?: "brand" | "ok" | "warn" | "bad" | "info"; className?: string }) {
   const c = { brand: "bg-brand", ok: "bg-ok", warn: "bg-warn", bad: "bg-bad", info: "bg-info" }[tone];
   const v = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${v}%` }} /></span>;
+  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${v}%` }} /></span>;
 }
 
-/** Horizontal bars with a label and a value, like "Overdue by class". */
-export function HBars({ rows, labelWidth = 72, valueWidth = 92 }: { rows: { key: string; label: string; value: number; text: React.ReactNode; href?: string; active?: boolean; tone?: "brand" | "warn" | "bad" | "ok" }[]; labelWidth?: number; valueWidth?: number }) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
+/** Horizontal bars with a label and a value, like "Overdue by class".
+ *  `max` sets the full-bar value, so two lists side by side can share one scale (default: the largest row here). */
+export function HBars({ rows, max: maxIn, labelWidth = 72, valueWidth = 92 }: { rows: { key: string; label: string; value: number; text: React.ReactNode; href?: string; active?: boolean; tone?: "brand" | "warn" | "bad" | "ok" }[]; max?: number; labelWidth?: number; valueWidth?: number }) {
+  const max = maxIn && maxIn > 0 ? maxIn : Math.max(1, ...rows.map((r) => r.value));
   return (
     <ul className="flex flex-col gap-2.5">
       {rows.map((r) => {
         const inner = (
           <>
             <span className="text-ink2 font-medium truncate">{tx(r.label)}</span>
-            <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx("absolute inset-y-0 left-0 rounded-full", r.tone === "warn" ? "bg-warn" : r.tone === "bad" ? "bg-bad" : r.tone === "ok" ? "bg-ok" : "bg-brand")} style={{ width: `${(r.value / max) * 100}%` }} /></span>
+            <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx("absolute inset-y-0 left-0 rounded-full", r.tone === "warn" ? "bg-warn" : r.tone === "bad" ? "bg-bad" : r.tone === "ok" ? "bg-ok" : "bg-brand")} style={{ width: `${Math.min(100, Math.max(0, (r.value / max) * 100))}%` }} /></span>
             <span className="text-right font-semibold tnum">{r.text}</span>
           </>
         );
@@ -151,8 +153,8 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
     <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
-          <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
-          <dd className="text-[14.5px] mt-0.5 break-words">{v}</dd>
+          <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
+          <dd className="text-[14.5px] mt-0.5 break-words">{tx(v)}</dd>
         </div>
       ))}
     </dl>
@@ -332,7 +334,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
               {m.avatar ? <Avatar name={m.avatar} size={42} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{tx(m.title)}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
+                {m.sub && <p className="text-[13px] text-ink3 truncate">{tx(m.sub)}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}

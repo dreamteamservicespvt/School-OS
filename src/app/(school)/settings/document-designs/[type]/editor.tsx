@@ -151,7 +151,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         </Section>
 
         {family === "card" && (
-          <Section title="ID card layout" help="Cards are printed several to an A4 sheet, ready to cut.">
+          <Section title="ID card layout" help="Several to an A4 sheet.">
             <div className="grid grid-cols-2 gap-3">
               <label className="col-span-2 block text-sm font-medium"><Words k="Size" />
                 <select className={`${input} mt-1`} value={o.card.size} disabled={!canEdit} onChange={(e) => setCard("size", e.target.value as DesignOptions["card"]["size"])}>
@@ -182,7 +182,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         )}
 
         {showsFields && (
-          <Section title={family === "card" ? "Fields on the card" : "Details shown"} help="Tick what to show. The name and photo always show on cards.">
+          <Section title={family === "card" ? "Fields on the card" : "Details shown"} help="Name and photo always show on cards.">
             <div className="max-h-72 overflow-y-auto pr-1">
               {detailFields.map((f) => (
                 <Check key={f.key} label={f.label} checked={o.fields.includes(f.key)} onChange={(v) => set("fields", toggleIn(o.fields, f.key, v, detailFields.map((x) => x.key)))} />
@@ -193,7 +193,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
 
         {hasBody && (
           <Section title={family === "letter" ? "Text" : family === "admit" ? "Instructions" : "Remarks and notes"}
-            help="Click a merge field to put it where the cursor is. Each document fills it with the student's or staff member's own details.">
+            help="Click a merge field to put it at the cursor.">
             <textarea ref={bodyRef} rows={family === "letter" ? 10 : 4} value={o.body} disabled={!canEdit} maxLength={4000} aria-label="Text"
               onChange={(e) => set("body", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-3 text-base text-ink" />
             {canEdit && (
@@ -208,7 +208,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         )}
 
         {family === "letter" && type.defaultTable && (
-          <Section title="Numbered details" help="The rows of the certificate, in the order the board's format lists them.">
+          <Section title="Numbered details" help="In the board's order.">
             <div className="max-h-72 overflow-y-auto pr-1">
               {detailFields.map((f) => (
                 <Check key={f.key} label={f.label} checked={o.table.includes(f.key)} onChange={(v) => set("table", toggleIn(o.table, f.key, v, (type.defaultTable ?? []).concat(detailFields.map((x) => x.key)).filter((k, i, a) => a.indexOf(k) === i)))} />
@@ -219,7 +219,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
 
         <Section title="Signatures and footer">
           {signatories.length === 0 ? (
-            <p className="text-sm text-ink-2"><Words k="No signatories yet. Add them on the Document Designs page, with a signature picture if you want it printed." /></p>
+            <p className="text-sm text-ink-2"><Words k="No signatories yet. Add them on the Document Designs page." /></p>
           ) : (
             signatories.map((s) => (
               <Check key={s.id} label={`${s.name}, ${s.title}`} checked={o.signatoryIds.includes(s.id)}
@@ -227,7 +227,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
             ))
           )}
           {o.signatoryIds.length >= 3 && <p className="text-sm text-ink-2"><Words k="At most 3 signatures fit on one document." /></p>}
-          {type.codeField && <Check label="QR code to check the document" checked={o.showQr} onChange={(v) => set("showQr", v)} help="Holds the document's number, so anyone can check it with the school." />}
+          {type.codeField && <Check label="QR code to check the document" checked={o.showQr} onChange={(v) => set("showQr", v)} help="Anyone can check the document with the school." />}
           {(family === "card" || family === "money") && type.codeField && <Check label="Barcode" checked={o.showBarcode} onChange={(v) => set("showBarcode", v)} help="For scanners at the library or the counter." />}
           <label className="block text-sm font-medium"><Words k="Footer" />
             <input className={`${input} mt-1`} value={o.footer} maxLength={300} disabled={!canEdit} onChange={(e) => set("footer", e.target.value)} />
@@ -336,7 +336,7 @@ function BackgroundPicker({ fileId, disabled, onChange }: { fileId: string | nul
         {fileId && <Button variant="ghost" size="sm" disabled={disabled} onClick={() => onChange(null)}><Words k="Remove picture" /></Button>}
       </div>
       {problem && <p role="alert" className="text-sm text-danger">{problem}</p>}
-      <p className="text-sm text-ink-2"><Words k="Optional. A light picture keeps the text easy to read. JPG or PNG, at most 10 MB." /></p>
+      <p className="text-sm text-ink-2"><Words k="Optional. A light picture. JPG or PNG, at most 10 MB." /></p>
     </div>
   );
 }

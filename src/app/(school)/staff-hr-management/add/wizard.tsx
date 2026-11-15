@@ -22,7 +22,9 @@ import { Any, Words, useT } from "@/lib/i18n/client";
 import { FormProblems, ProblemText, checkBoxes } from "@/components/ui/form-problems";
 import { freePairs, stepThree, stepThreeSummary, type Taken } from "@/lib/staff/class-picks";
 import { ShareMenu } from "@/components/ui/share-menu";
-import { DraftHint, useFormDraft, useStateDraft } from "@/components/ui/form-draft";
+import { useFormDraft, useStateDraft } from "@/components/ui/form-draft";
+import { History } from "lucide-react";
+import { isCommonPassword } from "@/lib/auth/common-passwords";
 
 type Option = { value: string; label: string };
 export type WizardData = {
@@ -64,6 +66,26 @@ function stepThreeWords(t: ReturnType<typeof useT>, classTeacherOf: string | nul
   return `${ct} ${rest}`;
 }
 
+/** Role keys guessed from a post's words (as HR Settings does for older designations). */
+function guessRole(name: string): string | null {
+  const n = name.toLowerCase();
+  if (n.includes("reception") || n.includes("front office")) return "receptionist";
+  if (n.includes("accountant")) return "accountant";
+  if (n.includes("librarian")) return "librarian";
+  return null;
+}
+
+/** The temporary password's problem on step 2, in the words the server uses (it checks again). */
+function tempPasswordProblem(form: HTMLFormElement, asked: boolean): string | null {
+  if (!asked || form.querySelector<HTMLInputElement>("input[name=signIn]:checked")?.value !== "password") return null;
+  const pw = form.querySelector<HTMLInputElement>("[name=temporaryPassword]")?.value ?? "";
+  if (!pw) return "Step 2: type the temporary password, or choose to send an invite link.";
+  if (pw.length < 8) return "Use at least 8 characters.";
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return "Use at least one letter and one number.";
+  if (isCommonPassword(pw)) return "This password is too common and easy to guess. Choose one that is not a common word, name or keyboard pattern.";
+  return null;
+}
+
 function slug(s: string) { return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, ""); }
 
 export function Wizard({ data, checkDetails, create }: { data: WizardData; checkDetails: Check; create: Create }) {
@@ -91,6 +113,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
 
   const [giveLogin, setGiveLogin] = useState(!linked);
   const [rolesTouched, setRolesTouched] = useState(false);
+  const [keepGoing, setKeepGoing] = useState(false);
   const [roleKeys, setRoleKeys] = useState<string[]>(des?.roleKey ? [des.roleKey] : []);
   const [exceptions, setExceptions] = useState<Record<string, AccessLevel>>({});
   const [openRole, setOpenRole] = useState<string | null>(null);
@@ -116,22 +139,30 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
     setDesignation(name);
     const d = data.designations.find((x) => x.name === name);
     if (!deptTouched) setDepartmentId(d?.departmentId ?? "");
-    if (!rolesTouched && !linked) setRoleKeys(d?.roleKey && data.roles.some((r) => r.key === d.roleKey) ? [d.roleKey] : []);
+    // A post saved before it had a role of its own (an older "Receptionist") still ticks the matching role.
+    const roleKey = d?.roleKey ?? guessRole(name);
+    if (!rolesTouched && !linked) setRoleKeys(roleKey && data.roles.some((r) => r.key === roleKey) ? [roleKey] : []);
   }
 
   const suggestedUsername = useMemo(() => {
     const parts = fullName.trim().split(/\s+/);
     if (data.usernameFormat === "phone") return phone.replace(/\D/g, "").slice(-10);
     if (data.usernameFormat === "staffid") return "staff ID";
-    const first = slug(parts[0] ?? "");
+    // As usernameFor() on the server: a first name with no a-z letters becomes "staff", never ".ramesh".
+    const first = parts[0] ? slug(parts[0]) || "staff" : "";
     const last = slug(parts.slice(1).join(""));
     return data.usernameFormat === "firstlast" ? `${first}${last}` : last ? `${first}.${last}` : first;
   }, [fullName, phone, data.usernameFormat]);
+
+  // At most about 3 months ahead, as JOINING_MAX_DAYS_AHEAD in src/lib/staff/schemas.ts (01-01-2031 was saved, layman loop 4).
+  const joinMax = useMemo(() => { const d = new Date(`${data.today}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 92); return d.toISOString().slice(0, 10); }, [data.today]);
 
   const base = combineLevels(data.roles.filter((r) => roleKeys.includes(r.key)).map((r) => r.perms as Partial<Record<ModuleKey, AccessLevel>>));
   const extras = extraPermissions(base, exceptions);
   const allocs = offer.subjects ? freePairs(pairs, data.taken) : [];
   const ctChosen = offer.classTeacher && ctSection && !data.taken.classTeacher[ctSection] ? ctSection : "";
+  // No class has subjects yet (a new school): one line instead of the same note under every class.
+  const noSubjects = data.classes.every((c) => c.subjects.length === 0);
   const sectionLabel = (id: string) => { for (const c of data.classes) { const x = c.sections.find((y) => y.id === id); if (x) return `${c.name} ${x.name}`; } return null; };
 
   function err(k: string) { return errors[k]; }
@@ -164,14 +195,22 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       });
     } else if (step === 2) {
       if (giveLogin && roleKeys.length === 0) { setErrors({ roleKeys: "Choose at least one role, or switch off the login." }); return; }
+      // The temporary password is checked here, not only after Create staff on step 3 (layman loop 3).
+      const pw = tempPasswordProblem(formRef.current!, giveLogin && !linked);
+      if (pw) { setErrors({ temporaryPassword: pw }); formRef.current?.querySelector<HTMLInputElement>("[name=temporaryPassword]")?.focus(); return; }
       setErrors({});
       setStep(3);
       window.scrollTo({ top: 0 });
     }
   }
 
-  function submit(skipClasses = false) {
+  function submit(skipClasses = false, ctLater = false) {
     setMessage(null);
+    // The Class Teacher role with no section: ask which one, or let them choose it later (layman loop 3).
+    if (!skipClasses && !ctLater && offer.classTeacher && !ctChosen && data.classes.length > 0) {
+      setErrors({ classTeacherSectionId: t("Which section is {name} class teacher of? Choose one, or press Choose later.", { name: fullName.trim().split(/\s+/)[0] || t("this person") }) });
+      return;
+    }
     const fd = new FormData(formRef.current!);
     if (skipClasses) { fd.delete("alloc"); fd.delete("classTeacherSectionId"); }
     start(async () => {
@@ -193,7 +232,14 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const stepNames = ["Details", "What they can open", "Classes and subjects"];
   return (
     <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (step < 3) next(); else submit(); }} className="space-y-5">
-      <DraftHint draft={{ restored: draft.restored || picksDraft.restored, clear: () => { draft.clear(); picksDraft.clear(); }, done: () => { draft.done(); picksDraft.done(); } }} />
+      {(draft.restored || picksDraft.restored) && !keepGoing && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-warn/12 px-3 py-2 text-[13px] text-ink2" role="status">
+          <History size={15} className="text-warn shrink-0" aria-hidden="true" />
+          <span className="font-semibold">{fullName.trim() ? t("Continue {name}’s form?", { name: fullName.trim() }) : t("Draft kept: what you typed last time.")}</span>
+          <button type="button" onClick={() => setKeepGoing(true)} className="ml-auto font-semibold text-brand underline-offset-2 hover:underline focus-visible:underline"><Words k="Continue" /></button>
+          <button type="button" onClick={() => { draft.clear(); picksDraft.clear(); setRolesTouched(false); }} className="font-semibold text-brand underline-offset-2 hover:underline focus-visible:underline"><Words k="Start new" /></button>
+        </p>
+      )}
       <FormProblems errors={errors}>
       <ol className="grid grid-cols-3 gap-2" aria-label="Steps">
         {stepNames.map((n, i) => (
@@ -219,12 +265,12 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required maxLength={120} value={fullName} onChange={(e) => setFullName(e.target.value)} error={err("fullName")} autoComplete="off" />
           <TextField label="Phone" name="phone" required inputMode="numeric" value={phone} placeholder="10-digit mobile" onChange={(e) => setPhone(e.target.value)}
-            onBlur={() => setErrors((x) => ({ ...x, phone: phone ? checkIndianMobile(phone) ?? "" : "" }))} error={err("phone") || undefined} help="+91 is added. We check it is not on another staff record." />
+            onBlur={() => setErrors((x) => ({ ...x, phone: phone ? checkIndianMobile(phone) ?? "" : "" }))} error={err("phone") || undefined} help="+91 is added for you." />
           <SelectField label="Designation" name="designation" required value={designation} onChange={(e) => chooseDesignation(e.target.value)} error={err("designation")}
-            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Their post, shown under their name everywhere. What they can open is chosen in step 2." />
+            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Shown under their name everywhere." />
           <SelectField label="Department" name="departmentId" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDeptTouched(true); }} error={err("departmentId")}
             options={data.departments} placeholder="No department" />
-          <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
+          <TextField label="Joining date" name="joiningDate" type="date" required max={joinMax} defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
           <SelectField label="Gender" name="gender" defaultValue="" options={[{ value: "Female", label: "Female" }, { value: "Male", label: "Male" }, { value: "Other", label: "Other" }]} placeholder="Choose" error={err("gender")} />
           <TextField label="Email" name="email" type="email" defaultValue={p?.email ?? linked?.email} error={err("email")} help="Needed for an email invite." autoComplete="off" />
           <div>
@@ -235,7 +281,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           </div>
         </div>
         <div className="flex flex-wrap gap-6">
-          <CheckboxField name="phoneVerified" label="Phone verified" help="Tick only if you called this number and the staff member answered." />
+          <CheckboxField name="phoneVerified" label="Phone verified" help="Tick only if they answered your call." />
           <CheckboxField name="emailVerified" label="Email verified" help="Tick only if they replied from this email." />
         </div>
         <details className="rounded-xl border border-line p-4" open={Object.keys(errors).some((k) => ["staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId"].includes(k)) || undefined}>
@@ -243,13 +289,13 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <StaffDobField today={data.today} error={err("dateOfBirth")} />
             <SelectField label="Blood group" name="bloodGroup" defaultValue="" options={["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }))} placeholder="Choose" error={err("bloodGroup")} />
-            <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" maxLength={14} pattern="[0-9 ]{12,14}" title="12 digits" error={err("aadhaar")} help="Restricted: only HR, the School Admin and the Principal see it in full." autoComplete="off" />
+            <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" maxLength={14} pattern="[0-9 ]{12,14}" title="12 digits" error={err("aadhaar")} help="Only HR, the School Admin and the Principal see it in full." autoComplete="off" />
             <SelectField label="Employment type" name="employmentType" defaultValue="Permanent" options={data.employmentTypes.map((t) => ({ value: t, label: t }))} error={err("employmentType")} />
             <TextField label="Qualifications" name="qualification" defaultValue={p?.qualification} error={err("qualification")} />
             <TextField label="Experience (years)" name="experienceYears" inputMode="numeric" defaultValue={p?.experienceYears} error={err("experienceYears")} />
             <SelectField label="Reporting manager" name="reportingToId" defaultValue="" options={data.staff} placeholder="None" error={err("reportingToId")} />
             {data.campuses.length > 1 ? <SelectField label="Campus" name="campusId" defaultValue={data.campusId} options={data.campuses} error={err("campusId")} /> : <input type="hidden" name="campusId" value={data.campuses[0]?.value ?? ""} />}
-            <TextField label="Staff ID" name="staffCode" error={err("staffCode")} help="Leave empty to give the next free ID automatically." autoComplete="off" />
+            <TextField label="Staff ID" name="staffCode" error={err("staffCode")} help="Leave empty for the next ID." autoComplete="off" />
             <div />
             <TextArea label="Current address" name="address" rows={2} error={err("address")} />
             <TextArea label="Permanent address" name="permanentAddress" rows={2} error={err("permanentAddress")} />
@@ -269,26 +315,26 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <legend className="sr-only"><Words k="Step 2: What they can open" /></legend>
         {linked ? (
           <Alert tone="info" title="They already have a login">
-            <Words k="This staff record is linked to the login" /> <b>{linked.username}</b>{linked.roleNames.length ? <> ({linked.roleNames.join(", ")})</> : null}. <Words k="No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions." />
+            <Words k="This staff record is linked to the login" /> <b>{linked.username}</b>{linked.roleNames.length ? <> ({linked.roleNames.join(", ")})</> : null}. <Words k="No second login is made. Roles stay as they are." />
           </Alert>
         ) : (
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
-          help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or salary." />
+          help="No login is needed for the Time Table or salary." />
         )}
         {giveLogin && !linked && (
           <>
             <div>
               <p className="mb-1 font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></p>
               <p className="mb-3 text-sm text-ink-2"><Words k="Pick one or more. What each role can open is shown in plain words." /></p>
-              <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions." /></p>
+              <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's name? Pick the closest role." /></p>
               {errors.roleKeys && <p className="mb-2 text-sm text-danger" role="alert">{errors.roleKeys}</p>}
-              {postMismatch && <Alert tone="warning" className="mb-3">{designation} <Words k="is their post, but none of the chosen roles is that post's role. If the post is wrong, go Back and change it: it shows under their name everywhere." /></Alert>}
+              {postMismatch && <Alert tone="warning" className="mb-3">{designation} <Words k="is their post, but no chosen role matches it. If the post is wrong, go Back and change it." /></Alert>}
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.roles.map((r) => (
                   <li key={r.key} className={`rounded-xl border p-3 ${roleKeys.includes(r.key) ? "border-brand bg-brand-soft/40" : "border-line"}`}>
                     <label className="flex items-start gap-3">
                       <input type="checkbox" name="roleKeys" value={r.key} className="mt-1 size-5 accent-brand" checked={roleKeys.includes(r.key)}
-                        onChange={(e) => { setRolesTouched(true); setRoleKeys((k) => (e.target.checked ? [...k, r.key] : k.filter((x) => x !== r.key))); }} />
+                        onChange={(e) => { if (e.nativeEvent.isTrusted) setRolesTouched(true); setRoleKeys((k) => (e.target.checked ? [...k, r.key] : k.filter((x) => x !== r.key))); }} />
                       <span className="flex-1">
                         <span className="font-medium">{r.name}</span>
                         <span className="block text-sm text-ink-2">{r.lines.length} <Words k="module" />{r.lines.length === 1 ? "" : "s"}</span>
@@ -310,7 +356,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             <SignInChoice error={err("temporaryPassword")} />
             <details className="rounded-xl border border-line p-4">
               <summary className="cursor-pointer font-medium"><Words k="Adjust permissions (advanced)" /></summary>
-              <p className="mt-2 text-sm text-ink-2"><Words k="Start from the roles; change a module only when this one person needs something different. Changes show on their profile." /></p>
+              <p className="mt-2 text-sm text-ink-2"><Words k="Change a module only if this person needs it." /></p>
               {extras.length > 0 && <Alert tone="warning" className="mt-3">{extras.length} <Words k="extra permission" />{extras.length === 1 ? "" : "s"} <Words k="beyond the chosen role" />{roleKeys.length === 1 ? "" : "s"}.</Alert>}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {data.modules.map((m) => (
@@ -338,16 +384,19 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             {offer.classTeacher && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <p className="font-medium">{"Class teacher"}</p>
-                <p className="mt-1 text-sm text-ink-2"><Words k="The class teacher takes the daily attendance of one section and writes its report card remarks. A teacher is class teacher of one section only; in other classes they teach subjects only." /></p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="A teacher is class teacher of one section only." /></p>
                 <label className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-3">
                   <input type="radio" className="size-4 accent-brand" checked={!ctChosen} onChange={() => setCtSection("")} />
                   <Words k="Not a class teacher" />
                 </label>
                 <p className="mt-2 text-sm font-medium">{ctChosen ? t("Chosen: class teacher of {section}", { section: sectionLabel(ctChosen) }) : t("Chosen: not a class teacher")}</p>
                 <ProblemText name="classTeacherSectionId" given={errors.classTeacherSectionId} />
+                {errors.classTeacherSectionId && !ctChosen && <Button size="sm" variant="secondary" className="mt-2" onClick={() => submit(false, true)} disabled={pending}><Words k="Choose later" /></Button>}
               </div>
             )}
             <input type="hidden" name="classTeacherSectionId" value={ctChosen} />
+            {offer.subjects && noSubjects && <Alert tone="info"><Words k="No subjects yet. You can give classes later in Teacher Allocation." /></Alert>}
+            {(!noSubjects || offer.classTeacher) && <>
             <TextField label="Find a class" name="classSearch" value={classFilter} onChange={(e) => setClassFilter(e.target.value)} placeholder="Class 5" />
             <ul className="space-y-3">
               {data.classes.filter((c) => c.name.toLowerCase().includes(classFilter.trim().toLowerCase())).map((c) => {
@@ -381,7 +430,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                         </div>
                       </div>
                     )}
-                    {offer.subjects && (c.subjects.length === 0 ? (
+                    {offer.subjects && !noSubjects && (c.subjects.length === 0 ? (
                       <p className="mt-3 text-sm text-ink-2"><Words k="No subjects set for this class." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></p>
                     ) : (
                       <div className="mt-3 space-y-2">
@@ -409,6 +458,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                 );
               })}
             </ul>
+            </>}
             {allocs.map((a) => <input key={a} type="hidden" name="alloc" value={a} />)}
             <p className="text-sm text-ink-2" aria-live="polite">{stepThreeWords(t, ctChosen ? sectionLabel(ctChosen) : null, allocs)}</p>
           </>
@@ -419,7 +469,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       <div className="sticky bottom-16 z-10 flex flex-col-reverse gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <div>{step > 1 && <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}><Words k="Back" /></Button>}</div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {step === 3 && teaching && data.classes.length > 0 && <Button variant="secondary" data-submit onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}
+          {step === 3 && teaching && data.classes.length > 0 && (!noSubjects || offer.classTeacher) && <Button variant="secondary" data-submit onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}
           {step < 3
             ? <Button type="submit" loading={pending} loadingText="Checking…"><Words k="Next" /></Button>
             : <Button type="submit" loading={pending} loadingText="Creating…"><Words k="Create staff" /></Button>}
@@ -448,7 +498,7 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
       </dl>
       {done.temporary && done.username && (
         <Alert tone="info" title="Temporary password">
-          <Words k="They sign in with the username" /> <b>{done.username}</b> <Words k="and the temporary password you typed. Give it to them in person: it is not shown again or sent by message. At their first sign-in they choose their own password." />
+          <Words k="They sign in with the username" /> <b>{done.username}</b> <Words k="and the temporary password you typed. Give it in person: it is not shown again." />
         </Alert>
       )}
       {link && (

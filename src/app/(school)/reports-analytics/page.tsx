@@ -61,7 +61,7 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
   return (
     <div>
       <RepHead pageName="All Reports" href={BASE}
-        sub={`${mine.length} ready ${mine.length === 1 ? "report" : "reports"} from ${cats.length} ${cats.length === 1 ? "module" : "modules"} · filter, see on screen, export to Excel, CSV or PDF`} />
+        sub={`${mine.length} ready ${mine.length === 1 ? "report" : "reports"} from ${cats.length} ${cats.length === 1 ? "module" : "modules"}`} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {p.a.own && (
           <Banner tone="info" title="Showing your classes only.">
@@ -111,14 +111,14 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
               })}
             </div>
           )}
-          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Only reports your role may see are listed. Each module adds its reports here as it is switched on." /></p>
+          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Only reports your role may see are listed." /></p>
         </Card>
         {p.a.full && !p.a.pages.custom && (
           <Card className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <IconTile icon={Wand2} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-[14.5px]"><Words k={"Custom & Scheduled Reports is off"} /></p>
-              <p className="text-[13px] text-ink3"><Words k="Build your own reports and have any report emailed every day, week or month. For schools that need their own reports." /></p>
+              <p className="text-[13px] text-ink3"><Words k="Build your own reports and have any report emailed." /></p>
             </div>
             <QuickButton run={customFeatureAction.bind(null, true)}><Words k="Switch on" /></QuickButton>
           </Card>

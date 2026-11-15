@@ -97,7 +97,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
         <Split>
           <Col>
             <Card>
-              <CardHeader title="Copies" icon={BookOpen} description={`${plural(liveCopies.length, "copy", "copies")}${d.counts.withdrawn ? `, ${d.counts.withdrawn} withdrawn` : ""}. Accession numbers are never given again.`} divided
+              <CardHeader title="Copies" icon={BookOpen} description={`${plural(liveCopies.length, "copy", "copies")}${d.counts.withdrawn ? `, ${d.counts.withdrawn} withdrawn` : ""}`} divided
                 action={can.catalogue && liveCopies.length > 0 ? <ButtonLink href={`${BASE}/books/labels?book=${book.id}`} size="sm" icon={Printer} target="_blank" prefetch={false}><Words k="All labels" /></ButtonLink> : undefined} />
               {can.catalogue && liveCopies.length > 0 ? (
                 <form method="get" action={`${BASE}/books/labels`} target="_blank" className="contents">

@@ -126,11 +126,13 @@ export async function consoleSignIn(phone: string, password: string, device: Dev
   if (user.failedAttempts >= 3) await sleep(Math.min(user.failedAttempts - 2, 4) * 500);
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) {
-    const failed = user.failedAttempts + 1;
+    // One statement counts the try; the lock is decided from the count it returns (security review 2026-11-15).
+    const counted = await withConsole((tx) => tx.superAdminUser.update({ where: { id: user.id }, data: { failedAttempts: { increment: 1 } }, select: { failedAttempts: true } }));
+    const failed = counted.failedAttempts;
     const locks = failed >= MAX_FAILED;
-    await withConsole(async (tx) => {
-      await tx.superAdminUser.update({ where: { id: user.id }, data: { failedAttempts: locks ? 0 : failed, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null } });
-      if (locks) await logActivity(tx, { ...actorOf(user, device.ipAddress) }, { type: "signin", text: `${user.name}'s console login was locked for 15 minutes after ${MAX_FAILED} wrong passwords.` });
+    if (locks) await withConsole(async (tx) => {
+      await tx.superAdminUser.update({ where: { id: user.id }, data: { failedAttempts: 0, lockedUntil: new Date(now.getTime() + LOCK_MS) } });
+      await logActivity(tx, { ...actorOf(user, device.ipAddress) }, { type: "signin", text: `${user.name}'s console login was locked for 15 minutes after ${MAX_FAILED} wrong passwords.` });
     });
     if (locks) return { kind: "error", message: CONSOLE_LOCKED };
     return { kind: "error", message: MAX_FAILED - failed <= 2 ? `${WRONG} A few more wrong tries will lock this login.` : WRONG };
@@ -165,10 +167,17 @@ export async function checkConsoleCode(challenge: string | null | undefined, typ
   if (!c || c.purpose !== purpose || c.usedAt) return { ok: false, message: "This code has already been used or replaced. Start again.", restart: true };
   if (c.expiresAt <= now) return { ok: false, message: "This code has expired after 10 minutes. Start again to get a new one.", restart: true };
   if (c.attempts >= MAX_CODE_TRIES) return { ok: false, message: "Too many wrong codes. Start again to get a new one.", restart: true };
+  // As the school's two-step check: a limit per login over every code it is sent (security review 2026-11-15).
+  const limit = await hitLimit(`console-code-check:${c.userId}`, 20, 900, now);
+  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
+  // The try is counted before the code is compared, in one statement that refuses a sixth, so
+  // codes sent at the same moment cannot all slip past the five-try limit.
+  const counted = await withConsole((tx) => tx.consoleCode.updateMany({ where: { id: c.id, usedAt: null, attempts: { lt: MAX_CODE_TRIES } }, data: { attempts: { increment: 1 } } }));
+  if (counted.count === 0) return { ok: false, message: "Too many wrong codes. Start again to get a new one.", restart: true };
   const right = timingSafeEqual(Buffer.from(codeHash(challenge, code)), Buffer.from(c.codeHash));
   if (!right) {
-    const updated = await withConsole((tx) => tx.consoleCode.update({ where: { id: c.id }, data: { attempts: { increment: 1 } } }));
+    const updated = await withConsole((tx) => tx.consoleCode.findUniqueOrThrow({ where: { id: c.id }, select: { attempts: true } }));
     const left = MAX_CODE_TRIES - updated.attempts;
     if (left <= 0) {
       await withConsole((tx) => tx.consoleCode.update({ where: { id: c.id }, data: { usedAt: now } }));

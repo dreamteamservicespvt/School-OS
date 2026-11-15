@@ -54,10 +54,10 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
             <EmptyState title="No academic year is open"><Words k="Open the year in Academic Management first." /></EmptyState>
           ) : data.now ? (
             sameClass.length === 0 ? (
-              <EmptyState title={`${current_?.className ?? "This class"} has only one section`}><Words k="Add another section in Academic Management to move students between sections. To move class, use Promotion." /></EmptyState>
+              <EmptyState title={`${current_?.className ?? "This class"} has only one section`}><Words k="Add another section in Academic Management first." /></EmptyState>
             ) : (
               <ActionForm action={changeSectionAction.bind(null, id)} submitLabel="Change section" pendingText="Moving…" footer={cancel}>
-                <p><Words k="Now in" /> <strong>{current_?.label}</strong>{data.now.rollNo ? `, roll number ${data.now.rollNo}` : ""}<Words k=". The student gets the next free roll number in the new section; the old section stays in the history." /></p>
+                <p><Words k="Now in" /> <strong>{current_?.label}</strong>{data.now.rollNo ? `, roll number ${data.now.rollNo}` : ""}<Words k=". They get the next free roll number in the new section." /></p>
                 <FormSelect name="sectionId" label="New section" required placeholder="Choose" options={sameClass.map((s) => ({ value: s.value, label: label(s) }))} />
                 <FormArea name="reason" label="Reason" rows={2} />
               </ActionForm>

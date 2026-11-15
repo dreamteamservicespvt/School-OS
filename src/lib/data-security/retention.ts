@@ -21,6 +21,7 @@ import { fileStore } from "../storage";
 import { activeSchoolAdminIds } from "../settings/common";
 import { EXPORT_LINK_HOURS } from "./data-export";
 import { retentionRules } from "./privacy";
+import { word } from "../notification-words";
 
 /** The kinds of record the check can clear, with the words the screen uses. */
 export const CLEARABLE = {
@@ -195,9 +196,9 @@ export async function runRetentionCheck(tx: Tx, ctx: SchoolContext, now = new Da
   }
   // School Admins are told once when records start waiting, not every night.
   if (status === "waiting" && !before) {
-    const text = `${Object.entries(due).map(([k, v]) => countWords(k, v.count)).join(", ")} are past the period your school keeps them. Review and clear them.`;
+    const list = Object.entries(due).map(([k, v]) => countWords(k, v.count)).join(", ");
     for (const to of await activeSchoolAdminIds(tx, ctx.schoolId)) {
-      await notify(tx, ctx, { to, type: "privacy", text, link: "/settings/data-security/privacy#retention" });
+      await notify(tx, ctx, { to, type: "privacy", key: "{list} are past the period your school keeps them. Review and clear them.", values: { list: word(list) }, link: "/settings/data-security/privacy#retention" });
     }
   }
   return run;

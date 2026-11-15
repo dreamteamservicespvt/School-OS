@@ -17,6 +17,7 @@ import { frontOfficeSettings, passExpiryFor } from "./settings";
 import { instantOf, clockAt, todayIso } from "./time";
 import { formatDate } from "../format";
 import { mobileDigits, phoneProblem, replyOf, tidyVehicle, vehicleProblem, type ReplyKey, type VisitorStatus } from "./words";
+import { word } from "../notification-words";
 
 export function visitorStatus(v: Pick<VisitorEntry, "timeOut" | "passExpiresAt">, now = new Date()): VisitorStatus {
   if (v.timeOut) return "Out";
@@ -34,10 +35,19 @@ export function statusWhere(status: string, now = new Date()): Prisma.VisitorEnt
 /** Purposes that need a person to meet. */
 export const MEET_PURPOSES = ["Meeting", "Interview", "Fee payment"];
 
-export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent" };
+/** Someone still inside on a pass that works: the desk is told before a second pass is made. */
+export type InsideNow = { id: string; passNo: string; since: string };
+export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent"; inside?: InsideNow | null;
+  /** The parts of `last`, so the screen can say it whole in its language. */
+  lastDay?: string; lastMet?: string | null; relation?: string; kids?: string };
+
+/** The pass this phone is still inside on (not checked out, not expired), if any. */
+async function openPassFor(tx: Tx, phone: string, now: Date) {
+  return tx.visitorEntry.findFirst({ where: { phone, archivedAt: null, ...statusWhere("In", now) }, orderBy: { timeIn: "desc" }, select: { id: true, name: true, passNo: true, timeIn: true } });
+}
 
 /** Finds a returning visitor (or a parent of the school) by phone, so the form fills in. */
-export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: string): Promise<ReturningVisitor | null> {
+export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: string, now = new Date()): Promise<ReturningVisitor | null> {
   const phone = mobileDigits(rawPhone);
   if (!/^[6-9]\d{9}$/.test(phone)) return null;
   const last = await tx.visitorEntry.findFirst({ where: { phone, archivedAt: null }, orderBy: { timeIn: "desc" } });
@@ -45,7 +55,11 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
     const met = last.meetStaffId ? await tx.staff.findFirst({ where: { id: last.meetStaffId }, select: { fullName: true } }) : null;
     const d = last.timeIn;
     const day = formatDate(d, timeZone);
-    return { kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}` };
+    const open = await openPassFor(tx, phone, now);
+    return {
+      kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}`, lastDay: day, lastMet: met?.fullName ?? null,
+      inside: open ? { id: open.id, passNo: open.passNo, since: clockAt(open.timeIn, timeZone) } : null,
+    };
   }
   const g = await tx.guardian.findFirst({
     where: { phone, archivedAt: null },
@@ -53,7 +67,7 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
   });
   if (!g) return null;
   const kids = g.students.map((s) => s.student.firstName || s.student.fullName).join(" and ");
-  return { kind: "parent", name: g.name, purpose: null, meetStaffId: null, last: kids ? `${g.relationship} of ${kids}` : g.relationship };
+  return { kind: "parent", name: g.name, purpose: null, meetStaffId: null, last: kids ? `${g.relationship} of ${kids}` : g.relationship, relation: g.relationship, kids };
 }
 
 export type RegisterInput = {
@@ -68,6 +82,8 @@ export type RegisterInput = {
   idProofNo: string | null;
   vehicleNo: string | null;
   appointmentId?: string | null;
+  /** The desk saw that this phone is inside on another pass and still wants a new one. */
+  again?: boolean;
 };
 
 /** Registers a visitor and makes the pass (16 §2, Done when 1, 2 and 9). */
@@ -77,6 +93,11 @@ export async function registerVisitor(tx: Tx, ctx: SchoolContext, input: Registe
   const pp = phoneProblem(input.phone);
   if (pp) throw new FrontOfficeProblem(pp, "phone");
   const phone = mobileDigits(input.phone);
+  // A second pass for someone still inside is nearly always the same visit typed twice (layman loop 3).
+  if (!input.again) {
+    const open = await openPassFor(tx, phone, now);
+    if (open) throw new FrontOfficeProblem(`${open.name} is inside now on pass ${open.passNo}. Open that pass, or tick “New pass anyway”.`, "phone");
+  }
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new FrontOfficeProblem("Enter the visitor’s name.", "name");
   if (name.length > 120) throw new FrontOfficeProblem("Name can be at most 120 characters.", "name");
@@ -129,7 +150,10 @@ export async function registerVisitor(tx: Tx, ctx: SchoolContext, input: Registe
   if (meetLogin) {
     const n = await notify(tx, ctx, {
       to: meetLogin, type: "visitor-arrived",
-      text: `${name} is at the front desk to meet you (${input.purpose.toLowerCase()}${input.peopleCount > 1 ? `, ${input.peopleCount} people` : ""}). Reply: Send in, Wait or Not available.`,
+      key: input.peopleCount > 1
+        ? "{name} is at the front desk to meet you ({purpose}, {n} people). Reply: Send in, Wait or Not available."
+        : "{name} is at the front desk to meet you ({purpose}). Reply: Send in, Wait or Not available.",
+      values: { name, purpose: word(input.purpose.toLowerCase()), n: input.peopleCount },
       link: `/front-office/visit/${v.id}`,
     }, now);
     told = Boolean(n);
@@ -186,7 +210,7 @@ export async function replyToVisitor(tx: Tx, ctx: SchoolContext, id: string, rep
   await tx.visitorEntry.update({ where: { id }, data: { staffReply: r.key, staffReplyAt: now } });
   await writeAudit(tx, ctx, { action: "visitor-reply", recordType: "Visitor Entry", recordId: id, before: { staffReply: v.staffReply }, after: { staffReply: r.key } });
   if (isMe && v.createdById && v.createdById !== ctx.userId) {
-    await notify(tx, ctx, { to: v.createdById, type: "visitor-reply", text: `${staff?.fullName ?? "Staff"}: ${r.label} for ${v.name} (pass ${v.passNo}).`, link: "/front-office" }, now);
+    await notify(tx, ctx, { to: v.createdById, type: "visitor-reply", key: "{staff}: {reply} for {name} (pass {pass}).", values: { staff: staff?.fullName ?? word("Staff"), reply: word(r.label), name: v.name, pass: v.passNo }, link: "/front-office" }, now);
   }
   return { visitor: v, reply: r, staffName: staff?.fullName ?? null };
 }
@@ -288,7 +312,7 @@ export async function remindDeskAboutPass(tx: Tx, ctx: SchoolContext, id: string
   const to = deskLogins.filter((x) => x !== ctx.userId);
   if (!to.length) throw new FrontOfficeProblem("Nobody else at the front desk has a login to remind. Give the Receptionist a login in Settings, Users & Permissions (the School Admin can).");
   for (const login of to) {
-    await notify(tx, ctx, { to: login, type: "visitor-pass-open", text: `Close pass ${v.passNo} (${v.name}) with the right time: it expired at ${clockAt(v.passExpiresAt, opts.timeZone)} without a check-out.`, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
+    await notify(tx, ctx, { to: login, type: "visitor-pass-open", key: "Close pass {pass} ({name}) with the right time: it expired at {time} without a check-out.", values: { pass: v.passNo, name: v.name, time: clockAt(v.passExpiresAt, opts.timeZone) }, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
   }
   await writeAudit(tx, ctx, { action: "desk-reminded", recordType: "Visitor Entry", recordId: v.id, after: { passNo: v.passNo, told: to.length } });
   return { visitor: v, told: to.length };

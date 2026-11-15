@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Upload } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
@@ -37,7 +38,11 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
   const data = await withSchool(page.current.ctx, async (tx) => {
     const classes = await tx.schoolClass.findMany({ where: { campusId: page.campusId, archivedAt: null, sections: { some: { academicYearId: year.id, archivedAt: null, ...(page.scope.sectionIds ? { id: { in: page.scope.sectionIds } } : {}) } } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
-    const classId = classes.some((c) => c.id === classFilter) ? classFilter : own ? "" : classes[0]?.id ?? "";
+    // Opens on the first class that has subjects (Nursery often has none, and showed only "No subjects mapped").
+    // campus: the classes above are this campus's already.
+    const mapped = classFilter || own ? [] : await tx.subjectClass.findMany({ where: { classId: { in: classes.map((c) => c.id) }, ...mapActiveOn(date) }, select: { classId: true }, distinct: ["classId"] });
+    const firstMapped = classes.find((c) => mapped.some((m) => m.classId === c.id));
+    const classId = classes.some((c) => c.id === classFilter) ? classFilter : own ? "" : firstMapped?.id ?? classes[0]?.id ?? "";
     let sectionIds = page.scope.sectionIds;
     if (classId) sectionIds = (await tx.section.findMany({ where: { classId, academicYearId: year.id, archivedAt: null, ...(page.scope.sectionIds ? { id: { in: page.scope.sectionIds } } : {}) }, select: { id: true } })).map((s) => s.id);
     const grid = view === "grid" ? await allocationGrid(tx, page.current.ctx, year.id, page.campusId, date, sectionIds) : null;
@@ -63,7 +68,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
       <ViewSwitch views={[{ value: "grid", label: "By class" }, { value: "teachers", label: own ? "My classes and load" : "Teachers and workload" }]} current={view} />
       {view === "grid" && data.grid && (
         <>
-          {!own && data.totalGaps > 0 && <Alert tone="warning" className="mb-4" title={`${plural(data.totalGaps, "subject")} in ${data.classId ? "the school" : "these classes"} have no teacher yet`}><Words k="Gaps show in red." /> {canEdit ? "Click a cell to assign a teacher." : ""}</Alert>}
+          {!own && data.totalGaps > 0 && <Alert tone="warning" className="mb-4" title={`${plural(data.totalGaps, "subject place")} in ${data.classId ? "the school" : "these classes"} ${data.totalGaps === 1 ? "has" : "have"} no teacher yet`}><Words k="A place is one subject in one section. Gaps show in red." /> {canEdit ? "Click a cell to assign a teacher." : ""}</Alert>}
           <div className="no-print mb-4 flex flex-wrap items-end gap-3">
             <ParamSelect name="class" label="Class" current={data.classId} placeholder={own ? "All my classes" : "All classes"} options={data.classes.map((c) => ({ value: c.id, label: c.name }))} />
             <GapsToggle on={gapsOnly} />
@@ -71,7 +76,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
           {data.grid.rows.length === 0 ? (
             <EmptyState title="No sections here"><Words k={"Add classes and sections in Classes & Sections, then map subjects to them."} /></EmptyState>
           ) : data.grid.subjects.length === 0 ? (
-            <EmptyState title="No subjects mapped"><Words k="Map subjects to this class in Subjects, By class. Then assign teachers here." /></EmptyState>
+            <EmptyState title="No subjects mapped"><Words k="Map subjects to this class in Subjects, By class. Then assign teachers here." />{page.scope.manage && <> <Link href="/academic-management/subjects" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></>}</EmptyState>
           ) : (
             <AllocationGrid rows={data.grid.rows.map((r) => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, cells]) => [k, cells?.map((c) => ({ ...c, fromDate: c.fromDate ? isoDay(c.fromDate) : null, toDate: c.toDate ? isoDay(c.toDate) : null })) ?? null])) }))}
               subjects={data.grid.subjects} teachers={teachers} canEdit={canEdit} yearId={year.id} today={isoDay(date)} gapsOnly={gapsOnly} ppw={ppw} />
@@ -96,7 +101,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
                         <h2 className="font-semibold">{w.name}</h2>
                         <p className="text-sm text-ink-2">{w.designation}</p>
                       </div>
-                      <Badge tone={over ? "danger" : w.periods === 0 ? "warning" : "neutral"}>{w.periods} <Words k="of" /> {w.limit} <Words k="periods" /></Badge>
+                      <Badge tone={over ? "danger" : w.periods === 0 ? "warning" : "neutral"}><Words k="{n} of {n2}" vars={{ n: w.periods, n2: w.limit }} /> <Words k="periods" /></Badge>
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${w.periods} of ${w.limit} periods a week`}>
                       <div className={`h-full ${over ? "bg-danger" : pct > 90 ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />

@@ -8,6 +8,8 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { canChangeStaff, canOpenStaff, canSeeSalary } from "@/lib/staff/access";
 import { campusStaffWhere } from "@/lib/staff/list";
 import { showRestricted } from "@/lib/staff/staff";
+import { maskLast4 } from "@/lib/crypto";
+import { phoneShow } from "@/lib/students/show";
 import { balancesFor, daysText, leaveYearFor, offDayMap } from "@/lib/staff/leave";
 import { docStatus, DOC_TONE, showDocNumber } from "@/lib/staff/documents";
 import { EMPLOYMENT_TYPES, hrSettings, statusLabel } from "@/lib/staff/settings";
@@ -45,6 +47,7 @@ import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 import { RecordTitle } from "@/components/ui/record-title";
+import { Reveal } from "./reveal";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -122,7 +125,10 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     return { manager, campus, exit, printed, login, onLeave, balances, periods, classCount, classTeacher, todayBox };
   });
 
-  const first = s.firstName || s.fullName.split(/\s+/)[0];
+  // The name for greetings and buttons: skip a first word with no letters (an emoji or digits).
+  const hasLetter = (w: string) => /\p{L}/u.test(w);
+  const lettered = (name: string | null | undefined) => { const w = (name ?? "").trim().split(/\s+/); const i = w.findIndex(hasLetter); return i < 0 ? "" : w.slice(i).join(" "); };
+  const first = lettered(s.firstName) || lettered(s.fullName).split(" ")[0] || s.fullName;
   const limited = head.balances.filter((b) => b.limited);
   const mainLeave = limited.find((b) => /casual/i.test(b.type.name)) ?? limited[0];
   const docsNeed = s.documents.filter((d) => docStatus(d, today) !== "Valid").length;
@@ -176,7 +182,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                 <PinButton label={s.fullName} href={`${BASE}/${s.id}`} userId={current.user.id} />
               </div>
               <p className="mt-0.5 text-[13.5px] text-ink3">
-                {s.designation}{s.department ? ` · ${s.department.name}` : ""} · <span className="font-mono text-[12.5px]">{s.staffCode}</span> · <a href={`tel:+91${s.phone}`} className="tnum hover:underline">{s.phone}</a>
+                {s.designation}{s.department ? ` · ${s.department.name}` : ""} · <span className="font-mono text-[12.5px]">{s.staffCode}</span> · <a href={`tel:+91${s.phone}`} className="tnum hover:underline">{phoneShow(s.phone)}</a>
               </p>
               {s.statusReason && s.status !== "ACTIVE" && <p className="mt-1 text-[13px] text-ink2">{statusLabel(s.status)}{s.statusSince ? ` since ${formatDate(s.statusSince, tz)}` : ""}: {s.statusReason}</p>}
             </div>
@@ -266,6 +272,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       emergency: contacts.map((c) => ({ name: c.name, relation: c.relation, phone: c.phone })),
       bankIfsc: s!.bankIfsc ?? "", bankName: s!.bankName ?? "", uan: s!.uan ?? "", esiNo: s!.esiNo ?? "",
     };
+    const hidden = (enc: string | null, aadhaar = false) => hiddenValue(enc, viewer.restricted, aadhaar);
     const editable = canEdit && !left;
     const accessRoles = data.access?.roles.map((r) => r.role) ?? [];
     const exceptions = (data.access?.exceptions ?? {}) as Record<string, AccessLevel>;
@@ -287,7 +294,6 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               ["Date of birth", s!.dateOfBirth ? formatDate(s!.dateOfBirth, tz) : null],
               ["Gender", s!.gender],
               ["Blood group", s!.bloodGroup],
-              ["Aadhaar", showRestricted(s!.aadhaarEnc, viewer.restricted)],
               ["Qualifications", s!.qualification],
               ["Experience", s!.experienceYears !== null ? `${s!.experienceYears} years` : null],
               ["Home address", s!.address],
@@ -318,7 +324,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                   <li key={c.id} className="flex items-center gap-3 py-2.5">
                     <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sunken text-[12px] font-semibold tnum">{i + 1}</span>
                     <span className="min-w-0 flex-1"><span className="font-semibold">{c.name}</span>{c.relation ? <span className="text-ink3"> · {c.relation}</span> : null}</span>
-                    {c.phone && <a href={`tel:+91${c.phone}`} className="tnum hover:underline">{c.phone}</a>}
+                    {c.phone && <a href={`tel:+91${c.phone}`} className="tnum hover:underline">{phoneShow(c.phone)}</a>}
                   </li>
                 ))}
               </ol>
@@ -332,23 +338,23 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               <DL rows={fields.map((f) => [f.label, custom[f.key] ? String(custom[f.key]) : null] as [string, React.ReactNode])} />
             </Card>
           )}
-          {viewer.restricted && (
-            <Card>
-              <CardHeader title="Restricted details" description="Shown in full only to HR, the School Admin and the Principal." action={hr && !left ? <RestrictedForm v={v} action={saveRestricted} /> : undefined} />
-              <DL rows={[
-                ["Aadhaar", showRestricted(s!.aadhaarEnc, true)],
-                ["PAN", showRestricted(s!.panEnc, true)],
-                ["Bank account", showRestricted(s!.bankAccountEnc, true)],
+          <Card>
+            <CardHeader title="Restricted details" description={viewer.restricted ? "Masked. Tap Show to see in full." : "Shown in full only to HR, the School Admin and the Principal."} action={hr && !left ? <RestrictedForm v={v} action={saveRestricted} /> : undefined} />
+            <DL rows={[
+              ["Aadhaar", hidden(s!.aadhaarEnc, true)],
+              ...(viewer.restricted ? [
+                ["PAN", hidden(s!.panEnc)],
+                ["Bank account", hidden(s!.bankAccountEnc)],
                 ["IFSC", s!.bankIfsc],
-              ]} />
-            </Card>
-          )}
+              ] as [string, React.ReactNode][] : []),
+            ]} />
+          </Card>
         </Col>
         <Col>
           <Card>
             <CardHeader title="Contact" icon={Phone} action={hr && !left ? <ContactForm v={v} action={saveContact} /> : undefined} />
             <ul className="space-y-3 px-5 pb-5 text-[14px]">
-              <li className="flex flex-wrap items-center gap-2"><Phone size={17} className="text-ink3" aria-hidden="true" /><a href={`tel:+91${s!.phone}`} className="tnum hover:underline">+91 {s!.phone}</a>{verified(s!.phoneVerified)}</li>
+              <li className="flex flex-wrap items-center gap-2"><Phone size={17} className="text-ink3" aria-hidden="true" /><a href={`tel:+91${s!.phone}`} className="tnum hover:underline">{phoneShow(s!.phone)}</a>{verified(s!.phoneVerified)}</li>
               {s!.email ? <li className="flex flex-wrap items-center gap-2"><Mail size={17} className="text-ink3" aria-hidden="true" /><a href={`mailto:${s!.email}`} className="break-all hover:underline">{s!.email}</a>{verified(s!.emailVerified)}</li>
                 : <li className="flex items-center gap-2 text-ink3"><Mail size={17} aria-hidden="true" /><Words k="No email" /></li>}
               {head.onLeave && s!.status === "ACTIVE" && <li className="flex items-center gap-2"><CalendarDays size={17} className="text-warn" aria-hidden="true" /><Words k="On leave until" /> {formatDate(head.onLeave.toDate, tz)}</li>}
@@ -408,7 +414,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       ]);
       return { year, allocs, sections };
     });
-    if (!data) return <EmptyState title="No academic year is open"><Words k="Classes are given in Teacher Allocation once the academic year is opened in Academic Management." /></EmptyState>;
+    if (!data) return <EmptyState title="No academic year is open"><Words k="Open the year in Academic Management first." /></EmptyState>;
     return (
       <div className="space-y-5">
         <Card>
@@ -418,7 +424,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <Card>
           <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation"><Words k="Teacher Allocation" /></ButtonLink> : undefined} />
           <CardBody>
-            {data.allocs.length === 0 ? <p className="text-ink-2"><Words k="No classes given yet. Classes are given in Add Staff step 3 or in Teacher Allocation." /></p> : (
+            {data.allocs.length === 0 ? <p className="text-ink-2"><Words k="No classes given yet. Give them in Teacher Allocation." /></p> : (
               <ul className="divide-y divide-line">
                 {data.allocs.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -441,7 +447,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       const periods = await tx.timetablePeriod.findMany({ where: { versionId: version.id, staffId: s!.id, archivedAt: null }, include: { section: { include: { schoolClass: true } }, subject: true }, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }] });
       return { version, periods };
     });
-    if (!data) return <EmptyState title="No published Time Table"><Words k="The teacher's week shows here once a Time Table is published in Academic Management." /></EmptyState>;
+    if (!data) return <EmptyState title="No published Time Table"><Words k="Publish a Time Table in Academic Management first." /></EmptyState>;
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const nos = [...new Set(data.periods.map((p) => p.periodNo))].sort((a, b) => a - b);
     if (data.periods.length === 0) return <EmptyState title="No periods on the Time Table">{s!.fullName} <Words k="has no periods in" /> {data.version.name}.</EmptyState>;
@@ -597,7 +603,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <CardHeader title="Workload" description={data.year?.name} />
         <CardBody className="space-y-4">
           <div>
-            <p className="font-medium">{data.periods} <Words k="of" /> {periodLimit} <Words k="periods a week" /></p>
+            <p className="font-medium"><Words k="{n} of {n2}" vars={{ n: data.periods, n2: periodLimit }} /> <Words k="periods a week" /></p>
             <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-3" role="meter" aria-valuemin={0} aria-valuemax={periodLimit} aria-valuenow={data.periods} aria-label="Periods a week">
               <div className={`h-full ${data.periods > periodLimit ? "bg-danger" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>
@@ -667,7 +673,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const docs = s!.documents;
     return (
       <Card>
-        <CardHeader title="Documents" description="Certificates, ID proof and contracts, with expiry dates." action={hr && !left ? <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} /> : undefined} />
+        <CardHeader title="Documents" action={hr && !left ? <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} /> : undefined} />
         <CardBody>
           {docs.length === 0 ? <p className="text-ink-2"><Words k="No documents yet." />{hr ? " Upload certificates, ID proof and contracts with their expiry dates to get reminders." : " Give your documents to HR."}</p> : (
             <ul className="divide-y divide-line">
@@ -686,7 +692,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                       {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind, missing: !d.fileId }} />}
                       {hr && !left && (
                         <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={removeDocumentAction.bind(null, d.id)}>
-                          <Words k="It is taken off" /> {s!.fullName}<Words k="’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record." />
+                          <Words k="It is taken off" /> {s!.fullName}<Words k="’s record. Its reminders stop. The file is kept." />
                         </ConfirmButton>
                       )}
                     </div>
@@ -739,7 +745,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             </Card>
           ) : (
             <Card>
-              <CardHeader title="Salary days" description="Days, leave and loss of pay that reached the salary. Amounts are not shown here." icon={Lock} />
+              <CardHeader title="Salary days" description="Amounts are not shown here." icon={Lock} />
               <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/history?tab=staff&who=${s!.id}`}><Words k="Open Salary History" /></ButtonLink></div>
             </Card>
           )}
@@ -759,13 +765,13 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           </Card>
         </Split>
         <Card>
-          <CardHeader title="Bank, PF and ESI numbers" description="Used for the salary bank file and the PF and ESI statements" />
+          <CardHeader title="Bank, PF and ESI numbers" />
           <CardBody>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Detail label="Bank account">{showRestricted(s!.bankAccountEnc, viewer.restricted)}</Detail>
+              <Detail label="Bank account">{hiddenValue(s!.bankAccountEnc, viewer.restricted)}</Detail>
               <Detail label="IFSC">{s!.bankIfsc}</Detail>
               <Detail label="Bank">{s!.bankName}</Detail>
-              <Detail label="PAN">{showRestricted(s!.panEnc, viewer.restricted)}</Detail>
+              <Detail label="PAN">{hiddenValue(s!.panEnc, viewer.restricted)}</Detail>
               <Detail label="UAN (PF)">{s!.uan}</Detail>
               <Detail label="ESI number">{s!.esiNo}</Detail>
             </dl>
@@ -778,3 +784,16 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
 
 // Keeps the module list import used for type checking of exceptions.
 export type _Modules = ModuleKey;
+
+/**
+ * A restricted number (Aadhaar, PAN, bank account) is never shown in plain view: masked ("XXXX XXXX 9932"),
+ * with Show only for the roles allowed to see it in full; only they are sent the full number (layman loop 5).
+ */
+function hiddenValue(enc: string | null, canSee: boolean, aadhaar = false): React.ReactNode {
+  const value = showRestricted(enc, true);
+  if (!value || value === "Cannot be read") return value;
+  const d = value.replace(/\s+/g, "");
+  const masked = aadhaar ? `XXXX XXXX ${d.slice(-4)}` : maskLast4(d);
+  const full = canSee ? (aadhaar ? d.replace(/(\d{4})(?=\d)/g, "$1 ") : d) : null;
+  return <Reveal masked={masked} full={full} />;
+}

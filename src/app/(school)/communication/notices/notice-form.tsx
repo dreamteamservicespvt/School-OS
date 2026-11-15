@@ -1,12 +1,14 @@
 "use client";
 
 // Create or change a notice (11-communication.md, Notice Board form).
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { startTransition, useActionState, useRef, useState } from "react";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { saveNoticeAction, type NoticeState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { Words } from "@/lib/i18n/client";
+import { Dialog } from "@/components/ui/dialog";
+import { useT, Words } from "@/lib/i18n/client";
 import { DateInput, DateTimeInput } from "@/components/ui/date-input";
 
 export type NoticeFormData = {
@@ -14,6 +16,10 @@ export type NoticeFormData = {
   values: { title: string; body: string; parents: boolean; students: boolean; staff: boolean; roleKeys: string[]; classIds: string[]; sectionIds: string[]; campusIds: string[]; priority: string; channels: string[]; publishAt: string; expiresOn: string; askAck: boolean; files: { id: string; name: string }[] };
   classes: { id: string; name: string; sections: { id: string; name: string }[] }[];
   roles: { key: string; name: string }[];
+  /** The subject and class teacher roles among them: "All teachers" ticks these. */
+  teacherKeys: string[];
+  /** Staff (working now) with no login: a notice never reaches them. */
+  staffNoLogin: number;
   campuses: { id: string; name: string }[];
   staffAllowed: boolean;
   wholeSchool: boolean;
@@ -28,7 +34,7 @@ const CHANNELS = [
   { key: "app", label: "App notification" },
   { key: "parent-link", label: "Parent Link" },
   { key: "whatsapp", label: "WhatsApp" },
-  { key: "sms", label: "SMS" },
+  ...(SMS_OFFERED ? [{ key: "sms", label: "SMS" }] : []),
   { key: "email", label: "Email" },
 ];
 
@@ -42,6 +48,19 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const [staff, setStaff] = useState(v.staff);
   const [priority, setPriority] = useState(v.priority);
   const [classes, setClasses] = useState<string[]>(v.classIds);
+  const [roleKeys, setRoleKeys] = useState<string[]>(v.roleKeys);
+  // One tap for the usual audiences (layman loop 4: reaching teachers took untick Parents, tick Staff, find two roles).
+  const pick = (to: "parents" | "staff" | "teachers") => {
+    setParents(to === "parents"); setStudents(false); setStaff(to !== "parents"); setClasses([]);
+    setRoleKeys(to === "teachers" ? data.teacherKeys : []);
+  };
+  const QUICK: { key: "parents" | "staff" | "teachers"; label: string; on: boolean }[] = [
+    { key: "parents", label: "All parents", on: parents && !students && !staff && classes.length === 0 },
+    ...(data.staffAllowed ? [
+      { key: "staff" as const, label: "All staff", on: staff && !parents && !students && roleKeys.length === 0 },
+      ...(data.teacherKeys.length ? [{ key: "teachers" as const, label: "All teachers", on: staff && !parents && !students && roleKeys.length === data.teacherKeys.length && data.teacherKeys.every((k) => roleKeys.includes(k)) }] : []),
+    ] : []),
+  ];
   const [keep, setKeep] = useState(v.files);
   const [word, setWord] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -51,6 +70,17 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const approval = (parents && data.needsApproval.parents) || data.needsApproval.all;
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, "Notice");
+  const t = useT();
+  const [wa, setWa] = useState(v.channels.includes("whatsapp"));
+  // The browser's own file button says "Choose Files / No file chosen" in English: a button in the screen's language instead.
+  const [picked, setPicked] = useState(0);
+  // Publishing goes to everyone chosen at once, so it asks first (P4); a draft or "Send for approval" does not.
+  const [confirm, setConfirm] = useState<{ fd: FormData; to: string; by: string } | null>(null);
+
+  function send(f: FormData) {
+    draft.done();
+    startTransition(() => action(f));
+  }
 
   function check(e: React.FormEvent<HTMLFormElement>) {
     const f = new FormData(e.currentTarget);
@@ -70,8 +100,16 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
     }
     // Sent by hand, so what was typed stays on screen if the server finds a problem (P7).
     f.set("intent", intent.current);
-    draft.done();
-    startTransition(() => action(f));
+    if (intent.current === "publish" && !approval) {
+      const kinds = [parents && t("Parents"), students && t("Students"), staff && t("Staff")].filter(Boolean).join(", ");
+      const picked = f.getAll("classIds").length + f.getAll("sectionIds").length > 0;
+      const where = !(parents || students) ? "" : picked ? t("Chosen classes") : data.wholeSchool ? t("Whole school") : t("Your sections");
+      const chosen = new Set(f.getAll("channels").map(String));
+      const by = CHANNELS.filter((c) => c.fixed || chosen.has(c.key) || (c.key === "parent-link" && parents)).map((c) => t.any(c.label)).join(", ");
+      setConfirm({ fd: f, to: where ? `${kinds} · ${where}` : kinds, by });
+      return;
+    }
+    send(f);
   }
 
   return (
@@ -100,31 +138,49 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             <ul className="mb-2 flex flex-wrap gap-2">
               {keep.map((f) => (
                 <li key={f.id} className="inline-flex items-center gap-1 rounded-full bg-sunken/70 py-1 pl-3 pr-1 text-sm">{f.name}
-                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-sunken">×</button>
+                  <button type="button" aria-label={t("Remove {name}", { name: f.name })} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-sunken">×</button>
                 </li>
               ))}
             </ul>
           )}
-          <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none file:bg-surface file:px-4" />
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="n-files" className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:border-ink3/50 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand/15">
+              {t("Choose files")}
+              <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only"
+                onChange={(e) => setPicked(e.target.files?.length ?? 0)} />
+            </label>
+            <span className="text-sm text-ink3" aria-live="polite">{picked ? t("{n} files chosen", { n: picked }) : t("No file chosen")}</span>
+          </div>
           {err("files") ? <p className="mt-1.5 text-[12.5px] text-bad">{err("files")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="PDF or photos, up to 5 files of 10 MB each." /></p>}
         </div>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
-        <fieldset id="n-audience" tabIndex={-1}>
+        <fieldset id="n-audience" tabIndex={-1} aria-invalid={err("audience") ? true : undefined} aria-describedby={err("audience") ? "n-audience-error" : undefined}>
           <legend className="mb-2 font-semibold"><Words k="Audience" /> <span className="text-bad" aria-hidden>*</span></legend>
+          {QUICK.length > 1 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {QUICK.map((q) => (
+                <button key={q.key} type="button" aria-pressed={q.on} onClick={() => pick(q.key)}
+                  className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[14px] font-medium ${q.on ? "border-brand bg-brand/10 text-brand" : "border-line hover:border-ink3/50"}`}>
+                  {t.any(q.label)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap gap-x-6">
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="parents" checked={parents} onChange={(e) => setParents(e.target.checked)} className={box} /><Words k="Parents" /></label>
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} /><Words k="Students" /></label>
             {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} /><Words k="Staff" /></label>}
           </div>
-          {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
-          {parents && <p className="text-sm text-ink3"><Words k="Parents see it on their Parent Link, and by message on the channels chosen below." /></p>}
+          {err("audience") && <p id="n-audience-error" role="alert" className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
+          {parents && wa && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
+          {staff && roleKeys.length === 0 && data.staffNoLogin > 0 && <p className="text-sm font-medium text-warn">{t("{n} staff have no login, so they will not see this.", { n: data.staffNoLogin })}</p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
             <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Classes and sections" /></legend>
-            <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? "Nothing ticked: the whole school." : "Choose your own sections."}</p>
+            <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? t("Nothing ticked: the whole school.") : t("Choose your own sections.")}</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {data.classes.map((c) => (
                 <div key={c.id} className="rounded-xl border border-line p-3">
@@ -145,7 +201,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <fieldset>
             <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Staff roles (nothing ticked: all staff)" /></legend>
             <div className="flex flex-wrap gap-x-5">
-              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} defaultChecked={v.roleKeys.includes(r.key)} className={box} />{r.name}</label>)}
+              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} checked={roleKeys.includes(r.key)} onChange={(e) => setRoleKeys(e.target.checked ? [...roleKeys, r.key] : roleKeys.filter((x) => x !== r.key))} className={box} />{t.any(r.name)}</label>)}
             </div>
           </fieldset>
         )}
@@ -165,28 +221,31 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <div className="flex flex-wrap gap-2">
             {[["NORMAL", "Normal"], ["HIGH", "High"], ...(data.criticalAllowed ? [["CRITICAL", "Critical"]] : [])].map(([k, l]) => (
               <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-bad ring-4 ring-bad/10 bg-bad/10 font-medium text-bad" : k === "HIGH" ? "border-warn bg-warn/10 font-medium text-warn" : "border-brand bg-brand/10 font-medium text-brand") : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`}>
-                <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{l}
+                <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{k === "HIGH" ? t("High@@priority") : t.any(l)}
               </label>
             ))}
           </div>
-          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad"><Words k="A Critical notice is pinned at the top of every chosen parent’s Parent Link until it expires, and goes even to parents who opted out of messages." /></p>}
+          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad"><Words k="Pinned on every chosen parent’s Parent Link until it expires. Goes even to parents who opted out." /></p>}
         </fieldset>
         <fieldset>
           <legend className="mb-2 font-semibold"><Words k="Channels" /></legend>
           <div className="flex flex-wrap gap-x-5">
-            {CHANNELS.map((c) => (
+            {/* Parent Link reaches parents only: not offered (or listed) for a notice to staff or students (layman loop 4). */}
+            {CHANNELS.filter((c) => c.key !== "parent-link" || parents).map((c) => (
               <label key={c.key} className="flex min-h-11 items-center gap-2">
-                <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box} />
-                {c.label}{c.fixed ? " (always)" : c.key === "parent-link" && parents ? " (always for parents)" : ""}
+                <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box}
+                  onChange={c.key === "whatsapp" ? (e) => setWa(e.target.checked) : undefined} />
+                {t.any(c.label)}{c.fixed ? ` ${t("(always)")}` : c.key === "parent-link" && parents ? ` ${t("(always for parents)")}` : ""}
               </label>
             ))}
           </div>
-          <p className="text-sm text-ink3"><Words k="WhatsApp, SMS and email go to parents, using the notice template and your credits." /></p>
+          {parents && !wa && <p className="text-sm font-medium text-warn"><Words k="Parents without Parent Link will not get this. Tick WhatsApp to reach everyone." /></p>}
+          <p className="text-sm text-ink3"><Words k="Messages use the notice template and your credits." /></p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="n-publishAt" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Publish at" /></label>
-            <DateTimeInput id="n-publishAt" name="publishAt" defaultValue={v.publishAt} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
+            <DateTimeInput id="n-publishAt" name="publishAt" defaultValue={v.publishAt} timePlaceholder="Now" className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
             <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="Blank: now." /></p>
             {err("publishAt") && <p className="text-sm text-bad">{err("publishAt")}</p>}
           </div>
@@ -218,6 +277,23 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <Words k="Save draft" />
         </Button>
       </div>
+
+      <Dialog open={Boolean(confirm)} onClose={() => setConfirm(null)} title={t("Publish this notice?")}
+        sub={t("Messages cannot be unsent. Archive takes it off the board and Parent Link.")}
+        footer={<>
+          <Button variant="secondary" onClick={() => setConfirm(null)}><Words k="Go back" /></Button>
+          <Button loading={pending} loadingText="Saving" onClick={() => { if (confirm) send(confirm.fd); setConfirm(null); }}><Words k="Publish" /></Button>
+        </>}>
+        {confirm && (
+          <ul className="flex flex-col gap-2 text-[14px]">
+            <li><b className="font-semibold"><Words k="Audience" />:</b> {confirm.to}</li>
+            <li><b className="font-semibold"><Words k="Channels" />:</b> {confirm.by}</li>
+            {/* Repeated here, so the clerk sees it at the moment of pressing Publish (layman loop 3). */}
+            {parents && !wa && <li className="font-medium text-warn"><Words k="Parents without Parent Link will not get this. Tick WhatsApp to reach everyone." /></li>}
+            {staff && roleKeys.length === 0 && data.staffNoLogin > 0 && <li className="font-medium text-warn">{t("{n} staff have no login, so they will not see this.", { n: data.staffNoLogin })}</li>}
+          </ul>
+        )}
+      </Dialog>
     </form>
   );
 }

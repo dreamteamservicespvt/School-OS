@@ -11,7 +11,7 @@ import { UUID_RE } from "@/lib/staff/act";
 import { campusStaffWhere } from "@/lib/staff/list";
 import { personCampusId } from "@/lib/campus";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
-import { MODULES } from "@/lib/modules";
+import { MODULES, type ModuleKey } from "@/lib/modules";
 import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Wizard, type WizardData } from "./wizard";
@@ -27,6 +27,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
+/** Ready roles that work in one optional module: not offered while the school has that module switched off. */
+const ROLE_MODULE: Record<string, ModuleKey> = {
+  "transport-in-charge": "transport-management", driver: "transport-management", librarian: "library-management",
+  "hostel-warden": "hostel-management", "store-keeper": "inventory-management",
+};
+
 export default async function AddStaffPage({ searchParams }: Search) {
   const { current, viewer, today } = await hrPage("create");
   if (pageHidden(current, "staff-hr-management", "add")) redirect(BASE);
@@ -35,6 +41,9 @@ export default async function AddStaffPage({ searchParams }: Search) {
   // Staff List, "can sign in but have no staff record": make the record for that login (src/lib/staff/link-login.ts).
   const loginId = typeof sp.login === "string" && UUID_RE.test(sp.login) ? sp.login : null;
 
+  // Optional modules the school has switched off (Modules On/Off): their roles and permission rows are not shown.
+  const offModules = MODULES.filter((m) => m.optional && !current.modulesOn.has(m.key));
+  const offNames = new Set(offModules.map((m) => m.name));
   const data = await withSchool(current.ctx, async (tx) => {
     const [settings, designations, departments, staff, campuses, roles] = await Promise.all([
       hrSettings(tx, current.ctx),
@@ -87,9 +96,10 @@ export default async function AddStaffPage({ searchParams }: Search) {
       staff: staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.designation})` })),
       campuses: campuses.map((c) => ({ value: c.id, label: c.name })),
       campusId: campusId ?? "",
-      roles: roles.filter((r, i) => r.key !== "student" && (managesUsers(current) || !isTopRole(r)) && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => {
+      roles: roles.filter((r, i) => r.key !== "student" && (managesUsers(current) || !isTopRole(r)) && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i)
+        .filter((r) => !(r.key && ROLE_MODULE[r.key] && !current.modulesOn.has(ROLE_MODULE[r.key]))).map((r) => {
         const perms = r.permissions as RolePermissions;
-        return { key: r.key ?? r.id, name: r.name, perms: perms as Record<string, AccessLevel>, lines: roleLines(perms).map((l) => `${l.module}: ${l.words}`) };
+        return { key: r.key ?? r.id, name: r.name, perms: perms as Record<string, AccessLevel>, lines: roleLines(perms).filter((l) => !offNames.has(l.module)).map((l) => `${l.module}: ${l.words}`) };
       }),
       yearName: year?.name ?? null,
       classes: classIds.map((id) => {
@@ -110,7 +120,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
       <BackLink href={BASE} label="Staff List" />
       <PageHeader title="Add Staff" href={`${BASE}/add`} userId={current.user.id} />
       <Wizard
-        data={{ ...data, today: isoDay(today), employmentTypes: [...EMPLOYMENT_TYPES], modules: MODULES.map((m) => ({ key: m.key, name: m.name })) }}
+        data={{ ...data, today: isoDay(today), employmentTypes: [...EMPLOYMENT_TYPES], modules: MODULES.filter((m) => !offNames.has(m.name)).map((m) => ({ key: m.key, name: m.name })) }}
         checkDetails={checkDetails}
         create={createStaffAction}
       />

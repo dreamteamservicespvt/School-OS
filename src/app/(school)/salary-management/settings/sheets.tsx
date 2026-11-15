@@ -96,14 +96,14 @@ const LATE = [{ value: "0", label: "Off" }, ...[2, 3, 4, 5].map((n) => ({ value:
 export function DuesTrackingSheet({ closeHref, on, months, start }: { closeHref: string; on: boolean; months: Option[]; start: string }) {
   const [v, setV] = useState(on);
   return (
-    <SheetForm title="PF, ESI, Professional Tax and TDS to pay" sub="What salary takes for the government stays money to pay until you record it paid, with the challan number. Paying it puts it in the Day Book."
+    <SheetForm title="PF, ESI, Professional Tax and TDS to pay" sub="To pay until you record it paid, with the challan number."
       closeHref={closeHref} action={duesTrackingAction} submitLabel="Save" pendingText="Saving…" hidden={{ on: v ? "1" : "0" }}>
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Track what is to pay" /></b><span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="Off: nothing is listed as to pay." /></span></div>
         <Switch on={v} onChange={setV} label="Track what is to pay" />
       </div>
       {v && <SSelect name="from" label="From the salary of" required options={months} start={start}
-        help="Months before this were paid outside School OS, for example as expenses, so they are not asked for again." />}
+        help="Months before this were paid outside School OS." />}
     </SheetForm>
   );
 }
@@ -126,7 +126,7 @@ export function PreferencesSheet({ closeHref, now }: { closeHref: string; now: {
 export function SlabsSheet({ closeHref, state, rows }: { closeHref: string; state: string; rows: { from: string; to: string; tax: string }[] }) {
   const list = [...rows, ...Array.from({ length: Math.max(0, 6 - rows.length) }, () => ({ from: "", to: "", tax: "" }))].slice(0, 6);
   return (
-    <SheetForm title={`Professional Tax · ${state}`} sub="Salary in the month, and the tax a month. Leave “To” blank on the last row for “and above”." closeHref={closeHref} action={slabsAction} submitLabel="Save table" pendingText="Saving…" hidden={{ state }}>
+    <SheetForm title={`Professional Tax · ${state}`} sub="Leave “To” blank on the last row for “and above”." closeHref={closeHref} action={slabsAction} submitLabel="Save table" pendingText="Saving…" hidden={{ state }}>
       {list.map((r, i) => (
         <div key={i} className="grid grid-cols-3 gap-2">
           <SMoney name={`from_${i}`} label={i === 0 ? "From" : ""} start={r.from} aria-label={`Row ${i + 1} from`} />

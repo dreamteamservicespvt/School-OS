@@ -4,7 +4,7 @@ import { BadgeCheck, BellOff, Check, Coins, History, Link2, MessageSquareText, S
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { CHANNELS, CHANNEL_LABEL, channelSetups, whatsappIsLive, type Channel } from "@/lib/messaging/channels";
+import { CHANNELS, CHANNEL_LABEL, channelSetups, offeredChannels, SMS_OFFERED, whatsappIsLive, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { ruleStates } from "@/lib/messaging/automatic";
 import { HELD_WORDS, movingIn } from "@/lib/move-in/live";
@@ -65,24 +65,25 @@ export default async function MessageSettingsPage() {
     const creators = await tx.userLogin.findMany({ where: { id: { in: groups.map((g) => g.createdById).filter(Boolean) as string[] } }, select: { id: true, displayName: true } });
     return { rules, settings, owners, topics, optedOut, records, versions, plTemplateId: plTemplate?.id ?? null, groups, creators, balances, used, setups, school, roles, features, runs, held };
   });
-  const channels = CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }));
+  // SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026); a rule's saved SMS choice is kept, not shown.
+  const channels = offeredChannels(CHANNELS).map((c) => ({ value: c, label: CHANNEL_LABEL[c] }));
   const s = data.settings;
   const usedOf = (c: string) => Math.abs(data.used.find((u) => u.channel === c)?._sum.amount ?? 0);
-  const totalLeft = data.balances.whatsapp + data.balances.sms;
+  const totalLeft = data.balances.whatsapp + (SMS_OFFERED ? data.balances.sms : 0);
 
   const whatsappLive = whatsappIsLive(data.setups.whatsapp);
   const ruleRows: RuleRowData[] = data.rules.map((r) => ({
-    key: r.key, label: r.label, when: r.when, module: r.module, audience: r.audience, isOn: r.isOn, channels: r.channels, sendTo: r.sendTo, timing: r.timing,
+    key: r.key, label: r.label, when: r.when, module: r.module, audience: r.audience, isOn: r.isOn, channels: offeredChannels(r.channels), sendTo: r.sendTo, timing: r.timing,
     timingFields: (r.timingFields ?? []).map((f) => ({ key: f.key, label: f.label, kind: f.kind })),
     channelsSetIn: r.channelsFrom === "fee-settings" ? { label: "Fee Settings", href: "/fee-management/settings?edit=reminders" } : null,
-    templates: CHANNELS.map((c) => {
+    templates: offeredChannels(CHANNELS).map((c) => {
       const id = r.templateIds[c as Channel];
       const vs = data.versions.filter((v) => v.templateId === id);
       if (!id) return { channel: c, label: "No template for this channel. Add one in Message Templates.", href: null, problem: r.channels.includes(c) ? `No ${CHANNEL_LABEL[c]} template, so this channel is skipped.` : null };
       const noDlt = c === "sms" && vs.some((v) => !v.dltTemplateId);
       // On a real WhatsApp account only approved templates go; parents then get it by SMS, or not at all.
       const notApproved = c === "whatsapp" && whatsappLive && !vs.some((v) => v.whatsappStatus === "APPROVED");
-      const problem = !r.channels.includes(c) ? null : noDlt ? "The SMS template has no DLT template ID, so SMS is skipped." : notApproved ? "WhatsApp has not approved this template yet, so parents get it by SMS (with a DLT template ID) or not at all. Send it for approval." : null;
+      const problem = !r.channels.includes(c) ? null : noDlt ? "The SMS template has no DLT template ID, so SMS is skipped." : notApproved ? (SMS_OFFERED ? "WhatsApp has not approved this template yet, so parents get it by SMS (with a DLT template ID) or not at all. Send it for approval." : "WhatsApp has not approved this template yet, so parents do not get it by WhatsApp. Send it for approval.") : null;
       return { channel: c, label: vs[0]?.template.name ?? "Template", href: `/communication/templates/${id}`, problem };
     }),
   }));
@@ -97,8 +98,10 @@ export default async function MessageSettingsPage() {
 
   const senders: [string, string | null, string][] = [
     ["WhatsApp Business number", data.setups.whatsapp.config.displayNumber || null, data.setups.whatsapp.isOn ? (data.setups.whatsapp.environment === "live" ? "Connected" : "Connected in test mode") : "Not switched on"],
-    ["SMS sender header", data.school.smsSenderHeader, data.setups.sms.isOn ? "Registered on the DLT portal" : "SMS is not switched on"],
-    ["DLT entity ID", data.school.smsDltEntityId, "Added by DREAM TEAM from the telecom DLT portal"],
+    ...(SMS_OFFERED ? [
+      ["SMS sender header", data.school.smsSenderHeader, data.setups.sms.isOn ? "Registered on the DLT portal" : "SMS is not switched on"],
+      ["DLT entity ID", data.school.smsDltEntityId, "Added by DREAM TEAM from the telecom DLT portal"],
+    ] as [string, string | null, string][] : []),
     ["Email sender", data.setups.email.config.fromAddress || null, data.setups.email.isOn ? "Sends from this address" : "Email is not switched on"],
     ["Reply-to phone", data.school.phone, "Shown at the end of Parent Link"],
   ];
@@ -119,24 +122,30 @@ export default async function MessageSettingsPage() {
   return (
     <>
       <CommHead access={access} page="Message Settings" href="/communication/settings"
-        sub="Credits, the senders parents see, SMS backup, who may message whom, and the automatic messages."
+        sub="Credits, senders, who may message whom, and automatic messages."
         actions={<ButtonLink href="/communication/settings/log" variant="secondary" icon={History}><Words k="Automation log" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card>
-            <CardHeader title="Message credits" description="1 credit per WhatsApp message or SMS part. Email and app notices are free." icon={Coins}
+            <CardHeader title="Message credits" description={SMS_OFFERED ? "1 credit per WhatsApp message or SMS part. Email and app notices are free." : "1 credit per WhatsApp message. Email and app notices are free."} icon={Coins}
               action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary"><Words k="Credit history" /></ButtonLink>} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div className="flex items-end gap-3 flex-wrap">
                 <p className="font-display text-[34px] font-semibold tnum leading-none">{totalLeft.toLocaleString("en-IN")}</p>
                 <p className="text-[13px] text-ink3 pb-1"><Words k="credits left" /></p>
               </div>
-              <HBars rows={[{ k: "WhatsApp", v: data.balances.whatsapp }, { k: "SMS", v: data.balances.sms }]} unit="" labelWidth={86} ariaLabel="Credits left by channel" />
-              <p className="text-[12.5px] text-ink3 tnum"><Words k="Used this month:" /> {(usedOf("whatsapp") + usedOf("sms")).toLocaleString("en-IN")} ({usedOf("whatsapp").toLocaleString("en-IN")} <Words k="WhatsApp," /> {usedOf("sms").toLocaleString("en-IN")} <Words k="SMS). A warning goes to the School Admin below" /> {data.setups.whatsapp.lowCreditAlert.toLocaleString("en-IN")} <Words k="credits." /></p>
+              {SMS_OFFERED ? (
+                <>
+                  <HBars rows={[{ k: "WhatsApp", v: data.balances.whatsapp }, { k: "SMS", v: data.balances.sms }]} unit="" labelWidth={86} ariaLabel="Credits left by channel" />
+                  <p className="text-[12.5px] text-ink3 tnum"><Words k="Used this month:" /> {(usedOf("whatsapp") + usedOf("sms")).toLocaleString("en-IN")} ({usedOf("whatsapp").toLocaleString("en-IN")} <Words k="WhatsApp," /> {usedOf("sms").toLocaleString("en-IN")} <Words k="SMS). A warning goes to the School Admin below" /> {data.setups.whatsapp.lowCreditAlert.toLocaleString("en-IN")} <Words k="credits." /></p>
+                </>
+              ) : (
+                <p className="text-[12.5px] text-ink3 tnum"><Words k="Used this month:" /> {usedOf("whatsapp").toLocaleString("en-IN")} <Words k="WhatsApp credits. A warning goes to the School Admin below" /> {data.setups.whatsapp.lowCreditAlert.toLocaleString("en-IN")} <Words k="credits." /></p>
+              )}
             </div>
           </Card>
           <Card>
-            <CardHeader title="Senders and DLT" description="What parents see as the sender. DREAM TEAM sets these up." icon={BadgeCheck}
+            <CardHeader title={SMS_OFFERED ? "Senders and DLT" : "Senders"} description="What parents see as the sender. DREAM TEAM sets these up." icon={BadgeCheck}
               action={<ButtonLink href="/settings/messaging" size="sm" variant="ghost"><Words k="Connections" /></ButtonLink>} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               {senders.map(([t, v, sub]) => (
@@ -150,13 +159,13 @@ export default async function MessageSettingsPage() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card id="delivery" className="scroll-mt-20">
-            <CardHeader title="SMS backup and delivery" description="When WhatsApp fails or is not read in time" icon={MessageSquareText} />
+            <CardHeader title={SMS_OFFERED ? "SMS backup and delivery" : "Delivery"} description="When WhatsApp fails or is not read in time" icon={MessageSquareText} />
             <div className="px-5 pb-5">
-              <DeliveryForm retryLimit={s.retryLimit} backup={s.smsBackup} backupTypes={BACKUP_TYPES.map((t) => ({ value: t, label: BACKUP_TYPE_LABEL[t] }))} noticeApproval={s.noticeApproval} />
+              <DeliveryForm retryLimit={s.retryLimit} backup={s.smsBackup} backupTypes={BACKUP_TYPES.map((t) => ({ value: t, label: BACKUP_TYPE_LABEL[t] }))} noticeApproval={s.noticeApproval} showBackup={SMS_OFFERED} />
             </div>
           </Card>
           <Card>
-            <CardHeader title="Optional pages and alerts" description="Switched on for this school only. Their data stays if switched off." icon={ToggleRight} />
+            <CardHeader title="Optional pages and alerts" description="Their data stays if switched off." icon={ToggleRight} />
             <FeatureSwitches features={COMM_FEATURE_LIST.map((f) => ({
               key: f.key,
               label: f.label,
@@ -167,7 +176,7 @@ export default async function MessageSettingsPage() {
         </div>
 
         <Card className="overflow-hidden">
-          <CardHeader title="Who may send to whom" description="Set from each role in Settings, Users & Permissions. Teachers are never offered other classes." icon={ShieldCheck}
+          <CardHeader title="Who may send to whom" description="Set from each role in Users & Permissions." icon={ShieldCheck}
             action={<ButtonLink href="/settings/users/roles" size="sm" variant="ghost"><Words k="Roles" /></ButtonLink>} />
           <div className="overflow-x-auto border-t border-line">
             <table className="text-[13px] min-w-[760px] w-full">
@@ -182,11 +191,11 @@ export default async function MessageSettingsPage() {
               </tbody>
             </table>
           </div>
-          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="Only the Principal and School Admin may send an emergency broadcast. Parents who opted out still get emergency messages." /></p>
+          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="Only the Principal and School Admin may send an emergency broadcast. It reaches opted-out parents too." /></p>
         </Card>
 
         <Card id="automatic" className="scroll-mt-20">
-          <CardHeader title="Automatic messages" description="When this happens, send this. Each rule sends once per event per person, never twice. Parents who opted out are skipped." icon={Zap} />
+          <CardHeader title="Automatic messages" description="Each rule sends once per event per person. Opted-out parents are skipped." icon={Zap} />
           {data.held && <p className="mx-5 mb-3 rounded-lg bg-surface-2 px-3 py-2 text-[13.5px]">{HELD_WORDS} <Link href="/settings/data-security/switching/check" className="font-semibold text-brand hover:underline"><Words k="Open the go-live check" /></Link></p>}
           {groupsOfRules.map((g) => (
             <div key={g.title} className="border-t border-line/70">
@@ -215,7 +224,7 @@ export default async function MessageSettingsPage() {
             <div className="px-5 pb-5">
               <OptOutPanel ways={[...OPT_OUT_WAYS]} rows={data.optedOut.map((g) => {
                 const r = data.records.find((x) => x.guardianId === g.id);
-                return { id: g.id, name: g.name, detail: `${g.relationship} · ••${g.phone.slice(-4)}`, since: r ? formatDate(r.createdAt, tz) : "before records", how: r?.how ?? "Not recorded", note: r?.note ?? null };
+                return { id: g.id, name: g.name, detail: `${g.relationship} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}`, since: r ? formatDate(r.createdAt, tz) : "before records", how: r?.how ?? "Not recorded", note: r?.note ?? null };
               })} />
             </div>
           </Card>
@@ -223,7 +232,7 @@ export default async function MessageSettingsPage() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card id="queries" className="scroll-mt-20">
-            <CardHeader title="Feedback & Queries" description="Reply time limits are optional, for larger schools. An overdue query is escalated once." icon={MessageSquareText} />
+            <CardHeader title="Feedback & Queries" description="Reply time limits are optional. An overdue query is escalated once." icon={MessageSquareText} />
             <div className="px-5 pb-5">
               <QueryRulesForm on={s.queryTargets.on} hours={s.queryTargets.hours} types={QUERY_TYPES.map((t) => ({ value: t, label: QUERY_TYPE_LABEL[t] }))} escalateToId={s.queryTargets.escalateToId ?? ""} people={people} rating={s.queryRating} />
               <h3 className="mb-1 mt-6 font-semibold text-[14px]"><Words k="Query topics and default owners" /></h3>
@@ -247,7 +256,7 @@ export default async function MessageSettingsPage() {
                     <GroupArchive id={g.id} name={g.name} />
                   </li>
                 ))}
-                {!data.groups.length && <li className="text-[13.5px] text-ink3"><Words k="No saved groups yet. In Send Message, choose people and press “Save as group”." /></li>}
+                {!data.groups.length && <li className="text-[13.5px] text-ink3"><Words k="No saved groups yet. Use “Save as group” in Send Message." /></li>}
               </ul>
             </Card>
           </Col>

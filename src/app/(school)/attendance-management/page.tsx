@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE, takesAttendance } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
-import { dayInfo, dayOffTitle, nextSchoolDay } from "@/lib/attendance/calendar";
+import { dayInfo, dayOffTitle, lastSchoolDay, nextSchoolDay } from "@/lib/attendance/calendar";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { clockHHMM } from "@/lib/attendance/time";
 import { day, isoDay } from "@/lib/staff/dates";
@@ -20,7 +20,7 @@ import { SheetPicker } from "./_components/picker";
 import { TakeSheet } from "./_components/take-sheet";
 import { OfflinePanel } from "./_components/offline-panel";
 import { longDay } from "./_components/dates";
-import { DayText, Words } from "@/lib/i18n/client";
+import { Line, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -80,18 +80,26 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
     label: `${c.name}${c.periodLabel ? ` · ${c.periodLabel}` : ""}${c.done ? " ✓" : ""}`,
   }));
   const sheet = data.sheet;
+  // The next class not taken yet, after the one on screen: a button once this one is saved.
+  const at = data.chosen ? data.choices.indexOf(data.chosen) : -1;
+  const nextUp = at < 0 ? null : [...data.choices.slice(at + 1), ...data.choices.slice(0, at)].find((c) => !c.done) ?? null;
+  const nextLink = nextUp ? { href: `${BASE}?date=${isoDay(date)}&section=${nextUp.sectionId}${nextUp.periodNo ? `&period=${nextUp.periodNo}` : ""}`, label: `${nextUp.name}${nextUp.periodLabel ? ` · ${nextUp.periodLabel}` : ""}` } : null;
   const messageLine = "messages" in data ? messageCountText(data.messages ?? null, isoDay(date) === isoDay(today)) : null;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
   const nextDay = data.info && !data.info.on ? await withSchool(current.ctx, (tx) => nextSchoolDay(tx, current.ctx, date, access.campusId)) : null;
+  // One tap for the usual "I forgot yesterday", like Give homework's date chips (layman loop 5).
+  const lastDay = await withSchool(current.ctx, (tx) => lastSchoolDay(tx, current.ctx, today, access.campusId));
+  const minDay = data.year ? isoDay(data.year.startDate) : null;
+  const lastDayIso = lastDay && (!minDay || isoDay(lastDay) >= minDay) ? isoDay(lastDay) : undefined;
   const sub = data.chosen
     ? [data.chosen.name, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
     : longDay(date);
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<DayText text={sub} />}
+      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<Line text={sub} />}
         actions={<SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
-          date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
+          date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined} lastDay={lastDayIso}
           classLabel={periodWise ? "Class and period" : "Class and section"} />} />
 
       <OfflinePanel userId={current.user.id} offlineOn={offlineOn} />
@@ -122,20 +130,20 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
         <EmptyState title={periodWise ? "No periods to take on this date" : "No class to take"} Icon={Users}
           action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>}>
           {periodWise
-            ? "Your Time Table has no periods for you on this date. If you are covering a class, ask for the substitution to be arranged."
-            : access.admin ? "There are no sections to take this year. Add classes and sections in Academic Management."
-              : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
+            ? "No periods for you on this date. Covering a class? Ask for a substitution."
+            : access.admin ? "Add classes and sections in Academic Management."
+              : "Only class teachers take daily attendance. Ask the principal if you need a class."}
         </EmptyState>
       ) : sheet.students.length === 0 ? (
         <EmptyState title={`No students in ${sheet.section.name}`} Icon={Users}
           action={<Link href="/student-management" className={buttonClass("secondary", "md")}><Words k="Open Student Management" /></Link>}>
-          <Words k="Students appear here once they are placed in this section in Student Management." />
+          <Words k="Students show here once placed in this section." />
         </EmptyState>
       ) : (
         <>
         {messageLine && (
           <Banner tone={data.messages?.notSent ? "warn" : "info"} className="mb-4" title={`${messageLine}.`}>
-            {data.messages?.notSent ? "Those parents were not told by message. Call them, or fix what stopped it (the parent's phone, the message switch in Communication)." : "Parents of students marked absent are told once for the day."}
+            {data.messages?.notSent ? "Call those parents. Then check their phone number or the message switch in Communication." : "Parents of students marked absent are told once for the day."}
           </Banner>
         )}
         <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}:${sheet.savedAt?.getTime() ?? 0}:${sheet.correction?.id ?? ""}:${sheet.correction?.status ?? ""}`}
@@ -159,7 +167,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           saved={sheet.saved}
           savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}
-          correctionHref={correctionHref} offlineOn={offlineOn} />
+          correctionHref={correctionHref} offlineOn={offlineOn} next={nextLink} />
         </>
       )}
     </>

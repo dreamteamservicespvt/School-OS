@@ -9,8 +9,8 @@ import { InvHead } from "./head";
 import { BASE, type InvPageData } from "../_lib/page";
 
 const ABOUT = {
-  "inventory-items": "One row per item, checked as if typed on Add item. Leave the code empty to give codes in sequence; a code or item already in use is flagged, not added twice. Opening stock can name several stores in one cell: Main store: 100; Lab store: 20. Undo is possible until the items are used.",
-  "inventory-assets": "One row per asset, checked as if typed on Add asset. Leave the tag empty to give tags in sequence; a tag already in use is flagged. The location is a room, a department, or a staff member's code or name. Print their tags from Assets.",
+  "inventory-items": "One row per item. Leave the code empty to number it. Stock in several stores: Main store: 100; Lab store: 20.",
+  "inventory-assets": "One row per asset. Leave the tag empty to number it. The location is a room, a department or a staff member.",
 };
 
 const PAGE = {

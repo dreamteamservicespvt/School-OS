@@ -18,6 +18,7 @@ import { worksElsewhere } from "../auth/access";
 import { loginsForCampus } from "./campus-logins";
 import { exitRefusal, granterOf, heldHere } from "./login-ceiling";
 import { activeSchoolAdminIds, isLastSchoolAdmin } from "../settings/common";
+import { word } from "../notification-words";
 
 export class ExitProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -151,7 +152,7 @@ export async function handOver(tx: Tx, ctx: SchoolContext, itemId: string, toSta
   await tx.handoverItem.update({ where: { id: item.id }, data: { toStaffId: to?.id ?? null, doneAt: new Date(), doneById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "handed-over", recordType: "Handover Item", recordId: item.id, after: { label: item.label, to: to?.fullName ?? null } });
   if (to?.userLoginId) {
-    await notify(tx, ctx, { to: to.userLoginId, type: "handover", text: `You now have: ${item.label}`, link: `/staff-hr-management/${to.id}?tab=classes`, groupKey: "handover", mergedText: (n) => `${n} classes or duties were handed over to you` });
+    await notify(tx, ctx, { to: to.userLoginId, type: "handover", key: "You now have: {item}", values: { item: word(item.label) }, link: `/staff-hr-management/${to.id}?tab=classes`, groupKey: "handover", mergedKey: "{n} classes or duties were handed over to you" });
   }
 }
 
@@ -213,7 +214,7 @@ export async function sendSettlement(tx: Tx, ctx: SchoolContext, exitCaseId: str
     });
     // One campus: salary staff limited to another campus are not told.
     for (const p of await loginsForCampus(tx, ctx, [...new Set(payroll.map((x) => x.userLoginId))], staff.campusId)) {
-      await notify(tx, ctx, { to: p, type: "settlement", text: `Final settlement for ${staff.fullName}: last working day ${formatDate(exit.lastWorkingDay)}. Pay it in Generate Salary for that month; add leave encashment or recoveries with Add adjustment.`, link: "/salary-management/generate" });
+      await notify(tx, ctx, { to: p, type: "settlement", key: "Final settlement for {name}: last working day {date}. Pay it in Generate Salary for that month; add leave encashment or recoveries with Add adjustment.", values: { name: staff.fullName, date: formatDate(exit.lastWorkingDay) }, link: "/salary-management/generate" });
     }
   }
 }
@@ -242,9 +243,9 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
   if (exit.loginDisabledAt) return "done-before";
   const staff = await tx.staff.findUniqueOrThrow({ where: { id: exit.staffId } });
   if (staff.userLoginId && (await isLastSchoolAdmin(tx, ctx.schoolId, staff.userLoginId))) {
-    const text = `Your last working day was ${formatDate(exit.lastWorkingDay)}, but your login stays open: you are the only School Admin. Add another School Admin in Settings, Users & Permissions; your login then closes.`;
+    const date = formatDate(exit.lastWorkingDay);
     for (const to of await activeSchoolAdminIds(tx, ctx.schoolId)) {
-      await notify(tx, ctx, { to, type: "staff-exit", text, link: `/staff-hr-management/exit/${exit.id}`, groupKey: `exit-last-admin:${exit.id}`, mergedText: () => text });
+      await notify(tx, ctx, { to, type: "staff-exit", key: "Your last working day was {date}, but your login stays open: you are the only School Admin. Add another School Admin in Settings, Users & Permissions; your login then closes.", values: { date }, link: `/staff-hr-management/exit/${exit.id}`, groupKey: `exit-last-admin:${exit.id}`, mergedKey: "Your last working day was {date}, but your login stays open: you are the only School Admin. Add another School Admin in Settings, Users & Permissions; your login then closes." });
     }
     return "kept-open";
   }
@@ -267,7 +268,7 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
     before: { status: staff.status }, after: { status, lastWorkingDay: exit.lastWorkingDay.toISOString().slice(0, 10), loginClosed },
   });
   for (const p of await loginsForCampus(tx, ctx, await hrPeople(tx, ctx), staff.campusId)) {
-    await notify(tx, ctx, { to: p, type: "staff-exit", text: `${staff.fullName}'s last working day was ${formatDate(exit.lastWorkingDay)}. Their login is now closed.`, link: `/staff-hr-management/exit/${exit.id}` });
+    await notify(tx, ctx, { to: p, type: "staff-exit", key: "{name}'s last working day was {date}. Their login is now closed.", values: { name: staff.fullName, date: formatDate(exit.lastWorkingDay) }, link: `/staff-hr-management/exit/${exit.id}` });
   }
   return "closed";
 }

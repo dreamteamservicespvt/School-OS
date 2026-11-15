@@ -42,7 +42,7 @@ export default async function ConsentPage() {
   return (
     <>
       <BackLink href="/communication/parent-link" label="Parent Link" />
-      <RecordHead title="Consent forms" sub={<span className="text-[14px] text-ink3"><Words k="Guardians see each form on their Parent Link and agree with a one-time code to their mobile." /></span>} />
+      <RecordHead title="Consent forms" sub={<span className="text-[14px] text-ink3"><Words k="Guardians agree on Parent Link with a one-time code." /></span>} />
       <Split side={380}>
         <Card className="min-w-0">
           <CardHeader title="Requests sent" icon={ListChecks} description="Given, waiting and withdrawn for each request" />
@@ -73,7 +73,7 @@ export default async function ConsentPage() {
                 </li>
               );
             })}
-            {!data.statuses.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet. Requests you send appear here with given, waiting and withdrawn counts." /></li>}
+            {!data.statuses.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet." /></li>}
           </ul>
         </Card>
         <Card>

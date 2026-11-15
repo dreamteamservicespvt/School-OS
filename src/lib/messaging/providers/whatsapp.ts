@@ -46,29 +46,39 @@ export function whatsappReason(code: number | undefined, message?: string): { re
   }
 }
 
+/**
+ * What is posted to Meta's /messages for one message. A template goes with its
+ * blanks in order and, for its first button, the button's blank. An
+ * Authentication (code) template carries the code twice, as Meta requires: as
+ * the body's only blank and as the "Copy code" button's blank (sub_type "url",
+ * index 0); see deliver.ts.
+ */
+export function whatsappMessageBody(msg: Pick<Outgoing, "to" | "text" | "whatsappTemplate">) {
+  const to = `91${msg.to}`;
+  if (!msg.whatsappTemplate) return { messaging_product: "whatsapp", to, type: "text", text: { body: msg.text, preview_url: true } };
+  return {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: msg.whatsappTemplate.name,
+      language: { code: msg.whatsappTemplate.language },
+      components: [
+        ...(msg.whatsappTemplate.params.length ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }] : []),
+        // The first button's blank: the code of an authentication template, or the end of a link button.
+        ...(msg.whatsappTemplate.buttonParam ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.buttonParam }] }] : []),
+      ],
+    },
+  };
+}
+
 export function whatsappProvider({ config, secrets }: ProviderConfig): Provider {
   return {
     key: "meta-cloud",
     async send(msg: Outgoing): Promise<SendResult> {
       if (!config.phoneNumberId || !secrets.accessToken) return { ok: false, retryable: false, reason: "WhatsApp is not fully connected. Check Settings, SMS, WhatsApp & Email." };
       if (!META_ID.test(config.phoneNumberId)) return { ok: false, retryable: false, reason: "The WhatsApp phone number ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
-      const to = `91${msg.to}`;
-      const body = msg.whatsappTemplate
-        ? {
-            messaging_product: "whatsapp",
-            to,
-            type: "template",
-            template: {
-              name: msg.whatsappTemplate.name,
-              language: { code: msg.whatsappTemplate.language },
-              components: [
-                ...(msg.whatsappTemplate.params.length ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }] : []),
-                // The first button's blank: the code of an authentication template, or the end of a link button.
-                ...(msg.whatsappTemplate.buttonParam ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.buttonParam }] }] : []),
-              ],
-            },
-          }
-        : { messaging_product: "whatsapp", to, type: "text", text: { body: msg.text, preview_url: true } };
+      const body = whatsappMessageBody(msg);
       try {
         const res = await postJson(`${GRAPH}/${encodeURIComponent(config.phoneNumberId)}/messages`, body, { Authorization: `Bearer ${secrets.accessToken}` });
         const json = res.json as ({ messages?: { id: string }[] } & GraphError) | null;
@@ -100,19 +110,45 @@ export function templateComponents(body: string) {
   return components;
 }
 
-/** Sends a template to WhatsApp for approval (see templateComponents). */
-export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string }) {
+/** How long a one-time code works (Parent Link, admission consent and sign-in codes; one-time-code.ts CODE_SEND_WINDOW_MS). */
+export const CODE_EXPIRY_MINUTES = 10;
+
+/**
+ * An Authentication template in Meta's fixed form (copy-code button). Meta
+ * writes the words itself, in the template's language: "<code> is your
+ * verification code.", the security line "For your security, do not share this
+ * code." and the footer "This code expires in 10 minutes." No text of our own
+ * is allowed; the button's label defaults to Meta's "Copy code" in that language.
+ * developers.facebook.com/docs/whatsapp/business-management-api/authentication-templates
+ */
+export function authTemplateComponents() {
+  return [
+    { type: "BODY", add_security_recommendation: true },
+    { type: "FOOTER", code_expiration_minutes: CODE_EXPIRY_MINUTES },
+    { type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE" }] },
+  ];
+}
+
+export type TemplateSubmission = { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string };
+
+/** What is posted to Meta's /message_templates: a code template in Meta's fixed form, any other with its own words. */
+export function templateSubmission(t: TemplateSubmission) {
+  return {
+    name: t.name,
+    language: t.language,
+    category: t.category,
+    components: t.category === "AUTHENTICATION" ? authTemplateComponents() : templateComponents(t.body),
+  };
+}
+
+/** Sends a template to WhatsApp for approval (see templateSubmission). */
+export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmission) {
   if (!p.config.businessAccountId || !p.secrets.accessToken) return { ok: false as const, reason: "Add the WhatsApp Business account ID and access token in Settings, SMS, WhatsApp & Email first." };
   if (!META_ID.test(p.config.businessAccountId)) return { ok: false as const, reason: "The WhatsApp Business account ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
   try {
     const res = await postJson(
       `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates`,
-      {
-        name: t.name,
-        language: t.language,
-        category: t.category,
-        components: templateComponents(t.body),
-      },
+      templateSubmission(t),
       { Authorization: `Bearer ${p.secrets.accessToken}` },
       8000,
     );

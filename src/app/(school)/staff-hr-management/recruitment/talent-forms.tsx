@@ -17,7 +17,7 @@ export function VacancyForm({ action, designations, departments }: { action: Act
           <SelectField label="Department" name="departmentId" options={departments} placeholder="None" defaultValue={f.val("departmentId")} error={f.err("departmentId")} />
           <TextField label="Openings" name="openings" inputMode="numeric" defaultValue={f.val("openings", "1")} error={f.err("openings")} />
           <TextField label="Last date to apply" name="closingDate" type="date" defaultValue={f.val("closingDate")} error={f.err("closingDate")} />
-          <TextArea label="Details" name="details" rows={3} defaultValue={f.val("details")} error={f.err("details")} help="Qualifications, subjects and experience wanted." />
+          <TextArea label="Details" name="details" rows={3} defaultValue={f.val("details")} error={f.err("details")} />
         </>
       )}
     </FormDialog>
@@ -96,7 +96,7 @@ export function OfferForm({ action, applicationId, name, designation, designatio
           <SelectField label="Post" name="designation" required options={designations} defaultValue={f.val("designation", designation)} error={f.err("designation")} />
           <SelectField label="Department" name="departmentId" options={departments} placeholder="None" defaultValue={f.val("departmentId")} error={f.err("departmentId")} />
           <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={f.val("joiningDate")} error={f.err("joiningDate")} />
-          <TextField label="Monthly salary (₹)" name="monthly" inputMode="decimal" defaultValue={f.val("monthly")} error={f.err("monthly")} help="Optional. Shown on the offer letter." />
+          <TextField label="Monthly salary (₹)" name="monthly" inputMode="decimal" defaultValue={f.val("monthly")} error={f.err("monthly")} help="Shown on the offer letter." />
           <TextField label="Reply by" name="respondBy" type="date" defaultValue={f.val("respondBy")} error={f.err("respondBy")} />
         </>
       )}
@@ -116,7 +116,7 @@ export function CycleForm({ action, years, today }: { action: Action; years: Opt
           <TextArea label="What to rate for teachers, one per line" name="criteria" required rows={5} error={f.err("criteria")}
             defaultValue={f.val("criteria", TEACHING_CRITERIA.join("\n"))} help="Each is rated 1 to 5." />
           <TextArea label="What to rate for other staff, one per line" name="staffCriteria" rows={5} error={f.err("staffCriteria")}
-            defaultValue={f.val("staffCriteria", STAFF_CRITERIA.join("\n"))} help="Office, transport and support staff. Leave empty to use the teachers' points." />
+            defaultValue={f.val("staffCriteria", STAFF_CRITERIA.join("\n"))} help="Leave empty to use the teachers' points." />
         </div>
       )}
     </FormDialog>

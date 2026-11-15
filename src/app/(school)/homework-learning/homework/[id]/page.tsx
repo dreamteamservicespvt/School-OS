@@ -98,7 +98,7 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
             <Card>
               <CardHeader title="Instructions" icon={NotebookText} />
               <p className="px-5 pb-4 text-[14.5px] text-ink2 leading-relaxed whitespace-pre-line">{h.instructions || (h.attachments.length ? "See the attached photo." : "No instructions were typed.")}</p>
-              {h.attachments.length > 0 && <ul className="px-3 pb-3">{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
+              {h.attachments.length > 0 && <ul className="px-3 pb-3">{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Web link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
               <DL rows={[
                 ["Given to", givenToWords(h.givenTo, c.assigned, data.sectionLabel)],
                 ["Online submission", h.onlineSubmission && p.settings.onlineSubmission ? "On · photos or PDF" : "Off · handed in class"],

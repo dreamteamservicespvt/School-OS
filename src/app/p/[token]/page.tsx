@@ -2,39 +2,70 @@
 // children; every open is checked on the server and logged (rule 31).
 import type { Metadata } from "next";
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
-import { hitLimit, limitMessage } from "@/lib/rate-limit";
+import { hitLimit, peekLimit, type LimitResult } from "@/lib/rate-limit";
 import { deviceCookieName, findLink, openLink } from "@/lib/parent-link/links";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
 import { VerifyPhone } from "@/components/parent-link/verify-phone";
-import { PhoneNotice, PhoneShell } from "@/components/parent-link/phone-shell";
+import { PhoneNotice, PhoneShell, showPhone } from "@/components/parent-link/phone-shell";
 import { Link2Off, PowerOff, UserX } from "lucide-react";
 import { parentLinkLanguage } from "@/lib/parent-link/language";
-import { browserLanguage, catalogueFor, makeT, titleIn } from "@/lib/i18n/server";
+import { browserLanguage, makeT, titleIn } from "@/lib/i18n/server";
+import { parentDict } from "@/lib/parent-link/words";
 import { I18nProvider } from "@/lib/i18n/client";
 import { LanguagePicker } from "@/components/language-picker";
-import type { Lang } from "@/lib/i18n/languages";
+import { SCREEN_LANGUAGES, type Lang } from "@/lib/i18n/languages";
 import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
 
+/** The language a phone asks for (Accept-Language), for a page with no link to go by. */
+async function phoneLanguage(): Promise<Lang> {
+  const chosen = await browserLanguage();
+  if (chosen) return chosen;
+  const asked = ((await headers()).get("accept-language") ?? "").toLowerCase().split(",").map((p) => p.trim().slice(0, 2));
+  return asked.find((l): l is Lang => (SCREEN_LANGUAGES as readonly string[]).includes(l)) ?? "en";
+}
+
+// Limits (layman test loop 5: a parent was locked out after a few minutes of normal use, and
+// parents on one mobile network or the school Wi-Fi share an address):
+// - wrong links: 30 per address per 10 minutes, then this address waits (guessing stays slow);
+// - one link: 300 opens per 10 minutes (switching child, month or language is a few opens);
+// - one address: 2000 opens per 10 minutes, so many parents behind one address are fine.
+const WRONG = [30, 600] as const;
+
 /**
  * Once per request, for the page and its tab title alike: the rate limit, the link and its
  * language (this phone's choice, the guardian's language, the school's default). Before the link
- * is known, or when it is not real: the language chosen on this phone, or English.
+ * is known, or when it is not real: the language chosen on this phone, or the phone's language.
  */
 const openGate = cache(async (token: string) => {
   const device = await deviceInfo();
-  const browser = makeT((await browserLanguage()) ?? "en");
-  const limited = await hitLimit(`pl-open:ip:${device.ipAddress ?? "unknown"}`, 60, 600);
-  const found = limited.ok ? await findLink(token) : null;
-  const l = found ? await parentLinkLanguage(found) : null;
-  return { device, limited, found, t: l ? makeT(l.lang) : browser, choices: l?.choices ?? ([] as Lang[]) };
+  const ip = device.ipAddress ?? "unknown";
+  const browser = makeT(await phoneLanguage());
+  const none = { device, found: null, t: browser, choices: SCREEN_LANGUAGES as readonly Lang[], school: null };
+  const wrong = await peekLimit(`pl-bad:ip:${ip}`, ...WRONG);
+  if (!wrong.ok) return { ...none, limited: wrong };
+  const flood = await hitLimit(`pl-open:ip:${ip}`, 2000, 600);
+  if (!flood.ok) return { ...none, limited: flood };
+  const found = await findLink(token);
+  if (!found) return { ...none, limited: { ok: true } as LimitResult };
+  const limited = await hitLimit(`pl-open:link:${found.linkId}`, 300, 600);
+  const l = await parentLinkLanguage(found);
+  const school = limited.ok ? null : await withSchool({ schoolId: found.schoolId, userId: null }, (tx) => tx.school.findUnique({ where: { id: found.schoolId }, select: { name: true, phone: true, parentWhatsapp: true } }));
+  return { device, limited, found, t: makeT(l.lang), choices: l.choices as readonly Lang[], school };
 });
+
+/** "Please wait…" in the page's language. */
+function waitWords(t: T, r: { retryAfterSeconds: number }) {
+  return r.retryAfterSeconds < 90
+    ? t("Too many tries in a short time. Please wait {n} seconds and try again.", { n: r.retryAfterSeconds })
+    : t("Too many tries in a short time. Please wait {n} minutes and try again.", { n: Math.ceil(r.retryAfterSeconds / 60) });
+}
 
 /** The tab title in the same language as the page. */
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -47,11 +78,11 @@ function Notice({ title, icon, children }: { title: string; icon?: React.ReactNo
 }
 
 /** The page in the guardian's language, with a choice of the school's languages in the header. */
-function Shell({ schoolName, children, hello, name, t, choices }: { schoolName?: string; children: React.ReactNode; hello?: string; name?: string; t: T; choices: Lang[] }) {
+function Shell({ schoolName, schoolPhone, whatsappPhone, children, hello, name, t, choices, notice }: { schoolName?: string; schoolPhone?: string | null; whatsappPhone?: string | null; children: React.ReactNode; hello?: string; name?: string; t: T; choices: readonly Lang[]; notice?: boolean }) {
   return (
-    <I18nProvider lang={t.lang} dict={catalogueFor(t.lang)}>
+    <I18nProvider lang={t.lang} dict={parentDict(t.lang)}>
       <div lang={t.lang}>
-        <PhoneShell schoolName={schoolName} hello={hello} name={name} t={t} right={<LanguagePicker value={t.lang} choices={choices} tone="onBrand" />}>{children}</PhoneShell>
+        <PhoneShell schoolName={schoolName} schoolPhone={schoolPhone} whatsappPhone={whatsappPhone} hello={hello} name={name} t={t} privateNote={!notice} right={<LanguagePicker value={t.lang} choices={choices} tone="onBrand" />}>{children}</PhoneShell>
       </div>
     </I18nProvider>
   );
@@ -60,31 +91,31 @@ function Shell({ schoolName, children, hello, name, t, choices }: { schoolName?:
 export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
   const { token } = await params;
   const { child, month } = await searchParams;
-  const { device, limited, found, t, choices } = await openGate(token);
-  if (!limited.ok) return <Shell t={t} choices={choices}><Notice title={t("Please wait a moment")}>{limitMessage(limited)}</Notice></Shell>;
+  const { device, limited, found, t, choices, school } = await openGate(token);
+  if (!limited.ok) return <Shell schoolName={school?.name} schoolPhone={school?.phone} whatsappPhone={school?.parentWhatsapp} t={t} choices={choices} notice><Notice title={t("Please wait a moment")}>{waitWords(t, limited)}</Notice></Shell>;
 
   const key = found ? (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null : null;
   const state = found ? await openLink(token, key, device) : { state: "invalid" as const };
 
   if (state.state === "invalid") {
-    // Wrong links count more heavily, so guessing is slow.
-    await hitLimit(`pl-open:ip:${device.ipAddress ?? "unknown"}`, 60, 600);
-    return <Shell t={t} choices={choices}><Notice title={t("This link does not work")} icon={<Link2Off size={26} />}>{t("Please check you opened the whole link from the school’s message, or ask the school for a new one.")}</Notice></Shell>;
+    // Only wrong links count against this address, so guessing stays slow.
+    await hitLimit(`pl-bad:ip:${device.ipAddress ?? "unknown"}`, ...WRONG);
+    return <Shell t={t} choices={choices} notice><Notice title={t("This link does not work")} icon={<Link2Off size={26} />}>{t("Please check you opened the whole link from the school’s message, or ask the school for a new one.")}</Notice></Shell>;
   }
   if (state.state === "revoked") {
     return (
-      <Shell schoolName={state.schoolName} t={t} choices={choices}>
+      <Shell schoolName={state.schoolName} t={t} choices={choices} notice>
         <Notice title={t("This link is no longer active")} icon={<Link2Off size={26} />}>
-          {t("Please ask the school for a new one.")}{state.schoolPhone && <> {t("Call")} <a className="font-medium text-brand underline" href={`tel:${state.schoolPhone}`}>{state.schoolPhone}</a>.</>}
+          {t("Please ask the school for a new one.")}{state.schoolPhone && <> {t("Call")} <a className="font-medium text-brand underline" href={`tel:${state.schoolPhone}`}>{showPhone(state.schoolPhone)}</a>.</>}
         </Notice>
       </Shell>
     );
   }
   if (state.state === "off") {
     return (
-      <Shell schoolName={state.schoolName} t={t} choices={choices}>
+      <Shell schoolName={state.schoolName} t={t} choices={choices} notice>
         <Notice title={t("Parent Link is switched off")} icon={<PowerOff size={24} />}>
-          {t("The school has switched off Parent Link for now. To ask a question, message or call the school.")}{state.schoolPhone ? <> <a className="font-medium text-brand underline" href={`tel:${state.schoolPhone}`}>{state.schoolPhone}</a></> : null}
+          {t("The school has switched off Parent Link for now. To ask a question, message or call the school.")}{state.schoolPhone ? <> <a className="font-medium text-brand underline" href={`tel:${state.schoolPhone}`}>{showPhone(state.schoolPhone)}</a></> : null}
         </Notice>
       </Shell>
     );
@@ -92,7 +123,7 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
   if (state.state === "verify") {
     return (
       <Shell schoolName={state.schoolName} hello={t("Welcome to")} name={t("Your Parent Link")} t={t} choices={choices}>
-        <VerifyPhone token={token} maskedPhone={state.maskedPhone} codeSent={Boolean(state.codeSentAt)} />
+        <VerifyPhone token={token} maskedPhone={state.maskedPhone} codeSent={Boolean(state.codeSentAt)} codeChannel={state.codeChannel} schoolPhone={state.schoolPhone} />
       </Shell>
     );
   }
@@ -101,16 +132,17 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
   const result = await withSchool(ctx, async (tx) => {
     const view = await loadGuardianView(tx, ctx, { linkId: state.linkId, guardianId: state.guardianId, childId: child ?? null, token, preview: false, lang: t.lang });
     if (!view) return null;
-    const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { phone: true } });
-    return { view, sections: await loadSections(tx, ctx, { ...view, month: typeof month === "string" ? month : null }), phone: school.phone };
+    const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { phone: true, parentWhatsapp: true } });
+    return { view, sections: await loadSections(tx, ctx, { ...view, month: typeof month === "string" ? month : null }), phone: school.phone, whatsapp: school.parentWhatsapp };
   });
   if (!result) {
-    return <Shell schoolName={state.schoolName} t={t} choices={choices}><Notice title={t("No children to show")} icon={<UserX size={24} />}>{t("None of your children is studying in the school right now. Please call the school if this is wrong.")}</Notice></Shell>;
+    return <Shell schoolName={state.schoolName} t={t} choices={choices} notice><Notice title={t("No children to show")} icon={<UserX size={24} />}>{t("None of your children is studying in the school right now. Please call the school if this is wrong.")}</Notice></Shell>;
   }
   return (
-    <I18nProvider lang={result.view.lang} dict={catalogueFor(result.view.lang)}>
+    // Only the words the page's browser parts use (src/lib/parent-link/words.ts), not the whole app's.
+    <I18nProvider lang={result.view.lang} dict={parentDict(result.view.lang)}>
       <div lang={result.view.lang}>
-        <GuardianPage view={result.view} sections={result.sections} schoolPhone={result.phone} basePath={`/p/${token}`}
+        <GuardianPage view={result.view} sections={result.sections} schoolPhone={result.phone} whatsappPhone={result.whatsapp} basePath={`/p/${token}`}
           right={<LanguagePicker value={result.view.lang} choices={result.view.languages} tone="onBrand" />} />
       </div>
     </I18nProvider>

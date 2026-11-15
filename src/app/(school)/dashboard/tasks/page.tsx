@@ -83,7 +83,8 @@ export default async function TasksPage({ searchParams }: Search) {
   const page = sorted.slice((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE);
   const name = (id: string) => data.names.get(id) ?? "Someone";
   const due = (d: Date | null) => (d ? formatDateTime(d, tz) : "No due date");
-  const peopleOptions = data.people.map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.name }));
+  // "Me" first, not in the middle of the A to Z list (layman loop 3).
+  const peopleOptions = [...data.people].sort((a, b) => Number(b.id === current.user.id) - Number(a.id === current.user.id)).map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.designation ? `${p.name} · ${p.designation}` : p.name }));
 
   type Row = (typeof sorted)[number];
   const columns: Column<Row>[] = [
@@ -108,8 +109,8 @@ export default async function TasksPage({ searchParams }: Search) {
       <PageHead
         crumbs={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft size={14} aria-hidden="true" /><Words k="Dashboard" /></Link>}
         title="My Tasks"
-        sub={access === "full" ? "Tasks for any staff member, with due dates and reminders." : "Your own tasks and the ones given to you, with reminders."}
-        actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today} />}
+        sub={access === "full" ? "Give tasks to staff, with reminders." : "Your tasks and ones given to you."}
+        actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name, role: p.designation }))} meId={current.user.id} today={today} />}
       />
 
       {d && (
@@ -128,7 +129,7 @@ export default async function TasksPage({ searchParams }: Search) {
             comments: d.t.comments.map((c) => ({ id: c.id, who: d.nm.get(c.authorId) ?? "Someone", when: formatDateTime(c.createdAt, tz), text: c.text })),
             history: d.history,
           }}
-          access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today}
+          access={access} people={data.people.map((p) => ({ id: p.id, name: p.name, role: p.designation }))} meId={current.user.id} today={today}
           closeHref={`/dashboard/tasks${view === "mine" ? "" : `?view=${view}`}`}
         />
       )}
@@ -152,7 +153,7 @@ export default async function TasksPage({ searchParams }: Search) {
         rowHref={(t) => `/dashboard/tasks?${new URLSearchParams({ ...(view === "mine" ? {} : { view }), task: t.id })}`}
         caption="Tasks" empty={
           <EmptyState title={params.q || Object.keys(params.filters).length || range ? "No tasks match these filters" : view === "given" ? "You have not given anyone a task" : "No tasks here yet"}>
-            {view === "given" ? "Use Add task and pick a person. They are told in the app." : "Use Add task to note something to do. A reminder goes out before it is due."}
+            {view === "given" ? "Use Add task and pick a person." : "Use Add task to note something to do."}
           </EmptyState>
         } />
 

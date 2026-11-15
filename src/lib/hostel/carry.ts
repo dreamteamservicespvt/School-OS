@@ -175,7 +175,7 @@ export async function noticeNewYear(tx: Tx, ctx: SchoolContext, year: Pick<Acade
   for (const r of rows) byHostel.set(r.allocation.hostelId, (byHostel.get(r.allocation.hostelId) ?? 0) + 1);
   for (const [hostelId, n] of byHostel) {
     for (const to of await wardenLogins(tx, hostelId)) {
-      await notify(tx, ctx, { to, type: "hostel", text: `${year.name} is open: ${n} boarder${n === 1 ? "" : "s"} to carry over into the new year. Review them in Allocation.`, link: `${BASE}/allocation?carry=1`, groupKey: `hostel-carry-${year.name}-${hostelId}` });
+      await notify(tx, ctx, { to, type: "hostel", key: n === 1 ? "{year} is open: 1 boarder to carry over into the new year. Review them in Allocation." : "{year} is open: {n} boarders to carry over into the new year. Review them in Allocation.", values: { year: year.name, n }, link: `${BASE}/allocation?carry=1`, groupKey: `hostel-carry-${year.name}-${hostelId}` });
     }
   }
   return rows.length;

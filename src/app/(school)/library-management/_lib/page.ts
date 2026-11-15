@@ -30,8 +30,9 @@ export const libPage = cache(async () => {
 export type LibPageData = Awaited<ReturnType<typeof libPage>>;
 
 const TABS: { key: LibPage; href: string; label: string; exact?: boolean }[] = [
-  { key: "books", href: `${BASE}/books`, label: "Books" },
+  // The page the module opens on is the first tab, so the start point is never mid-strip (layman loop 5).
   { key: "issue", href: BASE, label: "Issue & Return", exact: true },
+  { key: "books", href: `${BASE}/books`, label: "Books" },
   { key: "members", href: `${BASE}/members`, label: "Members & Cards" },
   { key: "fines", href: `${BASE}/fines`, label: "Fines & Stock Check" },
   { key: "reports", href: `${BASE}/reports`, label: "Library Reports" },

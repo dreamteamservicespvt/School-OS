@@ -10,6 +10,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "./db";
 import { NOTE_KINDS } from "./notification-kinds";
+import { offeredChannels } from "./messaging/sms-offered";
 
 export const COPY_CHANNELS = ["whatsapp", "sms", "email"] as const;
 export type NotificationCopyChannel = (typeof COPY_CHANNELS)[number];
@@ -47,7 +48,8 @@ export async function sendNotificationCopies(
     import("./messaging/templates"),
   ]);
   const setups = await channelSetups(tx, ctx);
-  const on = chosen.filter((c) => setups[c].isOn);
+  // A copy never goes by SMS while SMS is not offered (SMS_OFFERED); the person's saved choice is kept.
+  const on = offeredChannels(chosen).filter((c) => setups[c].isOn);
   if (!on.length) return null;
   await ensureReadyTemplates(tx, ctx);
   const templates: Partial<Record<NotificationCopyChannel, string>> = {};

@@ -69,7 +69,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const exams = await withSchool(page.current.ctx, (tx) => tx.exam.findMany({ where: { academicYearId: year.id, archivedAt: null, status: { not: "DRAFT" }, ...examOverlaps(range) }, orderBy: { startDate: "desc" } }));
   const s = page.scope;
   const sub = s.manage
-    ? "Worked out as marks come in · publishing puts report cards on Parent Link"
+    ? "Publishing puts report cards on Parent Link"
     : `Results of your classes: ${sections.map((x) => x.label.replace(/^Class /, "")).join(", ") || "none yet"}. ${s.publish ? "" : "The Exam In-charge or the Principal publishes results."}`;
   const top = (
     <PageTop page={page} href={PATH} sub={sub}>
@@ -161,7 +161,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       {published && (
         <Banner tone="ok" title={`Published${lastPublished?.publishedAt ? ` ${formatDateTime(lastPublished.publishedAt, tz)}` : ""}${lastPublished && name(lastPublished.createdById) ? ` by ${name(lastPublished.createdById)}` : ""}.`}
           action={s.publish && page.writable ? <PublishedMenu keyName={key} title={final ? "the final" : exam!.title} chosen={sectionId} sections={data.ready.filter((r) => r.published).map((r) => ({ id: r.sectionId, label: r.label }))} /> : undefined}>
-          <Words k="Report cards are on Parent Link" />{lastPublished?.messagesSent ? ` and ${plural(lastPublished.messagesSent, "parent")} ${lastPublished.messagesSent === 1 ? "was" : "were"} messaged` : ""}<Words k=". Kept in the result history; a later grade scale change does not alter it." />
+          <Words k="Report cards are on Parent Link" />{lastPublished?.messagesSent ? ` and ${plural(lastPublished.messagesSent, "parent")} ${lastPublished.messagesSent === 1 ? "was" : "were"} messaged` : ""}<Words k=". Kept in the result history." />
         </Banner>
       )}
       {!published && scheduled && (
@@ -184,7 +184,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       {!only && mine && mine.waiting.length > 0 && (
         <Banner tone="brand" icon={BadgeCheck} title={`Published, except ${plural(mine.waiting.length, "result")} added later: ${mine.waiting.join(", ")}.`}
           action={s.publish && page.writable && mine.ready && !scheduled ? <PublishFlow size="sm" label="Publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : undefined}>
-          {mine.ready ? "Marks were added for a student who joined late. Publishing it puts their report card on Parent Link and tells only their parents; the others' published results do not change." : mine.problems.join(" ")}
+          {mine.ready ? "Marks were added for a student who joined late. Publishing it puts their report card on Parent Link and tells only their parents." : mine.problems.join(" ")}
         </Banner>
       )}
       {!only && mine && mine.leftOut.length > 0 && (
@@ -306,7 +306,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
               description={only ? `Only the subject${tableCols.length === 1 ? "" : "s"} you teach in ${section.label}: ${tableCols.map((c) => c.name).join(", ") || "none"}` : `${data.sheet!.columns.filter((c) => !c.gradeOnly).length ? `Total out of ${showMarks(Math.max(0, ...allRows.map((r) => r.maxTotal)))}` : "Graded subjects"}${ranks ? ` · ${data.settings.tieRule === "dense" ? "same rank for a tie, next rank follows" : "same rank for a tie, next rank skipped"}` : ""}`}
               action={<Pill tone={status.tone} dot>{status.words}</Pill>} />
             {rows.length ? <ResultTable columns={tableCols} rows={tableRows} ranks={ranks} subjectOnly={Boolean(only)} examTitle={exam!.title} section={section.label} passMark={data.settings.passPercentSubject} /> : <ListEmpty />}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4"><Words k="Showing" /> {rows.length} <Words k="of" /> {allRows.length}<span><Words k="AB = absent · ML = medical leave · red = below the pass mark" />{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: allRows.length }} /><span><Words k="AB = absent · ML = medical leave · red = below the pass mark" />{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
           </Card>
         ) : (
           <Card className="overflow-hidden">

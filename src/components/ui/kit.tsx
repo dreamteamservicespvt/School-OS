@@ -9,6 +9,7 @@ import { ChevronRight, Circle, CircleCheck, Info, Lightbulb, SearchX, Sparkles, 
 import { Card } from "./card";
 import { Pill } from "./badge";
 import { cx } from "./cx";
+import { BAND_STYLE } from "./band-style";
 import { tx } from "@/lib/i18n/tx";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand";
@@ -36,7 +37,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
           );
           const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href
-            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken transition")}>{inner}</Link>
+            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-sunken active:bg-sunken transition")}>{inner}</Link>
             : <div key={m.label} className={cls}>{inner}</div>;
         })}
       </div>
@@ -56,7 +57,7 @@ const BAND_CELL: Record<number, string[]> = {
 export function Band({ items, className, label }: { items: BandItem[]; className?: string; label?: string }) {
   const n = Math.max(2, Math.min(items.length, 4));
   return (
-    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" aria-hidden="true" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" aria-hidden="true" />
       <div className={cx("relative grid", BAND_GRID[n])}>
@@ -70,7 +71,7 @@ export function Band({ items, className, label }: { items: BandItem[]; className
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", BAND_CELL[n][i]);
           return m.href
-            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-white/[.07] transition")}>{inner}</Link>
+            ? <Link key={m.label} href={m.href} className={cx(cls, "hover:bg-white/[.07] active:bg-white/[.12] transition")}>{inner}</Link>
             : <div key={m.label} className={cls}>{inner}</div>;
         })}
       </div>
@@ -94,7 +95,7 @@ export function Chips({ value, options, className, label }: { value: string; opt
           const on = value === o.value;
           return (
             <Link key={o.value} href={o.href} aria-current={on ? "true" : undefined} scroll={false}
-              className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2",
+              className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition active:scale-[0.97] inline-flex items-center gap-2",
                 on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
               {tx(o.label)}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
             </Link>
@@ -140,7 +141,7 @@ export function DataList<Row>({ columns, rows, rowKey, href, mobile, empty, foot
             {rows.map((r) => {
               const link = href?.(r) ?? null;
               return (
-                <tr key={rowKey(r)} className={cx("border-b border-line/70 last:border-0 transition group", link && "relative hover:bg-sunken/60 cursor-pointer", rowClass?.(r))}>
+                <tr key={rowKey(r)} className={cx("border-b border-line/70 last:border-0 transition group", link && "relative hover:bg-sunken/60 active:bg-sunken cursor-pointer", rowClass?.(r))}>
                   {select && <td className="pl-4 pr-2 py-3">{tick(r)}</td>}
                   {columns.map((c, i) => (
                     <td key={c.key} className={cx("px-3 py-2.5 align-middle", i === 0 && !select && "pl-5", i === columns.length - 1 && !link && "pr-5", c.align === "right" && "text-right tnum", c.align === "center" && "text-center", c.nowrap && "whitespace-nowrap", c.className)}>
@@ -169,7 +170,7 @@ export function DataList<Row>({ columns, rows, rowKey, href, mobile, empty, foot
               {m.lead ?? (Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null)}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{link ? <Link href={link} className="after:absolute after:inset-0">{m.title}</Link> : m.title}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
+                {m.sub && <p className="text-[13px] text-ink3 truncate">{tx(m.sub)}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}
@@ -252,7 +253,7 @@ export function Progress({ value, tone = "brand", className, label }: { value: n
   return (
     <span role={label ? "progressbar" : undefined} aria-label={label} aria-valuenow={label ? Math.round(v) : undefined} aria-valuemin={label ? 0 : undefined} aria-valuemax={label ? 100 : undefined}
       className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)}>
-      <span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${v}%` }} />
+      <span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${v}%` }} />
     </span>
   );
 }
@@ -279,7 +280,7 @@ export function HBars({ rows, max = 100, goal, unit = "%", lowBelow, labelWidth 
 }
 
 /** Vertical bars. `v2` draws a lighter bar behind, for a target or the earlier value. */
-export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", ticks }: { data: { k: string; v: number; v2?: number; tone?: Tone }[]; max?: number; height?: number; unit?: string; ariaLabel?: string; ticks?: number[] }) {
+export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", ticks, values = false }: { data: { k: string; v: number; v2?: number; tone?: Tone }[]; max?: number; height?: number; unit?: string; ariaLabel?: string; ticks?: number[]; values?: boolean }) {
   const W = 360, H = height, padL = 30, padB = 22, top = 8;
   const mx = max || Math.max(1, ...data.map((d) => Math.max(d.v, d.v2 ?? 0))) * 1.1;
   const y = (v: number) => top + (H - padB - top) * (1 - v / mx);
@@ -301,6 +302,7 @@ export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", 
             <rect x={padL + i * bw} y={top} width={bw} height={H - padB - top} fill="transparent" />
             {d.v2 != null && <rect x={x} y={y(d.v2)} width={w} height={Math.max(0, y(0) - y(d.v2))} rx="4" style={{ fill: "rgb(var(--ink-3) / .22)" }} />}
             <rect className="bar" x={x} y={y(d.v)} width={w} height={Math.max(0, y(0) - y(d.v))} rx="4" style={{ fill: `rgb(var(--${d.tone ?? "brand"}))` }} />
+            {values && <text x={x + w / 2} y={Math.max(top + 9, y(d.v) - 4)} textAnchor="middle" fontSize="10.5" fontWeight="600" className="tnum" style={{ fill: "rgb(var(--ink))" }}>{d.v.toLocaleString("en-IN")}{unit}</text>}
             <text x={x + w / 2} y={H - 6} textAnchor="middle" fontSize="10.5" fontWeight="500" style={{ fill: "rgb(var(--ink-2))" }}>{d.k}</text>
           </g>
         );

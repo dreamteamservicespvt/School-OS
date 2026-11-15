@@ -189,7 +189,7 @@ export async function reopenPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   const teachers = await tx.teacherAllocation.findMany({ where: { sectionId, subjectId: paper.subject.id, archivedAt: null }, select: { staffId: true } });
   const logins = await tx.staff.findMany({ where: { id: { in: teachers.map((t) => t.staffId) }, userLoginId: { not: null } }, select: { userLoginId: true } });
   for (const l of logins) {
-    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", text: `${paper.subject.name} marks for ${paper.section.label} (${paper.exam.title}) were sent back to you: ${reason.trim()}`, link: `/examination-results/marks/${entryId}/${sectionId}` });
+    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", key: "{subject} marks for {class} ({exam}) were sent back to you: {reason}", values: { subject: paper.subject.name, class: paper.section.label, exam: paper.exam.title, reason: reason.trim() }, link: `/examination-results/marks/${entryId}/${sectionId}` });
   }
   await writeAudit(tx, ctx, { action: "marks-returned", recordType: "Marks Paper", recordId: paper.paper.id, before: { status: "SUBMITTED" }, after: { status: "IN_PROGRESS", reason: reason.trim() } });
   return paper;
@@ -326,6 +326,8 @@ export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId:
 export type PaperRow = {
   entryId: string; sectionId: string; examId: string; examTitle: string; sectionLabel: string; subjectName: string; date: Date; due: Date | null;
   status: MarksPaperStatus; done: number; of: number; gradeOnly: boolean; waiting: number;
+  /** Students with some marks in but not every part yet (layman loop 3: "0 of 16 entered" yet In progress). */
+  partly: number;
   /** Subject teachers from Teacher Allocation. */
   teachers: { name: string; userId: string | null }[];
 };
@@ -380,7 +382,7 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
   const counts = f.counts !== false;
   const [papers, marks, roster, waiting, allocs] = await Promise.all([
     tx.marksPaper.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } } }),
-    counts ? tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true } }) : [],
+    counts ? tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true, parts: true } }) : [],
     counts ? sectionStudents(tx, [...new Set(pairs.map((p) => p.section.id))], yearId) : [],
     counts ? tx.marksModeration.groupBy({ by: ["entryId"], where: { status: "waiting", entryId: { in: pairs.map((p) => p.entry.id) } }, _count: true }) : [],
     counts ? tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }) : [],
@@ -416,11 +418,15 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     const mine = first(marksByEntry.get(entry.id) ?? [], (m) => m.studentId);
     const done = students.filter((s: RosterStudent) => isDone(mine.get(s.studentId), subject.gradeOnly)).length;
     const saved = paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED";
-    // "In progress" only once a mark is in: a paper opened (or every mark cleared) with nothing entered is still Not started (QA LC8).
-    const status = counts && saved === "IN_PROGRESS" && !students.some((s: RosterStudent) => mine.has(s.studentId)) ? "NOT_STARTED" : saved;
+    // "In progress" only once a mark is in: a paper opened (or every mark cleared, or only remarks typed) with
+    // no mark, AB, ML or grade is still Not started (QA LC8; layman loop 2: "In progress" with 0 of 16 entered).
+    const hasMark = (m: (typeof marks)[number] | undefined) => Boolean(m && (m.absent || m.total !== null || m.grade
+      || Object.values((m.parts ?? {}) as Record<string, unknown>).some((x) => x !== null && x !== undefined)));
+    const started = students.filter((s: RosterStudent) => hasMark(mine.get(s.studentId))).length;
+    const status = counts && saved === "IN_PROGRESS" && started === 0 ? "NOT_STARTED" : saved;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
-      date: entry.date, due: entry.marksDueDate, status, done, of: students.length, gradeOnly: subject.gradeOnly,
+      date: entry.date, due: entry.marksDueDate, status, done, partly: Math.max(0, started - done), of: students.length, gradeOnly: subject.gradeOnly,
       waiting: waitingByEntry.get(entry.id)?._count ?? 0,
       teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };
@@ -453,7 +459,8 @@ export async function remindTeachers(tx: Tx, ctx: SchoolContext, scope: ExamScop
     const due = list.map((r) => r.due).filter((d): d is Date => Boolean(d)).sort((a, b) => a.getTime() - b.getTime())[0];
     await notify(tx, ctx, {
       to, type: "marks-due",
-      text: `Marks pending: ${list.map((r) => `${r.subjectName} ${r.sectionLabel} (${r.done} of ${r.of})`).join(", ")}.${due ? ` Due ${formatDate(due)}.` : ""}`,
+      key: due ? "Marks pending: {list}. Due {date}." : "Marks pending: {list}.",
+      values: { list: list.map((r) => `${r.subjectName} ${r.sectionLabel} (${r.done} of ${r.of})`).join(", "), date: due ? formatDate(due) : "" },
       link: list.length === 1 ? `/examination-results/marks/${first.entryId}/${first.sectionId}` : "/examination-results/marks",
       groupKey: `marks-remind:${to}:${day}`,
     });

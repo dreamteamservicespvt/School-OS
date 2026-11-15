@@ -75,7 +75,7 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <StudentsHead page="Leaving & Alumni" href={path} sub="Students who transferred, withdrew or graduated. Their records are kept."
+      <StudentsHead page="Leaving & Alumni" href={path} sub="Past students. Their records are kept."
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <Card className="overflow-hidden">
         <Toolbar>

@@ -35,7 +35,7 @@ export default async function NewDatesheetPage({ searchParams }: { searchParams:
       <BackLink page={page} href="/examination-results/datesheet" label="Datesheet" sub="Add datesheet" />
       <div className="mb-5">
         <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight"><Words k="Add datesheet" /></h1>
-        <p className="text-[14px] text-ink2 mt-1"><Words k="For" /> {data.yearName}<Words k=". Creating the datesheet creates the exam. It stays a draft until you publish it." /></p>
+        <p className="text-[14px] text-ink2 mt-1"><Words k="For" /> {data.yearName}<Words k=". It stays a draft until you publish it." /></p>
       </div>
       <DatesheetForm data={data} />
     </>

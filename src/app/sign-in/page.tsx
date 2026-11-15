@@ -22,6 +22,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   return (
     <AuthFrame eyebrow="School OS" title={t("Sign in")} sub={t("Welcome back. Use the details the school office gave you.")} pickLanguage>
       <SignInForm notice={notice} noticeTone={away ? "info" : "success"} startWithCode={params.code === "1"} />
+      {/* Parents have no login here: a parent who lost the link landed on this page (layman test loop 3). */}
+      <p className="mt-5 text-center text-[13px] text-ink3">{t("Parents: open the link in the school’s WhatsApp or SMS message.")}</p>
     </AuthFrame>
   );
 }

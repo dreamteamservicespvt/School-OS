@@ -1,0 +1,1 @@
+[{"go":"/staff-hr-management/import"},{"shot":"staff-import","chars":900},{"upload":"*","file":"qa-output/loop/movein/staff-old-register.xlsx"},{"wait":1},{"click":"Upload and check"},{"wait":6},{"shot":"staff-matched","chars":2500}]

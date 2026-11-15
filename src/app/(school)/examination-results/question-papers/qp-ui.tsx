@@ -109,7 +109,7 @@ export function MakePaperButton({ pairs, exams, start }: { pairs: Pair[]; exams:
   return (
     <>
       <Button variant="primary" icon={FilePlus2} onClick={() => setOpen(true)}><Words k="Make a paper" /></Button>
-      <ActionSheet open={open} onClose={() => setOpen(false)} title="Make a paper" sub="Questions are picked from the bank to match the total and the difficulty mix. It is saved as a draft."
+      <ActionSheet open={open} onClose={() => setOpen(false)} title="Make a paper" sub="Questions are picked from the bank. It is saved as a draft."
         confirmLabel="Make paper" pendingText="Picking questions…" run={(fd) => { fd.set("method", "automatic"); return makePaperForm(fd); }} wide>
         <PaperFields pairs={pairs} exams={exams} pair={pair} setPair={setPair} manual={false} />
       </ActionSheet>

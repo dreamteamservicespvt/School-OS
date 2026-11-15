@@ -1,0 +1,1 @@
+[{"go":"/student-management"},{"shot":"students-empty","chars":700},{"click":"Import"},{"wait":2},{"shot":"import-page","chars":2500}]

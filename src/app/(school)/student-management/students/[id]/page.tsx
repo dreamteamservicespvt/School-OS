@@ -28,7 +28,8 @@ import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } fro
 import { LibraryView, PickupView } from "./lookup-views";
 import { LibraryPanel } from "@/lib/library/profile-tab";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
+import { tx } from "@/lib/i18n/tx";
 import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,6 +44,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const { id } = await params;
   const { tab: tabParam, month } = await searchParams;
   const { current, settings, year, can, tz } = await studentPage();
+  const t = await getT();
   const yearId = year?.id ?? null;
 
   let p;
@@ -60,7 +62,13 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const view = can.view;
   const back = <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={p.now?.section ? classShort(p.now.section.schoolClass.name, p.now.section.name) : undefined} />;
   // Front Office and Gate Security: the photo and the approved pickup list. The Librarian: name, photo and class.
-  if (view.mode === "pickup") return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "view") ? `/front-office/pickup?student=${id}` : null} />;
+  if (view.mode === "pickup") {
+    const fo = BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "view");
+    // The walk-in request opens filled in for Accounts (the sheet itself checks the person may log requests).
+    // In the screen's language, from the parent (the first person on the pickup list), not the child (layman loop 4).
+    const accountsHref = fo && view.phones ? `/front-office?${new URLSearchParams({ do: "walkin", dept: "Accounts", ask: t("Fee balance for {name} ({admissionNo})", { name: s.fullName, admissionNo: s.admissionNo }), from: p.pickups.allowed[0]?.name ?? s.fullName })}` : null;
+    return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={fo ? `/front-office/pickup?student=${id}` : null} accountsHref={accountsHref} />;
+  }
   if (view.mode === "library") return <LibraryView p={p} back={back} panel={current.modulesOn.has("library-management") ? <LibraryPanel current={current} studentId={id} /> : undefined} />;
 
   // Tabs: this module's own, then those other modules registered, each by permission and by what this role sees; never an empty tab.
@@ -85,8 +93,8 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   const docsTotal = settings.requiredDocuments.length;
   const strip: SummaryItem[] = [
     ...summaries,
-    ...(can.seeDocuments && docsTotal ? [{ label: "Documents", value: `${p.documentsDone} of ${docsTotal}`, sub: p.documentsDone < docsTotal ? `${docsTotal - p.documentsDone} missing` : "All collected", href: `${href}?tab=documents`, tone: "neutral" as const }] : []),
-    ...(can.seeBehaviour ? [{ label: "Behaviour", value: p.points !== null ? `${p.points > 0 ? "+" : ""}${p.points} points` : `${p.incidentsCount} ${p.incidentsCount === 1 ? "record" : "records"}`, sub: p.openSuspension ? "Suspended now" : "This year", href: `${href}?tab=behaviour`, tone: (p.openSuspension ? "danger" : "neutral") as SummaryItem["tone"] }] : []),
+    ...(can.seeDocuments && docsTotal ? [{ label: "Documents", value: t("{n} of {n2}", { n: p.documentsDone, n2: docsTotal }), sub: p.documentsDone < docsTotal ? t("{n} missing", { n: docsTotal - p.documentsDone }) : t("All collected"), href: `${href}?tab=documents`, tone: "neutral" as const }] : []),
+    ...(can.seeBehaviour ? [{ label: "Behaviour", value: p.points !== null ? t("{n} points", { n: `${p.points > 0 ? "+" : ""}${p.points}` }) : p.incidentsCount === 1 ? t("1 record") : t("{n} records", { n: p.incidentsCount }), sub: p.openSuspension ? t("Suspended now") : t("This year"), href: `${href}?tab=behaviour`, tone: (p.openSuspension ? "danger" : "neutral") as SummaryItem["tone"] }] : []),
   ].slice(0, 6);
   const todayIso = new Date().toISOString().slice(5, 10);
   const today: SummaryItem[] = [
@@ -123,7 +131,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
       <BackLink href={p.now ? `${BASE}?class=${p.now.classId}&section=${p.now.sectionId}` : BASE} label="Students" sub={sectionLabel ?? undefined} />
 
       {restricted.length > 0 && (
-        <Banner tone="bad" icon={ShieldX} className="mb-4" title="Custody restriction.">
+        <Banner tone="bad" icon={ShieldX} className="mb-4" title={t("Custody restriction.")}>
           {restricted.map((l) => <span key={l.id} className="block"><Words k="Do not release to" /> {l.guardian.name} ({l.relationship.toLowerCase()}). {can.reach === "all" && !can.lookupOnly ? l.restriction : "See the note with the School Admin."}</span>)}
         </Banner>
       )}
@@ -142,20 +150,20 @@ export default async function StudentProfilePage({ params, searchParams }: { par
             <div className="min-w-0 pt-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{s.fullName}<RecordTitle name={s.fullName} /></h1>
-                <Pill tone={statusTone} dot>{status === "ACTIVE" ? "Studying" : STATUS_LABEL[status]}</Pill>
+                <Pill tone={statusTone} dot>{tx(status === "ACTIVE" ? "Studying" : STATUS_LABEL[status])}</Pill>
                 {p.photoWithdrawn && <Pill tone="warn"><Words k="Photo consent withdrawn" /></Pill>}
                 <PinButton label={s.fullName} href={href} userId={current.user.id} />
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">
-                {sectionLabel ?? "No class this year"}{p.now?.rollNo ? ` · Roll ${p.now.rollNo}` : ""} · <span className="font-mono text-[12.5px]">{s.admissionNo}</span>
+                {sectionLabel ?? t("No class this year")}{p.now?.rollNo ? ` · ${t("Roll {n}", { n: p.now.rollNo })}` : ""} · <span className="font-mono text-[12.5px]">{s.admissionNo}</span>
               </p>
             </div>
           </div>
           {(collect || message || menu.length > 0) && (
             <div className="flex gap-2 relative">
               {collect && <ButtonLink href={collect.href} variant="primary" icon={IndianRupee} className="flex-1 lg:flex-none">{collect.label}</ButtonLink>}
-              {message && <ButtonLink href={`/communication?for=students&ids=${id}`} variant={collect ? "secondary" : "primary"} icon={MessageCircle} className="flex-1 lg:flex-none"><span><Words k="Message" /><span className="hidden sm:inline"> <Words k="parent" /></span></span></ButtonLink>}
-              <MoreMenu items={menu} label={`More actions for ${s.fullName}`} />
+              {message && <ButtonLink href={`/communication?for=students&ids=${id}`} variant={collect ? "secondary" : "primary"} icon={MessageCircle} className="flex-1 lg:flex-none"><span><span className="sm:hidden"><Words k="Message" /></span><span className="hidden sm:inline"><Words k="Message parents" /></span></span></ButtonLink>}
+              <MoreMenu items={menu} label={t("More actions for {name}", { name: s.fullName })} />
             </div>
           )}
         </div>
@@ -168,9 +176,9 @@ export default async function StudentProfilePage({ params, searchParams }: { par
               const tone = m.tone ? TONE[m.tone] : undefined;
               const body = (
                 <>
-                  <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5"><Ic size={14} aria-hidden="true" />{m.label}</p>
-                  <p className={cx("font-semibold text-[17px] tnum mt-0.5", tone === "bad" && "text-bad", tone === "warn" && "text-warn")}>{m.value}</p>
-                  {m.sub && <p className="text-[12px] text-ink3">{m.sub}</p>}
+                  <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5"><Ic size={14} aria-hidden="true" />{tx(m.label)}</p>
+                  <p className={cx("font-semibold text-[17px] tnum mt-0.5", tone === "bad" && "text-bad", tone === "warn" && "text-warn")}>{tx(m.value)}</p>
+                  {m.sub && <p className="text-[12px] text-ink3">{tx(m.sub)}</p>}
                 </>
               );
               return m.href
@@ -181,15 +189,15 @@ export default async function StudentProfilePage({ params, searchParams }: { par
         )}
       </Card>
 
-      <nav aria-label="Profile sections" className="-mx-4 px-4 md:mx-0 md:px-0 mt-5">
-        <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">
+      <nav aria-label={t("Profile sections")} className="-mx-4 px-4 md:mx-0 md:px-0 mt-5">
+        <ul className="flex gap-1 overflow-x-auto lg:overflow-visible lg:flex-wrap no-scrollbar border-b border-line">
           {tabs.map((t) => {
             const on = t.key === tab;
             return (
               <li key={t.key} className="shrink-0">
                 <Link href={t.key === "overview" ? href : `${href}?tab=${t.key}`} aria-current={on ? "page" : undefined} scroll={false}
                   className={cx("relative flex items-center h-11 px-3.5 text-[13.5px] font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
-                  {t.label}
+                  {tx(t.label)}
                   {on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
                 </Link>
               </li>

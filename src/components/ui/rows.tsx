@@ -20,7 +20,7 @@ export function Row({ avatar, icon: Ic, iconTone = "neutral", title, sub, right,
       {right && <div className="shrink-0 text-right">{right}</div>}
     </>
   );
-  const cls = cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left", href && "hover:bg-sunken/70 transition", className);
+  const cls = cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left", href && "hover:bg-sunken/70 active:bg-sunken transition", className);
   return href ? <Link href={href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
@@ -63,8 +63,8 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
               {i < items.length - 1 && <span className="w-px flex-1 bg-line my-1" />}
             </span>
             <div className="pb-5 pt-1.5 min-w-0">
-              <p className="text-[14.5px] leading-snug break-words">{t.what}</p>
-              <p className="text-[12.5px] text-ink3 mt-0.5">{t.when}</p>
+              <p className="text-[14.5px] leading-snug break-words">{tx(t.what)}</p>
+              <p className="text-[12.5px] text-ink3 mt-0.5">{tx(t.when)}</p>
             </div>
           </li>
         );
@@ -94,7 +94,7 @@ export function Checklist({ items }: { items: { label: string; sub?: React.React
 /** A thin progress bar. */
 export function Progress({ value, tone = "brand", className }: { value: number; tone?: "brand" | "ok" | "warn" | "bad" | "info"; className?: string }) {
   const c = { brand: "bg-brand", ok: "bg-ok", warn: "bg-warn", bad: "bg-bad", info: "bg-info" }[tone];
-  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></span>;
+  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></span>;
 }
 
 /** Horizontal bars with labels. */
@@ -129,7 +129,7 @@ export function Legend({ items }: { items: [string, string][] }) {
 
 /** "Open" link at the right of a card's title. */
 export function OpenLink({ href, children = "Open" }: { href: string; children?: React.ReactNode }) {
-  return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink transition shrink-0">{tx(children)}<ChevronRight size={16} aria-hidden="true" /></Link>;
+  return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0">{tx(children)}<ChevronRight size={16} aria-hidden="true" /></Link>;
 }
 
 /** A settings row: title and help on the left, a control on the right (kit.jsx SettingRow). */

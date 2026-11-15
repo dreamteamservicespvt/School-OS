@@ -126,7 +126,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
 
   return (
     <div>
-      <RepHead pageName="Custom & Scheduled Reports" href={HREF} sub="Build your own report, and have any report emailed every day, week or month"
+      <RepHead pageName="Custom & Scheduled Reports" href={HREF}
         actions={canEdit ? <>
           <ButtonLink href={withQ(HREF, sp, { schedule: "new" })} scroll={false} variant="secondary" icon={CalendarClock}><Words k="Schedule a report" /></ButtonLink>
           <ButtonLink href={qs(HREF, { view: "build" })} variant="primary" icon={Plus}><Words k="Build a report" /></ButtonLink>
@@ -136,7 +136,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
         {view === "mine" ? (
           <>
             <Card className="overflow-hidden">
-              <CardHeader title="Scheduled emails" description="Sent by email · recipients must be allowed to see the data" icon={CalendarClock} />
+              <CardHeader title="Scheduled emails" description="Recipients must be allowed to see the data" icon={CalendarClock} />
               <div className="px-3 pb-3">
                 <Chips value={filter} label="Schedule status" options={STATUS_FILTERS.map((s) => ({ value: s, label: s, count: data.schedules.filter((x) => statusOf(x) === s).length, href: qs(HREF, { filter: s === "Active" ? null : s }) }))} />
               </div>
@@ -190,7 +190,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
                     {canEdit && <ButtonLink href={withQ(HREF, sp, { save: "1" })} scroll={false} size="sm" variant="primary" icon={Check}><Words k="Save" /></ButtonLink>}
                   </div>} />
                 {data.problem ? (
-                  <Empty icon={Table2} title="Pick at least one column" body={data.problem === "Pick at least one column." ? "Tick the columns you want on the right. The preview updates as you go." : data.problem} />
+                  <Empty icon={Table2} title="Pick at least one column" body={data.problem === "Pick at least one column." ? "Tick the columns you want on the right." : data.problem} />
                 ) : data.preview && data.preview.rows.length === 0 ? (
                   <Empty icon={Inbox} title="No rows for these filters" body="Try another class or loosen the filter." action={<Link href={qs(HREF, { view: "build", area })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />
                 ) : data.preview && (
@@ -198,7 +198,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
                     <SimpleTable minWidth={Math.max(480, data.preview.columns.length * 130)} caption="Preview" rows={data.preview.rows.slice(0, PREVIEW_ROWS)}
                       cols={data.preview.columns.map((c) => ({ label: c.label, right: c.kind !== undefined && c.kind !== "text" && c.kind !== "date", render: (r: Row) => cellText(r[c.key], c.kind) }))}
                       foot={data.preview.totals ? data.preview.columns.map((c) => cellText(data.preview?.totals?.[c.key] ?? null, c.kind)) : undefined} />
-                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum"><Words k="Showing" /> {Math.min(PREVIEW_ROWS, data.preview.rows.length)} <Words k="of" /> {data.preview.rows.length.toLocaleString("en-IN")} <Words k="rows · the saved report has every row" />{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
+                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: Math.min(PREVIEW_ROWS, data.preview.rows.length), total: data.preview.rows.length.toLocaleString("en-IN") }} /> <Words k="rows · the saved report has every row" />{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
                   </>
                 )}
               </Card>
@@ -230,7 +230,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
 
       {p.a.full && (
         <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink3">
-          <span><Words k={"Custom & Scheduled Reports is on for this school. Switching it off keeps saved reports and pauses schedules."} /></span>
+          <span><Words k="Switching off keeps saved reports and pauses schedules." /></span>
           <QuickButton variant="ghost" run={customFeatureAction.bind(null, false)}><Words k="Switch off" /></QuickButton>
         </div>
       )}

@@ -21,7 +21,7 @@ import { cx } from "@/components/ui/cx";
 import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
 import { refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 import { TimeInput } from "@/components/ui/date-input";
 
 /**
@@ -35,6 +35,7 @@ export function ScanIdButton({ base }: { base: string }) {
   const can = useCanScanQr();
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     let stream: MediaStream | null = null;
@@ -69,14 +70,14 @@ export function ScanIdButton({ base }: { base: string }) {
   if (!can) return null;
   return (
     <>
-      <Button type="button" variant="secondary" size="lg" icon={ScanLine} onClick={() => { setProblem(null); setOpen((x) => !x); }} aria-pressed={open}><span className="hidden sm:inline">{open ? "Stop scanning" : "Scan ID card"}</span></Button>
+      <Button type="button" variant="secondary" size="lg" icon={ScanLine} onClick={() => { setProblem(null); setOpen((x) => !x); }} aria-pressed={open}><span className="hidden sm:inline">{open ? t("Stop scanning") : t("Scan ID card")}</span></Button>
       {open && (
         <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:right-6 sm:w-80 rounded-2xl overflow-hidden bg-ink shadow-pop">
           <video ref={video} muted playsInline className="w-full h-48 object-cover" />
           <p className="text-[12.5px] text-bg px-3 py-2"><Words k="Hold the QR on the ID card in front of the camera." /></p>
         </div>
       )}
-      {problem && <p className="sr-only" role="alert">{problem}</p>}
+      {problem && <p className="sr-only" role="alert">{t.any(problem)}</p>}
     </>
   );
 }
@@ -89,16 +90,17 @@ export function StopSheet({ closeHref, student, classTeacher, calls, deskPhone }
   calls: { name: string; relationship: string; tel: string }[];
   deskPhone: string | null;
 }) {
+  const t = useT();
   return (
-    <SheetForm title={`Do not release ${student.first}`} sub={`Not on ${student.first}’s pickup list. Call a registered guardian, and tell the class teacher.`} closeHref={closeHref}
-      action={refusedAction} hidden={{ studentId: student.id }} submitLabel={classTeacher ? `Tell class teacher ${classTeacher}` : "Keep it with the student’s record"} pendingText="Telling…" submitVariant="danger">
+    <SheetForm title={t("Do not release {name}", { name: student.first })} sub={t("Not on {name}’s pickup list. Call a registered guardian, and tell the class teacher.", { name: student.first })} closeHref={closeHref}
+      action={refusedAction} hidden={{ studentId: student.id }} submitLabel={classTeacher ? t("Tell class teacher {name}", { name: classTeacher }) : "Keep it with the student’s record"} pendingText="Telling…" submitVariant="danger">
       <div className="flex justify-center pt-1"><span className="w-16 h-16 rounded-full bg-bad text-badink grid place-items-center shadow-pop" aria-hidden="true"><Hand size={30} /></span></div>
       <SText name="who" label="Who is here?" help="Kept with the student’s record" placeholder="Name and relation, like Suresh, neighbour" maxLength={120} />
       {calls.map((c) => (
-        <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call" /> {c.name} ({c.relationship.toLowerCase()})</a>
+        <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" />{t("Call {name} ({relation})", { name: c.name, relation: t.any(c.relationship).toLowerCase() })}</a>
       ))}
       {!calls.length && deskPhone && <a href={`tel:${deskPhone}`} className={cx(buttonClass("primary"), "w-full")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call the front desk" /></a>}
-      <p className="text-[12.5px] text-ink3 text-center"><Words k="Adding a person to the list is done in Student Management by someone allowed, never at the desk or gate." /></p>
+      <p className="text-[12.5px] text-ink3 text-center"><Words k="People are added to the list only in Student Management." /></p>
     </SheetForm>
   );
 }
@@ -109,8 +111,9 @@ type S = FormState<unknown>;
 
 /** The approved list on its own (View, Office Staff and Gate Security). */
 export function PickupList({ people, canChoose, chosen, onChoose }: { people: PickupChoice[]; canChoose: boolean; chosen?: string | null; onChoose?: (id: string) => void }) {
+  const t = useT();
   return (
-    <div className="grid sm:grid-cols-2 gap-2" role={canChoose ? "radiogroup" : undefined} aria-label={canChoose ? "Who is collecting?" : "Approved pickup list"}>
+    <div className="grid sm:grid-cols-2 gap-2" role={canChoose ? "radiogroup" : undefined} aria-label={canChoose ? t("Who is collecting?") : t("Approved pickup list")}>
       {people.map((x) => {
         const on = chosen === x.guardianId;
         const clickable = canChoose && x.allowed;
@@ -122,7 +125,7 @@ export function PickupList({ people, canChoose, chosen, onChoose }: { people: Pi
             </span>
             <span className="min-w-0 flex-1">
               <span className={cx("block font-semibold text-[14.5px] truncate", !x.allowed && "text-bad")}>{x.name}</span>
-              <span className="block text-[12.5px] text-ink3">{x.relationship}{x.phone ? <> · <span className="tnum">{x.phone}</span></> : null}</span>
+              <span className="block text-[12.5px] text-ink3">{t.any(x.relationship)}{x.phone ? <> · <span className="tnum">{x.phone}</span></> : null}</span>
               {!x.allowed && <span className="block text-[12px] text-bad font-semibold mt-0.5"><Words k="Not allowed to collect" /></span>}
             </span>
             {on && <CircleCheck size={20} className="text-brand shrink-0" aria-hidden="true" />}
@@ -138,9 +141,9 @@ export function PickupList({ people, canChoose, chosen, onChoose }: { people: Pi
 }
 
 /** With no photo on record there is no face to match: the checks the desk can do instead (QA FO-01). */
-const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (name: string) => string; sub: string }[] = [
-  { value: "id-proof", title: (name) => `ID proof shows ${name}`, sub: "Aadhaar, driving licence or another photo ID. Match the face with the ID photo." },
-  { value: "call", title: () => "A parent or guardian confirmed on a call", sub: "Call a number on the student’s record and ask who is collecting." },
+const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (t: ReturnType<typeof useT>, name: string) => string; sub: "Aadhaar, driving licence or another photo ID. Match the face with the ID photo." | "Call a number on the student’s record and ask who is collecting." }[] = [
+  { value: "id-proof", title: (t, name) => t("ID proof shows {name}", { name }), sub: "Aadhaar, driving licence or another photo ID. Match the face with the ID photo." },
+  { value: "call", title: (t) => t("A parent or guardian confirmed on a call"), sub: "Call a number on the student’s record and ask who is collecting." },
 ];
 
 export function ReleaseForm({ student, people, codeCheck, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
@@ -173,6 +176,8 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
   const ready = Boolean(g && verified && (!codeCheck || (code.length === 4 && !codeLock)) && why);
   const err = state && !state.ok ? state.errors ?? {} : {};
   const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); };
+  const t = useT();
+  const gFirst = g?.name.split(" ")[0] ?? "";
 
   return (
     <form action={run} className="flex flex-col gap-4" noValidate>
@@ -184,16 +189,16 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
       <div>
         <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Who is collecting?" /> <span className="font-normal text-ink3"><Words k={"· from Student Management, Parents & Guardians"} /></span></p>
         {people.length ? <PickupList people={people} canChoose chosen={who} onChoose={choose} />
-          : <p className="text-[13.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-3"><Words k="Nobody is on" /> {student.first}<Words k={"’s pickup list yet. It is set in Student Management, Parents & Guardians."} /></p>}
-        {restricted && <p className="mt-2 text-[13px] text-bad flex gap-1.5"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{restricted.restriction}</p>}
-        {err.guardianId && <p className="mt-2 text-[12.5px] text-bad" role="alert">{err.guardianId}</p>}
+          : <p className="text-[13.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-3">{t("Nobody is on {name}’s pickup list yet. It is set in Student Management, Parents & Guardians.", { name: student.first })}</p>}
+        {restricted && <p className="mt-2 text-[13px] text-bad flex gap-1.5"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{t.any(restricted.restriction ?? "")}</p>}
+        {err.guardianId && <p className="mt-2 text-[12.5px] text-bad" role="alert">{t.any(err.guardianId)}</p>}
         <Link href={stopHref} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserX size={16} aria-hidden="true" /><Words k="Someone not on this list is here" /></Link>
       </div>
 
       {g ? (
         <div className="flex flex-col gap-4 border-t border-line pt-4 animate-rise">
           <div>
-            <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Verify" /> {g.name.split(" ")[0]} <span className="text-bad" aria-hidden="true">*</span></p>
+            <p className="text-[13px] font-semibold text-ink2 mb-2">{t("Check {name}", { name: gFirst })} <span className="text-bad" aria-hidden="true">*</span></p>
             {g.photo ? (
               <div className={cx("rounded-xl border p-3 flex items-center gap-3", err.photoMatch ? "border-bad" : "border-line")}>
                 <Avatar name={g.name} size={56} src={g.photo} />
@@ -209,26 +214,26 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
                     <Avatar name={g.name} size={48} />
                     <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-sunken text-ink2 grid place-items-center ring-2 ring-surface"><Camera size={13} aria-hidden="true" /></span>
                   </span>
-                  <span className="text-[14px] min-w-0"><b className="font-semibold block"><Words k="No photo of" /> {g.name.split(" ")[0]} <Words k="on record" /></b><span className="text-[12.5px] text-ink3"><Words k="There is no face to match. Check one of these instead." /></span></span>
+                  <span className="text-[14px] min-w-0"><b className="font-semibold block">{t("No photo of {name} on record", { name: gFirst })}</b><span className="text-[12.5px] text-ink3"><Words k="There is no face to match. Check one of these instead." /></span></span>
                 </div>
-                <div className="flex flex-col gap-2" role="radiogroup" aria-label={`How you checked ${g.name.split(" ")[0]}`}>
+                <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("How you checked {name}", { name: gFirst })}>
                   {NO_PHOTO_OPTIONS.map((o) => (
                     <button key={o.value} type="button" role="radio" aria-checked={check === o.value} onClick={() => setCheck(o.value)}
                       className={cx("text-left rounded-xl border px-3 py-2.5 flex items-start gap-2.5 transition", check === o.value ? "border-brand ring-1 ring-brand bg-brand/[.05]" : "border-line hover:border-ink3/50")}>
                       <span className={cx("mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 grid place-items-center", check === o.value ? "border-brand" : "border-ink3/60")} aria-hidden="true">{check === o.value && <span className="w-2 h-2 rounded-full bg-brand" />}</span>
-                      <span className="text-[14px]"><b className="font-semibold block">{o.title(g.name)}</b><span className="text-[12.5px] text-ink3">{o.sub}</span></span>
+                      <span className="text-[14px]"><b className="font-semibold block">{o.title(t, g.name)}</b><span className="text-[12.5px] text-ink3">{t(o.sub)}</span></span>
                     </button>
                   ))}
                 </div>
                 <p className="text-[12.5px] text-ink3">
-                  {photoBase ? <Link href={`${photoBase}${g.guardianId}`} className="font-semibold text-brand hover:underline"><Words k="Add" /> {g.name.split(" ")[0]}<Words k="’s photo in Student Management" /></Link> : <><Words k="Ask the office to add" /> {g.name.split(" ")[0]}<Words k="’s photo in Student Management" /></>}<Words k=", so next time the face can be matched." />
+                  {photoBase ? <Link href={`${photoBase}${g.guardianId}`} className="font-semibold text-brand hover:underline">{t("Add {name}’s photo in Student Management", { name: gFirst })}</Link> : t("Ask the office to add {name}’s photo in Student Management", { name: gFirst })}{t(", so next time the face can be matched.")}
                 </p>
               </div>
             )}
-            {err.photoMatch && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.photoMatch}</p>}
+            {err.photoMatch && <p className="mt-1 text-[12.5px] text-bad" role="alert">{t.any(err.photoMatch)}</p>}
             {codeCheck && (
               <div className="rounded-xl border border-line p-3 mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
-                <span className="text-[14px] flex-1"><b className="font-semibold block"><Words k="Code to the guardian’s phone" /></b><span className="text-[12.5px] text-ink3"><Words k="Switched on by the school. Sent to the number on" /> {g.name.split(" ")[0]}<Words k="’s record." /></span></span>
+                <span className="text-[14px] flex-1"><b className="font-semibold block"><Words k="Code to the guardian’s phone" /></b><span className="text-[12.5px] text-ink3">{t("Switched on by the school. Sent to the number on {name}’s record.", { name: gFirst })}</span></span>
                 {codeLock ? (
                   <p role="alert" className="text-[12.5px] text-bad flex gap-1.5 sm:max-w-[300px]"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{codeLock}</p>
                 ) : !codeSent ? (
@@ -238,8 +243,8 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <input name="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" autoComplete="one-time-code" placeholder="4 digits"
-                      className={cx(inputCls(err.code), "h-11 !w-28 tnum text-center tracking-[.3em] font-semibold")} aria-label="Code from the guardian" aria-invalid={err.code ? true : undefined} />
+                    <input name="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" autoComplete="one-time-code" placeholder={t("4 digits")}
+                      className={cx(inputCls(err.code), "h-11 !w-28 tnum text-center tracking-[.3em] font-semibold")} aria-label={t("Code from the guardian")} aria-invalid={err.code ? true : undefined} />
                     {code.length === 4 && <CircleCheck size={20} className="text-ok" aria-hidden="true" />}
                     <Button type="submit" formAction={sendCode} formNoValidate variant="ghost" size="sm" loading={sending} onClick={() => { setCodeFor(who); setCode(""); }}><Words k="Send a new code" /></Button>
                   </div>
@@ -250,13 +255,13 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
             {err.code && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.code}</p>}
           </div>
           <FieldShell label="Reason" id="rl-reason" required error={err.reason || err.otherReason}>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Reason">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("Reason")}>
               {PICKUP_REASONS.map((r) => (
                 <button key={r} type="button" role="radio" aria-checked={reason === r} onClick={() => setReason(r)}
-                  className={cx("h-9 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", reason === r ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50")}>{r}</button>
+                  className={cx("h-9 px-3.5 rounded-xl text-[13.5px] font-semibold border transition", reason === r ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50")}>{t(r)}</button>
               ))}
             </div>
-            {reason === "Other" && <input name="otherReason" value={other} onChange={(e) => setOther(e.target.value)} placeholder="Type the reason" maxLength={120} className={cx(inputCls(err.otherReason), "h-11 mt-2")} aria-label="Other reason" />}
+            {reason === "Other" && <input name="otherReason" value={other} onChange={(e) => setOther(e.target.value)} placeholder={t("Type the reason")} maxLength={120} className={cx(inputCls(err.otherReason), "h-11 mt-2")} aria-label={t("Other reason")} />}
           </FieldShell>
           <div className="grid grid-cols-2 gap-3">
             <FieldShell label="Time" id="rl-time" required error={err.time}>
@@ -266,13 +271,13 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
               <input id="rl-by" value={releasedBy} readOnly className={cx(inputCls(false), "h-11 bg-sunken/60")} />
             </FieldShell>
           </div>
-          {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{state.message}</p>}
+          {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{t.any(state.message ?? "")}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && codeLock ? "Code checks are locked: read the red note above" : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
+            {pending ? t("Making gate pass…") : ready ? t("Release {name} and make gate pass", { name: student.first }) : !verified ? (g.photo ? t("Check the photo first") : t("Check ID proof or call first")) : codeCheck && codeLock ? t("Code checks are locked: read the red note above") : codeCheck && code.length !== 4 ? (codeSent ? t("Enter the code from the guardian") : t("Send the code first")) : t("Choose a reason")}
           </Button>
         </div>
       ) : (
-        people.some((p) => p.allowed) && <p className="text-[13.5px] text-ink3 border-t border-line pt-4"><Words k="Choose the person collecting" /> {student.first}<Words k=". Someone in red cannot be chosen." /></p>
+        people.some((p) => p.allowed) && <p className="text-[13.5px] text-ink3 border-t border-line pt-4">{t("Choose the person collecting {name}. Someone in red cannot be chosen.", { name: student.first })}</p>
       )}
     </form>
   );

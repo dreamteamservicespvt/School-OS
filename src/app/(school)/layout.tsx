@@ -16,6 +16,7 @@ import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
 import { isUnread, notificationPage } from "@/lib/notifications";
+import { noteText } from "@/lib/notification-words";
 import { soundOn } from "@/lib/notification-kinds";
 import { PAGE_PATH_HEADER, recordMissing } from "@/lib/record-gate";
 import { myPhotoLink } from "@/lib/profile-photo";
@@ -104,7 +105,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       canApprove={shell.canApprove}
       canMessage
       unread={shell.unread}
-      notes={notes.map((n) => ({ id: n.id, text: n.text, when: ago(n.createdAt, t), unread: isUnread(n) }))}
+      notes={notes.map((n) => ({ id: n.id, text: noteText(t, n), when: ago(n.createdAt, t), unread: isUnread(n) }))}
       theme={cleanTheme(current.user.theme)}
       support={supportEnds ? { ends: supportEnds } : null}
       ai={aiAllowed(current, "ai-ask-do")}
@@ -134,7 +135,7 @@ export default async function SchoolLayout({ children }: { children: React.React
             : banner.payUrl ? <a href={banner.payUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">{t("Pay now")}</a> : null}
         </div>
       )}
-      <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
+      <main id="main" tabIndex={-1} className="outline-none w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
       {assistant && <AssistantPanel {...assistant} school={{ ...assistant.school, logoUrl: assistantLogo }} />}
     </AppShell>

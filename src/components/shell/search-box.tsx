@@ -53,6 +53,30 @@ function matchesOwn(label: string, query: string) {
   return query.toLocaleLowerCase().split(/\s+/).filter(Boolean).every((t) => words.some((w) => w.startsWith(t)));
 }
 
+/**
+ * The job words people type for a page whose name says something else (layman loop 2, 15 Nov: "bonafide",
+ * "change phone" and "holiday" found nothing). Matched like the page's own name; never shown.
+ */
+const TASK_WORDS: Record<string, string> = {
+  "/student-management/certificates/new": "bonafide tc transfer study conduct character certificate",
+  "/student-management/certificates": "bonafide tc transfer study conduct character certificate",
+  "/student-management/guardians": "change phone parent phone mobile number father mother guardian",
+  "/communication/notices/new": "holiday notice circular announcement",
+  // Key pages by the words people say (owner decision 13, 15 Nov 2026: the menu shows short module names,
+  // so "Time Table", "Collect Fee", "Take Attendance", "Marks Entry" and "Notices" must be found by name).
+  "/academic-management/time-table": "timetable time table periods schedule",
+  "/academic-management/time-table/mine": "timetable time table my periods schedule",
+  "/fee-management": "collect fee fees take payment counter pay",
+  "/attendance-management": "take attendance mark attendance present absent",
+  "/examination-results/marks": "marks entry enter marks scores",
+  "/communication/notices": "notices notice board circular announcement",
+};
+/** A page's name plus its job words, for matching only (exported for tests/search.test.ts). */
+export const withWords = (label: string, href: string) => {
+  const w = TASK_WORDS[href.split(/[?#]/)[0]];
+  return w ? `${label} ${w}` : label;
+};
+
 type Person = { id: string; name: string; sub: string; href: string };
 type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string; run?: () => void };
 
@@ -106,10 +130,28 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
 
   // The box takes the keys at once (QA SEARCH-01): focus it before the browser paints, and any
   // letter pressed while focus is still elsewhere (the search bar just clicked) goes into the box.
-  useLayoutEffect(() => { inp.current?.focus(); }, []);
+  // On close the cursor goes back where it was, or to the Search button (not lost on the page; accessibility check 2026-11-15).
+  useLayoutEffect(() => {
+    const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    inp.current?.focus();
+    return () => {
+      const to = back?.isConnected ? back : [...document.querySelectorAll<HTMLElement>("[data-search-button]")].find((b) => b.offsetParent !== null);
+      to?.focus();
+    };
+  }, []);
   useEffect(() => {
     const t = setTimeout(() => { if (document.activeElement !== inp.current) inp.current?.focus(); }, 40);
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      // Tab and Shift+Tab stay inside the open search, as a modal should.
+      if (e.key !== "Tab" || !box.current) return;
+      const list = [...box.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((el) => el.offsetParent !== null);
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1], at = document.activeElement;
+      if (!box.current.contains(at)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+    };
     const early = (e: KeyboardEvent) => {
       const ch = typedKey(e);
       // Only while focus is still outside the palette; inside it, keys do what they normally do.
@@ -162,17 +204,17 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     asked.forEach((m) => out.push({ sec: t("Questions"), label: questionTitleIn(t, m.key, m.params), href: m.href, icon: I.CircleHelp }));
     // "fee Ravi": Collect Fee for each Ravi, first.
     // A label is found by its English words or by its words in the person's language.
-    const found = (label: string) => matches(label, typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
+    const found = (label: string, href = "") => matches(withWords(label, href), typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
     people.collect.forEach((s) => out.push({ sec: t("Collect fee"), label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
     people.students.forEach((s) => out.push({ sec: t("Students"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.staff.forEach((s) => out.push({ sec: t("Staff"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.parents.forEach((s) => out.push({ sec: t("Parents"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.receipts.forEach((s) => out.push({ sec: t("Receipts"), label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
-    quick.filter((x) => found(x.label)).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
-    pages.filter((p) => found(p.label)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
+    quick.filter((x) => found(x.label, x.href)).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    pages.filter((p) => found(p.label, p.href)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
     // A question no ready-made one matches: the closest ones the person may ask.
     if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
-      if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("The AI assistant picks the question; the answer comes from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
+      if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("Answers come from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
       const ready = questions.map((x) => new URLSearchParams(x.href.split("?")[1] ?? "").get("q")).filter(isQuestionKey);
       closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: t("Closest questions"), label: questionTitleIn(t, k), href: askHref(k), icon: I.CircleHelp }));
     }
@@ -192,7 +234,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     <div className="fixed inset-0 z-50 flex justify-center items-start md:pt-[10vh]">
       <div className="absolute inset-0 bg-shade/45 backdrop-blur-[2px] animate-fade" onClick={onClose} aria-hidden="true" />
       <div ref={box} role="dialog" aria-modal="true" aria-label={t("Search")}
-        className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop animate-rise flex flex-col md:max-h-[70vh] md:mx-6">
+        className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop flex flex-col md:max-h-[70vh] md:mx-6">
         <div className="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0">
           {loading || askNote?.busy ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}
           <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} type="search"
@@ -214,7 +256,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
             </div>
           )}
           {typed.length < 2 && results.length === 0 && (
-            <p className="text-center py-12 px-6 text-sm text-ink3">{t("Type at least two letters of a name, an admission number, a phone number or a page.")}</p>
+            <p className="text-center py-12 px-6 text-sm text-ink3">{t("Type at least two letters.")}</p>
           )}
           {results.map((r, i) => {
             const head = r.sec !== lastSec ? (lastSec = r.sec) : null;

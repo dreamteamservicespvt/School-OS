@@ -2,6 +2,7 @@
 
 // Resend, revoke or reissue one Parent Link (11-communication.md, Revoke or reissue form),
 // as buttons at the top of the link with a dialog (mod-communication.jsx LinkSheet).
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, Send } from "lucide-react";
@@ -38,7 +39,7 @@ export function LinkPanel({ id, name, channels, reasons }: { id: string; name: s
     const out: Record<string, string> = {};
     if (!reason) out.reason = "Choose a reason.";
     if (reason === "Other" && other.trim().length < 5) out.other = "Write the reason in at least 5 characters.";
-    if (mode === "reissue" && !channels.length) out.reason = "Neither WhatsApp nor SMS is switched on, so a new link cannot be sent. Choose Revoke only.";
+    if (mode === "reissue" && !channels.length) out.reason = SMS_OFFERED ? "Neither WhatsApp nor SMS is switched on, so a new link cannot be sent. Choose Revoke only." : "WhatsApp is not switched on, so a new link cannot be sent. Choose Revoke only.";
     setErr(out);
     if (Object.keys(out).length) return;
     start(async () => {
@@ -61,14 +62,14 @@ export function LinkPanel({ id, name, channels, reasons }: { id: string; name: s
       <Button variant="secondary" icon={Send} onClick={() => setOpen("resend")}><Words k="Resend link" /></Button>
       <Button variant="danger-soft" icon={Ban} onClick={() => setOpen("revoke")}><Words k="Revoke or reissue" /></Button>
 
-      <Dialog open={open === "resend"} onClose={close} title={`Resend ${name}’s link`} sub="The same link, for a guardian who lost the message. Phones already confirmed keep working."
+      <Dialog open={open === "resend"} onClose={close} title={`Resend ${name}’s link`} sub="The same link. Confirmed phones keep working."
         footer={<>
           <Button variant="secondary" onClick={close}><Words k="Cancel" /></Button>
           <Button icon={Send} loading={pending} loadingText="Sending" disabled={!channels.length} onClick={resend}><Words k="Resend link" /></Button>
         </>}>
         <div className="flex flex-col gap-3">
           {channels.length ? channelPick || <p className="text-[14px] text-ink2"><Words k="It goes by" /> {channels[0].label} <Words k="to the registered mobile." /></p>
-            : <p className="text-[14px] text-bad"><Words k={"Neither WhatsApp nor SMS is switched on. Switch one on in Settings, SMS, WhatsApp & Email."} /></p>}
+            : <p className="text-[14px] text-bad">{SMS_OFFERED ? <Words k={"Neither WhatsApp nor SMS is switched on. Switch one on in Settings, SMS, WhatsApp & Email."} /> : <Words k={"WhatsApp is not switched on. Switch it on in Settings, SMS, WhatsApp & Email."} />}</p>}
           {msg && <p role="alert" className="text-[13px] text-bad">{msg}</p>}
         </div>
       </Dialog>

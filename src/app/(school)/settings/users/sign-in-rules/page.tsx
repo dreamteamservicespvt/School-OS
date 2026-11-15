@@ -29,7 +29,7 @@ export default async function SignInRulesPage() {
       <UsersNav active="rules" />
       {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see the rules here. The School Admin changes them." /></p>}
       <Card className="mb-5">
-        <CardHeader title="Password rules" description="What every new password must be. They apply the next time someone sets a password: an invite link, a temporary password, Change password or a reset. Passwords set earlier keep working." />
+        <CardHeader title="Password rules" description="Apply the next time someone sets a password. Old passwords keep working." />
         <div className="px-5 pb-5">
           <PasswordRulesForm
             readOnly={!may.edit}
@@ -42,7 +42,7 @@ export default async function SignInRulesPage() {
         </div>
       </Card>
       <Card>
-        <CardHeader title="Session rules" description="How long a signed-in device stays signed in. School OS checks this on every page and every save, not only in the browser." />
+        <CardHeader title="Session rules" description="How long a device stays signed in." />
         <div className="px-5 pb-5">
           <SessionRulesForm
             readOnly={!may.edit}

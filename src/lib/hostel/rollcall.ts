@@ -18,6 +18,7 @@ import { HostelProblem } from "./problem";
 import { hostelSettings, wardenLogins } from "./settings";
 import { notify } from "../notifications";
 import { BASE, SESSION, isoOf, plural } from "./words";
+import { word } from "../notification-words";
 
 export type SheetRow = { student: StudentInfo; roomNo: string; floor: string; bedNo: number; away: { mark: "OUTING" | "LEAVE"; passId: string; passNo: string; toAt: Date | null; withName: string | null } | null; mark: RollCallMarkKind };
 
@@ -142,7 +143,7 @@ export async function remindRollCall(tx: Tx, ctx: SchoolContext, hostelId: strin
   const people = await wardenLogins(tx, hostelId);
   if (!people.length) throw new HostelProblem(`${hostel.name} has no warden with a School OS login. Set its wardens in Hostel Settings.`);
   for (const to of people) {
-    await notify(tx, ctx, { to, type: "hostel", text: `Reminder: ${SESSION[session].toLowerCase()} roll call for ${hostel.name} on ${formatDate(date, "UTC")} is not taken yet.`, link: rollCallLink(hostelId, isoOf(date), session), groupKey: `hostel-remind-${hostelId}-${isoOf(date)}-${session}` });
+    await notify(tx, ctx, { to, type: "hostel", key: "Reminder: {session} roll call for {hostel} on {date} is not taken yet.", values: { session: word(SESSION[session].toLowerCase()), hostel: hostel.name, date: formatDate(date, "UTC") }, link: rollCallLink(hostelId, isoOf(date), session), groupKey: `hostel-remind-${hostelId}-${isoOf(date)}-${session}` });
   }
   await writeAudit(tx, ctx, { action: "reminded", recordType: "Roll Call", recordId: hostelId, after: { hostel: hostel.name, date: isoOf(date), session: SESSION[session], to: people.length } });
   return { hostel: hostel.name, people: people.length };

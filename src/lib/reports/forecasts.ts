@@ -49,6 +49,7 @@ import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
 import { readPreferences } from "../settings/profile-rules";
 import { aiRolesOf } from "../settings/switch-rules";
+import { word } from "../notification-words";
 
 export type ForecastArea = "attendance" | "marks" | "fees" | "students" | "admissions" | "staff" | "finance" | "academic" | "messages" | "activity";
 export const FORECAST_AREA_LABEL: Record<ForecastArea, string> = {
@@ -743,8 +744,11 @@ export async function refreshForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
     for (const to of people) {
       await notify(tx, { ...ctx, userId: null }, {
         to, type: "looking-ahead", groupKey: "looking-ahead", link: "/reports-analytics/early-warnings#looking-ahead",
-        text: `Looking ahead: ${plural(toTell.length, "new suggestion")}${urgent ? `, ${urgent} to act on soon` : ""}.${example ? ` The most important: ${example.title}.` : ""}`,
-        mergedText: (n) => `Looking ahead: ${n} updates with new suggestions`,
+        key: urgent
+          ? (example ? "Looking ahead: {suggestions}, {urgent} to act on soon. The most important: {title}." : "Looking ahead: {suggestions}, {urgent} to act on soon.")
+          : (example ? "Looking ahead: {suggestions}. The most important: {title}." : "Looking ahead: {suggestions}."),
+        values: { suggestions: word(plural(toTell.length, "new suggestion")), urgent, title: word(example?.title ?? "") },
+        mergedKey: "Looking ahead: {n} updates with new suggestions",
       }, now);
     }
     await tx.forecastSignal.updateMany({ where: { id: { in: toTell.map((f) => f.id) } }, data: { notifiedAt: now } });

@@ -13,6 +13,8 @@ import { allLeaveWhere, campusStaffWhere, offCampus } from "@/lib/staff/list";
 import { narrowToCampus, personCampusId } from "@/lib/campus";
 import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
+import { isSchoolDay } from "@/lib/calendar/school-days";
+import { nextSchoolDay } from "@/lib/attendance/calendar";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
@@ -73,7 +75,10 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       tx.leaveTypeRule.findMany(),
       viewer.staffId ? tx.staff.findUnique({ where: { id: viewer.staffId } }) : null,
     ]);
-    return { approvalsWhere: where, waitingForMe, types, rules, me };
+    // The form starts on the next school day, not on a Sunday or holiday (layman loop 2).
+    const campusId = me?.campusId ?? viewer.campusId ?? null;
+    const firstDay = (await isSchoolDay(tx, current.ctx, today, { campusId })).on ? today : (await nextSchoolDay(tx, current.ctx, today, campusId)) ?? today;
+    return { approvalsWhere: where, waitingForMe, types, rules, me, firstDay };
   });
 
   const views = [
@@ -99,7 +104,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   });
   const canApply = (Boolean(viewer.staffId) || canHr) && !shut;
   const apply = canApply && base.types.length > 0 ? (
-    <ApplyLeaveForm action={applyLeaveAction} preview={previewLeave} types={typeOptions} today={isoDay(today)}
+    <ApplyLeaveForm action={applyLeaveAction} preview={previewLeave} types={typeOptions} today={isoDay(base.firstDay)}
       staff={canHr ? staffOptions.filter((s) => s.id !== viewer.staffId).map((s) => ({ value: s.id, label: `${s.fullName} (${s.staffCode})` })) : null}
       fixedStaff={fixed ? { value: fixed.id, label: fixed.fullName } : undefined} defaultOpen={Boolean(applyFor)} />
   ) : null;
@@ -184,9 +189,11 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                 const ended = r.toDate < today;
                 const canCancel = cancellable && (r.status === "WAITING" || (r.status === "APPROVED" && !ended)) && (canHr || r.staffId === viewer.staffId);
                 return (
-                  <li key={r.id} className="flex items-start gap-3 py-3">
+                  // On a phone the status and Cancel leave sit on their own line under the details: beside them the
+                  // details were squeezed to one word a line (layman loop 5).
+                  <li key={r.id} className="flex flex-wrap items-start gap-3 py-3">
                     {r.staffName && <Avatar name={r.staffName} photoFileId={null} size={38} />}
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 basis-56">
                       <p className="font-semibold">
                         {r.staffName && r.staffId ? <><Link href={`${BASE}/${r.staffId}?tab=leave`} className="hover:underline">{r.staffName}</Link> · </> : null}
                         {type}
@@ -200,7 +207,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                       <p className="text-[13.5px] text-ink2">“{r.reason}”</p>
                       {r.decisionReason && r.status !== "APPROVED" && <p className="text-[13px] text-ink3"><Words k="Note:" /> {r.decisionReason}</p>}
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-start">
                       <Badge tone={s.tone}>{s.label}</Badge>
                       {r.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 text-brand-text hover:underline"><Words k="Document" /></a>}
                       {canCancel && <CancelLeaveForm requestId={r.id} action={cancelLeaveAction} started={r.status === "APPROVED" && r.fromDate <= today} />}
@@ -359,7 +366,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const busy = days.map((d) => ({ d, people: data.leaves.filter((l) => l.fromDate <= d && l.toDate >= d) })).filter((x) => x.people.length || data.holidays.get(isoDay(x.d))?.reason === "holiday");
     return (
       <Card>
-        <CardHeader title={`Who is on leave, ${monthLabel(from)}`} description="Approved leave, and leave waiting for a decision (marked)."
+        <CardHeader title={`Who is on leave, ${monthLabel(from)}`}
           action={<div className="flex gap-2"><ButtonLink size="sm" href={q(prev)}><Words k="‹ Previous" /></ButtonLink><ButtonLink size="sm" href={q(next)}><Words k="Next ›" /></ButtonLink></div>} />
         <CardBody className="space-y-4">
           {data.departments.length > 1 && (
@@ -418,7 +425,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const paid = base.types.filter((t) => t.paid);
     return (
       <Card>
-        <CardHeader title={`Leave balances, ${yearLabel(data.year)}`} description="Days left of each leave type. Adjust a balance with a reason; every change is kept."
+        <CardHeader title={`Leave balances, ${yearLabel(data.year)}`} description="Days left of each leave type"
           action={canHr ? <CarryForwardForm years={data.years.map((y) => ({ value: y.id, label: yearLabel(y) }))} action={carryForwardAction} /> : undefined} />
         <CardBody>
           {data.years.length > 1 && (
@@ -453,7 +460,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-ink-2"><Words k="Shown as days left / days given for the year. Days beyond the balance are loss of pay where HR Settings allow it." /></p>
+          <p className="mt-3 text-sm text-ink-2"><Words k="Days left / days given. Days beyond the balance can be loss of pay." /></p>
         </CardBody>
       </Card>
     );

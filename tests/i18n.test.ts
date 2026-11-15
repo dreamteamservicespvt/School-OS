@@ -10,8 +10,8 @@ import { EN } from "@/lib/i18n/catalogues/en";
 import { CATALOGUES, makeT, personLanguage, titleIn } from "@/lib/i18n/server";
 import { blanksOf, englishOf, fill, translator } from "@/lib/i18n/t";
 import { SCREEN_LANGUAGES, cleanLang, pickLanguage, schoolLanguages } from "@/lib/i18n/languages";
-import { screenMessage } from "@/lib/i18n/messages";
-import { dayWords } from "@/lib/i18n/dates";
+import { screenLine, screenMessage } from "@/lib/i18n/messages";
+import { dateBlank, dayWords } from "@/lib/i18n/dates";
 import { NAV_GROUPS, BOTTOM_BY_ROLE, QUICK_BY_ROLE } from "@/components/shell/nav-config";
 import { MODULES } from "@/lib/modules";
 import { allSections } from "@/lib/parent-link/section-list";
@@ -67,7 +67,7 @@ describe("the screens ask only for English keys", () => {
       }
     }
     expect(unknown).toEqual([]);
-  });
+  }, 240_000); // scans every source file: about 90 s on the D: drive under a full parallel run
 
   it("the menu, the phone bar, the New menu, module names and Parent Link sections are in English", () => {
     const words = [
@@ -108,6 +108,13 @@ describe("the translator", () => {
     expect(dayWords(hi, "Thursday, 22 October")).not.toContain("Thursday");
   });
 
+  it("never turns a person's name into a day or month (code review 15 Nov)", () => {
+    const hi = makeT("hi");
+    expect(screenLine(hi, "Sat Pal Singh")).toBe("Sat Pal Singh");
+    expect(dateBlank(hi, "April")).toBe("April");
+    expect(screenLine(hi, "Bread and Butter and 3 more.")).toContain("Bread and Butter");
+  });
+
   it("puts messages from the rules into the screen's language", () => {
     const te = makeT("te");
     expect(screenMessage(te, "Too many tries in a short time. Please wait 5 minutes and try again.")).toContain("5");
@@ -140,7 +147,13 @@ describe("the translator", () => {
     const { LOGIN_CEILING_WORDS } = await import("@/lib/staff/login-ceiling");
     for (const [lang, words] of [["hi", "सेटिंग्स"], ["te", "సెట్టింగ్‌లు"]] as const) {
       const t = makeT(lang);
-      for (const m of Object.values(LOGIN_CEILING_WORDS)) expect(screenMessage(t, m), `${lang}: ${m}`).toContain(words);
+      // Each refusal is really translated; those that point to Settings name it in the language (15 Nov: the
+      // "school you do not manage" refusal points to DREAM TEAM support instead).
+      for (const m of Object.values(LOGIN_CEILING_WORDS)) {
+        const said = screenMessage(t, m);
+        expect(said, `${lang}: ${m}`).not.toBe(m);
+        if (/Settings/.test(m)) expect(said, `${lang}: ${m}`).toContain(words);
+      }
     }
   });
 

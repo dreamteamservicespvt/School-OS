@@ -45,7 +45,7 @@ export function LogoForm({ logoHref }: { logoHref: string | null }) {
           <SubmitButton pendingText="Uploading…"><Words k="Upload logo" /></SubmitButton>
           {logoHref && (
             <ConfirmButton trigger="Remove logo" triggerVariant="ghost" title="Remove the logo?" confirmLabel="Remove logo" confirmVariant="danger" onConfirm={removeLogoAction}>
-              <Words k="Screens, receipts and certificates will show the school name without a logo. The file is kept and you can upload a logo again any time." />
+              <Words k="Screens and documents will show the name without a logo. You can upload one again any time." />
             </ConfirmButton>
           )}
         </div>
@@ -104,7 +104,7 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
         {state?.errors?.languages && <p className="mt-1 text-sm text-danger">{state.errors.languages}</p>}
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label="Default language" name="defaultLanguage" required value={def} onChange={(e) => setDef(e.target.value)} options={LANGUAGES.filter((l) => on.includes(l.value))} error={state?.errors?.defaultLanguage} help="Screens show in this language for anyone who has not chosen their own in My profile; new parents' messages start in it too." />
+        <SelectField label="Default language" name="defaultLanguage" required value={def} onChange={(e) => setDef(e.target.value)} options={LANGUAGES.filter((l) => on.includes(l.value))} error={state?.errors?.defaultLanguage} help="For anyone who has not chosen their own language." />
         <SelectField label="Time zone" name="timeZone" required defaultValue={timeZone} options={TIME_ZONES} error={state?.errors?.timeZone} />
       </div>
       <dl className="grid gap-3 rounded-xl bg-surface-2 p-4 text-sm sm:grid-cols-3">
@@ -127,8 +127,8 @@ export function ComplianceForm({ initial, board }: { initial: Compliance; board:
       <FormMessage state={state} />
       <ErrorSummary errors={state?.errors} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="UDISE+ code" name="udiseCode" inputMode="numeric" maxLength={11} defaultValue={v("udiseCode")} error={state?.errors?.udiseCode} help="11 digits, from the UDISE+ portal. Used in government reports." />
-        <TextField label={board ? `${board} school code` : "Board school code"} name="boardSchoolCode" defaultValue={v("boardSchoolCode")} error={state?.errors?.boardSchoolCode} help="The school number the board gives, used on board registrations." />
+        <TextField label="UDISE+ code" name="udiseCode" inputMode="numeric" maxLength={11} defaultValue={v("udiseCode")} error={state?.errors?.udiseCode} help="11 digits, from the UDISE+ portal." />
+        <TextField label={board ? `${board} school code` : "Board school code"} name="boardSchoolCode" defaultValue={v("boardSchoolCode")} error={state?.errors?.boardSchoolCode} />
         <TextField label="Society or trust registration number" name="registrationNumber" defaultValue={v("registrationNumber")} error={state?.errors?.registrationNumber} />
         <TextField label="PAN of the society or trust" name="panNumber" maxLength={10} defaultValue={v("panNumber")} error={state?.errors?.panNumber} style={{ textTransform: "uppercase" }} />
       </div>

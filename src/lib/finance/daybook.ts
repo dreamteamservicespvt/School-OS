@@ -180,7 +180,7 @@ export async function dayBook(tx: Tx, f: DayBookFilter) {
   const online = fees.filter((e) => e.mode === "GATEWAY");
   const offline = fees.filter((e) => e.mode !== "GATEWAY");
   const groups = [
-    { key: "online", label: "Online fees", amount: sum(online), count: online.length },
+    { key: "online", label: "Online (Razorpay)", amount: sum(online), count: online.length },
     { key: "full", label: "Full payments", amount: sum(offline.filter((e) => e.section === "fees-full")), count: offline.filter((e) => e.section === "fees-full").length },
     { key: "partial", label: "Partial payments", amount: sum(offline.filter((e) => e.section === "fees-partial")), count: offline.filter((e) => e.section === "fees-partial").length },
     { key: "other-fees", label: "Other fee types", amount: sum(offline.filter((e) => e.section === "other-fees")), count: offline.filter((e) => e.section === "other-fees").length },

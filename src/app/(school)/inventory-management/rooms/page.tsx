@@ -128,7 +128,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
 
   return (
     <>
-      <InvHead pageName="Rooms, Labs & Maintenance" href={`${BASE}/rooms`} mode={p.mode} actions={actions} />
+      <InvHead pageName="Rooms, Labs & Maintenance" href={`${BASE}/rooms`} mode={can.rooms || (can.remind && openTotal > 0) ? "full" : p.mode} actions={actions} />
       <Stack>
         <Stats items={stats} />
         <SegLinks label="Rooms views" value={tab} options={[
@@ -175,7 +175,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
               <UrlSelect param="type" label="Type" options={[{ value: "", label: "All types" }, ...FACILITY_TYPES.map((t) => ({ value: t, label: t }))]} />
             </Toolbar>
             <DataList rows={facilityRows} rowKey={(r) => r.id} minWidth={820} caption="Facility register"
-              empty={<Empty icon={q || ftype ? Search : Building2} title={q || ftype ? "No places match" : "No places yet"} body={can.rooms ? "Add rooms, labs, halls and grounds. The Time Table uses the same rooms." : undefined} />}
+              empty={<Empty icon={q || ftype ? Search : Building2} title={q || ftype ? "No places match" : "No places yet"} body={can.rooms ? "Add rooms, labs, halls and grounds." : undefined} />}
               columns={[
                 { key: "name", label: "Place", render: (r) => <b className="font-semibold">{r.name}</b> },
                 { key: "type", label: "Type", render: (r) => typeOf(r) },
@@ -234,7 +234,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
               )}
             </Card>
             <Card>
-              <CardHeader title="Lab equipment" description="Assets in the labs. Log repairs and services from the asset." icon={Hammer} divided />
+              <CardHeader title="Lab equipment" icon={Hammer} divided />
               {d.labAssets.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No lab equipment in the asset register." /></p> : (
                 <SimpleTable caption="Lab equipment" rows={d.labAssets} rowKey={(a) => a.id} minWidth={560} cols={[
                   { label: "Tag", render: (a) => <Link className="font-mono font-semibold hover:underline" href={`${BASE}/assets/${a.id}`}>{a.tag}</Link> },

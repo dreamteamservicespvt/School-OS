@@ -26,7 +26,7 @@ export function RegisterPhotos({ photos, schoolId }: { photos: PhotoMeta[]; scho
   if (!photos.length) return null;
   return (
     <Card className="self-start xl:sticky xl:top-4">
-      <CardHeader title={photos.length === 1 ? "The register photo" : "The register photos"} description="The AI assistant read the rows from these pages. Check each row against the page; fix it or leave it out where it is wrong." />
+      <CardHeader title={photos.length === 1 ? "The register photo" : "The register photos"} description="Check each row against the page." />
       <ul className="max-h-[80vh] space-y-4 overflow-auto px-5 pb-5">
         {photos.map((p, i) => {
           const href = fileLink(p.fileId, schoolId);

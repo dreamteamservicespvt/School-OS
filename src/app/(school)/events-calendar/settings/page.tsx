@@ -43,7 +43,7 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
   const editing = doing === "house" && houseId ? d.houses.find((h) => h.id === houseId) : undefined;
   return (
     <div>
-      <EvHead pageName="Events Settings" href={HREF} sub="Event types, weekends, houses, calendar sharing, PTM defaults, activity credits and photo consent." />
+      <EvHead pageName="Events Settings" href={HREF} />
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col>
           <Card>
@@ -55,7 +55,7 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
             <ListEditor list="eventTypes" items={s.eventTypes} canEdit={can} addLabel="Add type" placeholder="For example: Exhibition" />
           </Card>
           <Card>
-            <CardHeader icon={MapPin} title="Venues" description="Offered when creating an event; two events at one venue at the same time get a warning" />
+            <CardHeader icon={MapPin} title="Venues" description="Two events at one venue at once get a warning" />
             <ListEditor list="venues" items={s.venues} canEdit={can} addLabel="Add venue" placeholder="For example: Music room" />
           </Card>
           <Card>

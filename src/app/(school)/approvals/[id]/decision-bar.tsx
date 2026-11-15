@@ -3,6 +3,7 @@
 // Approve, reject, ask for a change or withdraw. On phones the buttons sit in
 // a bar at the bottom of the screen, within reach of the thumb.
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import * as I from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
@@ -10,9 +11,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { TextArea } from "@/components/ui/field";
 import type { Decision } from "@/lib/approvals";
 import { decideAction } from "../actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
-export function DecisionBar({ id, summary, canDecide, canReject = true, canWithdraw, startReject = false }: { id: string; summary: string; canDecide: boolean; canReject?: boolean; canWithdraw: boolean; startReject?: boolean }) {
+export function DecisionBar({ id, summary, amount = null, canDecide, canReject = true, canWithdraw, startReject = false }: { id: string; summary: string; amount?: string | null; canDecide: boolean; canReject?: boolean; canWithdraw: boolean; startReject?: boolean }) {
+  const router = useRouter();
+  const t = useT();
   const [asking, setAsking] = useState<null | "reject" | "ask-change">(startReject && canDecide && canReject ? "reject" : null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,21 +26,43 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
     setError(null);
     try {
       const problem = await decideAction(id, d, n);
-      if (problem) setError(problem); else setAsking(null);
+      if (problem) setError(problem);
+      else {
+        setAsking(null);
+        // Every decision stays on the request, which then offers the next one (layman loop 4: Reject went
+        // back to the list, Approve stayed). Drop ?reject=1 so a refresh does not open the reason box again.
+        if (startReject) router.replace(`/approvals/${id}`, { scroll: false });
+      }
     } catch {
       setError("That did not work, and nothing was changed. Please try again.");
     }
   });
 
+  // Closing the reason box drops ?reject=1, so a refresh does not open it again.
+  const close = () => {
+    setAsking(null);
+    if (startReject) router.replace(`/approvals/${id}`, { scroll: false });
+  };
+
   if (!canDecide && !canWithdraw) return null;
   return (
     <>
-      <div className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] z-20 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
+      {/* Sticky, not fixed: a fixed bar is placed against the animated page (its transform), so it sat at the page end
+          instead of above the bottom menu (layman loop 3, 390 px). Sticky stays in view from the first screen. */}
+      <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] z-20 -mx-4 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:mx-0 sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
         {error && !asking && <p role="alert" className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="flex flex-wrap gap-2">
           {canDecide && (
             <>
-              <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}><Words k="Approve" /></Button>
+              {amount
+                ? (
+                  // Money: ask first (P4), since an approval cannot be undone.
+                  <ConfirmButton trigger={<span className="inline-flex items-center gap-1.5"><I.Check size={16} aria-hidden="true" /><Words k="Approve" /></span>} triggerVariant="primary" triggerClassName="flex-1 sm:flex-none"
+                    title={t("Approve {amount}?", { amount })} confirmLabel={t("Approve {amount}", { amount })} onConfirm={() => decideAction(id, "approve", null)}>
+                    {summary}. <Words k="This cannot be undone." />
+                  </ConfirmButton>
+                )
+                : <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}><Words k="Approve" /></Button>}
               <Button variant="secondary" icon={I.MessageSquareReply} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}><Words k="Ask for a change" /></Button>
               {canReject && <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}><Words k="Reject" /></Button>}
             </>
@@ -49,8 +74,8 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
           )}
         </div>
       </div>
-      <Dialog open={asking !== null} onClose={() => setAsking(null)} title={asking === "reject" ? "Reject this request" : "Ask for a change"}>
-        <form className="space-y-4" onSubmit={(e) => {
+      <Dialog open={asking !== null} onClose={close} title={asking === "reject" ? "Reject this request" : "Ask for a change"}>
+        <form className="space-y-4" noValidate onSubmit={(e) => {
           e.preventDefault();
           if (note.trim().length < 5) { setNoteError("Give a reason of at least 5 characters, so the person knows why."); return; }
           run(asking!, note.trim());
@@ -61,7 +86,7 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
             help="The person who asked sees this." />
           {error && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setAsking(null)}><Words k="Cancel" /></Button>
+            <Button variant="secondary" onClick={close}><Words k="Cancel" /></Button>
             <Button type="submit" variant={asking === "reject" ? "danger" : "primary"} loading={pending} loadingText="Sending…">{asking === "reject" ? "Reject" : "Send back for a change"}</Button>
           </div>
         </form>

@@ -4,6 +4,7 @@
 // four quick actions, the details, Convert to application, the "…" menu,
 // messages and the activity history, which is never deleted.
 
+import { offeredChannels } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -21,12 +22,14 @@ import { Timeline } from "@/components/ui/rows";
 import { SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { STATUS_TONE } from "@/lib/admission/tones";
+import { phoneWords } from "@/lib/admission/words";
 import { FormSheet, SegField, WhenField } from "../_components/forms";
 import { EditEnquiryButton, type EnquiryChoices, type SavedEnquiry } from "./enquiry-forms";
 import {
   archiveAction, callAction, changeSourceAction, changeStatusAction, closeLostAction, followUpAction, messageAction, noteAction, reassignAction, reopenAction,
 } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
 
 
 export type PanelActivity = { id: string; kind: string; text: string; when: string; by: string | null; direction: string | null };
@@ -48,11 +51,12 @@ const KIND: Record<string, [LucideIcon, PillTone | undefined]> = {
 const CALL_OUTCOMES = ["Talked", "No answer", "Busy", "Switched off", "Wrong number", "Call back later"];
 
 function DItem({ k, v, sub, act }: { k: string; v: React.ReactNode; sub?: React.ReactNode; act?: React.ReactNode }) {
+  const t = useT();
   return (
     <div className="min-w-0">
-      <dt className="text-[12px] text-ink3 font-semibold flex items-center gap-2">{k}{act}</dt>
-      <dd className="text-[14px] mt-0.5 break-words">{v}</dd>
-      {sub && <dd className="text-[12.5px] text-ink3 break-all">{sub}</dd>}
+      <dt className="text-[12px] text-ink3 font-semibold flex items-center gap-2">{t.any(k)}{act}</dt>
+      <dd className="text-[14px] mt-0.5 break-words">{typeof v === "string" ? screenLine(t, v) : v}</dd>
+      {sub && <dd className="text-[12.5px] text-ink3 break-all">{typeof sub === "string" ? screenLine(t, sub) : sub}</dd>}
     </div>
   );
 }
@@ -64,12 +68,13 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
   statuses: Option[]; lossReasons: Option[]; templates: { key: string; label: string; text: string }[];
 }) {
   const [sheet, setSheet] = useState<Sheet>(null);
+  const t = useT();
   const messages = e.activities.filter((a) => a.kind === "message");
   const [tab, setTab] = useState<"chat" | "activity">("activity");
   const closed = ["applied", "admitted", "lost"].includes(e.status);
   const close = () => setSheet(null);
   const hidden = { id: e.id };
-  const link = (label: string, s: Sheet) => <button type="button" onClick={() => setSheet(s)} className="text-brand hover:underline">{label}</button>;
+  const link = (label: string, s: Sheet) => <button type="button" onClick={() => setSheet(s)} className="text-brand hover:underline">{t.any(label)}</button>;
   const menu: MenuItem[] = [
     ...(full ? [{ icon: <ListChecks size={17} aria-hidden="true" />, label: "Change status", onClick: () => setSheet("status") }, { icon: <UserCog size={17} aria-hidden="true" />, label: "Reassign owner", onClick: () => setSheet("reassign") }, { icon: <Tag size={17} aria-hidden="true" />, label: "Change source", onClick: () => setSheet("source") }] : []),
     { icon: <CircleX size={17} aria-hidden="true" />, label: "Close as lost", onClick: () => setSheet("lost"), tone: "bad" as const },
@@ -89,7 +94,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
         <Avatar name={e.childName} size={48} />
         <div className="min-w-0 flex-1">
           <h2 className="font-display font-semibold text-[20px] leading-tight">{e.childName}</h2>
-          <p className="text-[13px] text-ink3 mt-0.5">{e.className ?? "Class not decided"} · {e.yearLabel}{e.enquiryNo && <> · <span className="font-mono text-[12px]">{e.enquiryNo}</span></>}</p>
+          <p className="text-[13px] text-ink3 mt-0.5">{e.className ? t.any(e.className) : t("Class not decided")} · {e.yearLabel}{e.enquiryNo && <> · <span className="font-mono text-[12px]">{e.enquiryNo}</span></>}</p>
           <div className="flex gap-1.5 mt-2 flex-wrap">
             <Pill tone={STATUS_TONE[e.status] ?? "neutral"} dot>{e.statusLabel}</Pill>
             {e.campaign && <Pill tone="info">{e.campaign}</Pill>}
@@ -102,7 +107,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
         <div className="grid grid-cols-4 gap-2 px-4 pb-4">
           {([[PhoneCall, "Log call", "call"], [StickyNote, "Add note", "note"], [Send, "Message", "msg"], [AlarmClock, "Follow-up", "follow"]] as const).map(([Ic, l, k]) => (
             <button key={k} type="button" onClick={() => setSheet(k)} className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl bg-sunken/70 hover:bg-brand/8 hover:text-brand transition text-[12.5px] font-semibold">
-              <Ic size={18} className="text-brand" aria-hidden="true" />{l}
+              <Ic size={18} className="text-brand" aria-hidden="true" />{t(l)}
             </button>
           ))}
         </div>
@@ -110,12 +115,12 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 px-5 py-4 border-t border-line/70">
         <DItem k="Parent" v={e.parentName} sub={e.email} act={canWork && !e.archived ? <EditEnquiryButton c={c} saved={e.saved} /> : undefined} />
         <DItem k="Phone" v={<a href={`tel:+91${e.phone}`} className="tnum select-all hover:underline">+91 {e.phone.replace(/^(\d{5})(\d{5})$/, "$1 $2")}</a>} />
-        <DItem k="Source" v={e.sourceLabel} sub={e.firstSourceLabel ? `First recorded: ${e.firstSourceLabel}` : e.referredBy ? `By ${e.referredBy}` : null} act={canWork && full && !closed ? link("Change", "source") : undefined} />
-        <DItem k="Owner" v={e.ownerName ?? "No owner"} act={canWork && full && !closed ? link("Reassign", "reassign") : undefined} />
-        <DItem k="Next follow-up" v={e.nextFollowUp ? <span className={cx("tnum", e.due === "overdue" && "text-bad font-semibold", e.due === "today" && "text-warn font-semibold")}>{e.nextFollowUp}</span> : "None"} sub={e.nextAction} />
-        <DItem k="Campaign" v={e.campaign ?? "None"} />
-        <DItem k="Added" v={e.created} sub={e.addedBy ? `By ${e.addedBy}` : null} />
-        <DItem k="Class wanted" v={e.className ?? "Not decided"} sub={e.seats} />
+        <DItem k="Source" v={e.sourceLabel} sub={e.firstSourceLabel ? t("First recorded: {source}", { source: t.any(e.firstSourceLabel) }) : e.referredBy ? t("By {name}", { name: e.referredBy }) : null} act={canWork && full && !closed ? link("Change", "source") : undefined} />
+        <DItem k="Owner" v={e.ownerName ?? t("No owner")} act={canWork && full && !closed ? link("Reassign", "reassign") : undefined} />
+        <DItem k="Next follow-up" v={e.nextFollowUp ? <span className={cx("tnum", e.due === "overdue" && "text-bad font-semibold", e.due === "today" && "text-warn font-semibold")}>{screenLine(t, e.nextFollowUp)}</span> : t("None")} sub={e.nextAction} />
+        <DItem k="Campaign" v={e.campaign ?? t("None")} />
+        <DItem k="Added" v={e.created} sub={e.addedBy ? t("By {name}", { name: e.addedBy }) : null} />
+        <DItem k="Class wanted" v={e.className ?? t("Not decided")} sub={e.seats} />
         {e.currentSchool && <DItem k="Current school" v={e.currentSchool} />}
         {e.childDob && <DItem k="Date of birth" v={e.childDob} />}
         {e.lostNote && <DItem k="Why lost" v={e.lostNote} />}
@@ -138,14 +143,14 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
         {([["chat", "Messages", messages.length], ["activity", "Activity", e.activities.length]] as const).map(([id, l, n]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={cx("relative h-11 px-3.5 text-sm font-semibold transition", tab === id ? "text-brand" : "text-ink2 hover:text-ink")}>
-            {l}<span className="ml-1.5 text-xs text-ink3 tnum">{n}</span>
+            {t(l)}<span className="ml-1.5 text-xs text-ink3 tnum">{n}</span>
             {tab === id && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
           </button>
         ))}
       </div>
       {tab === "chat" ? (
         <div className="p-4 flex flex-col gap-3" role="tabpanel">
-          {messages.length === 0 ? <p className="text-[13.5px] text-ink3 text-center py-6"><Words k="No messages yet." />{canWork && !closed ? " Use Message to send the first one." : ""}</p> : (
+          {messages.length === 0 ? <p className="text-[13.5px] text-ink3 text-center py-6"><Words k="No messages yet." />{canWork && !closed ? ` ${t("Use Message to send the first one.")}` : ""}</p> : (
             <ol className="flex flex-col gap-2.5">
               {[...messages].reverse().map((m) => (
                 <li key={m.id} className={cx("max-w-[86%] rounded-2xl px-3.5 py-2.5 text-[14px] leading-snug", m.direction === "incoming" ? "bg-sunken self-start rounded-bl-md" : "bg-brand/10 self-end rounded-br-md")}>
@@ -161,13 +166,13 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
         <div className="px-5 pt-5" role="tabpanel">
           <Timeline items={e.activities.map((a) => {
             const [Ic, tone] = KIND[a.kind] ?? [Circle, undefined];
-            return { what: a.text, when: `${a.when}${a.by ? ` · ${a.by}` : ""}`, icon: Ic, tone };
+            return { what: screenLine(t, a.text), when: `${screenLine(t, a.when)}${a.by ? ` · ${a.by}` : ""}`, icon: Ic, tone };
           })} />
           <p className="text-[12px] text-ink3 pb-4 -mt-2 flex items-center gap-1.5"><Lock size={13} aria-hidden="true" /><Words k="Full history is kept. Notes, calls and changes are never deleted." /></p>
         </div>
       )}
 
-      <FormSheet open={sheet === "call"} onClose={close} title="Log a call" sub={`${e.parentName} · +91 ${e.phone}`} action={callAction} hidden={hidden} submitLabel="Save call">
+      <FormSheet open={sheet === "call"} onClose={close} title="Log a call" sub={`${e.parentName} · +91 ${phoneWords(e.phone)}`} action={callAction} hidden={hidden} submitLabel="Save call">
         {(f) => <>
           <SegField name="direction" label="Call" options={[{ value: "outgoing", label: "Outgoing" }, { value: "incoming", label: "Incoming" }]} defaultValue={f.val("direction", "outgoing")!} />
           <SelectField label="What happened" name="outcome" required options={CALL_OUTCOMES.map((o) => ({ value: o, label: o }))} defaultValue={f.val("outcome", "Talked")} error={f.err("outcome")} />
@@ -178,12 +183,12 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       <FormSheet open={sheet === "note"} onClose={close} title="Add note" sub={`On ${e.childName}’s enquiry. Only staff can see it.`} action={noteAction} hidden={hidden} submitLabel="Add note">
         {(f) => <TextArea label="Note" name="text" required rows={4} placeholder="For example: wants hostel from Class 6. Grandfather will decide." defaultValue={f.val("text")} error={f.err("text")} />}
       </FormSheet>
-      <FormSheet open={sheet === "msg"} onClose={close} title={`Message ${e.parentName}`} sub={`+91 ${e.phone} · saved in this enquiry`} action={messageAction} hidden={{ ...hidden, template: tpl }} submitLabel={`Send to ${e.parentName}`} busyLabel="Sending…" submitIcon={Send}>
+      <FormSheet open={sheet === "msg"} onClose={close} title={`Message ${e.parentName}`} sub={`+91 ${phoneWords(e.phone)} · saved in this enquiry`} action={messageAction} hidden={{ ...hidden, template: tpl }} submitLabel={`Send to ${e.parentName}`} busyLabel="Sending…" submitIcon={Send}>
         {(f) => <>
-          <SegField name="channel" label="Send by" options={[{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} defaultValue={channel} onChange={setChannel} />
+          <SegField name="channel" label="Send by" options={offeredChannels(["whatsapp", "sms", "email"]).map((c) => ({ value: c, label: c === "sms" ? "SMS" : c === "email" ? "Email" : "WhatsApp" }))} defaultValue={channel} onChange={setChannel} />
           <SelectField label="Template" name="_template" required options={templates.map((t) => ({ value: t.key, label: t.label }))} value={tpl}
             onChange={(x) => { setTpl(x.target.value); setText(templates.find((t) => t.key === x.target.value)?.text ?? ""); }} />
-          <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} help="You can change the words before sending." />
+          <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} />
           {channel === "email" && !e.email && <Banner tone="warn"><Words k="No email on this enquiry yet. Add one with Edit, or send on WhatsApp." /></Banner>}
           {f.err("channel") && <p className="text-[12.5px] text-bad">{f.err("channel")}</p>}
         </>}
@@ -219,7 +224,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       <FormSheet open={sheet === "reopen"} onClose={close} title="Reopen enquiry" sub="It goes back to Contacted with a new follow-up." action={reopenAction} hidden={hidden} submitLabel="Reopen" submitIcon={RotateCcw}>
         {(f) => <WhenField label="Next follow-up" name="nextFollowUpAt" required defaultValue={f.val("nextFollowUpAt", c.defaultFollowUp)} error={f.err("nextFollowUpAt")} />}
       </FormSheet>
-      <FormSheet open={sheet === "archive"} onClose={close} title="Archive enquiry" sub="It leaves the lists but is kept with its history. You can restore it." action={archiveAction} hidden={hidden} submitLabel="Archive" submitVariant="danger" submitIcon={Archive}>
+      <FormSheet open={sheet === "archive"} onClose={close} title="Archive enquiry" sub="It leaves the lists. You can restore it." action={archiveAction} hidden={hidden} submitLabel="Archive" submitVariant="danger" submitIcon={Archive}>
         {(f) => <TextField label="Reason" name="reason" required maxLength={300} placeholder="For example: entered twice by mistake" defaultValue={f.val("reason")} error={f.err("reason")} />}
       </FormSheet>
     </Card>

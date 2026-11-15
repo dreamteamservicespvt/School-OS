@@ -78,7 +78,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
 
   return (
     <div>
-      <FinanceHead pageName="Income" href={HREF} sub="Money the school receives other than fees: rent, donations, scrap sale, interest"
+      <FinanceHead pageName="Income" href={HREF} sub="Money other than fees, like rent or donations"
         viewActions={p.can.export ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
         actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}><Words k="Record income" /></ButtonLink> : null} />
       <Stack>
@@ -90,7 +90,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
         ]} />
         <Split className="[&>*]:min-w-0">
           <Card className="overflow-hidden">
-            <CardHeader title="Income entries" description="Newest first. Posted entries are in the Day Book." icon={HandCoins} />
+            <CardHeader title="Income entries" description="Newest first" icon={HandCoins} />
             <Toolbar className="border-t border-line md:!flex-col">
               <UrlSearch id="inc-q" placeholder="Payer, head or number" label="Search income" />
               <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
@@ -104,7 +104,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
             <DataList rows={data.list.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={860} caption="Income entries"
               footer={`Showing ${data.list.rows.length} of ${data.list.count} · ${formatRupees(data.list.posted)} posted`}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="income entries" /> : data.total === 0
-                ? <Empty icon={HandCoins} title="No income recorded yet" body="Hall rent, donations, scrap sale or bank interest go here. Fees reach the Day Book from Fees by themselves." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record income" /></ButtonLink> : undefined} />
+                ? <Empty icon={HandCoins} title="No income recorded yet" body="Rent, donations, scrap sale or interest. Not fees." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record income" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No income matches" body="Try another date, head or status." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
               columns={[
                 { key: "d", label: "Date", nowrap: true, render: (r) => <><p className="tnum">{formatDate(r.date)}</p><p className="text-[12px] text-ink3 font-mono">{r.receiptNo ?? "Draft"}</p></> },
@@ -149,7 +149,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
 
       {adding && (
         <RecordIncomeSheet closeHref={here()} today={p.today.toISOString().slice(0, 10)} payers={data.payers.map((x) => x.receivedFrom)}
-          heads={data.heads.map((h) => ({ value: h.id, label: `${h.name} · ${h.code}` }))}
+          heads={data.heads.map((h) => ({ value: h.id, label: h.name }))}
           cash={data.accounts.filter((a) => a.kind === "CASH").map((a) => ({ value: a.id, label: acctLabel(a) }))}
           banks={data.accounts.filter((a) => a.kind === "BANK").map((a) => ({ value: a.id, label: acctLabel(a) }))}
           mainBank={data.accounts.find((a) => a.kind === "BANK" && a.isMain)?.id ?? data.accounts.find((a) => a.kind === "BANK")?.id ?? ""} />

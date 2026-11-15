@@ -67,7 +67,7 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
               </ConfirmButton>
               <ConfirmButton trigger={`Mark ${picked.length} as sent`} title="Mark as sent?" confirmLabel="Mark as sent"
                 onConfirm={async () => { const e = await markCardsAction(sectionId, period, picked, "SENT"); if (!e) { setChosen([]); router.refresh(); } return e; }}>
-                <p><Words k="Use this when the report cards were handed or sent to parents. Published report cards are on Parent Link already." /></p>
+                <p><Words k="Use this when report cards were handed or sent to parents." /></p>
               </ConfirmButton>
             </>
           )}
@@ -209,7 +209,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
               </label>
             )}
           </div>
-          <p className="text-sm text-ink-2"><Words k="Built only from each student's own marks, the change since the exam before, the class average, attendance, homework and co-scholastic grades, in your school's phrases, with where each sentence comes from. No marks, no suggestion. Nothing is saved until you choose one, check it and press Save." /></p>
+          <p className="text-sm text-ink-2"><Words k="Built from each student's own marks and records. Nothing is saved until you choose one and press Save." /></p>
         </div>
       )}
       <ul className="space-y-3">

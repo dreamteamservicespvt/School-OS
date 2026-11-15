@@ -17,7 +17,7 @@ import { hashToken, placeholderFor, tokenFor } from "./token";
 import { prisma, withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { sendMessage, MessagingProblem, type SendResult } from "../messaging/send";
-import { channelSetups, whatsappIsLive, type Channel } from "../messaging/channels";
+import { channelSetups, offeredChannels, SMS_OFFERED, whatsappIsLive, type Channel } from "../messaging/channels";
 import { inTestMode } from "../messaging/providers";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
@@ -27,16 +27,34 @@ import { codeNotSentParentWords, logCodeSentBy, mayLogCode, PARENT_CODE_NOT_SENT
 
 export class ParentLinkProblem extends Error {}
 
-/** "+91 ••••• ••210" (11-communication.md §5). */
-export function maskPhone(phone: string) {
-  const d = phone.replace(/\D/g, "").slice(-10);
+/** "+91 ••••• ••210" (11-communication.md §5); "Phone missing" for a parent with no phone. */
+export function maskPhone(phone: string | null) {
+  const d = (phone ?? "").replace(/\D/g, "").slice(-10);
+  if (!d) return "Phone missing";
   return `+91 ••••• ••${d.slice(-3)}`;
+}
+
+/** Owner decision 15 (15-11-2026): a parent with no phone gets no Parent Link until a phone is added. */
+export const NO_PHONE_LINK = "Add a phone first. Parent Link cannot be sent to a parent with no phone.";
+const noPhoneWords = (name: string) => `Add a phone first. ${name} has no phone, so Parent Link cannot be sent.`;
+
+/** Of these guardians, the ones with a phone (a link can go to them); the rest are "Phone missing". */
+export async function guardiansWithPhone(tx: Tx, guardianIds: string[]) {
+  if (!guardianIds.length) return [];
+  const have = new Set((await tx.guardian.findMany({ where: { id: { in: guardianIds }, phone: { not: null } }, select: { id: true } })).map((g) => g.id));
+  return guardianIds.filter((id) => have.has(id));
+}
+
+async function requirePhone(tx: Tx, guardianId: string) {
+  const g = await tx.guardian.findUnique({ where: { id: guardianId }, select: { name: true, phone: true } });
+  if (g && !g.phone) throw new ParentLinkProblem(noPhoneWords(g.name));
 }
 
 /** Makes a guardian's link. One active link per guardian (enforced by the database too). */
 export async function createLink(tx: Tx, ctx: SchoolContext, guardianId: string) {
   const g = await tx.guardian.findFirst({ where: { id: guardianId, schoolId: ctx.schoolId, archivedAt: null } });
   if (!g) throw new ParentLinkProblem("This parent was not found.");
+  if (!g.phone) throw new ParentLinkProblem(noPhoneWords(g.name));
   const active = await tx.parentLink.findFirst({ where: { guardianId, status: "ACTIVE" } });
   if (active) throw new ParentLinkProblem(`${g.name} already has an active Parent Link. Use Resend or Reissue instead.`);
   const id = crypto.randomUUID();
@@ -60,14 +78,16 @@ async function cannotCarry(tx: Tx, ctx: SchoolContext, ch: "whatsapp" | "sms", t
   }
   if (!whatsappIsLive(setups.whatsapp)) return null;
   const ok = await tx.templateVersion.count({ where: { templateId, isCurrent: true, whatsappStatus: "APPROVED", whatsappName: { not: null } } });
-  return ok ? null : "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS.";
+  return ok ? null : SMS_OFFERED ? "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS." : "WhatsApp has not approved the template yet. Send it for approval in Message Templates.";
 }
 
 /** The channel and template for sending links: WhatsApp if it can carry it, else SMS (with a DLT ID). */
 async function linkChannel(tx: Tx, ctx: SchoolContext, wanted?: Channel | null): Promise<{ channel: Channel; templateId: string }> {
   await ensureReadyTemplates(tx, ctx);
   const setups = await channelSetups(tx, ctx);
-  const order: Channel[] = wanted ? [wanted] : ["whatsapp", "sms"];
+  // Links never go by SMS while it is not offered (SMS_OFFERED, owner 15 Nov 2026).
+  if (wanted === "sms" && !SMS_OFFERED) wanted = null;
+  const order: Channel[] = wanted ? [wanted] : offeredChannels<Channel>(["whatsapp", "sms"]);
   let why: string | null = null;
   for (const ch of order) {
     if (ch !== "whatsapp" && ch !== "sms") continue;
@@ -79,7 +99,7 @@ async function linkChannel(tx: Tx, ctx: SchoolContext, wanted?: Channel | null):
     return { channel: ch, templateId: t.id };
   }
   if (why) throw new ParentLinkProblem(`Links cannot be sent: ${why}`);
-  throw new ParentLinkProblem(wanted ? `${wanted === "sms" ? "SMS" : "WhatsApp"} is switched off. Switch it on in Settings, SMS, WhatsApp & Email.` : "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email.");
+  throw new ParentLinkProblem(wanted ? `${wanted === "sms" ? "SMS" : "WhatsApp"} is switched off. Switch it on in Settings, SMS, WhatsApp & Email.` : SMS_OFFERED ? "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." : "WhatsApp is switched off, so links cannot be sent. Switch it on in Settings, SMS, WhatsApp & Email.");
 }
 
 /** Sends links (as placeholders) to guardians in one Message. */
@@ -115,6 +135,7 @@ export async function createAndSend(tx: Tx, ctx: SchoolContext, guardianId: stri
 export async function resendLink(tx: Tx, ctx: SchoolContext, linkId: string, channel?: Channel | null) {
   const link = await tx.parentLink.findFirst({ where: { id: linkId, schoolId: ctx.schoolId } });
   if (!link || link.status !== "ACTIVE") throw new ParentLinkProblem("Only an active link can be resent. Reissue it instead.");
+  await requirePhone(tx, link.guardianId);
   return sendLinks(tx, ctx, [link], { channel, trigger: "Parent Link resent" });
 }
 
@@ -134,6 +155,8 @@ export async function revokeLink(tx: Tx, ctx: SchoolContext, linkId: string, rea
 
 /** Reissue: revokes the old link and sends a new one to the registered mobile. */
 export async function reissueLink(tx: Tx, ctx: SchoolContext, linkId: string, reason: string, channel?: Channel | null) {
+  const before = await tx.parentLink.findFirst({ where: { id: linkId, schoolId: ctx.schoolId }, select: { guardianId: true } });
+  if (before) await requirePhone(tx, before.guardianId);
   const old = await revokeLink(tx, ctx, linkId, reason);
   const fresh = await createLink(tx, ctx, old.guardianId);
   await tx.parentLink.update({ where: { id: old.id }, data: { replacedById: fresh.id } });
@@ -152,13 +175,17 @@ export async function guardiansWithoutLinks(tx: Tx, ctx: SchoolContext, guardian
 }
 
 export async function sendToFamilies(tx: Tx, ctx: SchoolContext, guardianIds: string[], opts: { channel?: Channel | null; scheduledAt?: Date | null; audienceLabel: string }) {
-  const todo = await guardiansWithoutLinks(tx, ctx, guardianIds);
-  if (!todo.length) throw new ParentLinkProblem("Every parent chosen already has an active link. Use Resend for one parent.");
+  const without = await guardiansWithoutLinks(tx, ctx, guardianIds);
+  if (!without.length) throw new ParentLinkProblem("Every parent chosen already has an active link. Use Resend for one parent.");
+  // Parents with no phone are left out and counted (owner decision 15).
+  const todo = await guardiansWithPhone(tx, without);
+  const noPhone = without.length - todo.length;
+  if (!todo.length) throw new ParentLinkProblem(noPhone === 1 ? NO_PHONE_LINK : `Add a phone first. The ${noPhone} parents chosen without a link have no phone, so Parent Link cannot be sent.`);
   await linkChannel(tx, ctx, opts.channel); // fail early, before making links
   const links = [];
   for (const g of todo) links.push(await createLink(tx, ctx, g));
   const result = await sendLinks(tx, ctx, links, { channel: opts.channel, scheduledAt: opts.scheduledAt, trigger: "Parent Links sent to existing families", audienceLabel: opts.audienceLabel });
-  return { made: links.length, alreadyHad: guardianIds.length - todo.length, result };
+  return { made: links.length, alreadyHad: guardianIds.length - without.length, noPhone, result };
 }
 
 /** A2: when an admission is approved, the guardians get their links without anyone typing them. */
@@ -167,7 +194,8 @@ export async function sendLinksOnAdmission(tx: Tx, ctx: SchoolContext, studentId
   if (!settings.parentLink.on || !settings.parentLink.autoSendOnAdmission) return { made: 0 };
   // Not a guardian with a custody restriction for this child.
   const guardians = await tx.studentGuardian.findMany({ where: { studentId, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true } });
-  const todo = await guardiansWithoutLinks(tx, ctx, guardians.map((g) => g.guardianId));
+  // A parent with no phone gets their link once a phone is added (owner decision 15).
+  const todo = await guardiansWithPhone(tx, await guardiansWithoutLinks(tx, ctx, guardians.map((g) => g.guardianId)));
   const links = [];
   for (const g of todo) links.push(await createLink(tx, ctx, g));
   try {
@@ -215,7 +243,7 @@ export type OpenState =
   | { state: "invalid" }
   | { state: "revoked"; schoolName: string; schoolPhone: string | null }
   | { state: "off"; schoolName: string; schoolPhone: string | null }
-  | { state: "verify"; schoolName: string; maskedPhone: string; linkId: string; schoolId: string; codeSentAt: Date | null }
+  | { state: "verify"; schoolName: string; schoolPhone: string | null; maskedPhone: string; linkId: string; schoolId: string; codeSentAt: Date | null; codeChannel: "sms" | "whatsapp" | null }
   | { state: "open"; schoolName: string; linkId: string; schoolId: string; guardianId: string; deviceId: string };
 
 /**
@@ -255,8 +283,34 @@ export async function openLink(token: string, deviceKey: string | null, device: 
       }
     }
     const pending = await tx.parentLinkCode.findFirst({ where: { parentLinkId: link.id, purpose: "device", usedAt: null, expiresAt: { gt: now }, ...(deviceKey ? { keyHash: hashToken(deviceKey) } : { keyHash: "-" }) }, orderBy: { createdAt: "desc" } });
-    return { state: "verify" as const, schoolName: school.name, maskedPhone: maskPhone(guardian.phone), linkId: link.id, schoolId: found.schoolId, codeSentAt: pending?.createdAt ?? null };
+    // The screen names the channel that will really carry the code ("on WhatsApp", "by SMS"), or says to call the school.
+    const carrier = await codeCarrier(tx, ctx);
+    return { state: "verify" as const, schoolName: school.name, schoolPhone: school.phone, maskedPhone: maskPhone(guardian.phone), linkId: link.id, schoolId: found.schoolId, codeSentAt: pending?.createdAt ?? null, codeChannel: carrier?.channel ?? null };
   });
+}
+
+/**
+ * The channel that really carries a Parent Link code now, and its template: SMS
+ * first (codes are what SMS is for), else WhatsApp; each only when it can carry
+ * the code (on a real WhatsApp account, an approved code template). Null when
+ * neither can: the parent is told to call the school.
+ */
+async function codeCarrier(tx: Tx, ctx: SchoolContext, setups?: Awaited<ReturnType<typeof channelSetups>>): Promise<{ channel: "sms" | "whatsapp"; templateId: string } | null> {
+  await ensureReadyTemplates(tx, ctx);
+  const s = setups ?? await channelSetups(tx, ctx);
+  for (const ch of ["sms", "whatsapp"] as const) {
+    if (!s[ch].isOn) continue;
+    const t = await templateByKey(tx, ctx, "parent-link-code", ch);
+    if (!t) continue;
+    if (await cannotCarry(tx, ctx, ch, t.id, s)) continue;
+    return { channel: ch, templateId: t.id };
+  }
+  return null;
+}
+
+/** The parent's words when no code could go: call the school office (on its number, when the school has one). */
+export function callSchoolWords(schoolPhone: string | null | undefined) {
+  return schoolPhone ? `The school could not send your code. Please call the school office on ${schoolPhone}.` : PARENT_CODE_NOT_SENT;
 }
 
 /** Sends a one-time code to the guardian's registered mobile (never to a number typed on the page). */
@@ -264,22 +318,13 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
   const now = opts.now ?? new Date();
   const link = await tx.parentLink.findUniqueOrThrow({ where: { id: linkId } });
   if (link.status !== "ACTIVE") throw new ParentLinkProblem("This link is no longer active. Please ask the school for a new one.");
+  const holder = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
+  if (!holder?.phone) throw new ParentLinkProblem("The school has no phone number for you, so no code can be sent. Please ask the school to add your phone.");
   const settings = await messageSettings(tx, ctx);
-  await ensureReadyTemplates(tx, ctx);
   const setups = await channelSetups(tx, ctx);
-  let channel: Channel | null = null;
-  let templateId: string | null = null;
-  // SMS first (codes are what SMS is for), else WhatsApp; each only when it can really carry the code.
-  for (const ch of ["sms", "whatsapp"] as const) {
-    if (!setups[ch].isOn) continue;
-    const t = await templateByKey(tx, ctx, "parent-link-code", ch);
-    if (!t) continue;
-    if (await cannotCarry(tx, ctx, ch, t.id, setups)) continue;
-    channel = ch;
-    templateId = t.id;
-    break;
-  }
-  if (!channel || !templateId) throw new ParentLinkProblem(PARENT_CODE_NOT_SENT);
+  const carrier = await codeCarrier(tx, ctx, setups);
+  if (!carrier) throw new ParentLinkProblem(PARENT_CODE_NOT_SENT);
+  const { channel, templateId } = carrier;
   // An earlier unused code stops working when a new one is sent.
   await tx.parentLinkCode.updateMany({ where: { parentLinkId: linkId, purpose, usedAt: null }, data: { expiresAt: now } });
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
@@ -327,15 +372,19 @@ export async function checkCode(tx: Tx, ctx: SchoolContext, linkId: string, purp
   const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, purpose, usedAt: null, expiresAt: { gt: now }, ...(purpose === "device" ? { keyHash: keyHash ?? "-" } : {}) }, orderBy: { createdAt: "desc" } });
   if (!row) return { ok: false, message: "This code has expired. Tap \"Send a new code\"." };
   if (row.attempts >= CODE_TRIES) return { ok: false, message: "Too many wrong codes. Tap \"Send a new code\"." };
+  // The try is counted before the compare, in one statement that refuses a sixth (security review
+  // 2026-11-15): codes sent at the same moment cannot all pass the five-try check.
+  const counted = await tx.parentLinkCode.updateMany({ where: { id: row.id, usedAt: null, attempts: { lt: CODE_TRIES } }, data: { attempts: { increment: 1 } } });
+  if (counted.count === 0) return { ok: false, message: "Too many wrong codes. Tap \"Send a new code\"." };
   const expected = Buffer.from(row.codeHash);
   const given = Buffer.from(codeHash(clean, linkId));
   if (clean.length !== 6 || !timingSafeEqual(expected, given)) {
-    await tx.parentLinkCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
-    const left = CODE_TRIES - row.attempts - 1;
+    const left = CODE_TRIES - (await tx.parentLinkCode.findUniqueOrThrow({ where: { id: row.id }, select: { attempts: true } })).attempts;
     await writeAudit(tx, ctx, { action: "code-wrong", recordType: "Parent Link", recordId: linkId, after: { purpose } });
     return { ok: false, message: left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "Too many wrong codes. Tap \"Send a new code\"." };
   }
-  await tx.parentLinkCode.update({ where: { id: row.id }, data: { usedAt: now } });
+  const claimed = await tx.parentLinkCode.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: now } });
+  if (claimed.count !== 1) return { ok: false, message: "This code has expired. Tap \"Send a new code\"." };
   return { ok: true, code: { id: row.id, detail: row.detail } };
 }
 

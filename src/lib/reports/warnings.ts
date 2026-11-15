@@ -50,6 +50,7 @@ import { BASE, type ReportAccess } from "./access";
 import { attendanceFlagRows, coveredStudents, joinAttendanceFlags, JOINED, riskRow, type BaseRow } from "./attendance-rows";
 import { belowThresholdStrength, closerLook, FAILS_FOR_ACT_NOW, marksStrength, withTwoAreas } from "./strength";
 import type { ReportViewer } from "./types";
+import { word } from "../notification-words";
 
 export const WARNINGS_HREF = `${BASE}/early-warnings`;
 
@@ -292,7 +293,7 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
     for (const x of newActNow) {
       const teacher = staff.find((t) => t.id === sections.find((s) => s.id === x.sectionId)?.classTeacherId)?.userLoginId;
       if (!teacher) continue;
-      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: teacher, type: "early-warning", text: `Act now: ${names.get(x.studentId) ?? "A student"}. ${x.reason.split("\n")[0]}. Please review.`, link: `${WARNINGS_HREF}?open=${x.flagId}`, groupKey: "early-warning", mergedText: (n) => `${n} new Act now flags for your students. Please review.` });
+      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: teacher, type: "early-warning", key: "Act now: {name}. {reason}. Please review.", values: { name: names.get(x.studentId) ?? word("A student"), reason: word(x.reason.split("\n")[0]) }, link: `${WARNINGS_HREF}?open=${x.flagId}`, groupKey: "early-warning", mergedKey: "{n} new Act now flags for your students. Please review." });
     }
   }
   await tx.earlyWarningSetting.update({ where: { schoolId: ctx.schoolId }, data: { lastRefreshAt: now } });
@@ -352,7 +353,8 @@ async function visibleRows(tx: Tx, who: ReportViewer, a: ReportAccess, q: { stud
   ];
 }
 
-export type FlagFilter = { status: "open" | FlagStatus; area: Area | "all"; q: string; raisedFrom: Date | null; raisedTo: Date | null; strength?: "ACT_NOW" | "WATCH" | "all" };
+/** "no-fees": attendance and marks, the Early Warnings page's first view (fee flags are an accounts matter). */
+export type FlagFilter = { status: "open" | FlagStatus; area: Area | "all" | "no-fees"; q: string; raisedFrom: Date | null; raisedTo: Date | null; strength?: "ACT_NOW" | "WATCH" | "all" };
 
 export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: FlagFilter) {
   const all = await visibleRows(tx, who, a, { raisedFrom: f.raisedFrom, raisedTo: f.raisedTo });
@@ -367,19 +369,27 @@ export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: F
     signals: x.reason.split("\n").map((text, i) => ({ text, basis: x.basis.split("\n")[i] ?? x.basis })),
     reviews: x.reviews.map((r) => ({ ...r, who: people.get(r.reviewerId) ?? "Someone" })),
   }));
+  // The numbers follow the signal chosen, so the page's headline matches its list (layman loop 4:
+  // "Watch 341" was fee flags the Dashboard never counts).
+  const inArea = (r: { area: string }) => f.area === "all" || (f.area === "no-fees" ? r.area !== "fees" : r.area === f.area);
+  const counted = rows.filter(inArea);
   const counts = {
-    actNow: rows.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").length,
-    watch: rows.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").length,
-    open: rows.filter((r) => r.status !== "CLOSED").length,
-    NEW: rows.filter((r) => r.status === "NEW").length,
-    REVIEWED: rows.filter((r) => r.status === "REVIEWED").length,
-    ACTION_PLANNED: rows.filter((r) => r.status === "ACTION_PLANNED").length,
-    CLOSED: rows.filter((r) => r.status === "CLOSED").length,
+    actNow: counted.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").length,
+    watch: counted.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").length,
+    open: counted.filter((r) => r.status !== "CLOSED").length,
+    NEW: counted.filter((r) => r.status === "NEW").length,
+    REVIEWED: counted.filter((r) => r.status === "REVIEWED").length,
+    ACTION_PLANNED: counted.filter((r) => r.status === "ACTION_PLANNED").length,
+    CLOSED: counted.filter((r) => r.status === "CLOSED").length,
+    // Students, once each, as the Dashboard counts them (layman loop 5: "13 students" there, "Act now 14" flags here).
+    actNowStudents: new Set(counted.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").map((r) => r.studentId)).size,
+    watchStudents: new Set(counted.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").map((r) => r.studentId)).size,
+    newStudents: new Set(counted.filter((r) => r.status === "NEW").map((r) => r.studentId)).size,
   };
   const q = f.q.trim().toLowerCase();
   const list = rows
     .filter((r) => (f.status === "open" ? r.status !== "CLOSED" : r.status === f.status))
-    .filter((r) => f.area === "all" || r.area === f.area)
+    .filter(inArea)
     .filter((r) => !f.strength || f.strength === "all" || r.strength === f.strength)
     .filter((r) => !q || `${r.name} ${r.cls} ${r.admissionNo}`.toLowerCase().includes(q))
     .sort(byStrength);

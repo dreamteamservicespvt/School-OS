@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { importKind, importKinds, leftCounts, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
 import { startImport } from "../data-security/imports";
 import { currentYear } from "../academic/years";
-import { mainCampus } from "../campus";
+import { campusPeers, mainCampus } from "../campus";
 import { addClass, addSection } from "../academic/structure";
 import { ensureHrDefaults } from "../staff/settings";
 import { fileStore } from "../storage";
@@ -24,7 +24,7 @@ import { STUDENT_IMPORT, decisionWords, studentImport } from "../students/import
 import { STUDENT_UPDATE_IMPORT } from "../students/update-import";
 import { namesAlike } from "../students/name-match";
 import { MAX_ROWS, readWorkbook, ReadProblem, type Sheet } from "./read";
-import { findHeaderRow, guessKind, matchColumns, type ColumnMatch } from "./match";
+import { findHeaderRow, guessKind, matchColumns, valueType, type ColumnMatch } from "./match";
 import { classKey, plain, splitClassSection } from "./tidy";
 import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } from "./prepare";
 import { teacherOption, type Lookups } from "./lookups";
@@ -131,7 +131,7 @@ function kindOf(key: string, options: unknown = {}): ImportKind<unknown> {
   // A fresh Students import each time (withOptions): the registered one remembers sections it looked up, so a class added since would still read as missing.
   const o = options && typeof options === "object" && !Array.isArray(options) ? (options as Record<string, unknown>) : {};
   if (k.withOptions) return k.withOptions(o);
-  if (key === STUDENT_IMPORT) return studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true }) as ImportKind<unknown>;
+  if (key === STUDENT_IMPORT) return studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: false }) as ImportKind<unknown>;
   return k;
 }
 
@@ -219,9 +219,26 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
   return made;
 }
 
-export async function getFile(tx: Tx, id: string) {
+/**
+ * A file being brought in, by id. With `ctx`, only one the person may open: someone kept to one
+ * campus opens the files uploaded by people of that campus only (security review 2026-11-15), the
+ * same words as a file that is not there; someone who works for the whole school opens every one.
+ */
+export async function getFile(tx: Tx, id: string, ctx?: SchoolContext) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  return tx.moveInFile.findFirst({ where: { id, archivedAt: null } });
+  return tx.moveInFile.findFirst({ where: { id, archivedAt: null, ...(ctx ? await fileCampusWhere(tx, ctx) : {}) } });
+}
+
+/** The files a person may see and work on (see getFile): every file, or those of their campus's people. */
+export async function fileCampusWhere(tx: Tx, ctx: SchoolContext): Promise<Prisma.MoveInFileWhereInput> {
+  const peers = await campusPeers(tx, ctx);
+  return peers ? { createdById: { in: peers } } : {};
+}
+
+/** The imports a person may see (the rows each left out): every one, or those made by their campus's people. */
+export async function batchCampusWhere(tx: Tx, ctx: SchoolContext): Promise<Prisma.ImportBatchWhereInput> {
+  const peers = await campusPeers(tx, ctx);
+  return peers ? { importedById: { in: peers } } : {};
 }
 
 /**
@@ -264,7 +281,18 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
   };
 }
 
-export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown; broughtIn?: unknown }): Choices => ({
+/** The one value for every row chosen on screen for a column the file lacks (kept with the file's options). */
+export function fillOf(options: unknown): Record<string, string> {
+  const o = options && typeof options === "object" && !Array.isArray(options) ? (options as Record<string, unknown>).fill : null;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return {};
+  return Object.fromEntries(Object.entries(o as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].length <= 40));
+}
+
+/** Columns that may take one date for every row: any date but a date of birth. */
+export const fillable = (kindKey: string, key: string) => key !== "dateOfBirth" && valueType(kindKey, key) === "date";
+
+export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown; broughtIn?: unknown; options?: unknown }): Choices => ({
+  fill: fillOf(f.options),
   headerRow: f.headerRow,
   done: Object.keys(broughtInOf({ broughtIn: f.broughtIn })).map(Number).filter(Number.isInteger),
   columnMatch: (f.columnMatch ?? {}) as ColumnMatch,
@@ -294,7 +322,7 @@ function decisionsOf(choices: Choices, prepared: Prepared): Decisions {
 
 /** Everything a file's page shows: the sheet, the cleaned rows and, when asked, each row's check. */
 export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { check: boolean }) {
-  const file = await getFile(tx, id);
+  const file = await getFile(tx, id, ctx);
   if (!file) throw new MoveInProblem("This file was not found. It may have been removed.");
   const sheets = await readStored(tx, file.fileId);
   const sheet = sheets[file.sheetIndex] ?? sheets[0];
@@ -394,7 +422,7 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
 }
 
 /** The column match chosen on screen: column key → file column numbers. */
-export async function setColumns(tx: Tx, id: string, match: ColumnMatch) {
+export async function setColumns(tx: Tx, id: string, match: ColumnMatch, fill?: Record<string, string>) {
   const f = await openFile(tx, id);
   const sheets = await readStored(tx, f.fileId);
   const width = (sheets[f.sheetIndex]?.rows[f.headerRow - 1] ?? []).length;
@@ -404,7 +432,16 @@ export async function setColumns(tx: Tx, id: string, match: ColumnMatch) {
     const cols = (match[c.key] ?? []).filter((n) => Number.isInteger(n) && n >= 0 && n < width);
     if (cols.length) clean[c.key] = [...new Set(cols)].slice(0, 3);
   }
-  await tx.moveInFile.update({ where: { id }, data: { columnMatch: clean } });
+  // One date for every row with none in the file (a due date, the month salary starts), as DD-MM-YYYY.
+  const fills: Record<string, string> = {};
+  for (const c of kind.columns) {
+    const v = (fill?.[c.key] ?? "").trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    const dmy = iso ? `${iso[3]}-${iso[2]}-${iso[1]}` : /^\d{2}-\d{2}-\d{4}$/.test(v) ? v : "";
+    if (dmy && fillable(kind.key, c.key)) fills[c.key] = dmy;
+  }
+  const options = { ...((f.options ?? {}) as Record<string, unknown>), fill: fills };
+  await tx.moveInFile.update({ where: { id }, data: { columnMatch: clean, ...(fill ? { options: options as Prisma.InputJsonValue } : {}) } });
 }
 
 /** What Smart Import's question to the AI assistant needs from one file: the fields and columns still unmatched. The values only to describe their kind. */
@@ -588,7 +625,7 @@ export async function addMissingOptions(tx: Tx, ctx: SchoolContext, id: string, 
 }
 
 export async function removeFile(tx: Tx, ctx: SchoolContext, id: string) {
-  const f = await getFile(tx, id);
+  const f = await getFile(tx, id, ctx);
   if (!f) throw new MoveInProblem("This file was not found.");
   if (f.status === "importing") throw new MoveInProblem("This file is being imported. Wait for it to finish.");
   await tx.moveInFile.update({ where: { id }, data: { archivedAt: new Date(), status: f.status === "imported" || fileBatchIds(f).length ? "imported" : "cancelled" } });
@@ -739,9 +776,14 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     c.sections.push({ id: s.id, name: s.name, students: bySection.get(s.id) ?? 0, seats: s.seats });
     classMap.set(s.classId, c);
   }
+  // Families by phone; a parent with no phone (owner decision 15) is a family by their children, never "one family" with every other parent with no phone.
   const phones = new Map<string, Set<string>>();
-  for (const g of guardians) { const set = phones.get(g.phone) ?? new Set(); set.add(plain(g.name)); phones.set(g.phone, set); }
+  for (const g of guardians) {
+    const key = g.phone || `kids:${g.students.map((x) => x.studentId).sort().join(",")}`;
+    const set = phones.get(key) ?? new Set(); set.add(plain(g.name)); phones.set(key, set);
+  }
   const sharedPhones = phonesOfDifferentFamilies(guardians);
+  const noPhone = guardians.filter((g) => !g.phone).length;
   const overFull = [...classMap.values()].flatMap((c) => c.sections.filter((s) => s.students > s.seats).map((s) => `${c.name} ${s.name}`));
   const expected = (plan?.expected ?? {}) as Expected;
   // The money, as of the go-live date typed here (or the day the school went live).
@@ -755,7 +797,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     guardians: guardians.length,
     families: phones.size,
     departments,
-    checks: { noRoll, staffNoLogin, sharedPhones, overFull, openFiles, partFiles: partFiles.length, waitingRows: partFiles.reduce((n, f) => n + f.waiting, 0), problemBatches },
+    checks: { noRoll, staffNoLogin, sharedPhones, noPhone, overFull, openFiles, partFiles: partFiles.length, waitingRows: partFiles.reduce((n, f) => n + f.waiting, 0), problemBatches },
     expected,
     money,
     plan,
@@ -768,9 +810,10 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
  * own number or a van driver's typed in the old software. A father and mother
  * sharing one mobile are one family (they have the same children).
  */
-export function phonesOfDifferentFamilies(guardians: { name: string; phone: string; students: { studentId: string }[] }[]) {
+export function phonesOfDifferentFamilies(guardians: { name: string; phone: string | null; students: { studentId: string }[] }[]) {
   const byPhone = new Map<string, typeof guardians>();
-  for (const g of guardians) byPhone.set(g.phone, [...(byPhone.get(g.phone) ?? []), g]);
+  // Parents with no phone share nothing: an empty phone is never "shared".
+  for (const g of guardians) if (g.phone) byPhone.set(g.phone, [...(byPhone.get(g.phone) ?? []), g]);
   let n = 0;
   for (const list of byPhone.values()) {
     if (list.length < 2) continue;
@@ -808,6 +851,7 @@ export function warnings(s: Summary): string[] {
   if (s.checks.overFull.length) out.push(`More students than seats in ${s.checks.overFull.slice(0, 5).join(", ")}${s.checks.overFull.length > 5 ? ` and ${s.checks.overFull.length - 5} more` : ""}.`);
   if (s.checks.noRoll > 0) out.push(`${s.checks.noRoll} ${s.checks.noRoll === 1 ? "student has" : "students have"} no roll number. Roll numbers can be given class by class in Student Management.`);
   if (s.checks.sharedPhones > 0) out.push(`${s.checks.sharedPhones} phone ${s.checks.sharedPhones === 1 ? "number is" : "numbers are"} shared by parents of different families. It may be the school's own number or a van driver's typed in the old software; correct the parents' phones in Student Management.`);
+  if (s.checks.noPhone > 0) out.push(`${s.checks.noPhone} ${s.checks.noPhone === 1 ? "parent has" : "parents have"} no phone (Phone missing). They get no Parent Link or messages until a phone is added in Student Management, Parents & Guardians.`);
   if (s.checks.staffNoLogin > 0) out.push(`${s.checks.staffNoLogin} staff ${s.checks.staffNoLogin === 1 ? "member has" : "members have"} no login yet.`);
   return out;
 }

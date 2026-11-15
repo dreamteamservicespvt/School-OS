@@ -46,7 +46,7 @@ export function ScheduleTestButton({ applicants, classes, chosen: first = [], op
   return (
     <>
       <Button variant="primary" icon={CalendarPlus} onClick={() => setOpen(true)}><Words k="Schedule test" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule test" sub="Parents get a message with the date, time and venue" action={scheduleTestAction}
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule test" sub="Parents get the date, time and venue" action={scheduleTestAction}
         submitLabel={chosen.size ? `Book ${chosen.size} ${chosen.size === 1 ? "applicant" : "applicants"}` : "Schedule test"} submitIcon={CalendarPlus}>
         {(f) => (
           <>
@@ -82,7 +82,7 @@ export function ScheduleInterviewButton({ applicants, staff, defaultInterviewer,
   return (
     <>
       <Button variant="primary" icon={Plus} onClick={() => setOpen(true)}><Words k="Schedule interview" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule interview" sub="15-minute slots. An interviewer is never booked twice for the same time." action={scheduleInterviewAction}
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule interview" sub="15-minute slots, never double-booked" action={scheduleInterviewAction}
         hidden={{ slot }} submitLabel={label ? `Book ${label}` : "Book slot"} submitIcon={Check}>
         {(f) => (
           <>

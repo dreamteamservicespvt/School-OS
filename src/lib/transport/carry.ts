@@ -175,7 +175,7 @@ export async function noticeNewYear(tx: Tx, ctx: SchoolContext, year: Pick<Acade
   const n = await carryOverCount(tx);
   if (!n) return 0;
   for (const to of await loginsWithRole(tx, ctx, "transport-in-charge")) {
-    await notify(tx, ctx, { to, type: "transport-trip", text: `${year.name} is open: ${n} bus place${n === 1 ? "" : "s"} to carry over. Review them in Student Transport.`, link: `${BASE}/students?do=carry`, groupKey: `transport-carry-${year.name}` });
+    await notify(tx, ctx, { to, type: "transport-trip", key: n === 1 ? "{year} is open: 1 bus place to carry over. Review them in Student Transport." : "{year} is open: {n} bus places to carry over. Review them in Student Transport.", values: { year: year.name, n }, link: `${BASE}/students?do=carry`, groupKey: `transport-carry-${year.name}` });
   }
   return n;
 }

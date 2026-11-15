@@ -75,7 +75,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <StudentsHead page="Leaving & Alumni" href={path} sub="Records of past students, donations, mentors and the job board"
+      <StudentsHead page="Leaving & Alumni" href={path} sub="Past students, donations and mentors"
         actions={<ButtonLink href={`${path}/jobs`} icon={Briefcase}><Words k="Job board" /></ButtonLink>}
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -96,7 +96,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
                 <p className="mb-3 text-[15px]">{data.graduated.slice(0, 5).map((s) => s.fullName).join(", ")}{data.graduated.length > 5 ? ` and ${data.graduated.length - 5} more` : ""}.</p>
                 <ConfirmAction action={markAlumniAction} fields={{ ids: data.graduated.map((s) => s.id).join(",") }} trigger={`Mark ${data.graduated.length} as alumni`} triggerVariant="primary"
                   title={`Mark ${data.graduated.length} graduated ${data.graduated.length === 1 ? "student" : "students"} as alumni?`} confirmLabel="Mark as alumni">
-                  <Words k="An alumni record is made for each, with the graduation year and the parent's phone. You can add their career and college later." />
+                  <Words k="An alumni record is made for each." />
                 </ConfirmAction>
               </CardBody>
             </Card>
@@ -110,12 +110,12 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
           </Card>
           {can.manage && data.all.length > 0 && (
             <Card>
-              <CardHeader title="Link a mentor" description="An alumnus who guides a current student." />
+              <CardHeader title="Link a mentor" />
               <CardBody>
                 <ActionForm action={linkMentorAction} submitLabel="Link mentor" pendingText="Linking…" resetOnSuccess>
                   <FormSelect name="alumniId" label="Alumnus" required placeholder="Choose…" options={data.all.map((a) => ({ value: a.id, label: nameOf(a.studentId) })).sort((a, b) => a.label.localeCompare(b.label))} />
                   <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} />
-                  <FormText name="note" label="Note" maxLength={300} help="For example: guidance for engineering entrance exams." />
+                  <FormText name="note" label="Note" maxLength={300} />
                 </ActionForm>
               </CardBody>
             </Card>

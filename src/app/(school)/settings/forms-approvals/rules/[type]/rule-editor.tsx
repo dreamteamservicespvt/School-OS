@@ -2,7 +2,7 @@
 
 // The approval rule editor, with the plain-words summary updating as the person changes steps.
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { TextField } from "@/components/ui/field";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ruleSummary, type StepDraft } from "@/lib/settings/approval-rule-words";
 import { saveRuleAction } from "../../actions";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { useLeaveWarning } from "@/app/(school)/student-management/_lib/leave-warning";
 
 type Option = { value: string; label: string };
 type Step = { approver: string; upTo: string };
@@ -45,6 +46,10 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
   type: string; label: string; steps: Step[]; escalateAfterDays: number; roles: Option[]; people: Option[];
 }) {
   const [state, action] = useActionState(saveRuleAction, null);
+  const t = useT();
+  // A menu link asks first when the rule has changes not saved yet (layman loop 2: they were lost silently).
+  const formRef = useRef<HTMLFormElement>(null);
+  useLeaveWarning(formRef, t("Leave without saving? Your changes to this rule will be lost."), type);
   const [steps, setSteps] = useState<Step[]>(start.length ? start : [{ approver: "role:principal", upTo: "" }]);
   const [days, setDays] = useState(String(escalateAfterDays));
   const [checked, setChecked] = useState<Record<string, string>>({});
@@ -64,7 +69,7 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
   const set = (i: number, patch: Partial<Step>) => { setSteps(steps.map((s, k) => (k === i ? { ...s, ...patch } : s))); setChecked({}); };
 
   return (
-    <form action={action} className="space-y-5" noValidate onSubmit={(e) => {
+    <form ref={formRef} action={action} className="space-y-5" noValidate onSubmit={(e) => {
       const found = checkSteps(steps);
       if (!daysOk) found.escalateAfterDays = "Type a number of working days from 1 to 30.";
       setChecked(found);
@@ -106,7 +111,7 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
       {steps.length < MAX_STEPS && <Button variant="secondary" onClick={() => setSteps([...steps, { approver: "", upTo: "" }])}><Words k="Add a step" /></Button>}
 
       <TextField label="Move to the next person if nobody decides in (working days)" name="escalateAfterDays" required inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} className="max-w-xs"
-        error={errors.escalateAfterDays} help="If nobody decides in time, the request moves to the next step, or to the Principal." />
+        error={errors.escalateAfterDays} help="Then it moves to the next step, or to the Principal." />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <SubmitButton pendingText="Saving…"><Words k="Save rule" /></SubmitButton>

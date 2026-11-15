@@ -12,11 +12,11 @@ const BASE = "/admission-management/decision";
 
 export async function decideAction(_: FormState<unknown>, fd: FormData) {
   const decision = str(fd, "decision") === "reject" ? "reject" : "approve";
-  return admissionAct("approve", fd, (w) => decideApplication(w.tx, w.ctx, w.v, id(fd, "id", "application"), decision, maybe(fd, "remarks", "Remarks", 1000)), () => (decision === "approve" ? "Approved. The parent was told." : "Not approved. The parent was told, with your remarks."));
+  return admissionAct("approve", fd, (w) => decideApplication(w.tx, w.ctx, w.v, id(fd, "id", "application"), decision, maybe(fd, "remarks", "Remarks", 1000)), (r) => (r.notSent ? `${decision === "approve" ? "Approved" : "Not approved"}. The parent was not messaged (${r.notSent}). Please tell them by phone.` : decision === "approve" ? "Approved. The parent was told." : "Not approved. The parent was told, with your remarks."));
 }
 
 export async function waitAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => addToWaitingList(w.tx, w.ctx, w.v, id(fd, "id", "application"), maybe(fd, "note", "Note", 500)), (rank) => `Put on the waiting list at position ${rank}.`);
+  return admissionAct("edit", fd, (w) => addToWaitingList(w.tx, w.ctx, w.v, id(fd, "id", "application"), maybe(fd, "note", "Note", 500)), (r) => `Put on the waiting list at position ${r.rank}.${r.notSent ? ` The parent was not messaged (${r.notSent}). Please tell them by phone.` : ""}`);
 }
 
 export async function moveWaitAction(_: FormState<unknown>, fd: FormData) {
@@ -36,7 +36,7 @@ export async function offerSentAction(_: FormState<unknown>, fd: FormData) {
     const ch = str(fd, "channel");
     if (ch !== "whatsapp" && ch !== "email" && ch !== "printed") throw new AdmissionProblem("Choose how the letter was given.", "channel");
     return markOfferSent(w.tx, w.ctx, w.v, id(fd, "id", "application"), ch, w.current.school);
-  }, (no) => `Offer letter ${no} recorded as sent.`);
+  }, (r) => (r.notSent ? `Offer letter ${r.letterNo} recorded, but the parent was not messaged (${r.notSent}). Please send or hand it over another way.` : `Offer letter ${r.letterNo} recorded as sent.`));
 }
 
 export async function offerAcceptedAction(_: FormState<unknown>, fd: FormData) {

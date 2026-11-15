@@ -22,10 +22,11 @@ export type OnlyStudents = { studentId?: { in: string[] } };
  * students add up the per-class rows of ./by-class.ts, so the band, Fees by
  * class, Fee Reports and the Dashboard always agree.
  */
-export async function feeTiles(tx: Tx, viewer: FeeViewer, today: Date) {
+/** `day`: the day "Collected" counts (today, or one past day the person chose). */
+export async function feeTiles(tx: Tx, viewer: FeeViewer, today: Date, day: Date = today) {
   const studentFilter: Prisma.PaymentWhereInput = viewer.see === "all" ? await feeStudentFilter(tx, viewer) : { studentId: { in: await scopedStudentIds(tx, viewer) } };
   const [todayAgg, monthAgg, byClass] = await Promise.all([
-    tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: today }, _sum: { amountPaise: true }, _count: { _all: true } }),
+    tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: day }, _sum: { amountPaise: true }, _count: { _all: true } }),
     tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart(today), lte: today } }, _sum: { amountPaise: true }, _count: { _all: true } }),
     feesByClass(tx, viewer, today),
   ]);

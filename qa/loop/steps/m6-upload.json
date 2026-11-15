@@ -1,0 +1,1 @@
+[{"go":"/student-management/import"},{"upload":"*","file":"qa-output/loop/movein/students-old-software.xlsx"},{"wait":1},{"click":"Upload and check"},{"wait":6},{"shot":"after-upload","chars":3500}]

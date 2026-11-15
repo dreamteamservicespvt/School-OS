@@ -67,7 +67,7 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
           <Chips label="Sittings" className="mb-4" value={chosen?.key ?? ""}
             options={list.map((s) => ({ value: s.key, label: `${s.label} · ${short(s.classes)}`, href: withYear(`/examination-results/datesheet/${id}/seating?sitting=${s.key}`, page) }))} />
           {plan.length === 0 ? (
-            <EmptyState title="No seat plan for this sitting">{can ? "Make a seat plan: give the rooms and their seats, and students are seated by class and roll number." : "Ask the Exam In-charge to make one."}</EmptyState>
+            <EmptyState title="No seat plan for this sitting">{can ? "Give the rooms and seats. Students are seated by roll number." : "Ask the Exam In-charge to make one."}</EmptyState>
           ) : (
             <>
               <p className="mb-3 text-[13.5px] text-ink2">{plural(seated, "student")} <Words k="in" /> {plural(plan.length, "room")}</p>

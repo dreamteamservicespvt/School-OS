@@ -40,6 +40,32 @@ export function studentInCampus(limit: CampusLimit | null | undefined): { studen
   return limit?.campusId ? { student: { campusId: limit.campusId } } : {};
 }
 
+type ScopeRow = { scope: string; campusId: string | null };
+const SCOPE_ORDER = ["OWN", "CHOSEN_CLASSES", "CAMPUS", "WHOLE_SCHOOL"];
+
+/** The one campus these School Access rows keep a person to, as sign-in reads them (accessIn: the widest row wins); null when none. */
+export function campusOf(rows: ScopeRow[]): string | null {
+  const widest = [...rows].sort((x, y) => SCOPE_ORDER.indexOf(y.scope) - SCOPE_ORDER.indexOf(x.scope))[0];
+  return widest?.scope === "CAMPUS" ? rows.find((a) => a.scope === "CAMPUS")?.campusId ?? null : null;
+}
+
+/**
+ * For records that carry who made them and no campus (a file being brought in, an import): the
+ * logins whose work a one-campus person sees, themselves and everyone kept to the same campus;
+ * null for someone who works for the whole school, who sees everyone's (security review 2026-11-15).
+ * Read in the same transaction from School Access.
+ */
+export async function campusPeers(tx: Tx, ctx: SchoolContext): Promise<string[] | null> {
+  if (!ctx.userId) return null;
+  const mine = campusOf(await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId: ctx.userId, archivedAt: null }, select: { scope: true, campusId: true } }));
+  if (!mine) return null;
+  const near = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, scope: "CAMPUS", campusId: mine }, select: { userLoginId: true } });
+  const rows = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, userLoginId: { in: [...new Set(near.map((r) => r.userLoginId))] } }, select: { userLoginId: true, scope: true, campusId: true } });
+  const by = new Map<string, ScopeRow[]>();
+  for (const r of rows) by.set(r.userLoginId, [...(by.get(r.userLoginId) ?? []), r]);
+  return [ctx.userId, ...[...by].filter(([id, list]) => id !== ctx.userId && campusOf(list) === mine).map(([id]) => id)];
+}
+
 /** May this person see a record on this campus? A record with no campus belongs to the whole school. */
 export function campusAllows(limit: CampusLimit | null | undefined, campusId: string | null | undefined) {
   return !limit?.campusId || !campusId || campusId === limit.campusId;

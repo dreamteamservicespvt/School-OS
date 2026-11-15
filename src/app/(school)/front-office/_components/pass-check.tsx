@@ -12,14 +12,14 @@ import { cx } from "@/components/ui/cx";
 import { PassCheckForm } from "./visitor-sheets";
 import { ActButton } from "./fields";
 import { checkOutAction, letOutAction } from "../actions";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 
 type CheckRes = Awaited<ReturnType<typeof checkPass>> | null;
 
 /** "Check a pass" at the gate (16 §2 Visitors, mod-frontoffice.jsx ScanSheet and ScanResult). */
 export function CheckSheet({ close, code, res, tz, gateWork, today, schoolId, title }: { title?: string; close: string; code: string; res: CheckRes; tz: string; gateWork: boolean; today: Date; schoolId: string }) {
   return (
-    <UrlSheet title={title ?? "Check a pass"} sub="Scan the QR on paper or on the visitor’s phone, or type the pass number." closeHref={close}>
+    <UrlSheet title={title ?? "Check a pass"} sub="Scan the QR or type the pass number." closeHref={close}>
       <div className="flex flex-col gap-4 pb-1">
         <PassCheckForm base={close} code={code} />
         {code && res && <CheckResult res={res} tz={tz} gateWork={gateWork} today={today} schoolId={schoolId} />}
@@ -46,12 +46,16 @@ function CheckResult({ res, tz, gateWork, today, schoolId }: { res: NonNullable<
       <div className={cx("rounded-2xl p-4 flex flex-col gap-3 animate-rise", exp || out ? "bg-bad/10" : "bg-ok/10")} role="status">
         <div className="flex items-center gap-3">
           <Avatar name={res.name} size={52} src={photo(res.photoFileId)} />
-          <div className="min-w-0 flex-1"><p className="font-semibold text-[15.5px]">{res.name}</p><p className="text-[13px] text-ink2">{res.purpose}{res.meet ? ` · to meet ${res.meet}` : ""}</p></div>
+          <div className="min-w-0 flex-1"><p className="font-semibold text-[15.5px]">{res.name}</p><p className="text-[13px] text-ink2"><Any text={res.purpose} />{res.meet ? <> · <Words k="to meet {name}" vars={{ name: res.meet }} /></> : null}</p></div>
           {exp ? <Pill tone="bad"><Words k="Expired" /></Pill> : out ? <Pill tone="bad"><Words k="Already out" /></Pill> : <Pill tone="ok" dot><Words k="Valid" /></Pill>}
         </div>
         <p className={cx("text-[14px] font-semibold flex items-center gap-2", exp || out ? "text-bad" : "text-ok")}>
-          {exp ? <><ShieldX size={17} aria-hidden="true" /><Words k="Pass" /> {res.passNo} <Words k="expired at" /> {clockAt(res.expiresAt, tz)} <Words k="on" /> {dayWords}<Words k=". Register the visitor again." /></>
-            : out ? <><ShieldX size={17} aria-hidden="true" /><Words k="Checked out at" /> {clockAt(res.timeOut!, tz)}{dayWords === "today" ? "" : ` on ${dayWords}`}<Words k=". This pass no longer works." /></>
+          {exp ? <><ShieldX size={17} aria-hidden="true" />{dayWords === "today"
+              ? <Words k="Pass {pass} expired at {time} today. Register the visitor again." vars={{ pass: res.passNo, time: clockAt(res.expiresAt, tz) }} />
+              : <Words k="Pass {pass} expired at {time} on {date}. Register the visitor again." vars={{ pass: res.passNo, time: clockAt(res.expiresAt, tz), date: dayWords }} />}</>
+            : out ? <><ShieldX size={17} aria-hidden="true" />{dayWords === "today"
+              ? <Words k="Checked out at {time}. This pass no longer works." vars={{ time: clockAt(res.timeOut!, tz) }} />
+              : <Words k="Checked out at {time} on {date}. This pass no longer works." vars={{ time: clockAt(res.timeOut!, tz), date: dayWords }} />}</>
               : <><ShieldCheck size={17} aria-hidden="true" /><Words k="Valid until" /> {clockAt(res.expiresAt, tz)} <Words k="today." /></>}
         </p>
         {!exp && !out && gateWork && <ActButton action={checkOutAction} fields={{ visitorId: res.id }} label="Record exit" icon="logout" variant="secondary" size="md" className="w-full" pendingText="Recording…" />}
@@ -64,7 +68,7 @@ function CheckResult({ res, tz, gateWork, today, schoolId }: { res: NonNullable<
       <p className="eyebrow text-ink3"><Words k="Gate pass · Pickup ·" /> {res.passNo}</p>
       <div className="grid grid-cols-2 gap-3">
         {([[res.student, `${res.section ?? ""} · student`.replace(/^ · /, ""), res.studentPhotoFileId], [res.collector, `${res.relation ?? "Guardian"} · on the pickup list`, res.guardianPhotoFileId]] as const).map(([n, s, ph]) => (
-          <div key={`${n}-${s}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={44} src={photo(ph)} /><div className="min-w-0"><p className="font-semibold text-[14px] truncate">{n}</p><p className="text-[12px] text-ink3 truncate">{s}</p></div></div>
+          <div key={`${n}-${s}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={44} src={photo(ph)} /><div className="min-w-0"><p className="font-semibold text-[14px] break-words">{n}</p><p className="text-[12px] text-ink3 break-words">{s}</p></div></div>
         ))}
       </div>
       <p className={cx("text-[14px] font-semibold flex items-center gap-2", left ? "text-bad" : "text-ok")}>

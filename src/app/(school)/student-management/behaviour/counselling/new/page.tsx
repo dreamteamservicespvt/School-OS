@@ -32,7 +32,7 @@ export default async function ReferPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" />
-      <PageHeader title="Refer to counselling" sub={<><Words k="Opens a counselling case and tells the counsellor. What the counsellor writes stays private to them." /></>} href={`${BASE}/behaviour/counselling/new`} userId={current.user.id} />
+      <PageHeader title="Refer to counselling" sub={<><Words k="Only the counsellor sees their notes." /></>} href={`${BASE}/behaviour/counselling/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
           {data.people.length === 0 && <p className="mb-4 rounded-xl bg-warn/12 px-3 py-2 text-[13.5px] text-ink"><Words k={"No one has the Counsellor role yet. The case is opened and can be given to a counsellor later (Settings, Users & Permissions)."} /></p>}
@@ -40,7 +40,7 @@ export default async function ReferPage({ searchParams }: { searchParams: Promis
             footer={<Link href={`${BASE}/behaviour`} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>}>
             {sp.incident && /^[0-9a-f-]{36}$/i.test(sp.incident) && <input type="hidden" name="incidentId" value={sp.incident} />}
             <StudentPicker name="studentId" label="Student" sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} initial={data.initial} />
-            <FormArea name="reason" label="Why" required rows={3} help="What you noticed. Keep it to the facts." />
+            <FormArea name="reason" label="Why" required rows={3} help="Only the facts you noticed." />
             {data.people.length > 1 && <FormSelect name="counsellorId" label="Counsellor" options={data.people.map((p) => ({ value: p.id, label: p.displayName }))} />}
           </ActionForm>
         </CardBody>

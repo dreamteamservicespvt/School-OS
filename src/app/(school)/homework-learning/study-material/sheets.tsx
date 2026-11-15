@@ -70,7 +70,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
 export function ArchiveLessonSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveLessonAction} submitLabel="Archive lesson" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2"><Words k="Students no longer see it. Its files and who opened it are kept, and you can undo it from the message that follows." /></p>
+      <p className="text-[14px] text-ink2"><Words k="Students no longer see it. Its files are kept. You can undo it from the message that follows." /></p>
     </SheetForm>
   );
 }

@@ -106,7 +106,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
 
   return (
     <>
-      <StaffHead page="Documents & ID Cards" href={`${BASE}/documents`} sub="Certificates, ID proof and contracts with expiry reminders · staff ID cards"
+      <StaffHead page="Documents & ID Cards" href={`${BASE}/documents`} sub="Staff papers and ID cards"
         actions={<>
           {view !== "id-cards" && <ButtonLink href={viewHref("id-cards")} icon={IdCard} className="max-md:hidden"><Words k="ID cards" /></ButtonLink>}
           {hr && view !== "id-cards" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} />}

@@ -8,7 +8,7 @@ import { BRAND_PRESETS, HEX, checkGstin, inkOn } from "@/lib/settings/profile-ru
 import { saveDetailsAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
 
-export type Details = { name: string; address: string; phone: string; email: string; website: string; affiliationNumber: string; gstin: string; brandColor: string };
+export type Details = { name: string; address: string; phone: string; parentWhatsapp: string; email: string; website: string; affiliationNumber: string; gstin: string; brandColor: string };
 
 export function DetailsForm({ initial, logoHref }: { initial: Details; logoHref: string | null }) {
   const [state, action] = useActionState(saveDetailsAction, null);
@@ -27,6 +27,8 @@ export function DetailsForm({ initial, logoHref }: { initial: Details; logoHref:
         <TextArea label="Address" name="address" required defaultValue={v("address")} error={err("address")} rows={2} autoComplete="street-address" />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Phone" name="phone" required type="tel" inputMode="tel" defaultValue={v("phone")} error={err("phone")} help="Mobile or landline with STD code." />
+          <TextField label="WhatsApp number for parents" name="parentWhatsapp" type="tel" inputMode="numeric" defaultValue={v("parentWhatsapp")} error={err("parentWhatsapp")} placeholder="9876543210"
+            help="Shown on Parent Link for parents to message the school. Leave empty to use the office phone when it is a mobile." />
           <TextField label="Email" name="email" required type="email" inputMode="email" defaultValue={v("email")} error={err("email")} />
           <TextField label="Website address" name="website" defaultValue={v("website")} error={err("website")} placeholder="www.yourschool.edu.in" help="Text only; shown on documents." />
           <TextField label="Affiliation number" name="affiliationNumber" defaultValue={v("affiliationNumber")} error={err("affiliationNumber")} />

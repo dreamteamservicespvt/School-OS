@@ -13,7 +13,7 @@ import { id, ids, optionalDateOf, optionalId, rupeesOf, str, zonedToInstant } fr
 import { feeAction } from "../_lib/action";
 
 export type PreviewResult =
-  | { ok: true; students: number; recipients: number; messages: number; cost: number; skipped: { reason: string; count: number }[]; nothingDue: number; creditProblem: string | null; problems: string[]; sample: string | null; sampleFor: { parent: string; students: string[] } | null; linkAvailable: boolean }
+  | { ok: true; students: number; recipients: number; messages: number; reached: number; cost: number; testMode: boolean; skipped: { reason: string; count: number; names: string[] }[]; nothingDue: number; creditProblem: string | null; problems: string[]; sample: string | null; sampleFor: { parent: string; students: string[] } | null; linkAvailable: boolean }
   | { ok: false; message: string };
 
 /** Every chosen student must be one the person may see (their campus, when limited to one). */
@@ -54,7 +54,8 @@ export async function previewReminderAction(fd: FormData): Promise<PreviewResult
       if (viewer.change !== "all") throw new MoneyProblem("Your role cannot send fee reminders.");
       const p = await previewReminders(tx, current.ctx, await visibleOnly(tx, viewer, inputOf(fd, current.school.timeZone)));
       return {
-        ok: true as const, students: p.students, recipients: p.recipients, messages: p.messages, cost: p.cost, skipped: p.skipped.map((s) => ({ reason: s.reason, count: s.count })),
+        ok: true as const, students: p.students, recipients: p.recipients, messages: p.messages, reached: p.reached, cost: p.cost, testMode: p.testMode,
+        skipped: p.skipped.map((s) => ({ reason: s.reason, count: s.count, names: s.names.slice(0, 5) })),
         nothingDue: p.skippedNothingDue, creditProblem: p.creditProblem, problems: p.problems, sample: p.sample, sampleFor: p.sampleFor, linkAvailable: p.linkAvailable,
       };
     });
@@ -72,6 +73,8 @@ export async function sendReminderAction(_prev: unknown, fd: FormData) {
   }, (r) => {
     const skipped = r.skipped.reduce((s, g) => s + g.count, 0);
     const who = `${r.sent} ${r.sent === 1 ? "parent" : "parents"}`;
+    // Test mode: nobody receives it, so never "sent" (loop 4).
+    if (r.testMode) return `Test mode: nothing sent to ${who}, no credits used.${skipped ? ` ${skipped} skipped.` : ""}`;
     return `${r.scheduled ? `Reminder scheduled for ${who} (tomorrow, 9 AM)` : `Reminder sent to ${who}`}.${skipped ? ` ${skipped} skipped.` : ""} Saved in each student’s reminder history.`;
   }, { staffOnly: "send fee reminders" });
 }

@@ -66,8 +66,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
   });
 
   const head = (sub: string) => <HomeworkHead page="submissions" pageName="Submissions & Grading" sub={sub} />;
-  const own = s.level === "own";
-  const subLine = own ? "Your homework · who handed in, marks and feedback · only your classes and subjects" : "Who handed in, and the marks and feedback";
+  const subLine = "Who handed in, and the marks and feedback";
   const range = per.range ? rangeWords(per.range.from, per.range.to) : "";
   if (!data.hw) {
     return (
@@ -107,13 +106,14 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
         <Card className="p-3 flex flex-col md:flex-row gap-2.5 md:items-center">
           <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
           <UrlSelect param="hw" id="sg-hw" label="Homework" className="flex-1 min-w-0" options={data.list.map((h) => ({ value: h.id, label: `${h.sectionLabel} · ${h.title} · due ${dayDate(h.dueDate)}` }))} />
-          <p className="text-[13px] text-ink3 px-1"><Words k="Out of" /> {hw.maxMarks} · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}</p>
+          {/* "Out of" alone became "కు 100" in Telugu: the whole phrase is translated (layman loop 5). */}
+          <p className="text-[13px] text-ink3 px-1"><Words k="Marks" /> <Words k="out of {n}" vars={{ n: hw.maxMarks }} /> · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}{hw.counts.left ? <> · <Words k="{n} left the class" vars={{ n: hw.counts.left }} /></> : null}</p>
         </Card>
         <Stats items={[
           { label: "Handed in", value: `${counted.filter((r) => !notIn(r.sub.status)).length} of ${counted.length}`, icon: Upload, href: here({ f: null }) },
           { label: "To check", value: String(count(toCheck)), tone: count(toCheck) ? "warn" : undefined, icon: ListChecks, href: here({ f: "check" }), active: f === "check" },
           { label: "Checked", value: String(count((x) => x === "GRADED")), tone: "ok", icon: CircleCheck, href: here({ f: "graded" }), active: f === "graded" },
-          { label: pastDue ? "Missing" : "Not handed in yet", value: String(count(notIn)), tone: pastDue && count(notIn) ? "bad" : undefined, icon: Hourglass, href: here({ f: "not" }), active: f === "not" },
+          { label: "Not handed in", value: String(count(notIn)), tone: pastDue && count(notIn) ? "bad" : undefined, icon: Hourglass, href: here({ f: "not" }), active: f === "not" },
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
@@ -129,7 +129,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               <ExportButton href={qs(`${HREF}/export`, { hw: hw.id, f: f === "all" ? null : f, q: q || null })} />
             </div>
           </Toolbar>
-          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden"><Words k="Tap students to tick them, then choose Mark Complete or Remind parents. You see what will change before anything is saved." /></p>}
+          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden"><Words k="Tick students, then choose Mark Complete or Remind parents." /></p>}
           <div className="px-3 pt-3">
             <Chips value={f} label="Show" options={[
               { value: "all", label: "Everyone", count: rows.length, href: here({ f: null }) },
@@ -138,6 +138,14 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               { value: "not", label: "Not handed in", count: count(notIn), href: here({ f: "not" }) },
             ]} />
           </div>
+          {/* "Not handed in" shown: one tap reminds their parents, no ticking first (layman loop 2). */}
+          {canEdit && f === "not" && shown.length > 0 && (
+            <div className="px-4 pt-3">
+              <ButtonLink href={here({ do: "remind", ids: shown.map((r) => r.st.id).join(",") })} scroll={false} variant="primary" icon={Send}>
+                <Words k="Remind parents" /> ({shown.length})
+              </ButtonLink>
+            </div>
+          )}
           {canEdit && <InlineBulkBar form="subs-bulk" actions={[
             { label: "Mark Complete", href: here({ do: "complete" }), icon: <CheckCheck size={15} aria-hidden="true" /> },
             { label: "Remind parents", href: here({ do: "remind" }), icon: <Send size={15} aria-hidden="true" /> },
@@ -145,16 +153,16 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <div className="mt-3 border-t border-line">
             <DataList rows={shown} rowKey={(r) => r.st.id} rowHref={(r) => here({ open: r.sub.id })} scroll={false} minWidth={780} caption={`Submissions for ${hw.title}`}
               select={canEdit ? { form: "subs-bulk", label: (r) => `Select ${r.st.name}`, allLabel: "Select every student shown" } : undefined} pickMode={canEdit && picking}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length }} /></p>}
               empty={<Empty icon={ListChecks} title="Nobody here" body="Try another filter or search." />}
               columns={[
                 { key: "n", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.st.rollNo ?? ""}</span><Avatar name={r.st.name} size={32} /><span className="font-semibold">{r.st.name}</span></div> },
                 { key: "a", label: "Admission no.", render: (r) => <span className="font-mono text-[12.5px]">{r.st.admissionNo}</span> },
-                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3"><Words k="Not submitted" /></span>) },
+                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3">{pastDue ? <Words k="Not handed in" /> : <Words k="Not yet due" />}</span>) },
                 { key: "s", label: "Status", render: (r) => <Pill tone={SUB_TONE[word(r.sub.status)]}>{word(r.sub.status)}</Pill> },
                 { key: "sc", label: `Score / ${hw.maxMarks}`, align: "right", render: scoreCell },
               ]}
-              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : "Not submitted", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
+              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : pastDue ? "Not handed in" : "Not yet due", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
           </div>
         </Card>
       </Stack>

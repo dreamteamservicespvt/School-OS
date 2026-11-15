@@ -98,7 +98,7 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
         <div className="flex gap-2 items-start">
           <Segmented label="Amount or percent" value={unit} onChange={(v) => setUnit(v as typeof unit)} options={[{ value: "amount", label: "₹" }, { value: "percent", label: "%" }]} />
           <div className="flex-1 min-w-0">
-            {unit === "amount" ? <SMoney name="value" label="Amount" placeholder="2,000" onValue={setTyped} />
+            {unit === "amount" ? <SMoney name="value" label="Amount" placeholder="0" onValue={setTyped} />
               : <SText name="value" label="Percent" inputMode="decimal" placeholder="10" className="tnum" />}
           </div>
         </div>
@@ -106,9 +106,9 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
         {unit === "amount" ? (
           max > 0
             ? <p className={over ? "text-[12.5px] font-semibold text-bad" : "text-[12.5px] text-ink3"} role={over ? "alert" : undefined}>
-                <Words k="Not more than" /> {maxText}: <Words k={waiver ? "still to pay on late fees in this period." : "still to pay on the ticked fee heads in this period."} />
+                <Words k="Not more than" /> {maxText}: <Words k={waiver ? "still to pay on late fees in this period." : period === "rest" ? "fees due from today on the ticked fee heads. For overdue fees, choose Whole year." : "still to pay on the ticked fee heads in this period."} />
               </p>
-            : <p className="text-[12.5px] font-semibold text-bad"><Words k={waiver ? "No late fee is left to pay in this period." : "Nothing is left to pay on the ticked fee heads in this period."} /></p>
+            : <p className="text-[12.5px] font-semibold text-bad"><Words k={waiver ? "No late fee is left to pay in this period." : period === "rest" ? "Nothing falls due from today on the ticked fee heads. For overdue fees, choose Whole year." : "Nothing is left to pay on the ticked fee heads in this period."} /></p>
         ) : <p className="text-[12.5px] text-ink3"><Words k="A percent of each installment, at most 100." /></p>}
         <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="applies at once. Above it, the request goes to Approvals and applies once approved." /></p>
       </div>
@@ -159,7 +159,7 @@ export function MarkRefundedSheet({ closeHref, refundId, words, today, accounts,
   return (
     <SheetForm title="Mark refunded" sub={words} closeHref={closeHref} action={markRefundedAction} submitLabel="Mark refunded" pendingText="Saving…" hidden={{ refundId }}>
       <SDate name="date" label="Date paid" required start={today} />
-      <SText name="reference" label="Reference" required={needsReference} placeholder={needsReference ? "UTR or cheque number" : "Cash voucher number (optional)"} className="font-mono" maxLength={80} help="UTR, cheque number or cash voucher" />
+      <SText name="reference" label="Reference" required={needsReference} placeholder={needsReference ? "UTR or cheque number" : "Cash voucher number (optional)"} className="font-mono" maxLength={80} />
       {accounts.length > 1 && <SSelect name="accountId" label="Paid from" options={accounts} placeholder="The usual account for this mode" />}
     </SheetForm>
   );

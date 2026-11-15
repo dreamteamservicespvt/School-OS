@@ -21,12 +21,13 @@ async function handleGET(req: Request) {
   const sectionId = p.get("section") ?? "";
   const studentId = p.get("student");
   const batch = Math.max(0, Number.parseInt(p.get("batch") ?? "0", 10) || 0);
-  if (!UUID.test(examId) || !UUID.test(sectionId) || (studentId && !UUID.test(studentId))) return plain("Choose the exam and the class first.", 400);
+  // The person's permission first, then what they asked for (security review 2026-11-15).
   let current;
   try { ({ current } = await requireAction("examination-results", "print")); } catch (e) {
     if (e instanceof PermissionDeniedError) return plain(e.message, 403);
     throw e;
   }
+  if (!UUID.test(examId) || !UUID.test(sectionId) || (studentId && !UUID.test(studentId))) return plain("Choose the exam and the class first.", 400);
   try {
     const out = await withSchool(current.ctx, async (tx) => {
       const exam = await tx.exam.findFirst({ where: { id: examId, archivedAt: null }, select: { academicYearId: true } });

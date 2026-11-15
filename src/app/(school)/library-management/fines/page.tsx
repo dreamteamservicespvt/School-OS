@@ -212,7 +212,7 @@ async function StockView({ p, sp }: { p: P; sp: Raw }) {
           </div>
         )}
         <Card>
-          <CardHeader title="Stock check sessions" icon={ClipboardCheck} description="Copies expected on the shelves, found, missing and extra." divided
+          <CardHeader title="Stock check sessions" icon={ClipboardCheck} divided
             action={<div className="flex gap-2"><PeriodFilter {...p.dates} size="sm" allLabel={t("All dates")} />{can.export && <ExportButton href={exportHref} size="sm" label={t("Export")} />}</div>} />
           <DataList rows={d.sessions} rowKey={(x) => x.id} rowHref={(x) => `${base}/stock/${x.id}`} minWidth={720}
             empty={<Empty icon={ClipboardCheck} title={t("No stock checks")} body={t(can.fines ? "Start one to scan every copy on the shelves." : "The librarian runs the stock check.")} />}

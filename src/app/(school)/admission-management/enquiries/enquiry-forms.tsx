@@ -3,7 +3,7 @@
 // Add and edit an enquiry (02 §2; design: mod-admissions.jsx AddEnquirySheet).
 // The required things now (02 §2 Form fields), the rest folded under More details. The phone is checked
 // for a matching family when the person leaves it (02 Done when 2): Open
-// existing, Add as sibling enquiry, or Cancel.
+// existing, Add as sibling enquiry, or Not now (hides the warning only).
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import type { Match } from "@/lib/admission/enquiries";
 import { FormProblem, MoreDetails, PhoneField, SegField, Submit, WhenField } from "../_components/forms";
 import { addEnquiryAction, checkDuplicates, editEnquiryAction } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type EnquiryChoices = {
@@ -52,7 +52,7 @@ function DuplicateBox({ matches, pick, onSibling, onNewFamily, onCancel, sibling
           <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open existing" /></Link>
           <Button size="sm" variant="soft" icon={Users} onClick={onSibling}>{siblingLabel}</Button>
           {onNewFamily && <Button size="sm" variant="secondary" onClick={onNewFamily}><Words k="Different family" /></Button>}
-          <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Cancel" /></Button>
+          <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Not now" /></Button>
         </div>
       )}
     </div>
@@ -71,6 +71,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const [owner, setOwner] = useState("");
   const [source, setSource] = useState(c.defaultSource);
   const [, start] = useTransition();
+  const t = useT();
   const done = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, mode === "add" ? "Add enquiry" : "Edit enquiry");
@@ -91,7 +92,10 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   };
   const ruleOwner = c.ownerRule === "class" && classId ? c.ownerByClass[classId] ?? c.defaultOwner : c.ownerRule === "turn" ? "" : c.defaultOwner;
   const ownerValue = owner || ruleOwner;
-  const ownerHint = owner ? "Changed by hand. The history keeps it." : c.ownerRule === "class" ? "Set by “Who gets new enquiries”: by class wanted" : c.ownerRule === "turn" ? `Set by “Who gets new enquiries”: in turn${c.turnNext ? `, next is ${c.turnNext}` : ""}` : "Set by “Who gets new enquiries”: one default owner";
+  // Say why this owner was picked: a first-time receptionist did not know why a teacher got her follow-ups (layman loop 4).
+  const ruleName = c.owners.find((o) => o.value === ownerValue)?.label.replace(/ \(.*\)$/, "");
+  const ownerHint = owner ? t("Changed by hand. The history keeps it.") : c.ownerRule === "turn" ? (c.turnNext ? t("Set by “Who gets new enquiries”: in turn, next is {name}", { name: c.turnNext }) : t("Set by “Who gets new enquiries”: in turn"))
+    : ruleName ? t("School rule: new enquiries go to {name}. Follow-up calls go to them.", { name: ruleName }) : t("Follow-up calls go to this person. Usually leave as is.");
   const live = c.sources.map((s) => s.value);
   const segSources = PRIMARY_SOURCES.filter((s) => live.includes(s));
   const others = c.sources.filter((s) => !segSources.includes(s.value));
@@ -105,8 +109,8 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
-      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We check for a matching family when you leave this box" />
-      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
+      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We find a family already linked to this number" />
+      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
         {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}
@@ -115,16 +119,16 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
         <>
           {others.length === 0 || segSources.length < 2 ? (
             segSources.length >= 2 && others.length === 0
-              ? <SegField name="source" label="Source" required size="sm" options={c.sources.map((s) => ({ value: s.value, label: s.label }))} defaultValue={val("source", c.defaultSource) ?? ""} help="Kept as first recorded. Changing it later needs a reason." />
-              : <SelectField label="Source" name="source" required options={c.sources} defaultValue={val("source", c.defaultSource)} error={err("source")} help="Kept as first recorded. Changing it later needs a reason." />
+              ? <SegField name="source" label="Source" required size="sm" options={c.sources.map((s) => ({ value: s.value, label: s.label }))} defaultValue={val("source", c.defaultSource) ?? ""} help="Changing it later needs a reason." />
+              : <SelectField label="Source" name="source" required options={c.sources} defaultValue={val("source", c.defaultSource)} error={err("source")} help="Changing it later needs a reason." />
           ) : (
             <div className="flex flex-col gap-2">
               <SegField name={segSources.includes(source) ? "source" : "_source"} label="Source" required size="sm"
                 options={[...segSources.map((s) => ({ value: s, label: c.sources.find((x) => x.value === s)!.label })), { value: "_other", label: "Other" }]}
                 defaultValue={segSources.includes(source) ? source : "_other"} onChange={(v) => setSource(v === "_other" ? others[0].value : v)}
-                help={segSources.includes(source) ? "Kept as first recorded. Changing it later needs a reason." : undefined} />
+                help={segSources.includes(source) ? "Changing it later needs a reason." : undefined} />
               {!segSources.includes(source) && (
-                <SelectField label="Other source" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Kept as first recorded. Changing it later needs a reason." />
+                <SelectField label="Other source" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Changing it later needs a reason." />
               )}
             </div>
           )}
@@ -148,7 +152,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
         )}
       </MoreDetails>
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="ghost" onClick={onCancel} disabled={pending}><Words k="Cancel" /></Button>
+        <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}><Words k="Cancel" /></Button>
         <Submit busyLabel={mode === "add" ? "Adding…" : "Saving…"} disabled={blockedByMatch}>{mode === "add" ? "Add enquiry" : "Save changes"}</Submit>
       </div>
     </form>
@@ -163,8 +167,13 @@ export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry"
   return (
     <>
       <Button variant={variant} size={size} icon={Plus} className={className} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>{label}</Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. Add the rest later from the enquiry.">
-        <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => { setOpen(false); router.push(`/admission-management/enquiries?id=${id}`); }} />
+      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. The rest later.">
+        <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => {
+          setOpen(false);
+          // Opened by its address (?do=add): replace it, so Back never shows an empty form after the save (layman loop 3).
+          const to = `/admission-management/enquiries?id=${id}`;
+          if (startOpen) router.replace(to); else router.push(to);
+        }} />
       </Dialog>
     </>
   );

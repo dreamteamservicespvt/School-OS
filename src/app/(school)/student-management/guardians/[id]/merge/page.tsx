@@ -49,7 +49,7 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
   return (
     <>
       <BackLink href={back} label={data.keep.name} sub="Merge" />
-      <PageHeader title="Merge parent records" sub={<span className="block max-w-prose"><Words k="Keep" /> <strong>{data.keep.name}</strong> ({data.keep.phone}<Words k=") and move another record's children, consent records and documents to it. The other record is archived, not deleted." /></span>} href={`${back}/merge`} userId={current.user.id} />
+      <PageHeader title="Merge parent records" sub={<span className="block max-w-prose"><Words k="Keep" /> <strong>{data.keep.name}</strong> ({data.keep.phone}<Words k=") and move the other record's children, consents and documents here. The other record is archived." /></span>} href={`${back}/merge`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">
         <Card>
           <CardBody>

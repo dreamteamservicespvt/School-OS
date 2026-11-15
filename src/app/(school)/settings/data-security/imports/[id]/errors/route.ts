@@ -3,7 +3,7 @@ import { getCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { errorCsv, importKind } from "@/lib/importer";
-import { mayImport } from "@/lib/move-in/service";
+import { batchCampusWhere, mayImport } from "@/lib/move-in/service";
 import { settingsImportRefusal } from "@/lib/imports/place-access";
 import "@/lib/import-registry";
 
@@ -17,7 +17,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!can(current.permissions, "settings", "view")) return new Response("Your role does not allow this. Ask your School Admin.", { status: 403 });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response("This import was not found.", { status: 404 });
-  const batch = await withSchool(current.ctx, (tx) => tx.importBatch.findUnique({ where: { id } }));
+  // One campus: another campus's import is not found (security review 2026-11-15).
+  const batch = await withSchool(current.ctx, async (tx) => tx.importBatch.findFirst({ where: { id, ...(await batchCampusWhere(tx, current.ctx)) } }));
   if (!batch) return new Response("This import was not found.", { status: 404 });
   // The rows are for people who may bring that kind of record in, in its own module (salary details, for example).
   if (!mayImport(current.permissions, batch.kind, "create", current.modulesOn)) return new Response("Your role does not allow this. Ask your School Admin.", { status: 403 });

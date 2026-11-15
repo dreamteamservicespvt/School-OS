@@ -32,7 +32,7 @@ export function ApplicantFeeForm({ applicationId, left, modes }: { applicationId
         <input type="hidden" name="applicationId" value={applicationId} />
         <TextField label="Amount received (₹)" name="amount" required inputMode="decimal" className="tnum" defaultValue={val("amount", left.replace(/[^\d.]/g, ""))} error={err("amount")} key={`a-${done?.paymentId ?? ""}`} />
         <SelectField label="Paid by" name="mode" required options={modes} defaultValue={val("mode", "cash")} error={err("mode")} />
-        <TextField label="Reference" name="reference" maxLength={80} defaultValue={val("reference")} error={err("reference")} help="UPI: the 12-digit UTR. Cheque or card: its number. Not for cash." onInput={upiOnly} key={`r-${done?.paymentId ?? ""}`} />
+        <TextField label="Reference" name="reference" maxLength={80} defaultValue={val("reference")} error={err("reference")} help="UTR, cheque or card number. Not for cash." onInput={upiOnly} key={`r-${done?.paymentId ?? ""}`} />
         <p className="text-[13px] text-ink3"><Words k="A receipt is made only after the money is received." /></p>
         <div><Button type="submit" variant="primary" icon={IndianRupee} loading={pending} loadingText="Saving…"><Words k="Record payment" /></Button></div>
       </form>

@@ -42,7 +42,7 @@ export function LinkForm({ userId, current, options }: { userId: string; current
       <input type="hidden" name="userId" value={userId} />
       <FormMessage state={state} />
       <SelectField label="This login belongs to" name="record" defaultValue={current} options={options} placeholder="Not linked to a record"
-        help="Linking shows their classes, timetable and leave to them, and their login on their Staff Profile. One record only." />
+        help="Shows them their classes, timetable and leave." />
       <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save link" /></SubmitButton>
     </form>
   );
@@ -104,7 +104,7 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
     <form action={action} className="space-y-3">
       <input type="hidden" name="userId" value={userId} />
       <FormMessage state={state} />
-      <p className="text-sm text-ink-2"><Words k="Use an exception when one person needs more or less than their roles give, for example one teacher who also collects fees." /> {count ? `${count} exception${count === 1 ? "" : "s"} set.` : "None set."}</p>
+      <p className="text-sm text-ink-2"><Words k="For one person who needs more or less than their roles give." /> {count ? `${count} exception${count === 1 ? "" : "s"} set.` : "None set."}</p>
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[30rem] text-sm">
           <caption className="sr-only"><Words k="Exceptions by module" /></caption>
@@ -139,7 +139,7 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
 export function DisableButton({ userId, name, devices }: { userId: string; name: string; devices: number }) {
   return (
     <ConfirmButton trigger="Disable" triggerVariant="danger" title={`Disable ${name}?`} confirmLabel={`Disable ${name}`} confirmVariant="danger" onConfirm={() => disableAction(userId)}>
-      {name} <Words k="cannot open this school any more and is signed out" /> {devices > 0 ? `on ${devices} device${devices === 1 ? "" : "s"} ` : ""}<Words k="straight away. Their records and history stay. You can enable them again later with the same roles." />
+      {name} <Words k="cannot open this school any more and is signed out" /> {devices > 0 ? `on ${devices} device${devices === 1 ? "" : "s"} ` : ""}<Words k="straight away. Their records stay. You can enable them again later." />
     </ConfirmButton>
   );
 }

@@ -20,9 +20,10 @@ export { CANCELLED_REASON };
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
 import { linksIn, receiptKeyIn, withRealLinks } from "../parent-link/token";
-import { whatsappParts } from "./blanks";
+import { isCodeTemplate, whatsappParts } from "./blanks";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
 import { CODE_EXPIRED, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
+import { word } from "../notification-words";
 
 /** Stop starting new sends after this long, so a job always finishes within its transaction time. */
 const RUN_BUDGET_MS = 6_000;
@@ -69,7 +70,13 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
     // The same parts the template was approved with: blanks in order, and the "Open receipt" button's end of address.
     const parts = whatsappParts(v.body);
     const button = parts.button ? receiptKeyIn(values[parts.button.blank] ?? "") : null;
-    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: parts.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)), ...(button ? { buttonParam: button } : {}) };
+    if (isCodeTemplate(v.body)) {
+      // An Authentication template (Meta's own words): the code is its only blank, and the "Copy code" button's too.
+      const otp = code ?? values.code ?? "";
+      out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: [otp], buttonParam: otp };
+    } else {
+      out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: parts.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)), ...(button ? { buttonParam: button } : {}) };
+    }
   }
   if (r.channel === "email" && r.message.attachmentFileIds.length) {
     let files = c.attachments.get(r.messageId);
@@ -248,7 +255,8 @@ export async function tellSenderAboutFailures(tx: Tx, ctx: SchoolContext, messag
   return notify(tx, { schoolId: ctx.schoolId, userId: null }, {
     to: m.sentById,
     type: "message-failed",
-    text: `${failed} of ${total} not delivered: ${what}. Open it to retry, or resend by another channel.`.slice(0, 300),
+    key: "{failed} of {total} not delivered: {what}. Open it to retry, or resend by another channel.",
+    values: { failed, total, what: word(what.slice(0, 200)) },
     link: `/communication/history/${m.id}`,
     groupKey: `message-failed:${m.id}`,
   });

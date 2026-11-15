@@ -125,7 +125,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <StudentsHead page="Behaviour & Counselling" href={path} sub="Incidents, warnings and rewards. Counselling notes stay with the counsellor."
+      <StudentsHead page="Behaviour & Counselling" href={path} sub="Incidents, warnings and rewards"
         actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={Plus}><Words k="Report incident" /></ButtonLink> : undefined}
         subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
       <Split side={300}>

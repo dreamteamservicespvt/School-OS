@@ -13,7 +13,8 @@ import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 const noSubscribe = () => () => {};
 /** Whether this browser can read QR codes with the camera (false on the server). */
@@ -24,11 +25,12 @@ export function useCanScanQr() {
 /** A phone box with +91 in front; `onPhone` hears every change (for "returning visitor" lookups). */
 export function PhoneBox({ name, label, required, start, help, onPhone, id }: { name: string; label: string; required?: boolean; start?: string; help?: React.ReactNode; onPhone?: (v: string) => void; id: string }) {
   const t = useTyped(name, start);
+  const tr = useT();
   return (
     <FieldShell label={label} id={id} help={help} error={t.error} required={required}>
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 text-[15px]" aria-hidden="true">+91</span>
-        <input key={t.key} id={id} name={name} inputMode="numeric" autoComplete="tel-national" defaultValue={t.value} placeholder="98480 12345" maxLength={14}
+        <input key={t.key} id={id} name={name} inputMode="numeric" autoComplete="tel-national" defaultValue={t.value} placeholder={tr("10 digits")} maxLength={14}
           aria-invalid={t.error ? true : undefined} aria-describedby={t.error ? `${id}-error` : help ? `${id}-help` : undefined}
           onChange={(e) => { const v = e.target.value.replace(/[^\d ]/g, ""); if (v !== e.target.value) e.target.value = v; onPhone?.(v); }}
           className={cx(inputCls(t.error), "h-11 pl-12 tnum")} />
@@ -41,12 +43,13 @@ export function PhoneBox({ name, label, required, start, help, onPhone, id }: { 
 export function SegField({ name, label, options, start, required, onChange, size, help }: { name: string; label: string; options: readonly SegOption[]; start: string; required?: boolean; onChange?: (v: string) => void; size?: "sm" | "md"; help?: React.ReactNode }) {
   const t = useTyped(name, start);
   const [v, setV] = useState(t.value || start);
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">{label}{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
-      <Segmented label={label} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
+      <span className="text-[13px] font-semibold text-ink2">{tx(label)}{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
+      <Segmented label={tr.any(label)} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
       <input type="hidden" name={name} value={v} />
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
+      {t.error ? <p className="text-[12.5px] text-bad">{tx(t.error)}</p> : help ? <p className="text-[12.5px] text-ink3">{tx(help)}</p> : null}
     </div>
   );
 }
@@ -132,7 +135,7 @@ export function CameraBox({ name, who, required, error }: { name: string; who: s
         </div>
       )}
       {error || problem ? <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{error || problem}</p>
-        : <p className="text-[12.5px] text-ink3">{required ? "Required by school policy" : "Optional by school policy"}</p>}
+        : <p className="text-[12.5px] text-ink3"><Words k={required ? "Required by school policy" : "Optional by school policy"} /></p>}
     </div>
   );
 }

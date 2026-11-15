@@ -48,7 +48,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       <>
         <PageTop page={page} href={PATH} />
         <EmptyState title="No report cards for you" Icon={Award}>
-          <p>{s.manage ? <Words k="There are no sections this year yet. Add classes and sections in Academic Management." /> : <Words k="Report cards are written by the class teacher of each section. You are not a class teacher this year. Ask the Principal if this is wrong." />}</p>
+          <p>{s.manage ? <Words k="Add classes and sections in Academic Management." /> : <Words k="Only class teachers write report cards. Ask the Principal if this is wrong." />}</p>
         </EmptyState>
       </>
     );
@@ -86,7 +86,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   };
 
   const sub = s.manage
-    ? "Remarks, co-scholastic grades and printing, in the format of each class's board"
+    ? "Remarks, grades and printing"
     : `${section.label} · you are the class teacher`;
 
   const top = (
@@ -109,7 +109,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
         <div className="flex flex-col gap-5">
           {top}
           <EmptyState title="No report cards yet" Icon={Award}>
-            <p><Words k="A report card is made for each exam once its datesheet is published." /> {section.label} <Words k="has no published exam this year yet." /></p>
+            <p>{section.label} <Words k="has no published exam this year yet." /></p>
           </EmptyState>
         </div>
       </>
@@ -152,11 +152,11 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   ) : blanks > 0 ? (
     // Ready means the results are published (08 §2); a card with an empty remark or grade prints that part blank (layman test LC5).
     <Banner tone="warn" title={`${plural(ready, "report card")} of ${rows.length} ready, but ${blanks} still ${blanks === 1 ? "has" : "have"} empty parts.`}>
-      <Words k="A remark or grade not filled in prints blank on the report card. Fill them in before printing; the list below says what each one is missing." />
+      <Words k="Empty parts print blank. Fill them in before printing." />
     </Banner>
   ) : (
     <Banner tone="ok" title={`${plural(ready, "report card")} of ${rows.length} ready.`}>
-      <Words k="Published report cards show on Parent Link at once. Print them for the parent-teacher meeting, or mark them as sent when handed over." />
+      <Words k="Parents see them on Parent Link now. Print them, or mark them as sent." />
     </Banner>
   );
 
@@ -194,7 +194,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
                 values={Object.fromEntries(data.levels.filter((l) => rows.some((r) => r.studentId === l.studentId)).map((l) => [`${l.studentId}:${l.competencyId}`, l.level]))} />
             )}
           </div>
-          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
+          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length }} /></p>}
         </Card>
       </div>
     </>

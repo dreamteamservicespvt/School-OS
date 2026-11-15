@@ -1,0 +1,760 @@
+[
+ {
+  "who": null,
+  "tasksDone": "Phone (390 px), signed in as the teacher (Ravi Teja, class teacher of 5 A). I checked the home screen (full page and the first screen), opened Take attendance (today is Sunday, so it showed \"No school\"; Friday 13 Nov opened locked, so no attendance could be saved), gave homework to 5 A and saw the toast, opened \"72 pieces of homework to check\" and then Check work, filtered to \"Not handed in\" and opened \"Select students\", entered marks on the overdue Half Yearly 6 A sheet (I overwrote one mark by accident, put it back to 72, and tried Submit with marks missing), found My leave in the More sheet, applied for one day of casual leave (23 Nov) and then cancelled it, opened My salary slips and viewed the October slip, read notifications, opened the visitor notification, and opened My profile. Steps files and two small viewport-screenshot helpers (vp.mjs, vp2.mjs, cancel.mjs) are in D:/all/Projects/School-OS/qa-output/loop2/. Screenshots are D:/all/Projects/School-OS/qa-output/loop/l2-teacher-*.png. Local demo changes: one test homework \"L2 test: Exercise 5.2 Q1-Q5\" for 5 A is still there. The test leave is cancelled. Arjun Gupta's Theory mark is back at 72.",
+  "findings": [
+   {
+    "screen": "/examination-results/marks/<exam>/<paper>",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "The marks sheet opens on Arjun Gupta with his Theory box ALREADY selected, and it already holds 72. I meant to type his missing Internal mark, so I tapped 1 and 5. That silently replaced Theory 72 with 15, and it auto-saved ('All marks saved'). There was no warning and no undo. A rushed teacher will damage marks that were already entered.",
+    "fix": "Open each student on the first EMPTY box (here: Internal / 20). When the box already has a mark, the first key should not wipe it: either add digits after the cursor, or show 'Replace 72?' in a small line under the box.",
+    "evidence": "qa-output/loop/l2-teacher-n-03-submit.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper>",
+    "kind": "phone",
+    "severity": "high",
+    "problem": "On the phone, the sticky 'Marks save as you type / Save now / Submit marks' bar and the bottom menu sit on top of the number pad. Rows 7 8 9 ½, AB 0 ML, and Previous / Next are hidden, so the teacher has to scroll for every student. The big blue 'Submit marks' button sits right where the keypad should be.",
+    "fix": "In 'One at a time' mode on the phone, hide the bottom menu and fold the save bar into one thin line, so the whole keypad and Next fit on the first screen. Move 'Submit marks' to the end of the list or put it behind a 'Done' step.",
+    "evidence": "qa-output/loop/l2-teacher-m-01-entry-vp.png"
+   },
+   {
+    "screen": "/salary-management/slips?mine=1",
+    "kind": "word",
+    "severity": "high",
+    "problem": "The top card says 'gross ₹37,946, deductions ₹2,000'. The slip for the same month says 'Total earnings ₹40,425 … Total deductions ₹4,479'. Two different gross figures and two different deduction figures for one month will make a teacher think the pay is wrong.",
+    "fix": "Use the slip's figures on the card too (Total earnings ₹40,425, Total deductions ₹4,479, Net ₹35,946), or label the card 'after loss of pay'.",
+    "evidence": "qa-output/loop/l2-teacher-v-01-slip.png"
+   },
+   {
+    "screen": "/salary-management/slips?slip=<id>",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The slip shows 'Days paid 29 of 31' and 'Loss of pay ₹2,479' but never says which days were cut or why. The teacher's only October leave was an approved half day.",
+    "fix": "Under Loss of pay, list the dates and the reason (for example 'Absent 20 Oct, 21 Oct · not on leave'), with a link to My leave.",
+    "evidence": "qa-output/loop/l2-teacher-v-01-slip.png"
+   },
+   {
+    "screen": "/dashboard → /homework-learning",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Home says '72 pieces of homework to check'. When I open Homework from the menu or 'Give homework', the tile says 'Waiting for you to check 0', 'Current · 2', 'History · 0'. The 72 only appear through the home link (?check=1), as 9 'Past due' homeworks. These have no tab of their own, because History shows 0.",
+    "fix": "Count to-check work from every month in the 'Waiting for you to check' tile, and make tapping the tile open the same list as the home link. Put past-due homework under History (or a 'Past due' tab), not under a tab that shows 0.",
+    "evidence": "qa-output/loop/l2-teacher-h-01-tocheck.png"
+   },
+   {
+    "screen": "/homework-learning/submissions?hw=<id>",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "To nudge the 2 students who did not hand in, I had to know to tap 'Select students', then tick the students, then find 'Remind parents' ('Tick students, then choose Mark Complete or Remind parents.'). That is too many hidden steps for 2 minutes between classes.",
+    "fix": "When the 'Not handed in' filter is on, show one button: 'Remind parents of these 2'.",
+    "evidence": "qa-output/loop/l2-teacher-j-02-select.png"
+   },
+   {
+    "screen": "/homework-learning/submissions?hw=<id>",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The same thing has three names on one screen: 'Missing 2' (tile), 'Not handed in 2' (filter), and 'Not submitted' plus a 'Missing' tag (each row). 'Handed in 14 of 16' also includes 'Late' and 'Graded' students.",
+    "fix": "Use one word everywhere, for example 'Not handed in', and drop the extra 'Missing' tag on each row.",
+    "evidence": "qa-output/loop/l2-teacher-i-01-check.png"
+   },
+   {
+    "screen": "/homework-learning (after Send to 5 A)",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The toast after giving homework reads 'Homework sent to 5 A (15 students). 1 student notified in the app. Parents were messaged.' 15 and 1 in the same sentence makes the teacher wonder whether 14 students missed it.",
+    "fix": "Say: 'Homework given to all 15 students in 5 A. Parents got a message. (1 student also has the app.)'",
+    "evidence": "qa-output/loop/l2-teacher-g-01-sent.png"
+   },
+   {
+    "screen": "/attendance-management?date=2026-11-13",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The locked-day box says 'Nothing was saved for this day. To add marks, request a correction'. To a teacher, 'marks' means exam marks, so this reads as if it is about the exam.",
+    "fix": "Say 'To mark attendance for this day now, ask for a correction; the principal approves it.'",
+    "evidence": "qa-output/loop/l2-teacher-e-01-fri.png"
+   },
+   {
+    "screen": "/attendance-management",
+    "kind": "slow",
+    "severity": "low",
+    "problem": "I tapped 'Take attendance' on home. After the page had stopped loading it was still a grey skeleton, with no words and no class list. A rushed teacher may tap again.",
+    "fix": "Show the class name and 'Loading 15 students…' straight away, and check what makes this page's first load slow.",
+    "evidence": "qa-output/loop/l2-teacher-b-01-att.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The first phone screen shows 'Take attendance' twice, and both show on a Sunday that says 'No school'. It also shows 'Updated 6:49 AM · Every 5 minutes ▾' and 'Filters · Today', which mean nothing to a teacher. The shortcut row scrolls sideways, so 'Enter marks' and 'Message parents' are off screen. 'Needs your attention' (overdue marks, homework to check) only starts below the fold.",
+    "fix": "Keep one row of shortcuts that fits (or wraps) on the phone. Hide 'Take attendance' on no-school days. Remove the refresh-time picker and Filters from the teacher's home. Move 'Needs your attention' up, right under the date.",
+    "evidence": "qa-output/loop/l2-teacher-w-01-home-vp.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "In the teacher's 'Needs your attention' list: '92 of 92 guardians have not given data consent … the office sends the request through Parent Link'. The teacher cannot do anything about it, and it pushes real work down the list.",
+    "fix": "Show the consent item only to the office or admin roles that can send the request.",
+    "evidence": "qa-output/loop/l2-teacher-a-01-home.png"
+   },
+   {
+    "screen": "/dashboard (More sheet)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "'My leave' and 'My salary slips' are the last items in the More sheet, under 'YOU'. When the sheet opens, they are below the fold, after Academic, Exams, Events and Reports & Analytics. A teacher looking for leave or salary does not see them without scrolling inside the sheet.",
+    "fix": "Put the 'YOU' group (My leave, My salary slips) at the top of the More sheet for teachers, or add 'Apply for leave' as a home shortcut.",
+    "evidence": "qa-output/loop/l2-teacher-p-03-more-bottom.png"
+   },
+   {
+    "screen": "/staff-hr-management/leave?view=mine (Apply for leave)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The leave form fills 'From date' and 'To date' with today, Sunday 15-11-2026, a day with no school. Days and balance only show after a separate 'Check days and balance' tap. The document field is the plain browser 'Choose File / No file chosen'.",
+    "fix": "Fill in the next working day. Show '1 day of Casual Leave · 9.5 left · 5 periods need a substitute' by itself as soon as the dates are picked. Use the app's normal styled upload button ('Add doctor's note').",
+    "evidence": "qa-output/loop/l2-teacher-r-01-form.png"
+   },
+   {
+    "screen": "/staff-hr-management/leave?view=mine",
+    "kind": "word",
+    "severity": "low",
+    "problem": "After 'Apply' the toast says 'Leave applied for 1 day. It is waiting for approval.' It does not say who approves it or who arranges the '5 periods will need a substitute'. The header title shows 'Sunrise Public …' instead of the page name, and the tabs 'Staff Leave / Requests' are unclear to a teacher.",
+    "fix": "Toast: 'Sent to <approver> for approval. The office arranges substitutes.' Show 'My leave' as the header title, and hide or rename the 'Requests' tab for a teacher.",
+    "evidence": "qa-output/loop/l2-teacher-s-02-applied.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper>",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "On the phone the student picker reads '3. Arjun Gu' and the line under the name reads 'Roll 3 · 3 of 16 · SPS…'. Both are cut off. 'Total —' stays empty even though Theory is filled.",
+    "fix": "Make the picker a short 'Roll 3 ▾' chip. Show the partial total ('72 + —').",
+    "evidence": "qa-output/loop/l2-teacher-m-01-entry-vp.png"
+   },
+   {
+    "screen": "/notifications",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The 'Salary slip ready' notification says 'Open it in My profile'. The slip is under More → 'My salary slips', and in My profile it is far down under 'My work'.",
+    "fix": "Make the notification open the slip itself, and change the words to 'Tap to open your slip'.",
+    "evidence": "qa-output/loop/l2-teacher-x-02-bell-vp.png"
+   },
+   {
+    "screen": "/notifications",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The bell shows 39 new. Most are repeated 'New sign-in … Chrome on Windows' alerts. The visitor notification still says 'Reply: Send in, Wait or Not available' and stays 'New' after the visitor has left ('Suresh Testvisitor has left, so no answer is needed'). Real items like leave decisions get lost.",
+    "fix": "Group the sign-in alerts into one line. Mark the visitor alert as done (and remove it from the count) when the visit ends.",
+    "evidence": "qa-output/loop/l2-teacher-x-02-bell-vp.png"
+   },
+   {
+    "screen": "/salary-management/slips?slip=<id>",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "On the phone the slip sheet has a 'Print' button next to 'Download PDF'. The bank line is cut off ('HDFC Bank · ••••••••••…'), and the 'October 2026' heading in the slip header is oddly indented.",
+    "fix": "Hide 'Print' on phones. Let the bank line wrap. Line up the slip header.",
+    "evidence": "qa-output/loop/l2-teacher-v-01-slip.png"
+   }
+  ]
+ },
+ {
+  "who": null,
+  "findings": [
+   {
+    "screen": "/student-management/students/[id]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Parent asks 'what is my child's fee balance?'. Reception opens the student (More > Student > Aarav Bhat) and sees only 'View only', a 'Student Pickup' button and the 'Approved pickup list'. Nothing about fees and no hint about who to ask. Going to /fee-management shows 'Fee Management is not in your menu ... ask the School Admin to give you access', which sends the receptionist to the wrong person. The only working route is the hidden 'Walk-in request' > Department 'Accounts', and nothing on screen says so.",
+    "fix": "On the student page for front-office logins, add one line: 'Fee balance: ask Accounts (Priya Sharma)' with a 'Send to Accounts' button that opens the walk-in request already filled in. Or show a read-only 'Balance due ₹X' if the school allows it.",
+    "evidence": "qa-output/loop/l2-reception-t-02-profile-full.png"
+   },
+   {
+    "screen": "/front-office/visitors?do=visitor",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "On Sunday, with the page header saying 'School is closed today (Sunday)', choosing 'Ravi Teja · TGT Mathematics' as Person to meet shows green 'In school, free now'. The receptionist would tell the visitor to go in and find a teacher who is not there.",
+    "fix": "When the school is closed or the staff member is off, show 'School closed today: not in school' in amber instead of 'In school, free now'.",
+    "evidence": "qa-output/loop/l2-reception-f-01-filled.png"
+   },
+   {
+    "screen": "/front-office/visitors?do=visitor",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "'Person to meet *' is a plain phone dropdown with about 45 staff names (drivers, attendants, the hostel warden and others) in A to Z order, with no search box. With an impatient parent waiting, the receptionist has to scroll the whole list to find a class teacher. A parent who has come to see their child's class teacher cannot pick the child.",
+    "fix": "Make it a type-to-search box, put Principal / Accounts / Office at the top, and add 'Class teacher of… (student name)' as a choice.",
+    "evidence": "qa-output/loop/l2-reception-d-01-form-top.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "The 'Owner *' list on Add enquiry has 'Naresh Kumar (Receptionist)' twice, and so does 'Person to meet' on New visitor. The receptionist (Naresh) cannot tell which entry is them.",
+    "fix": "Remove or merge the duplicate staff record, or show something that tells them apart, such as the staff code or campus.",
+    "evidence": "qa-output/loop/l2-reception-c-01-filled.png"
+   },
+   {
+    "screen": "/front-office/pickup",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On the printed or sent Pickup gate pass, the collector's line is cut off: 'Mother · collecti…'. The gate guard cannot read who is collecting the child.",
+    "fix": "Let the text wrap onto a second line, or write just 'Mother', since the heading already says she is collecting.",
+    "evidence": "qa-output/loop/l2-reception-m-02-after.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add",
+    "kind": "word",
+    "severity": "low",
+    "problem": "A quick walk-in enquiry gets 'Owner * Divya Menon (TGT Science)' filled in on its own, even with Class 'Not decided'. The note 'Set by “Who gets new enquiries”: by class wanted' does not explain why a science teacher owns it. The receptionist wonders whether to change it.",
+    "fix": "With no class chosen, default to the admissions person or the receptionist, and reword the note to 'Follow-up calls go to this person. Usually leave as is.'",
+    "evidence": "qa-output/loop/l2-reception-b-01-enq-form.png"
+   },
+   {
+    "screen": "/front-office/appointments",
+    "kind": "word",
+    "severity": "low",
+    "problem": "On the phone, the empty state says 'Free slots show on the left'. On a phone the slots are above, not on the left.",
+    "fix": "Say 'Free slots show above' on phone, or just 'Tap a free time to book'.",
+    "evidence": "qa-output/loop/l2-reception-n-02-appts-full.png"
+   },
+   {
+    "screen": "/front-office/appointments?do=book",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "In 'Book appointment', the taken time '10:00 AM' (crossed out) sits at the end after 2:45 PM, not in its place between 9:45 and 10:15. It looks like a slot after school hours.",
+    "fix": "Keep taken times in time order, greyed out in place.",
+    "evidence": "qa-output/loop/l2-reception-p-01-slot.png"
+   },
+   {
+    "screen": "/front-office/appointments",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Appointments has three ways to pick a person: name chips ('Lakshmi Rao', 'Priya Sharma', …, with no roles), a dropdown 'Lakshmi Rao · Principal', and 'Someone else'. A new receptionist does not know that 'Lakshmi Rao' is the Principal unless they open the dropdown. Picking a day also has three controls: day chips, a date box and a 'Show' button.",
+    "fix": "Put the role on the chips ('Principal · Lakshmi Rao') and drop the extra dropdown; one date picker is enough.",
+    "evidence": "qa-output/loop/l2-reception-n-02-appts-full.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "slow",
+    "severity": "low",
+    "problem": "After tapping 'Add visitor' on the dashboard, the Visitors page stayed on grey skeleton blocks for about 2 seconds after the network went quiet, before the form appeared. That is slow with a visitor standing at the desk.",
+    "fix": "Open the New visitor sheet at once and load the log behind it, or make the visitor page lighter on first load.",
+    "evidence": "qa-output/loop/l2-reception-d-01-form-top.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The 'Today' visitor list shows 6 'Expired' passes from earlier days with only a time ('in 9:20 AM', 'in 7:51 PM') and no date, so they look like today's visitors. Each must be closed one by one through 'Check out with the right time', and every pop-up asks for an exit time the receptionist cannot know days later.",
+    "fix": "Show the date on passes not from today ('12 Nov, 9:20 AM') and add a 'Close all old passes' button that marks them 'time not known'.",
+    "evidence": "qa-output/loop/l2-reception-x-01-expired-out.png"
+   },
+   {
+    "screen": "/front-office/pickup",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The pickup screen uses system words: '0 students · gate pass kind Pickup' and 'Kind: Pickup. Gate Security scans it…'.",
+    "fix": "Say 'Early pickups today: 0' and 'Show this pass at the gate.'",
+    "evidence": "qa-output/loop/l2-reception-k-02-student-full.png"
+   },
+   {
+    "screen": "/admission-management/enquiries",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The top bar title does not match the page heading: 'Enquiries' in the bar, 'Admissions' as the heading; also 'Visitors' / 'Appointments' / 'Student Pickup' in the bar and 'Front Office' as the heading. A first-time user is unsure which page they are on.",
+    "fix": "Use the same name in the top bar and the heading (for example 'Visitors' as the big heading, with 'Front Office' as small text above it).",
+    "evidence": "qa-output/loop/l2-reception-c-01-after-save-view.png"
+   },
+   {
+    "screen": "/admission-management/enquiries",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "After 'Add enquiry' the page already shows the new enquiry, but the message still says 'Enquiry added for Kiran Testchild. Open enquiry', with a link to the page the receptionist is already on.",
+    "fix": "Drop the 'Open enquiry' link when the enquiry is already open, or offer 'Add another' instead, which helps the next walk-in.",
+    "evidence": "qa-output/loop/l2-reception-c-01-after-save-view.png"
+   },
+   {
+    "screen": "/student-management",
+    "kind": "bug",
+    "severity": "low",
+    "problem": "The student count does not add up: the heading says '320 studying in 2026-27' and the 'All classes 320' chip agrees, but the bottom of the list says 'Showing 25 of 322'.",
+    "fix": "Count the same way in all three places, or say what the 2 extra are (for example 'incl. 2 not in a class').",
+    "evidence": "qa-output/loop/l2-reception-s-01-students.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The home screen shows 'Add visitor' twice: a big blue button and again as the first quick chip, right next to each other. 'Early pickup', the third chip, is cut off at the right edge ('Earl…'), so it is easy to miss.",
+    "fix": "Remove the big 'Add visitor' button (the chips cover it), so all three chips (Add visitor, Add enquiry, Early pickup) fit on the phone width.",
+    "evidence": "qa-output/loop/l2-reception-a-01-home.png"
+   }
+  ],
+  "tasksDone": "Did all jobs as reception on a 390 px phone screen. 1) Walk-in enquiry: added Kiran Testchild, parent Ravi Testparent, phone 9000000411 (ENQ-0045). Quick: 3 fields and save. 2) Visitor: registered Suresh Testvisitor, 9000000412, to meet Ravi Teja (pass V-0261), then checked him out (confirmation sheet, then toast with Undo). 3) Early pickup: Aarav Bhat 3 B, collected by Sarita Bhat (mother), ID proof checked, reason Unwell; gate pass GP-2026-0203 made. 4) Appointment: booked Meena Testparent, 9000000413, with Lakshmi Rao (Principal) on Mon 16-11-2026 at 11:00 AM for 15 min; WhatsApp confirmation shown. 5) Fee balance: reception cannot see it. The student page shows only the pickup list, and /fee-management says ask the School Admin; the only workable route is Walk-in request > Accounts. Steps files and a local copy of the runner (act2.mjs, adds clicks inside dialogs and a select-options dump) are in D:/all/Projects/School-OS/qa-output/loop2/. Screenshots are in D:/all/Projects/School-OS/qa-output/loop/ with names starting l2-reception-."
+ },
+ {
+  "who": null,
+  "findings": [
+   {
+    "screen": "/approvals",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "Money requests are approved with one click and cannot be undone. I clicked the blue \"Approve\" on \"Electricity ₹18,450 to TSSPDCL\" in the list. No question was asked and the request was gone in about 2 seconds. On the dashboard \"Waiting for your approval\" card, one click approved \"Casual Leave: Kavitha Nair … (2 days), 16 periods need substitutes\". The only feedback is a toast: \"Approved. The person who asked has been told.\" The toast has no Undo. The approved request's page shows only \"Decided by You\" and has no \"Undo\" or \"Change decision\" button. A principal who misclicks has no way back.",
+    "fix": "Add an \"Undo\" button to the toast for about 10 seconds and hold the decision until it ends. For money requests above a limit, show a one-line confirm such as \"Approve ₹18,450 expense?\". For decisions made by mistake, add \"Change decision\" on the request page.",
+    "evidence": "qa-output/loop/l2-careless-money-1.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "A half-written notice can go to the whole school in one click. My draft read \"Dear parents, the meeting will\". Parents is ticked by default, the screen says \"Nothing ticked: the whole school\", and App notification is ticked. The form code shows that \"Publish\" sends at once with no confirm step (only Critical priority asks you to type a word). I did not press it, because that would message every parent.",
+    "fix": "Show a confirm before publishing, for example \"Send to parents of the whole school (322 students) by App notification?\", with \"Publish\" and \"Go back\" buttons.",
+    "evidence": "qa-output/loop/l2-careless-notice-2.png"
+   },
+   {
+    "screen": "/reports-analytics/r/fe-defaulter",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "On the Fee defaulters report at 1440 px, the most important column, the \"Overdue\" amount, is cut off at the right edge. The footer total shows only \"₹9…\". I had to guess that the table scrolls sideways.",
+    "fix": "Fit the table to the screen by dropping or narrowing the \"Oldest due is\" and \"Reminders sent\" columns. Or move the Overdue amount to right after the student name, and keep the total visible.",
+    "evidence": "qa-output/loop/l2-careless-g-01-defaulters.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "The same refund sits in the queue three times: \"Refund ₹1 to Hasini Agarwal from receipt SPS/2026-27/00329\", asked at 12:54 AM, 1:02 AM and 1:25 AM. Nothing marks them as repeats. \"Choose all 25 you can decide\" followed by \"Approve 25\" would approve all three.",
+    "fix": "Block a second open refund request on the same receipt. If one gets through, label it \"Same as another waiting request\" and leave it out of select-all.",
+    "evidence": "qa-output/loop/l2-careless-q-bottom.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "\"Add task\" fills in Time \"5:00 PM\" but leaves the due date empty. Saving with only a task name fails with \"Choose a due date, or leave both date and time empty.\", even though I never typed a time. The \"Remind before it is due\" box is also ticked when there is no date.",
+    "fix": "Leave Time empty until a date is chosen, or set the date to today when the time is pre-filled.",
+    "evidence": "qa-output/loop/l2-careless-task-2.png"
+   },
+   {
+    "screen": "/settings/forms-approvals/rules/student-leave",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "I half-changed the approval rule (Who approves set to Principal, days set to 9) and clicked \"Dashboard\" in the menu. There was no warning, and when I came back the changes were silently gone. The notice form behaves differently: it shows \"Draft kept: what you typed last time\". The two forms are inconsistent.",
+    "fix": "Warn before leaving with unsaved changes (\"Leave without saving?\") on settings forms, or keep a draft as the notice form does.",
+    "evidence": "qa-output/loop/l2-careless-l-02-came-back.png"
+   },
+   {
+    "screen": "/examination-results/marks",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Marks progress shows \"In progress 31\", but those papers read \"0 of 16 entered\", for example \"English · Class 6 B … 0 of 16 entered … In progress\". I cannot tell who has really started.",
+    "fix": "Show \"Not started\" until at least one mark is saved, or write \"Opened, no marks yet\".",
+    "evidence": "qa-output/loop/l2-careless-p-02-marks.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "\"Reject\" in the list takes me to a separate page (URL ends ?reject=1) with the reason box on top. After rejecting I stay on that page and must press Back to reach the list. If I press Esc and then refresh, the Reject box pops up again because ?reject=1 is still in the URL. Leaving the reason empty shows only the browser's \"Please fill out this field.\"",
+    "fix": "Open the reject reason box on the list itself and return to the list after saving. Remove ?reject from the URL when the box is closed. Show an in-page message: \"Write why, so the person knows what to change.\"",
+    "evidence": "qa-output/loop/l2-careless-rej-4-reopen.png"
+   },
+   {
+    "screen": "/settings/modules",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "As Principal, everything on Modules On/Off is greyed out. The \"On\" labels look like badges rather than switches. The template cards (\"Boarding school\") look clickable but do nothing. No line explains that I cannot change these, so I kept clicking and nothing happened.",
+    "fix": "Add one line at the top: \"Only the School Admin can change these. You can view them.\" Make the disabled cards look disabled.",
+    "evidence": "qa-output/loop/l2-careless-i-01-modules.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The tab says \"Waiting for me 32\", but the box says \"Choose all 25 you can decide\". Only at the bottom does it say \"31 requests · page 1 of 2\". \"All\" here means this page only.",
+    "fix": "Say \"Choose all 25 on this page\" and show the page count near the top.",
+    "evidence": "qa-output/loop/l2-careless-e-01-chooseall.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Some request titles are hard to read. \"Sibling of ₹6,000 for Sneha Varma\" reads wrong. \"Dispose of Student desk … sold for ₹400\" shows the amount \"₹3,200\", so which number is it? \"Fee row removed: ₹6,000 for Sahithi Yadav\" is filed under \"Discount or concession\".",
+    "fix": "Use plain titles: \"Sibling discount ₹6,000 for Sneha Varma\", \"Book value ₹3,200 · sold for ₹400\", \"Remove ₹6,000 annual charges for Sahithi Yadav\".",
+    "evidence": "qa-output/loop/l2-careless-q-bottom.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "word",
+    "severity": "low",
+    "problem": "₹1 refunds marked \"Overdue\" land with me even though the rule says \"Refunds: up to ₹5,000 the Accountant approves\". The card does not say why it came to me. The rules list says only \"Moves on if nobody decides in 2 days\", without naming who it moves to.",
+    "fix": "On the card, add \"Came to you: the Accountant did not decide in 2 days.\" In the rule summary, add \"then to the Principal\".",
+    "evidence": "qa-output/loop/l2-careless-j-02-forms.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "In the \"Add task\" list under \"Assign to\", \"Naresh Kumar\" appears twice with nothing to tell the two apart, and there is an odd entry \"LD-రమేష్ Ramesh 1345\". I could easily give the task to the wrong person.",
+    "fix": "Show the role or department next to each name, for example \"Naresh Kumar · Office\".",
+    "evidence": "qa-output/loop/l2-careless-task-2.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "empty",
+    "severity": "low",
+    "problem": "\"Attendance this week · Students present by class, Monday to today\" shows one bar, \"Class 5 93%\". It is unclear whether the other classes were not marked or are missing.",
+    "fix": "List every class, and show \"not marked\" for those with no attendance this week.",
+    "evidence": "qa-output/loop/l2-careless-a-01-home.png"
+   },
+   {
+    "screen": "/attendance-management/register",
+    "kind": "empty",
+    "severity": "low",
+    "problem": "\"Who is absent today\" on a Sunday shows the cards \"Present today 0 of 0 in marked sections · Not marked yet\" and \"Absent 0 · Parents get a message\" next to \"No school, Sunday\". \"Not marked yet\" makes it sound like something is wrong.",
+    "fix": "On holidays, replace the cards with one line: \"Sunday: no school. Pick another date.\"",
+    "evidence": "qa-output/loop/l2-careless-p-01-absent.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The approval cards repeat the request type: \"Attendance correction · Attendance correction: Class 5 A…\" and \"Discount or concession · Sibling of ₹6,000…\". The small card wraps into long text.",
+    "fix": "Show the type once, as a small tag, followed by the short title.",
+    "evidence": "qa-output/loop/l2-careless-dash-1500.png"
+   },
+   {
+    "screen": "/approvals/[id]",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The staff leave detail says \"Waiting for: The Principal\" while I, the Principal, am reading it. The student leave detail says \"Waiting for: You\".",
+    "fix": "Always say \"You\" when the reader is the one who must decide.",
+    "evidence": "qa-output/loop/l2-careless-b-01-reject1.png"
+   }
+  ],
+  "tasksDone": "I tested as a careless Principal on localhost:3000 at 1440 px.\n\n- **Approvals:** I approved from the dashboard and from the list, and double-clicked Approve. The double-click approved only once (34 to 33), with no duplicate.\n- **Reject:** I tried an empty reason, Esc, refresh and Back, then rejected one leave by double-clicking the dialog button. One rejection was saved.\n- **Approve 25:** I opened the bulk confirm and cancelled it. It shows a confirm with a total of ₹1,83,992.\n- **Expense:** I approved one expense (₹18,450) with a single click to test it. There was no confirm and no undo.\n- **Reports:** I opened Reports, the Fee defaulters report and Attendance trends. The Class filter is kept in the URL across a refresh. Pages loaded in 1 to 2.6 s.\n- **Settings:** I changed the Student leave approval rule to Principal by mistake, saved it, and undid it with \"Use the default rule\". The rule is back to Class Teacher.\n- **Half-filled forms:** I left the rule form unsaved (the change was lost with no warning). I left a notice half-written and used Back, Forward and refresh; the notice draft was kept.\n- **Add task:** I double-clicked Add task and only one task was created (\"Careless test check fire drill 9438\").\n- **Dashboard quick actions:** I opened Who is absent today, Marks progress and Attendance Reports.\n- **Not tested on purpose:** I did not press Publish on the notice (that would message every parent) or Remind teachers (a mass send). The code shows Publish has no confirm, and Remind teachers does have one.\n\nTest data left changed: 2 leaves approved (Ravi Teja casual leave; Pooja Verma student leave), 1 leave rejected (Ayaan Iyer sick leave), 1 staff leave approved (Kavitha Nair), 1 expense approved (Electricity ₹18,450), and 1 task added.\n\nSteps files and helper scripts are in D:/all/Projects/School-OS/qa-output/loop2/. Screenshots are in D:/all/Projects/School-OS/qa-output/loop/ with the prefix l2-careless-."
+ },
+ {
+  "who": null,
+  "tasksDone": "Played the accountant (Priya Sharma) on a 1440 px computer screen at localhost:3000.\n\nDone:\n- **Part fee:** collected a ₹5,000 cash part payment from Deepika Patel, Class 2 B (receipt SPS/2026-27/00356). Opened the receipt from the Student Fee Ledger (Payments tab, then Open) and downloaded the receipt PDF; it has a balance-due line.\n- **Defaulters:** looked through the Defaulters page (321 students).\n- **Concession:** gave Deepika a ₹500 concession, which applied at once. Opened older concessions to compare the amount asked with the amount that was actually applied.\n- **Expense:** recorded a ₹450 expense with a bill image and marked it paid (EXP/2026-27/00033). It showed up in the Day Book.\n- **Salary:** looked at October, then opened the November 2026 salary month.\n\nNot done:\n- **Close the day:** I opened the Close the day window and tried a cash count with a difference, but did not press \"Close the day\". Closing locks the day, and other testers are using the same data today.\n- **Send reminder to all 321:** I did not open this window; the safety check blocked the click.\n\nSteps files are in D:/all/Projects/School-OS/qa-output/loop2/ and screenshots are in D:/all/Projects/School-OS/qa-output/loop/ (prefix l2-accountant-).",
+  "findings": [
+   {
+    "screen": "/fee-management/concessions",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "The concessions list shows the amount asked for, not the amount given. Vihaan Kumar's row says \"Discount ₹1,500 ... Applied\", but opening it shows \"Applied ₹200\". So the card \"Concessions this year ₹10,000 · 4 concessions applied\" does not match the rows marked Applied (₹500 + ₹9,000 + ₹300 + ₹1,500 = ₹11,300). An accountant checking totals finds ₹1,300 missing and cannot tell why.",
+    "fix": "Show the applied amount in the list, for example \"₹200 of ₹1,500 applied\", and use the same figure in the top card.",
+    "evidence": "qa-output/loop/l2-accountant-n-01-conc9000.png"
+   },
+   {
+    "screen": "/fee-management/concessions?do=new",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "After \"Apply concession\", the New concession window stays open with an empty form. The only sign that it worked is a small dark toast half hidden under the window (\"Concession of ₹500 applied...\"). A nervous user thinks nothing happened and applies the same concession again.",
+    "fix": "Close the window after saving and show the new row highlighted, or replace the form with a clear success panel (\"₹500 off Deepika Patel's tuition. Done\").",
+    "evidence": "qa-output/loop/l2-accountant-m-02-applied.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Under \"Paid to the government\", PF ₹1,12,398 and ESI ₹5,475 are \"due by 15-11-2026\" (today), and TDS ₹7,400 was \"due by 07-11-2026\" (8 days late). All three look the same, with nothing saying \"Due today\" or \"Overdue\". The dashboard's \"Needs your attention\" does not list them either, so the accountant can miss a statutory deadline.",
+    "fix": "Add \"Due today\" and \"Overdue\" tags in red, and list the government payments in the dashboard's \"Needs your attention\" box.",
+    "evidence": "qa-output/loop2/sal-top.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The dashboard says \"10 staff members have no salary structure\", but the Salary page (October view) says \"Salary structures 33 of 39 · 6 missing\". The same question gets two different numbers.",
+    "fix": "Use one count everywhere and say which month and campus it is for, for example \"6 missing in October · 10 for November\".",
+    "evidence": "qa-output/loop/l2-accountant-a-01-home.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On 15 November, \"Salary\" opens on October 2026, and November does not appear anywhere until you press \"Open a month\". That window says \"It also opens by itself on the 1st of the month\", yet November was not open halfway through the month. A first-time user looking for this month's salary does not see it.",
+    "fix": "Show a November row at the top saying \"November 2026: not opened yet\" with an Open button. Also check the automatic opening on the 1st, or remove that sentence.",
+    "evidence": "qa-output/loop/l2-accountant-v-01-open-month.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The new November run shows \"Paid days 30\" and a full \"November net pay ₹10.35 L\", although attendance is only in up to the 15th and it says \"Attendance missing for 32 staff\". The heading \"Check before sending\" is followed by \"They do not stop sending.\", which reads as nonsense. The accountant fears paying for days nobody worked.",
+    "fix": "Label the figures as an estimate until the month ends (\"Estimate · attendance up to 15 Nov\"). Change the line to \"These are warnings. You can still send it.\"",
+    "evidence": "qa-output/loop/l2-accountant-w-01-nov.png"
+   },
+   {
+    "screen": "/fee-management/ledger/[studentId]",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The ledger shows \"Year total · paid · balance now ₹40,000 · ₹5,000 · ₹27,000\". ₹40,000 minus ₹5,000 is ₹35,000, not ₹27,000. The only hint, \"Balance includes late fees and dues raised so far\", does not say that ₹8,000 is not due yet.",
+    "fix": "Spell out the gap: \"₹40,000 year · ₹5,000 paid · ₹27,000 due now · ₹8,000 not due yet\".",
+    "evidence": "qa-output/loop/l2-accountant-f-01-FAILED.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The age groups read \"0 to 30 days 76 students\", \"31 to 60 days 319 students\", \"61 to 90 days 97 students\" and \"Over 90 days 319 students\". That adds up to 811 students when the school has 321 defaulters, and 319 appears twice. The small note about instalments does not clear it up for a layman.",
+    "fix": "Put each student in one group, by their oldest overdue fee, so the counts add up to 321. Or show amounts only in these cards.",
+    "evidence": "qa-output/loop2/def-top.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "slow",
+    "severity": "medium",
+    "problem": "All 321 defaulters load as one very long page, about 21,000 px tall. The bulk button \"Send reminder to all 321\" sits as the main blue button at the top, next to Export.",
+    "fix": "Show 50 rows per page with page numbers. Make the send-to-all button a secondary style so it is not the first thing you press.",
+    "evidence": "qa-output/loop/l2-accountant-h-01-defaulters.png"
+   },
+   {
+    "screen": "/fee-management/ledger/[studentId]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On the Statement tab, the receipt number \"SPS/2026-27/00356\" is plain text, so clicking it does nothing. To open a receipt you have to find the Payments tab and then press \"Open\".",
+    "fix": "Make every receipt number in the statement a link that opens the receipt.",
+    "evidence": "qa-output/loop/l2-accountant-f-01-FAILED.png"
+   },
+   {
+    "screen": "/finance-management/day-book?do=close",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Close day window says \"Income that day, cash, UPI and bank · 2 entries ₹5,000\", while the Day Book behind it says \"Total income ₹5,000 · 1 transaction\". The cashier cannot tell whether one payment was counted twice.",
+    "fix": "Count the same way in both places, or explain what the 2 entries are.",
+    "evidence": "qa-output/loop/l2-accountant-t-01-close-dialog.png"
+   },
+   {
+    "screen": "/finance-management/day-book?do=close",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The \"Cash counted\" box shows its hint text in very large type, and it is cut off: \"Count the notes and coins, ther\". It looks like something is already typed in the box.",
+    "fix": "Use a short, small, grey hint such as \"0\". The helper line below the box already explains what to enter.",
+    "evidence": "qa-output/loop/l2-accountant-t-01-close-dialog.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "word",
+    "severity": "low",
+    "problem": "For a part payment the hint says \"Part payment. ₹27,000 stays due on the newest fees ticked.\" All six ticked rows still show their full amounts, so before saving you cannot see which fee the ₹5,000 goes to. Only the receipt shows it went to Tuition Quarter 1. After saving, the list still says \"Due rows are ticked for you\" when nothing is ticked.",
+    "fix": "Show the split on the rows before saving (\"₹5,000 → Tuition Q1, ₹3,000 left\"). After saving, hide or reword the \"ticked for you\" line.",
+    "evidence": "qa-output/loop/l2-accountant-d-01-part.png"
+   },
+   {
+    "screen": "/fee-management/ledger/[studentId]?pay=",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The receipt window labels the payment status \"Posted\", which is accounting jargon. It also leaves out what the family still owes (₹27,000), though the PDF shows it.",
+    "fix": "Say \"Saved\" or \"In the books\", and add a line \"Still to pay: ₹27,000\".",
+    "evidence": "qa-output/loop/l2-accountant-g-01-receipt.png"
+   },
+   {
+    "screen": "/fee-management/concessions?do=new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "With Period \"Rest of this year\", the form says \"Not more than ₹8,000: still to pay on the ticked fee heads in this period\", while the student owes ₹27,000 overdue. The ₹500 went onto the not-yet-due Quarter 4. The Amount box also shows a grey \"2,000\" that looks like a typed value.",
+    "fix": "Say \"Only fees not yet due (₹8,000) can be reduced for 'Rest of this year'\", and offer a period that covers overdue fees. Use an empty Amount box or a plain \"0\" hint.",
+    "evidence": "qa-output/loop/l2-accountant-l-02-form.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "In the narrow \"Paid to the government\" column, lines like \"Staff ₹56,199 + school ₹56,199 · due by 15-11-2026\" wrap onto four lines, and the date breaks as \"15-11-\" / \"2026\".",
+    "fix": "Put the due date on its own line and do not let dates break across lines.",
+    "evidence": "qa-output/loop2/sal-top.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "Search hint texts are cut off: \"Student, parent or admi\" on Defaulters and \"What, vendor or numbe\" on Expenses.",
+    "fix": "Shorten the hints (\"Name or number\") or widen the boxes.",
+    "evidence": "qa-output/loop2/def-top.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Money is shown in rounded short forms: the dashboard card says \"Fees collected today ₹5k\", and the Fee Dashboard puts \"₹1.4 L\" (pending) next to \"₹1.4 Cr\" (due so far). An accountant afraid of mistakes wants exact rupees, and L and Cr are easy to mix up.",
+    "fix": "Show exact rupees (₹5,000) for today's figures, and avoid two look-alike short amounts side by side.",
+    "evidence": "qa-output/loop/l2-accountant-x-01-home2.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Date styles are mixed, sometimes on the same screen: \"Due 10-04-2026\", \"13 Nov\", \"Paid Thu 12 Nov\", \"Due 10 Jan\" and \"15-11-2026, 6:42 AM\".",
+    "fix": "Use one date style everywhere, for example \"10 Apr 2026\".",
+    "evidence": "qa-output/loop/l2-accountant-c-01-student.png"
+   },
+   {
+    "screen": "/finance-management/expenses?do=new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Expense heads show account codes (\"Stationery · 5002\", \"Miscellaneous · 5099\"), which mean nothing to an office user. The form says \"₹24,357 in hand now\", but the Day Book shows cash in paise (₹23,907.50 after the ₹450 expense), so the rounded figure does not match.",
+    "fix": "Hide the codes (keep them in Settings) and show cash in hand to the paisa everywhere.",
+    "evidence": "qa-output/loop/l2-accountant-p-01-expense-form.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Every tab under Fees has the same big heading \"Fees\", including Defaulters, Ledger and Concessions. After clicking around it is hard to tell which page you are on.",
+    "fix": "Use the tab's name as the page heading, for example \"Defaulters\" or \"Concessions & Refunds\".",
+    "evidence": "qa-output/loop2/def-top.png"
+   }
+  ]
+ },
+ {
+  "who": null,
+  "tasksDone": "I did all six jobs as School Admin on localhost, on a computer screen (1440 px) and a phone screen (390 px). (1) Found a student by parent phone: the student list search and the top search both work with \"8039651564\", \"80396 51564\", \"+91 8039651564\" and the last 5 digits. (2) Changed Harish Varma's phone to 90000 00123 using \"Change phone or name\" and got \"Parent details saved.\" (3) Issued bonafide certificate BONAFIDE/2026-27/0002 for Abhinav Varma; leaving Purpose empty showed a clear error. (4) Added a test student, Ramu Test Kumar, to Class 2 A (parent phone 9000000451). A 9-digit phone was refused with a clear message, and typing a known phone offered the brother/sister link. (5) Filled a holiday message in Send Message but did not send it to the 283 parents. Then I sent a holiday notice for approval through Notice Board and withdrew it, so it is back in Draft. (6) Checked today's visitors in Front Office > Visitors on computer and phone. My steps files are in D:/all/Projects/School-OS/qa-output/loop2/ and screenshots are qa-output/loop/l2-clerk-*.png. Test records left behind: student Ramu Test Kumar (SPS/2026/0325), Harish Varma's phone is now 9000000123, certificate BONAFIDE/2026-27/0002 is issued, and the draft notice \"QA clerk test: Holiday on Monday\".",
+  "findings": [
+   {
+    "screen": "/dashboard (side menu, every page)",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "On a normal 1440x900 laptop the left menu stops at the heading \"CAMPUS\" with nothing under it, and the \"Search\" card sits right below. Front Office, Transport, Library, Inventory, Hostel, Reports & Analytics and Settings are all hidden, and nothing shows that the menu scrolls. A clerk sent to \"check today's visitors\" cannot find Front Office at all; I only found it by scrolling the mouse wheel over the menu.",
+    "fix": "Make sure every menu item can be seen: tighten the spacing or fold the long section names, or at least show a fade and a \"More below\" arrow at the bottom of the menu. Also put \"Visitors\" in the Quick actions.",
+    "evidence": "qa-output/loop/l2-clerk-v-01-viewport.png"
+   },
+   {
+    "screen": "/front-office/visitors (phone)",
+    "kind": "phone",
+    "severity": "high",
+    "problem": "On the phone the visitor list shows \"Prakash Reddy · Meeting · Lakshmi Rao · in 9:20 AM\", \"Sanjay Verma … in 2:40 PM\" and so on, with no date, under a \"Today\" filter. These people came on 30-31 Oct and 12 Nov. The clerk reads it as 6 people who came in today and never left.",
+    "fix": "On the phone, show the date whenever a visit is not from today (\"31 Oct, in 9:20 AM\"), or list old open passes in their own \"Still open from earlier days\" group.",
+    "evidence": "qa-output/loop/l2-clerk-x-03-ph-visitors.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "With the date filter on \"Today 15-11-2026\", the list shows 7 visitors (\"All 7\"), but the card above says \"Visitors today 1\". Six of the rows are from October and 12 Nov. The only hint is small grey text at the bottom: \"today, with passes not closed\". The \"In / out\" column shows \"31-10-2026, 9:20 AM – ?\", and the \"?\" means nothing to a clerk.",
+    "fix": "Show only today's visitors under \"Today\". Put the old unclosed passes behind the red banner's \"Check out with the right time\" button. Replace \"– ?\" with \"Not checked out\".",
+    "evidence": "qa-output/loop/l2-clerk-w-02-visitors.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "\"Send a notice\" (the Quick action) opens New notice. In that form WhatsApp is not ticked by default, and the saved notice says \"Channels: Notice board, App notice, Parent Link\". A clerk telling all parents about a holiday expects it to reach their phones, but parents who don't use the app will never see it.",
+    "fix": "When the audience includes parents, tick WhatsApp by default, or show one line before saving: \"Parents without Parent Link will NOT get this. Tick WhatsApp to reach everyone.\"",
+    "evidence": "qa-output/loop/l2-clerk-t-01-sent-approval.png"
+   },
+   {
+    "screen": "/communication/notices/<id> (waiting for approval)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Right after \"Send for approval\", the page shows \"Seen by parents 0 of 565\" and a long list of parents, each marked \"Not seen\". Nothing has been sent yet. A frightened clerk thinks it already went to 565 people. The Send Message screen says \"283 parents\" for the same whole school, so the two numbers don't match.",
+    "fix": "Hide the \"Seen by parents\" list until the notice is published and say \"Will go to 283 families once approved\". Count each parent once, the same way on both screens.",
+    "evidence": "qa-output/loop/l2-clerk-t-01-sent-approval.png"
+   },
+   {
+    "screen": "/communication and /communication/notices",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "There are two ways to tell parents about a holiday, and the clerk cannot tell which one to use. Communication > \"Send Message\" sends at once (\"Send to 283 parents\"), while the \"Send a notice\" Quick action and Notice Board > \"New notice\" \"go for approval first\". Neither screen says when to use which.",
+    "fix": "At the top of Send Message, add one line such as \"For holidays and announcements use Notice Board (stays on the board, Principal approves). Use this for quick messages.\" Make the menu, the Quick action and the top search all lead to the same place for the word \"notice\".",
+    "evidence": "qa-output/loop/l2-clerk-q-01-comm.png"
+   },
+   {
+    "screen": "/student-management/guardians/<id>/edit",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "\"Edit Harish Varma\" changes the phone for both of his children (Abhinav and Harini), but the page never says so. After \"Save parent\", the message only says \"Parent details saved.\" and the page shows just one child. The checkbox wording \"If the phone changes, send Parent Link to the new number. Linked phones confirm again with a code.\" is jargon to the clerk.",
+    "fix": "Under the title, show \"Parent of Abhinav Varma (Nursery A) and Harini Varma (LKG A). Changes apply to both.\" After saving, say \"Phone changed to 90000 00123 for both children.\" Reword the checkbox as \"Send the parent app login to the new number\".",
+    "evidence": "qa-output/loop/l2-clerk-f-01-chg-open.png"
+   },
+   {
+    "screen": "top search (Ctrl K)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "A clerk types the job, not the page name. \"bonafide\", \"Bonafide certificate\" and \"change phone\" all give \"Nothing found\", although \"certificate\" finds \"Issue certificate\". \"holiday\" only offers \"Import holidays\", not sending a holiday notice.",
+    "fix": "Add task words to the search: bonafide, TC, study certificate → Issue certificate; change phone, parent phone → Parents & Guardians; holiday → Send a notice.",
+    "evidence": "qa-output/loop/l2-clerk-z-bonafide.png"
+   },
+   {
+    "screen": "/student-management",
+    "kind": "bug",
+    "severity": "low",
+    "problem": "Student counts disagree from screen to screen. The header said \"320 studying in 2026-27\" while the footer said \"Showing 25 of 322\", and the dashboard said \"Students 322\". After I added one student, the screens showed 321, 323 and \"All 321 students\" on Communication. A clerk checking whether the new student was saved sees different numbers everywhere.",
+    "fix": "Use one count everywhere. If 2 students have no section yet, say so next to the number (\"321 + 2 not in a section\").",
+    "evidence": "qa-output/loop/l2-clerk-b-01-stumgmt.png"
+   },
+   {
+    "screen": "/student-management/certificates/new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "\"Purpose\" has no star, yet the form refuses to issue without it (\"Write the purpose…\"). The red error box at the top stays even after the purpose is typed in. The line \"One certificate each. Not for a TC.\" under the student box is unclear. The search box says \"Search by name or admission number\", but parent phone works too and the clerk doesn't know.",
+    "fix": "Mark Purpose with * when the type is Bonafide and clear the error once it is filled. Reword the line as \"Each ticked student gets their own certificate. For a TC use Leaving & Alumni.\" Change the placeholder to \"Name, admission no. or parent phone\".",
+    "evidence": "qa-output/loop/l2-clerk-k-02-preview.png"
+   },
+   {
+    "screen": "/student-management/certificates/new",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The student picker lists two \"Abhinav Menon UKG A\" with only the admission numbers telling them apart. The picker is a list of checkboxes that stays open after picking, so a nervous clerk can easily tick a second student by mistake and issue two certificates.",
+    "fix": "Show the father's name next to each student (\"Abhinav Menon, UKG A, s/o …\"). Close the list after one pick unless \"Many students\" is chosen.",
+    "evidence": "qa-output/loop/l2-clerk-j-02-picked.png"
+   },
+   {
+    "screen": "/student-management/certificates/<id>",
+    "kind": "word",
+    "severity": "low",
+    "problem": "After issuing, the message says \"Bonafide certificate issued. Print it below.\" The print button is at the TOP right (\"Print / download PDF\"), not below.",
+    "fix": "Change the message to \"Issued. Press 'Print / download PDF' at the top right.\"",
+    "evidence": "qa-output/loop/l2-clerk-l-01-issued.png"
+   },
+   {
+    "screen": "/student-management/new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Two lines on this form confuse a clerk. The subtitle \"For students not added through Admission Management.\" makes them wonder whether they are on the wrong page. The phone hint \"+91. Links a known parent (brother or sister).\" is cryptic until the matching box appears.",
+    "fix": "Change the subtitle to \"Add a student directly. Use Admission Management only for new applications.\" Change the hint to \"10-digit mobile. If a brother or sister is already here, we will find the parent.\"",
+    "evidence": "qa-output/loop/l2-clerk-m-01-add-form.png"
+   },
+   {
+    "screen": "/communication",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The \"WhatsApp template\" and \"App notice template\" boxes both carry the same note: \"Optional for WhatsApp, email and app\". The App notice list for a whole-school parent message offers only \"Homework set\" and \"Salary slip ready\". There is no holiday template, so the clerk has to write the message alone.",
+    "fix": "Give each template box its own short note (\"Used for WhatsApp\", \"Used for the app notice\"). Add a \"School holiday\" template for parents.",
+    "evidence": "qa-output/loop/l2-clerk-q-01-comm.png"
+   },
+   {
+    "screen": "/communication",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "With WhatsApp in test mode, the big blue button still says \"Send to 283 parents\". The warning that \"nobody will receive this message\" is small orange text above it. A clerk can press Send and believe parents were told.",
+    "fix": "In test mode, change the button to \"Test send (nobody receives)\", or turn the warning into a red banner right next to the button.",
+    "evidence": "qa-output/loop/l2-clerk-q-01-comm.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On the computer the Purpose column is very narrow, so \"Meeting Sports quota admission for son\" wraps onto 5 lines and \"Other AquaPure RO service\" onto 4. Meanwhile the right-hand panel and the Status column have a lot of empty space.",
+    "fix": "Widen the Purpose column, or cut the detail to one line with \"…\" and show the full text when the row is opened.",
+    "evidence": "qa-output/loop/l2-clerk-w-02-visitors.png"
+   },
+   {
+    "screen": "/student-management?q=<phone> (phone)",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "On the phone, a search by parent phone lists \"Abhinav Varma · Nursery A · Roll 1 · Harish Varma\" without the phone number. The clerk can't see that the number matched before opening the student.",
+    "fix": "In phone results, show the parent's phone when the search was by phone (\"Harish Varma · 90000 00123\").",
+    "evidence": "qa-output/loop/l2-clerk-x-01-ph-search.png"
+   },
+   {
+    "screen": "/student-management",
+    "kind": "slow",
+    "severity": "low",
+    "problem": "Opening Student Management from the menu showed only grey placeholder boxes after the page was otherwise ready. The list took a few more seconds to appear, so a clerk may think it is broken and click again.",
+    "fix": "Show the first rows sooner, or put a short \"Loading students…\" line in the placeholder.",
+    "evidence": "qa-output/loop/l2-clerk-b-01-stumgmt.png"
+   }
+  ]
+ }
+]

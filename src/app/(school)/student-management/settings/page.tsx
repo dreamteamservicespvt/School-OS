@@ -98,21 +98,21 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
       <div className="flex max-w-5xl flex-col gap-5 lg:gap-6">
         <Card id="general" className="scroll-mt-24">
-          <CardHeader title="Student records" icon={Hash} description="Admission numbers, required fields, list columns and documents" />
+          <CardHeader title="Student records" icon={Hash} />
           <div className={body}>
             <ActionForm action={save("general")} submitLabel="Save student records" pendingText="Saving…">
               <div className="grid gap-3 sm:grid-cols-2">
-                <FormText name="admissionPrefix" label="Prefix" defaultValue={settings.admissionPrefix} maxLength={20} help="Leave empty to use the school code, for example SPS/." />
+                <FormText name="admissionPrefix" label="Prefix" defaultValue={settings.admissionPrefix} maxLength={20} help="Leave empty to use the school code." />
                 <FormText name="admissionPadding" label="Digits in the running number" type="number" min={1} max={8} required defaultValue={settings.admissionPadding} />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-xl bg-sunken/60 px-4 py-3"><span className="text-[13.5px] text-ink2"><Words k="Next number" /></span><b className="font-mono text-[15px]">{data.sample}</b></div>
               <FormCheck name="admissionUseYear" label="Put the year in the number (for example 2026/0001)" defaultChecked={settings.admissionUseYear} />
-              <FormCheck name="admissionRestartYear" label="Restart the running number each year" help="Off: numbers keep running. Changing an admission number writes the old and new value to the history." defaultChecked={settings.admissionRestartYear} />
-              <div className="border-t border-line pt-4"><Choices name="requiredFields" label="Required on the student form" options={OPTIONAL_FORM_FIELDS} chosen={settings.requiredFields} help="Name, date of birth, gender, class and a parent's phone are always required. Extra fields are added in Settings, Forms & Approvals." /></div>
+              <FormCheck name="admissionRestartYear" label="Restart the running number each year" help="Off: numbers keep running." defaultChecked={settings.admissionRestartYear} />
+              <div className="border-t border-line pt-4"><Choices name="requiredFields" label="Required on the student form" options={OPTIONAL_FORM_FIELDS} chosen={settings.requiredFields} help="Name, date of birth, gender, class and a parent's phone are always required." /></div>
               <Choices name="listColumns" label="Columns on the Student List" options={LIST_COLUMNS} chosen={settings.listColumns} />
-              <FormArea name="requiredDocuments" label="Documents expected for every student" rows={4} defaultValue={settings.requiredDocuments.join("\n")} help="One per line. Shown as “documents complete (5 of 6)” on each student." />
+              <FormArea name="requiredDocuments" label="Documents expected for every student" rows={4} defaultValue={settings.requiredDocuments.join("\n")} help="One per line." />
               <div className="space-y-3 border-t border-line pt-4">
-                <FormCheck name="studentLoginsOn" label="Student logins (optional)" help="Older students can sign in to see their own records." defaultChecked={settings.studentLoginsOn} />
+                <FormCheck name="studentLoginsOn" label="Student logins (optional)" help="Older students see their own records." defaultChecked={settings.studentLoginsOn} />
                 {aiAllowed(current) && <p className="text-[13px] text-ink3"><Words k="Smart Import is switched on or off with the other AI features, in" /> {canSettings ? <Link className="font-semibold text-brand underline" href="/settings/modules#ai"><Words k="Settings, Modules On/Off" /></Link> : "Settings, Modules On/Off"}.</p>}
               </div>
             </ActionForm>
@@ -120,7 +120,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
         </Card>
 
         <Card id="status" className="scroll-mt-24">
-          <CardHeader title="Student status and allowed changes" icon={Workflow} description="Only these changes are offered. Promotion and leaving only on their own pages." />
+          <CardHeader title="Student status and allowed changes" icon={Workflow} />
           <ul className="flex flex-col gap-2 px-5 pb-5 text-[13.5px]">
             {STATUS_RULES.map((r) => (
               <li key={`${r.from}-${r.to}`} className="grid items-start gap-x-2 gap-y-0.5 rounded-xl bg-sunken/50 px-3.5 py-2.5 md:grid-cols-[180px_24px_1fr]">
@@ -133,7 +133,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
         <div className="grid items-start gap-5 lg:grid-cols-2 lg:gap-6">
           <Card id="identifiers" className="scroll-mt-24">
-            <CardHeader title="Identifier types" icon={Fingerprint} description="Aadhaar, APAAR ID and PEN are kept on every student. Masked for roles that may not see them." />
+            <CardHeader title="Identifier types" icon={Fingerprint} description="Masked for roles that may not see them." />
             <div className={body}>
               <ul className="space-y-2 text-[14px]">
                 <li className="flex items-center justify-between gap-3"><span><Words k="Aadhaar" /></span><Pill tone="bad"><Words k="Highly restricted" /></Pill></li>
@@ -161,8 +161,8 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                 {[...new Set([...settings.leavingReasons, "Other"])].map((r) => <li key={r} className="inline-flex h-8 items-center rounded-full bg-sunken px-3 text-[13px] font-medium">{r}</li>)}
               </ul>
               <ActionForm action={save("leaving")} submitLabel="Save leaving reasons" pendingText="Saving…" className="space-y-4 border-t border-line pt-4">
-                <FormArea name="leavingReasons" label="Leaving reasons, one per line" rows={7} required defaultValue={settings.leavingReasons.join("\n")} help="“Other” is always offered, with a box to write the reason. Reasons in use can be renamed; past records keep theirs." />
-                <FormCheck name="alumniOn" label="Alumni records (optional)" help="Alumni list, donations, mentors and the job board." defaultChecked={settings.alumniOn} />
+                <FormArea name="leavingReasons" label="Leaving reasons, one per line" rows={7} required defaultValue={settings.leavingReasons.join("\n")} help="“Other” is always offered." />
+                <FormCheck name="alumniOn" label="Alumni records (optional)" defaultChecked={settings.alumniOn} />
               </ActionForm>
             </div>
           </Card>
@@ -170,7 +170,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
 
         <Card id="promotion" className="scroll-mt-24">
           <CardHeader title={data.policyYear ? `Promotion policy · ${data.policyYear.name}${data.policy ? ` (version ${data.policy.version})` : ""}` : "Promotion policy"} icon={ArrowUpRight}
-            description="Versioned per year. Changing it never changes past promotions." />
+            description="Past promotions never change." />
           <div className={body}>
             {!data.policyYear ? <p className="text-[14px] text-ink3"><Words k="No open academic year. Open one in Academic Management to set its promotion policy." /></p> : (
               <>
@@ -185,9 +185,9 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                 {!data.policy && <p className="text-[13.5px] text-ink3"><Words k="Not set yet: the defaults below apply." /></p>}
                 <ActionForm key={data.policyYear.id} action={save("promotion")} submitLabel="Save as new version" pendingText="Saving…">
                   <input type="hidden" name="academicYearId" value={data.policyYear.id} />
-                  <FormCheck name="passRequired" label="Pass required to promote" help="From the final result in Examination & Results." defaultChecked={data.policy?.passRequired ?? true} />
+                  <FormCheck name="passRequired" label="Pass required to promote" help="Uses the final result" defaultChecked={data.policy?.passRequired ?? true} />
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <FormText name="minAttendancePct" label="Minimum attendance %" type="number" min={0} max={100} defaultValue={data.policy?.minAttendancePct ?? ""} help="Below this, the suggestion is Detain. Leave empty for no minimum." />
+                    <FormText name="minAttendancePct" label="Minimum attendance %" type="number" min={0} max={100} defaultValue={data.policy?.minAttendancePct ?? ""} help="Below this, the suggestion is Detain." />
                     <FormSelect name="exceptionApproverRole" label="Exceptions approved by" required defaultValue={data.policy?.exceptionApproverRole ?? "principal"} options={roleOptions} help="Changes from the suggestion need a reason." />
                   </div>
                   <FormCheck name="feeDuesAllowed" label="Students with fee dues can be promoted" help="On: dues show as a warning only." defaultChecked={data.policy?.feeDuesAllowed ?? true} />
@@ -206,26 +206,26 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
         </Card>
 
         <Card id="certificates" className="scroll-mt-24">
-          <CardHeader title="Certificates" icon={FileBadge} description="Designs live in Settings, Document Designs. Numbers run in a series per type and year, for example BONAFIDE/2026-27/0001." />
+          <CardHeader title="Certificates" icon={FileBadge} description="Numbered per type and year" />
           <div className={body}>
             <ActionForm action={save("certificates")} submitLabel="Save certificates" pendingText="Saving…">
-              <Choices name="approvalCertificates" label="Need approval before issuing" options={certTypes.filter((t) => t !== "TC").map((t) => ({ key: t, label: CERTIFICATE_LABEL[t] }))} chosen={settings.approvalCertificates} help="A transfer certificate always needs approval, and clearance must be done first." />
+              <Choices name="approvalCertificates" label="Need approval before issuing" options={certTypes.filter((t) => t !== "TC").map((t) => ({ key: t, label: CERTIFICATE_LABEL[t] }))} chosen={settings.approvalCertificates} help="A TC always needs approval and clearance." />
               {data.signatories.length === 0 ? <p className="text-[13.5px] text-ink3"><Words k="No signatories yet. They are added in Settings, Document Designs." /></p> : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {certTypes.map((t) => <FormSelect key={t} name={`sig_${t}`} label={`Default signatory: ${CERTIFICATE_LABEL[t]}`} defaultValue={settings.defaultSignatories[t] ?? ""} placeholder="None" options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />)}
                 </div>
               )}
               <div className="space-y-3 border-t border-line pt-4">
-                <FormCheck name="qrOn" label="QR code to verify (optional)" help="No personal data in the code; the check shows only number, type, date and Valid." defaultChecked={settings.qrOn} />
+                <FormCheck name="qrOn" label="QR code to verify (optional)" help="No personal data in the code." defaultChecked={settings.qrOn} />
                 <FormCheck name="migrationOn" label="Migration certificates (optional)" help="For students moving between boards or states." defaultChecked={settings.migrationOn} />
-                <FormCheck name="digiLockerOn" label="DigiLocker-ready file (optional)" help="Adds a DigiLocker file on Certificates: issued certificates in DigiLocker's columns, to upload to the school's DigiLocker Issuer account." defaultChecked={settings.digiLockerOn} />
+                <FormCheck name="digiLockerOn" label="DigiLocker-ready file (optional)" help="A file to upload to DigiLocker." defaultChecked={settings.digiLockerOn} />
               </div>
             </ActionForm>
           </div>
         </Card>
 
         <Card id="id-cards" className="scroll-mt-24">
-          <CardHeader title="ID cards" icon={IdCard} description="Photo, name, class, QR code, barcode, academic year and valid-until date always print. The look is set in Settings, Document Designs."
+          <CardHeader title="ID cards" icon={IdCard} description="Photo, name, class and QR code always print."
             action={canSettings && <Link href="/settings/document-designs" className={buttonClass("ghost", "sm")}><Words k="Document Designs" /><ArrowUpRight size={15} aria-hidden="true" /></Link>} />
           <div className={body}>
             <ActionForm action={save("id-cards")} submitLabel="Save ID cards" pendingText="Saving…">
@@ -234,13 +234,13 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                 <FormText name="idCardsPerPage" label="Cards per A4 sheet" type="number" min={1} max={8} required defaultValue={settings.idCardsPerPage} />
                 <FormText name="idCardValidUntil" label="Valid until" type="date" defaultValue={settings.idCardValidUntil?.toISOString().slice(0, 10) ?? ""} help={`Leave empty to use the last day of the academic year${year ? ` (${formatDate(year.endDate, tz)})` : ""}.`} />
               </div>
-              <FormCheck name="rfidOn" label="RFID cards (optional)" help="Records each student's RFID number for attendance devices." defaultChecked={settings.rfidOn} />
+              <FormCheck name="rfidOn" label="RFID cards (optional)" help="For attendance devices" defaultChecked={settings.rfidOn} />
             </ActionForm>
           </div>
         </Card>
 
         <Card id="behaviour" className="scroll-mt-24">
-          <CardHeader title="Behaviour" icon={Medal} description="Incident types and points, counselling and career guidance" />
+          <CardHeader title="Behaviour" icon={Medal} />
           <div className={body}>
             {settings.incidentTypes.length > 0 && (
               <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
@@ -265,8 +265,8 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
                 </div>
               ))}
               <div className="space-y-3 pt-2">
-                <FormCheck name="pointsOn" label="Behaviour points (optional)" help="Points per type, added up for each student." defaultChecked={settings.pointsOn} />
-                <FormCheck name="counsellingOn" label="Counselling (optional)" help="Counselling cases and sessions. What the counsellor writes is seen only by the Counsellor; everyone else sees “Private”." defaultChecked={settings.counsellingOn} />
+                <FormCheck name="pointsOn" label="Behaviour points (optional)" defaultChecked={settings.pointsOn} />
+                <FormCheck name="counsellingOn" label="Counselling (optional)" help="Only the Counsellor sees what they write." defaultChecked={settings.counsellingOn} />
                 <Choices name="counsellingRoles" label="Who can open counselling cases" options={roleOptions.map((r) => ({ key: r.value, label: r.label }))} chosen={settings.counsellingRoles} />
                 <FormCheck name="careerOn" label="Career guidance (optional, secondary schools)" defaultChecked={settings.careerOn} />
               </div>

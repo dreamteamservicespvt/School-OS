@@ -15,6 +15,7 @@ import { InventoryProblem } from "./problem";
 import { costToFinance } from "./assets";
 import { storeKeepers } from "./stock";
 import { BASE, FACILITY_TYPES, LAB_CHECKLIST, PRIORITY, ROOM_KIND_OF } from "./words";
+import { word } from "../notification-words";
 
 const ZERO = BigInt(0);
 
@@ -81,7 +82,7 @@ export async function raiseMaintenance(tx: Tx, ctx: SchoolContext, input: RaiseI
   const inCharge = facility?.inChargeStaffId ? await tx.staff.findFirst({ where: { id: facility.inChargeStaffId }, select: { userLoginId: true } }) : null;
   const to = new Set([...(await storeKeepers(tx, ctx)), ...(inCharge?.userLoginId ? [inCharge.userLoginId] : [])]);
   for (const p of to) {
-    await notify(tx, ctx, { to: p, type: "maintenance", text: `${r.number} ${PRIORITY[input.priority].label.toLowerCase()} priority, ${room.name}: ${problem.slice(0, 120)}`, link: `${BASE}/rooms?tab=maintenance&request=${r.id}`, groupKey: "inventory-maintenance", mergedText: (k) => `${k} new maintenance requests` });
+    await notify(tx, ctx, { to: p, type: "maintenance", key: "{number} {priority} priority, {room}: {problem}", values: { number: r.number, priority: word(PRIORITY[input.priority].label.toLowerCase()), room: room.name, problem: problem.slice(0, 120) }, link: `${BASE}/rooms?tab=maintenance&request=${r.id}`, groupKey: "inventory-maintenance", mergedKey: "{n} new maintenance requests" });
   }
   await writeAudit(tx, ctx, { action: "raised", recordType: "Maintenance Request", recordId: r.id, after: { number: r.number, place: room.name, problem, priority: input.priority, photo: Boolean(input.photoFileId), asset: asset?.tag ?? null } });
   return { request: r, room };
@@ -101,7 +102,7 @@ export async function assignMaintenance(tx: Tx, ctx: SchoolContext, id: string, 
   await tx.maintenanceRequest.update({ where: { id: r.id }, data: { technicianStaffId: tech?.id ?? null, technicianName: tech ? null : outside, vendorId: input.vendorId, priority: input.priority, status: "IN_PROGRESS", assignedAt: new Date() } });
   const room = await tx.room.findFirst({ where: { id: r.roomId }, select: { name: true } });
   if (tech?.userLoginId) {
-    await notify(tx, ctx, { to: tech.userLoginId, type: "maintenance", text: `${r.number} assigned to you (${PRIORITY[input.priority].label.toLowerCase()} priority), ${room?.name ?? "a room"}: ${r.problem.slice(0, 120)}`, link: `${BASE}/report-problem?request=${r.id}` });
+    await notify(tx, ctx, { to: tech.userLoginId, type: "maintenance", key: "{number} assigned to you ({priority} priority), {room}: {problem}", values: { number: r.number, priority: word(PRIORITY[input.priority].label.toLowerCase()), room: room?.name ?? word("a room"), problem: r.problem.slice(0, 120) }, link: `${BASE}/report-problem?request=${r.id}` });
   }
   await writeAudit(tx, ctx, { action: "assigned", recordType: "Maintenance Request", recordId: r.id, before: { status: r.status, priority: r.priority }, after: { technician: tech?.fullName ?? outside, priority: input.priority } });
   return { request: r, technician: tech?.fullName ?? outside ?? "the vendor", told: Boolean(tech?.userLoginId) };
@@ -127,7 +128,7 @@ export async function closeMaintenance(tx: Tx, ctx: SchoolContext, id: string, i
   }
   await tx.maintenanceRequest.update({ where: { id: r.id }, data: { status: input.status, doneOn: input.status === "DONE" ? input.doneOn : null, costPaise: input.costPaise, expenseId, closingNote: input.closingNote?.trim() || null } });
   if (r.raisedById) {
-    await notify(tx, ctx, { to: r.raisedById, type: "maintenance", text: input.status === "DONE" ? `${r.number} is done: ${r.problem.slice(0, 80)} (${room?.name ?? ""})` : `${r.number} was cancelled: ${input.closingNote}`, link: `${BASE}/report-problem?request=${r.id}` });
+    await notify(tx, ctx, { to: r.raisedById, type: "maintenance", key: input.status === "DONE" ? "{number} is done: {problem} ({room})" : "{number} was cancelled: {note}", values: { number: r.number, problem: r.problem.slice(0, 80), room: room?.name ?? "", note: input.closingNote }, link: `${BASE}/report-problem?request=${r.id}` });
   }
   await writeAudit(tx, ctx, { action: input.status === "DONE" ? "done" : "cancelled", recordType: "Maintenance Request", recordId: r.id, before: { status: r.status }, after: { status: input.status, cost: input.costPaise !== null ? formatRupees(input.costPaise) : null, doneOn: input.doneOn ? formatDate(input.doneOn, "UTC") : null, expense: expenseId } });
   return { request: r, expenseId, outcome };
@@ -175,7 +176,7 @@ export async function recordSafetyCheck(tx: Tx, ctx: SchoolContext, input: { roo
   const c = await tx.labSafetyCheck.create({ data: { schoolId: ctx.schoolId, roomId: room.id, date: input.date, checklist, result: failed.length ? "ISSUES" : "PASS", note: input.note?.trim() || null, checkedById: ctx.userId } });
   if (failed.length) {
     for (const p of await storeKeepers(tx, ctx)) {
-      await notify(tx, ctx, { to: p, type: "lab-safety", text: `Lab safety check, ${room.name}: ${failed.length} issue${failed.length === 1 ? "" : "s"} (${failed.map((f) => f.item).slice(0, 2).join("; ")})`, link: `${BASE}/rooms?tab=labs` });
+      await notify(tx, ctx, { to: p, type: "lab-safety", key: failed.length === 1 ? "Lab safety check, {room}: 1 issue ({items})" : "Lab safety check, {room}: {n} issues ({items})", values: { room: room.name, n: failed.length, items: failed.map((f) => f.item).slice(0, 2).join("; ") }, link: `${BASE}/rooms?tab=labs` });
     }
   }
   await writeAudit(tx, ctx, { action: "safety-check", recordType: "Lab Safety Check", recordId: c.id, after: { lab: room.name, result: c.result, failed: failed.map((f) => f.item) } });

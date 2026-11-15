@@ -18,7 +18,7 @@ export function SessionRulesForm({ readOnly, saved, values, computerOptions, pho
   return (
     <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
-      {!saved && <p className="text-sm text-ink-2"><Words k="Your school has not set its own session rules yet, so every device stays signed in for 7 days without use, as before." /></p>}
+      {!saved && <p className="text-sm text-ink-2"><Words k="Not set yet: devices stay signed in for 7 days without use." /></p>}
       <div className="grid gap-4 sm:grid-cols-3">
         <SelectField label="Sign out a computer after it is not used for" name="idleComputer" options={computerOptions} defaultValue={v("idleComputer")} disabled={readOnly} error={state?.errors?.idleComputer} required />
         <SelectField label="Sign out a phone after it is not used for" name="idlePhone" options={phoneOptions} defaultValue={v("idlePhone")} disabled={readOnly} error={state?.errors?.idlePhone} required
@@ -52,7 +52,7 @@ export function PasswordRulesForm({ readOnly, values, lengthOptions, historyOpti
           help={expiryNote ?? "When it is due, the person chooses a new one at sign-in."} />
       </div>
       <p className="text-sm text-ink-2">
-        <Words k="Every new password also needs a letter and a number, and may not be a common password such as Password@123, Welcome1 or Qwerty123. A person who works in more than one school follows the strictest rules of their schools." />
+        <Words k="Every password also needs a letter and a number, and no common password like Password@123." />
       </p>
       {!readOnly && <SubmitButton pendingText="Saving…"><Words k="Save password rules" /></SubmitButton>}
     </form>

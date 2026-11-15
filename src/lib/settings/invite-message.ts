@@ -8,7 +8,7 @@ import "server-only";
 
 import { withSchool, type SchoolContext, type Tx } from "../db";
 import { deliverMessage } from "../messaging/deliver";
-import { channelSetups, type Channel } from "../messaging/channels";
+import { channelSetups, SMS_OFFERED, type Channel } from "../messaging/channels";
 import { planMessage, recordSend } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { invitePlaceholderFor } from "../parent-link/token";
@@ -91,17 +91,18 @@ export async function sendInviteMessage(tx: Tx, ctx: SchoolContext, login: { id:
 
   if (login.phone) {
     const wa = setups.whatsapp.isOn ? await templateByKey(tx, ctx, INVITE_TEMPLATE, "whatsapp") : null;
-    const sms = !wa && setups.sms.isOn ? await templateByKey(tx, ctx, INVITE_TEMPLATE, "sms") : null;
+    // No invite by SMS while SMS is not offered (SMS_OFFERED, owner 15 Nov 2026).
+    const sms = !wa && SMS_OFFERED && setups.sms.isOn ? await templateByKey(tx, ctx, INVITE_TEMPLATE, "sms") : null;
     if (wa) { channels.push("whatsapp"); templates.whatsapp = wa.id; }
     else if (sms && school.smsDltEntityId && school.smsSenderHeader && (await smsTemplateReady(tx, ctx, sms.id))) { channels.push("sms"); templates.sms = sms.id; }
-    else if (setups.sms.isOn && !setups.whatsapp.isOn) notes.push("SMS was not sent: the \"Staff invite (SMS)\" template needs its DLT template ID (Communication, Message Templates).");
+    else if (SMS_OFFERED && setups.sms.isOn && !setups.whatsapp.isOn) notes.push("SMS was not sent: the \"Staff invite (SMS)\" template needs its DLT template ID (Communication, Message Templates).");
   }
   if (login.email && setups.email.isOn) {
     const em = await templateByKey(tx, ctx, INVITE_TEMPLATE, "email");
     if (em) { channels.push("email"); templates.email = em.id; }
   }
   if (!channels.length) {
-    return { sentBy: [], note: notes[0] ?? "WhatsApp, SMS and email are not switched on for your school, so copy the link and send it to them yourself.", messageId: null };
+    return { sentBy: [], note: notes[0] ?? (SMS_OFFERED ? "WhatsApp, SMS and email are not switched on for your school, so copy the link and send it to them yourself." : "WhatsApp and email are not switched on for your school, so copy the link and send it to them yourself."), messageId: null };
   }
 
   const input = {

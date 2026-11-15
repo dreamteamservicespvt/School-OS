@@ -19,8 +19,11 @@ import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 import { deliverCodeNow } from "@/lib/messaging/code-now";
 import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 
-/** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
-export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean } | null;
+/**
+ * notSent: Test mode kept the code back; the page shows the message instead of "code sent".
+ * channel: what carried the code ("on WhatsApp", "by SMS"). callSchool: no code could go; the page says to call the school.
+ */
+export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean } | null;
 
 const GONE = ACCESS_WORDS.gone;
 
@@ -64,7 +67,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
   const found = await findLink(token);
   if (!found) return { ok: false, message: GONE };
   const limited = await limits([
-    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
+    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
     [`pl-code:link:${found.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
@@ -81,11 +84,15 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
       return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
     // "Code sent" only once WhatsApp or SMS really took it (owner test 2026-11-05).
-    if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT };
+    if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT, callSchool: true };
     await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
-    return codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
+    const step = codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
+    return step?.ok ? { ...step, channel: pl.sent.channel } : step;
   } catch (e) {
-    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e instanceof ParentLinkProblem ? e.message : PARENT_CODE_NOT_SENT };
+    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) {
+      const notSent = !(e instanceof ParentLinkProblem) || e.message === PARENT_CODE_NOT_SENT;
+      return { ok: false, message: e instanceof ParentLinkProblem ? e.message : PARENT_CODE_NOT_SENT, ...(notSent ? { callSchool: true } : {}) };
+    }
     throw e;
   }
 }
@@ -101,7 +108,7 @@ async function verifyDeviceEn(token: string, form: FormData): Promise<GuardianSt
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const found = await findLink(token);
   if (!found) return { ok: false, message: GONE };
-  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${found.linkId}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
   if (!key) return { ok: false, message: "This code was sent for another phone or browser. Tap \"Send a new code\"." };
@@ -126,7 +133,7 @@ async function askConsentEn(token: string, form: FormData): Promise<GuardianStat
   const g = await guardianFor(token, "consent");
   if (!g.ok) return { ok: false, message: g.message };
   const limited = await limits([
-    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
+    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
     [`pl-code:link:${g.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
@@ -156,11 +163,12 @@ async function confirmConsentCodeEn(token: string, form: FormData): Promise<Guar
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const g = await guardianFor(token, "consent");
   if (!g.ok) return { ok: false, message: g.message };
-  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${g.linkId}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const result = await withSchool(g.ctx, (tx) => confirmConsent(tx, g.ctx, g.linkId, g.guardianId, typed, device));
   if (!result.ok) return { ok: false, step: "code", message: result.message };
   const t = await parentLinkWords(token);
   // Already in the page's language: parentMessage leaves words it does not know as they are.
-  return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title: result.title }) : t("Your consent for “{title}” is withdrawn.", { title: result.title }) };
+  const title = t.any(result.title);
+  return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title }) : t("Your consent for “{title}” is removed.", { title }) };
 }

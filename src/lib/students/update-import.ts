@@ -141,10 +141,12 @@ const kind: ImportKind<StudentUpdate> = {
     }
     if (g) {
       for (const [k, v] of Object.entries(want.guardian) as [GuardianField, string][]) {
-        if (same(k, g[k], v)) continue;
-        out.before.guardian[k] = g[k];
+        // A parent with no phone (owner decision 15) gets one here: the change is from "Phone missing".
+        const had = g[k] ?? "";
+        if (same(k, had, v)) continue;
+        out.before.guardian[k] = had;
         out.after.guardian[k] = v;
-        out.changes.push({ label: GUARDIAN_FIELDS[k], from: g[k], to: v });
+        out.changes.push({ label: GUARDIAN_FIELDS[k], from: had || "Phone missing", to: v });
       }
     }
     if (out.changes.length === 0) return { ok: false, problems: [`Nothing to change for ${s.fullName}: the record already has these values.`] };
@@ -178,7 +180,8 @@ const kind: ImportKind<StudentUpdate> = {
       const g = after.guardianId ? await tx.guardian.findUnique({ where: { id: after.guardianId } }) : null;
       if (g) {
         for (const [k, v] of Object.entries(after.guardian ?? {}) as [GuardianField, string][]) {
-          if (g[k] === v && before.guardian[k]) { back.guardian[k] = before.guardian[k]; from.guardian[k] = v; }
+          // "" before = the parent had no phone: Undo takes the added phone off again.
+          if (g[k] === v && before.guardian[k] !== undefined && (before.guardian[k] || k === "phone")) { back.guardian[k] = before.guardian[k]; from.guardian[k] = v; }
         }
       }
       if (!Object.keys(back.student).length && !Object.keys(back.guardian).length) continue;
@@ -203,7 +206,8 @@ async function apply(tx: Tx, ctx: SchoolContext, studentId: string, guardianId: 
     await writeAudit(tx, ctx, { action: "changed", recordType: "Student", recordId: studentId, before: from.student, after: { reason, ...s } });
   }
   if (guardianId && Object.keys(to.guardian).length) {
-    await tx.guardian.update({ where: { id: guardianId }, data: { ...to.guardian, updatedById: ctx.userId } });
+    // Undo of a phone added to a parent who had none puts "no phone" (null) back, never an empty text.
+    await tx.guardian.update({ where: { id: guardianId }, data: { ...to.guardian, ...(to.guardian.phone === "" ? { phone: null } : {}), updatedById: ctx.userId } });
     await writeAudit(tx, ctx, { action: "changed", recordType: "Guardian", recordId: guardianId, before: from.guardian, after: { reason, ...to.guardian } });
   }
 }

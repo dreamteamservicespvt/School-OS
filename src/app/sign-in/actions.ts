@@ -3,11 +3,12 @@
 import { cleanAccent } from "@/lib/theme";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { afterRightCode, CANNOT_SEND, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
-import { CODE_SIGN_IN_SENT_TO, decoyAnswer, isDecoyToken, newDecoyToken } from "@/lib/auth/decoy";
-import { CHALLENGE_COOKIE, CODE_TTL_MS, KEEP_SIGNED_IN_COOKIE, findChallenge, startChallenge, verifyChallenge } from "@/lib/auth/two-step";
+import { afterRightCode, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
+import { CODE_SIGN_IN_RESENT, CODE_SIGN_IN_SENT_TO, decoyAnswer, innerToken, isDecoyToken, kindOf, newDecoyToken, typedKind, withOneMoreTry } from "@/lib/auth/decoy";
+import { afterAnswer, atLeast, BLIND_FLOOR_MS } from "@/lib/auth/code-sign-in";
+import { BUSY, CHALLENGE_COOKIE, CODE_TTL_MS, KEEP_SIGNED_IN_COOKIE, findChallenge, startChallenge, verifyChallenge, type VerifyResult } from "@/lib/auth/two-step";
 import { forgetDevice, rememberDevice, REMEMBERED_COOKIE, REMEMBERED_COOKIE_MAX_AGE } from "@/lib/auth/remembered";
-import { deviceKeyOf } from "@/lib/auth/tokens";
+import { deviceKeyOf, hashToken } from "@/lib/auth/tokens";
 import { setAppearanceCookies, setSessionCookie, signInDevice } from "@/lib/current";
 import { prisma } from "@/lib/db";
 import { hitLimit } from "@/lib/rate-limit";
@@ -99,12 +100,16 @@ export async function codeSignInAction(_prev: SignInState, formData: FormData): 
   const device = await signInDevice();
   const limit = await hitLimit(`code-sign-in:ip:${device.ipAddress ?? "unknown"}`, 10, 600);
   if (!limit.ok) return { message: waitWords(t, limit), username };
-  const started = await startCodeSignIn(username, device, { confirmNow: true });
-  // A login that does not exist (or cannot get a code) gets the same code page as a real one, so nobody can
-  // find out which logins exist by trying names (owner decision 2026-11-12, self-test B6). The limit above still counts.
-  if (!started.ok && started.message !== CANNOT_SEND) return { message: t.any(started.message), username };
-  await keepChallenge(started.ok ? started.token : newDecoyToken());
+  // Many devices asking codes for one login: counted on what was typed, so it says nothing about the login.
+  const typedLimit = await hitLimit(`code-sign-in:typed:${hashToken(username.toLowerCase().replace(/\s/g, ""))}`, 5, 900);
+  if (!typedLimit.ok) return { message: waitWords(t, typedLimit), username };
+  // Every request gets the same answer at the same speed, for a real login or not, and whether or not a code
+  // can go (owner decisions 2026-11-12 and 2, 15 Nov 2026): a blind token, and the login is looked up and the
+  // code made and sent only after the answer has gone.
+  const blind = newDecoyToken(0, typedKind(username));
+  await keepChallenge(blind);
   (await cookies()).set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
+  await afterAnswer(() => startCodeSignIn(username, device, { confirmNow: true, token: innerToken(blind) }));
   redirect("/sign-in/code");
 }
 
@@ -117,16 +122,44 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
   const t = await words();
   const limit = await hitLimit(`two-step:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
   if (!limit.ok) return { message: waitWords(t, limit) };
-  if (isDecoyToken(token)) {
-    const a = decoyAnswer(token, String(formData.get("code") ?? ""));
-    if (a.token) await keepChallenge(a.token); else jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
-    return { message: t.any(a.message), restart: a.restart };
-  }
-  const result = await verifyChallenge(token, String(formData.get("code") ?? ""), device);
+  const typed = String(formData.get("code") ?? "");
+  // A blind code page (code sign-in): answered the same way, at the same speed, for a real login or not.
+  if (isDecoyToken(token)) return atLeast(BLIND_FLOOR_MS, () => verifyBlindCode(token, typed, formData, t));
+  const result = await verifyChallenge(token, typed, device);
   if (!result.ok) {
     if (result.restart) jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
     return { message: t.any(result.message), restart: result.restart };
   }
+  return afterVerified(result, formData);
+}
+
+/**
+ * A code typed on a blind code page. With a live code behind it (a real login) it is checked; else, or when
+ * the only answer would tell that a login exists (the per-login limit), it gets the answer an unknown login
+ * gets. The cookie is set again on every answer that is not the end, as for an unknown login.
+ */
+async function verifyBlindCode(token: string, typed: string, formData: FormData, t: T): Promise<CodeState> {
+  const jar = await cookies();
+  const live = await findChallenge(innerToken(token));
+  const result = live ? await verifyChallenge(innerToken(token), typed, await signInDevice()) : null;
+  if (!result || (!result.ok && result.message === BUSY)) {
+    const a = decoyAnswer(token, typed);
+    if (a.token) await keepChallenge(a.token); else jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
+    return { message: t.any(a.message), restart: a.restart };
+  }
+  if (!result.ok) {
+    if (result.restart) jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
+    else await keepChallenge(/^\d{6}$/.test(typed.replace(/\s/g, "")) ? withOneMoreTry(token) : token);
+    return { message: t.any(result.message), restart: result.restart };
+  }
+  return afterVerified(result, formData);
+}
+
+/** After a right code: the second code, or signed in. */
+async function afterVerified(result: Extract<VerifyResult, { ok: true }>, formData: FormData): Promise<CodeState> {
+  const jar = await cookies();
+  const device = await signInDevice();
+  const t = await words();
   jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
   const next = await afterRightCode(result, device, { confirmNow: true });
   if (next.kind === "problem") return { message: t.any(next.message), restart: true };
@@ -155,8 +188,18 @@ export async function resendCodeAction(): Promise<CodeState> {
   const t = await words();
   const held = jar.get(CHALLENGE_COOKIE)?.value;
   if (isDecoyToken(held)) {
-    await keepChallenge(newDecoyToken());
-    return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to: t.any(CODE_SIGN_IN_SENT_TO) }), sent: true };
+    // A blind code page: the same answer at the same speed; a real login's new code goes after the answer.
+    return atLeast(BLIND_FLOOR_MS, async () => {
+      const next = newDecoyToken(0, kindOf(held));
+      const live = await findChallenge(innerToken(held));
+      await keepChallenge(next);
+      if (live?.schoolId && live.purpose === "code-sign-in") {
+        const device = await signInDevice();
+        const only = live.channel === "email" ? "email" : live.channel === "sms" ? "phone" : undefined;
+        await afterAnswer(() => startChallenge(live.userLoginId, live.schoolId!, device, { purpose: "code-sign-in", only, confirmNow: true, token: innerToken(next) }));
+      }
+      return { message: t.any(CODE_SIGN_IN_RESENT), sent: true };
+    });
   }
   const challenge = await findChallenge(held);
   if (!challenge?.schoolId) {

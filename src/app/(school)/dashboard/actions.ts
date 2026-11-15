@@ -58,7 +58,8 @@ export async function saveTaskAction(_prev: FormState, fd: FormData): Promise<Fo
     if (e instanceof TaskProblem && e.field === "dueAt") return { ...state!, data: { confirmPast: true } };
     return state;
   }
-  revalidatePath("/dashboard", "layout");
+  // No revalidatePath here: it made the answer wait for the whole Home page to be drawn again, so "Saving…" stayed
+  // for 3 seconds (layman loop 3). The dialog closes at once and then refreshes the page (TaskDialog, router.refresh).
   return { ok: true };
 }
 

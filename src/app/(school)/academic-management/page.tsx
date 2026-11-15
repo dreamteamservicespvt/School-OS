@@ -69,10 +69,10 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
 
       {data.classes.length === 0 ? (
         scope.see === "own" ? (
-          <EmptyState title={`You have no classes in ${year.name}`}><Words k="Your classes appear here once the office gives you a section or a subject in Teacher Allocation." /></EmptyState>
+          <EmptyState title={`You have no classes in ${year.name}`}><Words k="Your classes appear here once the office assigns them in Teacher Allocation." /></EmptyState>
         ) : (
           <EmptyState title={`No classes in ${year.name} yet`}>
-            <p><Words k="Add your classes in teaching order, for example Nursery, LKG, UKG, then Class 1 to Class 10, each with its sections." /></p>
+            <p><Words k="Add your classes in order, such as Nursery, LKG, UKG, Class 1." /></p>
             {canEdit && <div className="mt-4 flex justify-center"><AddClassButtons yearId={year.id} classes={[]} levels={[...LEVELS]} boardsOn={boardsOn} schoolBoard={data.schoolBoard} quickOnly /></div>}
           </EmptyState>
         )

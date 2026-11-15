@@ -90,7 +90,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <StudentsHead page="Leaving & Alumni" href={path} sub="Transfer or withdrawal with fee and library clearance, and records of past students"
+      <StudentsHead page="Leaving & Alumni" href={path} sub="Transfers, withdrawals and clearance"
         actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}><Words k="Start leaving" /></ButtonLink> : undefined}
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <Card className="overflow-hidden">
@@ -113,7 +113,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
             : <Empty icon={DoorOpen} title="Nobody is leaving right now" body="Students in the leaving process show here with their clearance and TC."
               action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}><Words k="Start leaving" /></ButtonLink> : undefined} />} />
         {data.rows.length > 0 && data.rows.every((r) => r.checks.length === 0) && (
-          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70"><Words k="No clearance checks run yet: fee dues and library books are checked here once Fee Management and Library Management are in use." /></p>
+          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70"><Words k="Fee and library checks start once those modules are in use." /></p>
         )}
       </Card>
     </>

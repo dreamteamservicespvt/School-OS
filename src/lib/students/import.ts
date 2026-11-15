@@ -37,7 +37,7 @@ const CSV_COLUMNS: ImportColumn[] = [
   { key: "gender", label: "Gender", required: true, example: "Male" },
   { key: "guardianName", label: "Father's or guardian's name", required: true, example: "Srinivas Rao", aliases: ["father name", "father's name", "guardian name", "parent name"] },
   { key: "guardianRelation", label: "Relation", example: "Father" },
-  { key: "guardianPhone", label: "Parent's phone", required: true, example: "9876543210", aliases: ["phone", "mobile", "parent phone", "father phone", "mobile number"] },
+  { key: "guardianPhone", byValues: true, label: "Parent's phone", example: "9876543210", help: "Leave empty if the parent has no phone; the parent is marked Phone missing.", aliases: ["phone", "mobile", "parent phone", "father phone", "mobile number"] },
   { key: "motherName", label: "Mother's name", example: "Lakshmi Rao" },
   { key: "motherPhone", label: "Mother's phone", example: "" },
   { key: "admissionNo", label: "Admission number", example: "", help: "Leave empty for the next number.", aliases: ["admission no", "adm no"] },
@@ -64,7 +64,7 @@ const UDISE_COLUMNS: ImportColumn[] = [
   { key: "gender", label: "Gender", required: true, example: "1-Male" },
   { key: "guardianName", label: "Father's Name", required: true, example: "SRINIVAS RAO", aliases: ["father name"] },
   { key: "motherName", label: "Mother's Name", example: "LAKSHMI RAO", aliases: ["mother name"] },
-  { key: "guardianPhone", label: "Mobile Number", required: true, example: "9876543210", aliases: ["mobile number of father/mother/guardian", "contact number"] },
+  { key: "guardianPhone", byValues: true, label: "Mobile Number", example: "9876543210", help: "Leave empty if the parent has no phone; the parent is marked Phone missing.", aliases: ["mobile number of father/mother/guardian", "contact number"] },
   { key: "admissionNo", label: "Admission Number", example: "", aliases: ["admission number in present school"] },
   { key: "admissionDate", label: "Date of Admission", example: "", aliases: ["admission date"] },
   { key: "category", label: "Social Category", example: "1-General" },
@@ -80,10 +80,14 @@ const UDISE_COLUMNS: ImportColumn[] = [
 
 export type ImportOptions = { sectionId: string | null; applyFeePlan: boolean };
 
-/** The choices kept with a file (Student Management, Import): a section id for rows with no class, and the fee plan switch (on unless said off). */
+/**
+ * The choices kept with a file (Student Management, Import): a section id for rows with no class, and the
+ * fee plan switch, off unless ticked. Layman loop 5 (15 Nov): moved-in students were charged the whole
+ * year's fees on top of the balances brought in as old dues.
+ */
 export function importOptions(o: Record<string, unknown>): ImportOptions {
   const sectionId = typeof o.sectionId === "string" && new RegExp(`^${UUID}$`, "i").test(o.sectionId) ? o.sectionId : null;
-  return { sectionId, applyFeePlan: o.applyFeePlan !== false };
+  return { sectionId, applyFeePlan: o.applyFeePlan === true };
 }
 
 type NewRow = {
@@ -114,6 +118,15 @@ function genderOf(v: string) {
 }
 const CATEGORY_WORDS: Record<string, string> = { general: "General", gen: "General", obc: "OBC", sc: "SC", st: "ST", ews: "EWS" };
 const cleanPhone = (v: string) => v.replace(/[^\d]/g, "").replace(/^91(?=\d{10}$)/, "");
+/**
+ * A phone cell that means "no phone" ("-", "NA", "nil", "0000000000"): read as empty. A parent
+ * may have no phone (owner decision 15, 15-11-2026); the row imports and the parent is marked
+ * Phone missing, with no Parent Link or messages until a phone is added.
+ */
+export function noPhoneWritten(v: string | null | undefined) {
+  const t = (v ?? "").trim();
+  return !t || /^(?:-+|\.+|n\/?a|nil|none|no|no phone|not available|0+)$/i.test(t);
+}
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 /** What a choice made for a row does, in plain words, to show beside the row. */
@@ -181,10 +194,11 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       else if (dob > new Date()) problems.push(`Date of birth ${row.dateOfBirth} is in the future.`);
       const gender = genderOf(row.gender);
       if (!gender && row.gender) problems.push(`Gender "${row.gender}" is not one of ${GENDERS.join(", ")}.`);
-      const phoneProblem = row.guardianPhone ? checkIndianMobile(row.guardianPhone) : null;
+      const guardianPhoneCell = noPhoneWritten(row.guardianPhone) ? "" : row.guardianPhone;
+      const phoneProblem = guardianPhoneCell ? checkIndianMobile(guardianPhoneCell) : null;
       if (phoneProblem) problems.push(`Parent's phone: ${phoneProblem}`);
-      const phone = cleanPhone(row.guardianPhone);
-      const motherPhone = row.motherPhone ? cleanPhone(row.motherPhone) : null;
+      const phone = cleanPhone(guardianPhoneCell);
+      const motherPhone = row.motherPhone && !noPhoneWritten(row.motherPhone) ? cleanPhone(row.motherPhone) : null;
       const motherProblem = motherPhone ? checkIndianMobile(motherPhone) : null;
       if (motherProblem) problems.push(`Mother's phone: ${motherProblem}`);
       const admissionNo = row.admissionNo?.trim() || null;
@@ -235,7 +249,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
         const r = await studentUpdateImport.check(tx, ctx, {
           // Names stay as on record (the child's and the parent's): the match says it is this child, written another way. Names are corrected on the profile.
           admissionNo: target.admissionNo, fullName: "", dateOfBirth: row.dateOfBirth ?? "", gender: row.gender ?? "",
-          guardianName: "", guardianPhone: row.guardianPhone ?? "", address: row.address ?? "", bloodGroup: row.bloodGroup ?? "",
+          guardianName: "", guardianPhone: guardianPhoneCell, address: row.address ?? "", bloodGroup: row.bloodGroup ?? "",
           category: row.category ?? "", religion: row.religion ?? "", motherTongue: row.motherTongue ?? "", apaarId: row.apaarId ?? "", pen: row.pen ?? "",
           previousSchool: row.previousSchool ?? "",
         }, seen);
@@ -402,7 +416,8 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
         linkGuardianId = (await tx.studentGuardian.findFirst({ where: { studentId: v.siblingId, isPrimary: true, archivedAt: null } }))?.guardianId ?? null;
       }
       linkGuardianId ??= v.linkGuardianId;
-      if (!linkGuardianId) {
+      if (!linkGuardianId && v.guardianPhone) {
+        // Never on an empty phone: a parent with no phone is a new parent record (Phone missing).
         const onRecord = await tx.guardian.findMany({ where: { phone: v.guardianPhone, archivedAt: null }, orderBy: { createdAt: "asc" }, take: 20 });
         if (v.linkParentName) {
           linkGuardianId = onRecord.find((g) => namesAlike(g.name, v.linkParentName!))?.id ?? null;
@@ -433,8 +448,14 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       } else if (v.motherName) {
         // The mother: one already on record with her phone and her name (a brother's
         // or sister's mother), else a new record. Never the father's record, even on one shared phone.
-        const phone = v.motherPhone ?? v.guardianPhone;
-        const onRecord = await tx.guardian.findMany({ where: { phone, archivedAt: null, ...(primary ? { id: { not: primary } } : {}) }, orderBy: { createdAt: "asc" }, take: 20 });
+        const phone = v.motherPhone || v.guardianPhone || null;
+        // With no phone, the mother already on record is looked for among the parents of this family's other children.
+        const onRecord = await tx.guardian.findMany({
+          where: phone ? { phone, archivedAt: null, ...(primary ? { id: { not: primary } } : {}) }
+            : primary ? { archivedAt: null, id: { not: primary }, students: { some: { archivedAt: null, student: { archivedAt: null, guardians: { some: { guardianId: primary, archivedAt: null } } } } } }
+              : { id: { in: [] } },
+          orderBy: { createdAt: "asc" }, take: 20,
+        });
         const mother = onRecord.find((g) => namesAlike(g.name, v.motherName!))
           ?? await tx.guardian.create({ data: { schoolId: ctx.schoolId, name: v.motherName, relationship: "Mother", phone, createdById: ctx.userId } });
         await linkOnce(tx, ctx, student.id, mother.id, { relationship: "Mother", emergencyOrder: 2 });
@@ -521,5 +542,5 @@ export function studentImport(kind: string, opts: ImportOptions) {
 }
 
 // Registered so the import history can undo these imports and show their templates.
-defineImport(studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true }));
-defineImport(studentImport(UDISE_IMPORT, { sectionId: null, applyFeePlan: true }));
+defineImport(studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: false }));
+defineImport(studentImport(UDISE_IMPORT, { sectionId: null, applyFeePlan: false }));

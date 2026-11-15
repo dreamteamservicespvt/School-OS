@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FormMessage, Alert } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, SelectField, TextArea, TextField } from "@/components/ui/field";
-import { FormProblems } from "@/components/ui/form-problems";
+import { FormProblems, ProblemText } from "@/components/ui/form-problems";
+import { nameProblem } from "@/lib/validate-name";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { BLOOD_GROUPS, CATEGORIES, GENDERS, RELATIONS } from "@/lib/students/labels";
 import type { FormState } from "@/lib/forms";
@@ -15,6 +16,22 @@ import { useLeaveWarning } from "../_lib/leave-warning";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 type Section = { value: string; label: string; seats: number; filled: number };
+
+// Boxes checked as they are typed, with the server's own words, so one press of Add student
+// lists every problem at once (layman loop 4: it took four presses to learn them all).
+const mark = (why: (v: string) => string | null) => (e: React.FormEvent<HTMLInputElement>) => e.currentTarget.setCustomValidity(why(e.currentTarget.value) ?? "");
+function phoneProblem(v: string) {
+  const d = v.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+  if (!v.trim()) return null;
+  if (d.length !== 10) return "Parent's phone must have 10 digits.";
+  return /^[6-9]/.test(d) ? null : "Parent's phone must start with 6, 7, 8 or 9.";
+}
+function rollProblem(v: string) {
+  const r = v.trim();
+  if (!r) return null;
+  if (!/^\d{1,4}$/.test(r)) return "Roll number must be a whole number.";
+  return Number(r) >= 1 ? null : "Roll number starts at 1.";
+}
 type Parent = { id: string; name: string; relationship: string; children: string[] };
 
 export function AddStudentForm({ sections, defaultSection, today, nextAdmissionNo, nextRolls, feePlanNote, required, showAadhaar }: {
@@ -73,14 +90,14 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
             ))}
           </ul>
           <TextArea name="duplicateReason" label="Reason to save anyway" required maxLength={300} rows={2} className="mt-3"
-            help="For example: twins, or a different child with the same name. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
+            help="For example: twins. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
           <div className="mt-3"><SubmitButton pendingText="Saving…"><Words k="Save anyway" /></SubmitButton></div>
         </Alert>
       )}
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="sr-only"><Words k="Student" /></legend>
-        <TextField name="fullName" label="Full name" required maxLength={120} autoComplete="off" defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
+        <TextField name="fullName" label="Full name" required maxLength={120} autoComplete="off" onInput={mark((x) => nameProblem("Full name", x))} defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
         {/* Keyed by the value sent, so it remounts with that class selected: the form reset
             after a failed save (React 19) otherwise put it back to "Choose" (PEOPLE-12). */}
         <SelectField key={`section-${v("sectionId", defaultSection)}`} name="sectionId" label="Class and section" required placeholder="Choose" options={sections.map((s) => ({ value: s.value, label: `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)` }))}
@@ -96,7 +113,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
               </label>
             ))}
           </div>
-          {err("gender") && <p className="mt-1 text-[13.5px] text-bad">{err("gender")}</p>}
+          <ProblemText name="gender" given={err("gender")} className="mt-1 text-[13.5px] text-bad" />
         </fieldset>
         <TextField name="admissionDate" label="Admission date" type="date" required defaultValue={v("admissionDate", today)} error={err("admissionDate")} />
       </fieldset>
@@ -105,9 +122,9 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
         <legend className="px-1 font-semibold"><Words k="Parent or guardian" /></legend>
         <SelectField name="guardianRelation" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={v("guardianRelation", "Father")} error={err("guardianRelation")} />
         <TextField name="guardianPhone" label="Parent's phone" required type="tel" inputMode="numeric" autoComplete="off" placeholder="10-digit mobile"
-          defaultValue={v("guardianPhone")} error={err("guardianPhone")} onBlur={(e) => lookPhone(e.target.value)}
+          defaultValue={v("guardianPhone")} error={err("guardianPhone")} onInput={mark(phoneProblem)} onBlur={(e) => lookPhone(e.target.value)}
           onChange={(e) => { if (e.target.value.replace(/\D/g, "").length >= 10) void lookPhone(e.target.value); }}
-          help="+91. A parent already on record with this phone can be linked (brother or sister)." />
+          help="If a brother or sister is already here, we find the parent." />
         {parents.length > 0 && (
           <div className="rounded-xl border border-brand/40 bg-brand/8 p-3 sm:col-span-2" role="status">
             <p className="font-medium"><Words k="This phone belongs to a parent already on record." /></p>
@@ -126,7 +143,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           </div>
         )}
         <input type="hidden" name="linkGuardianId" value={linkId} />
-        <TextField name="guardianName" label="Parent's or guardian's name" required maxLength={120} className="sm:col-span-2"
+        <TextField name="guardianName" label="Parent's or guardian's name" required maxLength={120} className="sm:col-span-2" onInput={mark((x) => nameProblem("Parent's or guardian's name", x))}
           defaultValue={linked?.name ?? v("guardianName")} key={linked?.id ?? "new"} readOnly={Boolean(linked)} error={err("guardianName")}
           help={linked ? "Linked to the existing parent. Their details are changed on the parent's page." : undefined} />
       </fieldset>
@@ -138,7 +155,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           onBlur={async (e) => { const r = await checkAdmissionNo(e.target.value); setAdmNote(r.taken); }}
           help={`Leave empty for the next number (${nextAdmissionNo}). Type one only when moving old records.`} />
         <TextField name="rollNo" label="Roll number" inputMode="numeric" placeholder={sectionId && nextRolls[sectionId] ? String(nextRolls[sectionId]) : "Next free number"}
-          defaultValue={v("rollNo")} error={err("rollNo")} help="Leave empty for the next free number in the section." />
+          defaultValue={v("rollNo")} error={err("rollNo")} onInput={mark(rollProblem)} help="Leave empty for the next number." />
       </fieldset>
 
       <CheckboxField name="applyFeePlan" label="Apply class fee plan" defaultChecked={state && !state.ok ? state.values?.applyFeePlan === "on" : true} help={feePlanNote} />
@@ -151,15 +168,15 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <TextField name="religion" label="Religion" required={req("religion")} maxLength={60} defaultValue={v("religion")} error={err("religion")} />
           <TextField name="motherTongue" label="Mother tongue" required={req("motherTongue")} maxLength={60} defaultValue={v("motherTongue")} error={err("motherTongue")} />
           <TextArea name="address" label="Address" required={req("address")} maxLength={300} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
-          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Kept private and locked. Screens show only the last 4 digits." />}
+          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Kept private. Only the last 4 digits show." />}
           <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} maxLength={200} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
-          <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Photo, identifiers, emergency contacts and the school's extra fields are added on the Student Profile after saving." /></p>
+          <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Add the photo and other details on the profile after saving." /></p>
         </div>
       </details>
 
       <div className="flex flex-wrap gap-2">
         {!duplicates.length && <SubmitButton pendingText="Adding…"><Words k="Add student" /></SubmitButton>}
-        <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
+        <Link href="/student-management" onClick={() => draft.discard()} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
       </div>
       </FormProblems>
     </form>

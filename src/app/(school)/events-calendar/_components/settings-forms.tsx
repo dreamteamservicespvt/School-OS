@@ -109,7 +109,7 @@ export function PtmDefaultsForm({ slot, hour, parentBooking, canEdit }: { slot: 
             {hours.map((h) => <option key={h} value={h}>{words(h)}</option>)}
           </select>
         </Row>
-        <Row title="Parents book on Parent Link" sub={byParents ? "Parents book, change or cancel a slot until the day before. The office can always book for them." : "Off: the office books slots for parents who call or come in. Parent Link shows the booked slot."}>
+        <Row title="Parents book on Parent Link" sub={byParents ? "Parents book, change or cancel a slot until the day before. The office can always book for them." : "Off: the office books slots for parents."}>
           <Switch on={byParents} label="Parents book on Parent Link" disabled={!canEdit} onChange={(x) => { setByParents(x); save({ ptmParentBooking: x ? "on" : "" }); }} />
         </Row>
       </div>
@@ -156,7 +156,7 @@ export function GalleryRuleForm({ rule, canEdit }: { rule: string; canEdit: bool
   return (
     <div className="px-5 pb-5 flex flex-col gap-2">
       <Segmented label="Students without photo consent" value={v} onChange={(x) => { if (!canEdit) return; setV(x); save({ galleryRule: x }); }} options={[{ value: "OUT", label: "Leave the photo out" }, { value: "BLUR", label: "Blur them" }]} className="w-full" />
-      <p className="text-[12.5px] text-ink3"><Words k={"For new albums; each album can change it. Consent texts are in Settings, Data Backup & Security."} /></p>
+      <p className="text-[12.5px] text-ink3"><Words k={"For new albums; each album can change it."} /></p>
       {state && <p role={state.ok ? "status" : "alert"} className={cx("text-[12.5px]", state.ok ? "text-ok" : "text-bad")}>{state.message}</p>}
     </div>
   );

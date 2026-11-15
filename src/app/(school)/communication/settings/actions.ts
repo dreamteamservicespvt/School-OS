@@ -9,7 +9,7 @@ import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { commAction } from "@/lib/communication/access";
-import { CHANNELS, type Channel } from "@/lib/messaging/channels";
+import { CHANNELS, SMS_OFFERED, type Channel } from "@/lib/messaging/channels";
 import { ruleDef } from "@/lib/messaging/automatic";
 import { BACKUP_TYPES, QUERY_TYPES, updateSettings, type MessageSettingsValue } from "@/lib/messaging/settings";
 import { OPT_OUT_WAYS, setOptOut } from "@/lib/messaging/optout";
@@ -83,6 +83,8 @@ export async function saveRuleAction(input: { key: string; isOn: boolean; channe
   const sendTo = input.sendTo === "all" ? "all" : "primary";
   return run(`"${def.label}"`, async (tx, ctx) => {
     const before = await tx.automaticMessageRule.findUnique({ where: { schoolId_key: { schoolId: ctx.schoolId, key: def.key } } });
+    // SMS is not shown while SMS_OFFERED is false: a rule's saved SMS choice is kept, so switching SMS back on restores it.
+    if (!SMS_OFFERED && before?.channels.includes("sms") && !channels.includes("sms")) channels.push("sms");
     const data = { isOn: Boolean(input.isOn), channels, sendTo: def.audience === "staff" ? "primary" : sendTo, timing, updatedById: ctx.userId };
     await tx.automaticMessageRule.upsert({ where: { schoolId_key: { schoolId: ctx.schoolId, key: def.key } }, create: { schoolId: ctx.schoolId, key: def.key, ...data }, update: data });
     await writeAudit(tx, ctx, { action: "changed", recordType: "Automatic Message Rule", recordId: null, before: before ? { key: def.key, isOn: before.isOn, channels: before.channels, sendTo: before.sendTo, timing: before.timing as Prisma.InputJsonValue } : { key: def.key, isOn: def.defaultOn }, after: { key: def.key, ...data } });
@@ -185,7 +187,7 @@ export async function findGuardians(q: string): Promise<{ id: string; name: stri
       where: { schoolId: access.current.ctx.schoolId, archivedAt: null, OR: [{ name: { contains: text, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : [])] },
       select: { id: true, name: true, phone: true, optedOut: true, relationship: true }, take: 10, orderBy: { name: "asc" },
     });
-    return rows.map((g) => ({ id: g.id, name: g.name, detail: `${g.relationship} · ••${g.phone.slice(-4)}`, optedOut: g.optedOut }));
+    return rows.map((g) => ({ id: g.id, name: g.name, detail: `${g.relationship} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}`, optedOut: g.optedOut }));
   });
 }
 

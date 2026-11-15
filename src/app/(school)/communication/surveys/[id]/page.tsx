@@ -73,7 +73,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
 
       {survey.status === "DRAFT" || !results ? (
         <div className="flex flex-col gap-5 lg:gap-6">
-          <Banner tone="info" title="This survey is a draft."><Words k="Nobody has it yet. Change it as needed, then send it. Each person gets their own link." /></Banner>
+          <Banner tone="info" title="This survey is a draft."><Words k="Nobody has it yet. Change it, then send it." /></Banner>
           <Card>
             <CardHeader title="Questions" icon={ClipboardList} description={`${data.questions.length} ${data.questions.length === 1 ? "question" : "questions"}`} />
             <ol className="px-5 pb-4 divide-y divide-line/70">

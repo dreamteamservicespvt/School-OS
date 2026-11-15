@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT = {
-  "library-catalogue": "One row per book, with its copies. Each book is checked as if typed on Add book: the ISBN, the authors and the accession numbers.",
+  "library-catalogue": "One row per book, with its copies.",
 };
 
 /** The catalogue from old software or a spreadsheet (13 Books, P10), on the same engine as Switching to School OS. */

@@ -55,11 +55,11 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
       <PageHeader title="Messages" href="/messages" userId={current.user.id}>
         {can(current.permissions, "communication", "create") && <ButtonLink href="/communication" variant="primary"><Words k="Send a message" /></ButtonLink>}
       </PageHeader>
-      <p className="-mt-3 mb-4 text-ink-2">{data.unread ? `${data.unread} new.` : "Messages sent to you in the app."} <Words k="Notices for you are on the" /> <Link href="/communication/notices?view=board" className="text-brand-text underline"><Words k="Notice Board" /></Link>.</p>
+      <p className="-mt-3 mb-4 text-ink-2">{data.unread ? `${data.unread} new. ` : ""}<Words k="Notices for you are on the" /> <Link href="/communication/notices?view=board" className="text-brand-text underline"><Words k="Notice Board" /></Link>.</p>
       <ListToolbar period={{ timeZone: tz }} placeholder="Search messages" showArchived={false} filters={[{ key: "show", label: "Show", options: [{ value: "unread", label: "New only" }] }]} />
       {data.rows.length === 0 ? (
         <EmptyState title={filtered ? "No messages match" : "No messages yet"} icon={<MessageIcon className="size-6" />}>
-          {filtered ? "Change the search or filter." : "Messages the school sends you in the app, such as salary slips ready or staff announcements, appear here."}
+          {filtered ? "Change the search or filter." : "Messages the school sends you show here."}
         </EmptyState>
       ) : (
         <>
@@ -78,7 +78,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-sm">
-              <span className="text-ink-2"><Words k="Page" /> {params.page} <Words k="of" /> {pages}</span>
+              <span className="text-ink-2"><Words k="Page {page} of {pages}" vars={{ page: params.page, pages: pages }} /></span>
               <span className="flex gap-2">
                 {params.page > 1 && <ButtonLink href={listHref("/messages", params, { page: params.page - 1 })} size="sm"><Words k="Previous" /></ButtonLink>}
                 {params.page < pages && <ButtonLink href={listHref("/messages", params, { page: params.page + 1 })} size="sm"><Words k="Next" /></ButtonLink>}

@@ -167,7 +167,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
   return (
     <>
       <HostelHead pageName="Allocation" href={base} mode={p.mode}
-        sub={can.allocate ? "Who has which bed. Give a bed, check in, move a student or check them out." : "Who has which bed, who has not arrived and who is away."}
+        sub="Who has which bed."
         actions={can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}><Words k="Give a bed" /></ButtonLink> : undefined} />
       <Stack>
         {carryTo && carryFrom && (
@@ -217,9 +217,9 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
         </Card>
 
         <Card id="waiting">
-          <CardHeader title="Waiting for a bed" icon={UserPlus} description="Students whose admission application asked for the hostel and who have never had a bed, including those admitted for next year." divided />
+          <CardHeader title="Waiting for a bed" icon={UserPlus} description="Asked for the hostel at admission. Includes next year." divided />
           {d.waiting.length === 0 ? (
-            <Empty icon={Users} title="Nobody is waiting" body="Students marked “hostel needed” at admission show here until they get a bed." />
+            <Empty icon={Users} title="Nobody is waiting" body="Students marked “hostel needed” at admission show here." />
           ) : (
             <ul className="divide-y divide-line/70">
               {d.waiting.map((w) => (

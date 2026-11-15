@@ -328,10 +328,11 @@ export async function publishNotice(tx: Tx, ctx: SchoolContext, noticeId: string
       await notify(tx, ctx, {
         to,
         type: "notice",
-        text: `${notice.priority === "CRITICAL" ? "Critical notice: " : notice.priority === "HIGH" ? "Important notice: " : "New notice: "}${notice.title}`,
+        key: notice.priority === "CRITICAL" ? "Critical notice: {title}" : notice.priority === "HIGH" ? "Important notice: {title}" : "New notice: {title}",
+        values: { title: notice.title },
         link: `/communication/notices/${notice.id}`,
         groupKey: "notice",
-        mergedText: (n) => `${n} new notices on the notice board`,
+        mergedKey: "{n} new notices on the notice board",
       });
     }
   }
@@ -500,7 +501,9 @@ export async function noticesForGuardian(tx: Tx, ctx: SchoolContext, children: {
 
 /** Guardians in a notice's audience who have not seen it (Parent Link or WhatsApp read). */
 export async function unseenGuardianIds(tx: Tx, ctx: SchoolContext, noticeId: string) {
-  const n = await tx.notice.findFirstOrThrow({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  // Another school's notice (hidden by the database) or a wrong id: the plain words, never a server error (security review 2026-11-15).
+  const n = /^[0-9a-f-]{36}$/i.test(noticeId) ? await tx.notice.findFirst({ where: { id: noticeId, schoolId: ctx.schoolId } }) : null;
+  if (!n) throw new NoticeProblem("This notice was not found.");
   const all = await audienceGuardianIds(tx, ctx, readAudience(n.audience));
   const seen = new Set((await tx.noticeGuardianView.findMany({ where: { noticeId }, select: { guardianId: true } })).map((v) => v.guardianId));
   return { notice: n, ids: all.filter((g) => !seen.has(g)) };
@@ -546,7 +549,7 @@ export async function remindUnacknowledged(tx: Tx, ctx: SchoolContext, noticeId:
   const done = new Set((await tx.noticeAcknowledgement.findMany({ where: { noticeId, acknowledgedAt: { not: null } }, select: { userLoginId: true } })).map((a) => a.userLoginId));
   const todo = logins.filter((l) => !done.has(l));
   if (!todo.length) throw new NoticeProblem("Everyone has acknowledged this notice.");
-  for (const to of todo) await notify(tx, ctx, { to, type: "notice", text: `Reminder: please read and acknowledge "${n.title}"`, link: `/communication/notices/${n.id}` });
+  for (const to of todo) await notify(tx, ctx, { to, type: "notice", key: "Reminder: please read and acknowledge \"{title}\"", values: { title: n.title }, link: `/communication/notices/${n.id}` });
   await writeAudit(tx, ctx, { action: "reminded", recordType: "Notice", recordId: n.id, after: { people: todo.length } });
   return todo.length;
 }

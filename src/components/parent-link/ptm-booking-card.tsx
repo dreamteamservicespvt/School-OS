@@ -47,7 +47,8 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
 
   const tch = c.teachers.find((x) => x.staffId === teacher) ?? c.teachers[0];
   const picked = tch?.free.find((s) => s.id === slot) ?? null;
-  const facts = [c.window, c.venue, c.breakWords ? t("Break {time}", { time: c.breakWords }) : null].filter(Boolean).join(" · ");
+  // Booked: only the parent's own time (in the green box) and where to go; the PTM's hours would read as a second time.
+  const facts = (mine && mode !== "pick" ? [c.venue] : [c.window, c.venue, c.breakWords ? t("Break {time}", { time: c.breakWords }) : null]).filter(Boolean).join(" · ");
 
   return (
     <section className="rounded-3xl bg-surface border border-line shadow-card p-5" aria-label={t("PTM on {date}", { date: c.when })}>
@@ -65,9 +66,9 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
           <span className="w-9 h-9 rounded-full grid place-items-center shrink-0 bg-ok/15 text-ok"><Check size={18} strokeWidth={2.6} aria-hidden="true" /></span>
           <div className="min-w-0 text-[14px]">
             {c.booked.map((b) => (
-              <p key={b.slotId} className="font-semibold">{t("{time} with {teacher}", { time: b.time, teacher: b.teacher })}</p>
+              <p key={b.slotId} className="font-semibold text-[16px]">{t("{time} with {teacher}", { time: b.time, teacher: b.teacher })}</p>
             ))}
-            <p className="text-[13px] text-ink3 mt-0.5">{t.any(mine.label)}{c.booked.length === 1 && mine.byOffice ? ` · ${t("booked by the school")}` : ""}. {t("Please come 5 minutes early.")}</p>
+            <p className="text-[13px] text-ink3 mt-0.5">{mine.label}{c.booked.length === 1 && mine.byOffice ? ` · ${t("booked by the school")}` : ""}. {t("Please come 5 minutes early.")}</p>
           </div>
         </div>
       )}
@@ -105,20 +106,20 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
               {c.teachers.map((x) => (
                 <label key={x.staffId} className={cx("flex items-center gap-3 rounded-2xl border px-3.5 min-h-12 py-2 cursor-pointer", teacher === x.staffId ? "border-brand ring-1 ring-brand bg-brand/[.04]" : "border-line")}>
                   <KeepCheck type="radio" name="teacher" value={x.staffId} checked={teacher === x.staffId} onChange={() => { setTeacher(x.staffId); setSlot(""); }} className="w-4 h-4 accent-[var(--color-brand)]" />
-                  <span className="min-w-0"><b className="font-semibold text-[14px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3 block truncate">{t.any(x.label)} · {x.free.length ? (x.free.length === 1 ? t("1 free time") : t("{n} free times", { n: x.free.length })) : t("fully booked")}</span></span>
+                  <span className="min-w-0"><b className="font-semibold text-[14px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3 block truncate">{x.label} · {x.free.length ? (x.free.length === 1 ? t("1 free time") : t("{n} free times", { n: x.free.length })) : t("fully booked")}</span></span>
                 </label>
               ))}
             </fieldset>
           )}
           {tch && (
             <fieldset>
-              <legend className="text-[13px] font-semibold text-ink2 mb-2 flex items-center gap-1.5"><CalendarClock size={15} aria-hidden="true" />{c.teachers.length > 1 ? t("Free times with {name}", { name: tch.name }) : t("Free times with {name}", { name: `${tch.name}, ${t.any(tch.label)}` })}</legend>
+              <legend className="text-[13px] font-semibold text-ink2 mb-2 flex items-center gap-1.5"><CalendarClock size={15} aria-hidden="true" />{c.teachers.length > 1 ? t("Free times with {name}", { name: tch.name }) : t("Free times with {name}", { name: `${tch.name} (${tch.label})` })}</legend>
               {tch.free.length ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {tch.free.map((s) => (
                     <label key={s.id} className={cx("h-11 rounded-xl border grid place-items-center text-[14px] font-semibold tnum cursor-pointer transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand", slot === s.id ? "bg-brand text-brandink border-brand" : "border-line hover:border-brand")}>
                       <KeepCheck type="radio" name="time" value={s.id} checked={slot === s.id} onChange={() => setSlot(s.id)} className="sr-only" />
-                      {s.time.replace(/ (AM|PM)$/, "")}<span className="sr-only"> {s.time.slice(-2)}</span>
+                      <span>{s.time.replace(/ (AM|PM)$/, "")}{/ (AM|PM)$/.test(s.time) && <span className="ml-0.5 text-[11px] font-medium opacity-80"> {s.time.slice(-2)}</span>}</span>
                     </label>
                   ))}
                 </div>
@@ -140,8 +141,8 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
       )}
 
       {!mine && !c.open && <p className="mt-3 text-[13px] text-ink3">{c.parentBooking ? t("Booking closed the day before.") : t("The school books PTM times.")} {t("To meet the teacher, please call the school.")}</p>}
-      {last && !last.ok && <p role="alert" className="mt-3 text-[13px] text-bad">{t.any(last.message ?? "")}</p>}
-      {last?.ok && <p role="status" className="mt-3 text-[13px] text-ok font-semibold">{t.any(last.message ?? "")}</p>}
+      {last && !last.ok && <p role="alert" className="mt-3 text-[13px] text-bad">{last.message}</p>}
+      {last?.ok && <p role="status" className="mt-3 text-[13px] text-ok font-semibold">{last.message}</p>}
     </section>
   );
 }

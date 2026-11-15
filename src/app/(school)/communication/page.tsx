@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { yearsFor } from "@/lib/academic/years";
-import { channelSetups, preferredChannel, CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
+import { channelSetups, offeredChannels, preferredChannel, CHANNEL_LABEL, SMS_OFFERED, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { messageSettings } from "@/lib/messaging/settings";
 import { ensureReadyTemplates, categoryLabel } from "@/lib/messaging/templates";
@@ -60,7 +60,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: className(s), count: 0 }])).values()];
     for (const c of classes) c.count = sections.filter((s) => s.classId === c.id).reduce((n, s) => n + (perSection.get(s.id) ?? 0), 0);
     const setups = await channelSetups(tx, current.ctx);
-    const on: Channel[] = ["app", ...(["whatsapp", "sms", "email"] as const).filter((c) => setups[c].isOn)];
+    const on: Channel[] = ["app", ...offeredChannels(["whatsapp", "sms", "email"] as const).filter((c) => setups[c].isOn)];
     const templates = await tx.template.findMany({
       where: { schoolId: current.ctx.schoolId, archivedAt: null },
       include: { versions: { where: { isCurrent: true }, orderBy: { language: "asc" } } },
@@ -104,12 +104,14 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       channelNotes: {
         whatsapp: wa.isOn ? `${wa.environment === "test" || wa.provider === "sandbox" ? "Test mode" : "Connected"}${wa.config.displayNumber ? ` · ${wa.config.displayNumber}` : ""}` : "Not connected",
         sms: sms.isOn ? `${school.smsSenderHeader ? `Header ${school.smsSenderHeader}` : "No sender header yet"} · needs a DLT template` : "Not connected",
-        email: email.isOn ? `${email.config.fromAddress || school.email || "Email"} · free` : "Not connected",
-        app: "Staff logins and Parent Link · free",
+        email: email.isOn ? `${email.config.fromAddress || school.email || "Email"} · Free` : "Not connected",
+        app: "Staff logins and Parent Link · Free",
       } as Record<Channel, string>,
       templates: templates
         // Templates whose blanks only the software can fill (personal links and codes) are not offered here.
         .filter((t) => t.versions.length && !["parent-link", "parent-link-code", "staff-invite", "sign-in-code"].includes(t.key ?? ""))
+        // SMS templates are kept, but not offered while SMS is not used (SMS_OFFERED).
+        .filter((t) => SMS_OFFERED || t.channel !== "sms")
         .map((t) => {
           const en = t.versions.find((v) => v.language === "en") ?? t.versions[0];
           const dlt = t.versions.find((v) => v.dltTemplateId)?.dltTemplateId ?? null;
@@ -133,7 +135,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       staffCount,
       groups,
       balances: await creditBalances(tx, current.ctx),
-      backupDefaults: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, v.on])) as Record<string, boolean>,
+      backupDefaults: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, SMS_OFFERED && v.on])) as Record<string, boolean>,
       backupWait: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, v.waitMinutes])) as Record<string, number>,
       smsReady: Boolean(school.smsDltEntityId && school.smsSenderHeader),
     };
@@ -158,16 +160,23 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
   return (
     <>
       <CommHead access={access} page="Send Message" href="/communication"
-        sub={access.full ? "By class, section, bus route or group. Count and cost shown before anything goes." : `Only the people you may message: ${scope.label}.`}
+        sub={access.full ? "Count and cost shown before anything goes." : `Only the people you may message: ${scope.label}.`}
         actions={<SendHeadActions full={access.full} groups={data.groups} canEmergency={access.canEmergency} />} />
+      {access.canChange && (
+        <p className="mb-5 text-[13.5px] text-ink2">
+          <Words k="Holidays and announcements: use" />{" "}
+          <Link className="font-semibold text-brand underline" href="/communication/notices/new"><Words k="Notice Board" /></Link>
+          <Words k=". It stays on the board. This page sends a quick message now." />
+        </p>
+      )}
       {!data.year && (
         <Banner tone="warn" className="mb-5" title="No academic year is open.">
-          <Words k="Parents and students are chosen by class and section of the current year. Open the year in" />{" "}
+          <Words k="To send to classes, open the year in" />{" "}
           <Link className="underline font-semibold" href="/academic-management"><Words k="Academic Management" /></Link><Words k=", or send to staff or chosen people for now." />
         </Banner>
       )}
       {scope.sectionIds !== "all" && data.year && data.sections.length === 0 && (
-        <Banner tone="info" className="mb-5"><Words k="You are not the teacher of any section this year, so you can send only to chosen people. Ask the office to send to a class." /></Banner>
+        <Banner tone="info" className="mb-5"><Words k="You can send only to chosen people. Ask the office to send to a class." /></Banner>
       )}
       <SendForm data={form} />
     </>

@@ -61,7 +61,7 @@ defineImport<OldDue>({
   columns: [
     { key: "admissionNo", label: "Admission number", required: true, example: "SPS/2021/0451", aliases: ["admission no", "adm no"] },
     { key: "feeHead", label: "Fee head", example: "Old dues", help: "Leave empty for Old dues", aliases: ["head"] },
-    { key: "amount", label: "Amount", required: true, example: "12500", help: "Empty or 0 for a student with no old dues: that row is left out", aliases: ["due", "balance", "amount due"] },
+    { key: "amount", label: "Amount", required: true, example: "12500", help: "Empty or 0 for a student with no old dues: that row is left out", aliases: ["due", "dues", "balance", "amount due", "balance amount", "pending", "old dues"] },
     { key: "dueDate", label: "Due date", required: true, example: "31-03-2026", help: "DD-MM-YYYY" },
     { key: "note", label: "Note", example: "Balance from 2025-26" },
   ],
@@ -143,9 +143,11 @@ defineImport<PastReceipt>({
   label: "Fee past receipts (brought in)",
   columns: [
     { key: "admissionNo", label: "Admission number", required: true, example: "SPS/2021/0451", aliases: ["admission no", "adm no"] },
-    { key: "oldReceiptNo", label: "Old receipt number", required: true, example: "R-2025-1182", aliases: ["receipt no", "receipt number"] },
+    // Layman loop 5: a register with only "Paid" per child has no receipt numbers. Empty → PAID-<admission number>,
+    // so the same register brought in twice is still refused ("already brought in").
+    { key: "oldReceiptNo", label: "Old receipt number", example: "R-2025-1182", help: "Empty: PAID-<admission number>", aliases: ["receipt no", "receipt number"] },
     { key: "date", label: "Date", required: true, example: "15-07-2025", help: "DD-MM-YYYY" },
-    { key: "amount", label: "Amount", required: true, example: "4500" },
+    { key: "amount", label: "Amount", required: true, example: "4500", aliases: ["paid", "amount paid", "paid amount", "fee paid", "total paid"] },
     { key: "mode", label: "Mode", example: "Cash", help: "Cash, UPI, Card, Net banking, Bank transfer, Cheque or Online" },
     { key: "feeHead", label: "Fee head", example: "Tuition fee" },
   ],
@@ -154,10 +156,11 @@ defineImport<PastReceipt>({
     const limit = await campusLimitOf(tx, ctx);
     const student = row.admissionNo ? await tx.student.findFirst({ where: { admissionNo: { equals: row.admissionNo.trim(), mode: "insensitive" }, releasedAt: null, ...(limit ? { campusId: limit } : {}) } }) : null;
     if (!student) problems.push(`No student with admission number "${row.admissionNo}".`);
-    const no = (row.oldReceiptNo ?? "").trim();
-    if (!no) problems.push("Old receipt number is needed.");
+    const typed = (row.oldReceiptNo ?? "").trim();
+    const no = typed || (student ? `PAID-${student.admissionNo ?? row.admissionNo.trim()}`.slice(0, 40) : "");
+    if (!no) { /* No student: said above. */ }
     else if (no.length > 40) problems.push("Old receipt number can be at most 40 characters.");
-    else if (seen.has(`r:${no.toLowerCase()}`)) problems.push("This receipt number is on another row of the file.");
+    else if (seen.has(`r:${no.toLowerCase()}`)) problems.push(typed ? "This receipt number is on another row of the file." : "This student is on another row with no receipt number. Put the amounts on one row.");
     else {
       seen.add(`r:${no.toLowerCase()}`);
       const dup = await tx.payment.findFirst({ where: { broughtIn: true, oldReceiptNo: { equals: no, mode: "insensitive" }, status: { not: "CANCELLED" } } });

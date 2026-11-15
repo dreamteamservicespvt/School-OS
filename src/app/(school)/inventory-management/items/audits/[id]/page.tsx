@@ -58,7 +58,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
         {audit.status === "APPROVED" && <Banner tone="ok" title="Approved"><Words k="The differences were posted as Audit adjustments" />{audit.decidedAt ? ` on ${formatDateTime(audit.decidedAt, tz)}` : ""}.</Banner>}
         {audit.status === "REJECTED" && <Banner tone="warn" title="Not approved"><Words k="Stock was not changed." />{audit.decisionNote ? ` Reason: ${audit.decisionNote}` : ""}</Banner>}
         <Card>
-          <CardHeader title="Counts" description={audit.status === "OPEN" ? "Type what is on the shelf. The difference shows as you type." : st.label} divided />
+          <CardHeader title="Counts" description={audit.status === "OPEN" ? "Type what is on the shelf." : st.label} divided />
           <AuditCounts action={saveCountsAction} auditId={audit.id} lines={lines} editable={audit.status === "OPEN" && can.stock} />
         </Card>
         <Card>

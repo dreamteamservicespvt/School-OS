@@ -130,7 +130,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
     }
   }
 
-  const mineSub = s.sectionIds && !s.office ? `Datesheets for your classes. View only.` : s.office ? "Prepare datesheets and publish them. Admit cards follow." : `${year.name} · creating a datesheet creates the exam`;
+  const mineSub = s.sectionIds && !s.office ? `Datesheets for your classes. View only.` : s.office ? "Prepare and publish datesheets" : `${year.name} · creating a datesheet creates the exam`;
   const exportHref = `/examination-results/export?kind=datesheets${q ? `&q=${encodeURIComponent(q)}` : ""}${cls ? `&class=${cls}` : ""}${st ? `&status=${encodeURIComponent(st)}` : ""}${periodQuery(raw).map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("")}${page.yearQuery ? `&${page.yearQuery}` : ""}`;
 
   return (
@@ -143,7 +143,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
 
         {cards.length === 0 && !archived && !range ? (
           <EmptyState title="No datesheets yet" Icon={CalendarDays} action={canAdd ? <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}><Words k="Add datesheet" /></ButtonLink> : undefined}>
-            <p><Words k="A datesheet sets each subject's exam date, time, room and maximum marks. Creating one creates the exam." /></p>
+            <p><Words k="Set each subject's exam date, time, room and marks." /></p>
           </EmptyState>
         ) : (
           <Card>
@@ -197,7 +197,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
                 })}
               </ul>
             )}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length ? 1 : 0} <Words k="to" /> {rows.length} <Words k="of" /> {rows.length}</div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {from} to {to} of {total}" vars={{ from: rows.length ? 1 : 0, to: rows.length, total: rows.length }} /></div>
           </Card>
         )}
       </div>

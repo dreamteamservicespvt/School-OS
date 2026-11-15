@@ -12,7 +12,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
-import { Banner, Band, Col, DataList, Mini, Split, Stack, Stats, TONE_SOFT, type Tone } from "@/components/money/kit";
+import { Banner, Band, Col, DataList, Mini, Stack, Stats, TONE_SOFT, type Tone } from "@/components/money/kit";
 import { UrlSelect, UrlSwitch } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
@@ -25,7 +25,7 @@ import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "..
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { dayBookSourceLink } from "@/lib/finance/source-link";
 import { sourceLinkAccess } from "../_lib/source-link";
-import { closePreview, closesBetween, closesDays, daysToClose, reopensDays } from "@/lib/finance/day-close";
+import { closePreview, closesBetween, closesDays, daysToClose, expectedCash, reopensDays } from "@/lib/finance/day-close";
 import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
 import { CloseDaySheet, ReopenDaySheet } from "./sheets";
@@ -76,10 +76,15 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
     // The day the Close button closes: the oldest day still to count, else the day shown (or today).
     const closeDate = wantDay ?? (pending.through ? pending.days[0] ?? p.today : oneDay && from <= p.today ? from : p.today);
     const preview = closer && doing === "close" ? await closePreview(tx, p.current.ctx, closeDate, p.today) : null;
+    // Cash in the box at the start of the day, so "Cash the books expected" adds up (layman test loop 5).
+    const dayBefore = (d: Date) => new Date(d.getTime() - 86_400_000);
+    const openingShown = oneDay && closes.some((c) => c.date.getTime() === from.getTime()) ? await expectedCash(tx, p.current.ctx, dayBefore(from)) : null;
+    const openingPreview = preview ? await expectedCash(tx, p.current.ctx, dayBefore(preview.date)) : null;
     const people = closes.flatMap((c) => [c.closedById, c.reopenedById]).filter((x): x is string => Boolean(x));
-    const names = people.length ? await tx.userLogin.findMany({ where: { id: { in: people } }, select: { id: true, displayName: true } }) : [];
-    const latest = await tx.dayClose.findFirst({ where: { reopenedAt: null }, orderBy: { date: "desc" }, select: { id: true } });
-    return { view, classes, accounts, split, match, closedYear, closes, pending, closeDate, preview, names: new Map(names.map((n) => [n.id, n.displayName])), latestCloseId: latest?.id ?? null };
+    const names: { id: string; displayName: string }[] = people.length ? await tx.userLogin.findMany({ where: { id: { in: people } }, select: { id: true, displayName: true } }) : [];
+    const latest = await tx.dayClose.findFirst({ where: { reopenedAt: null }, orderBy: { date: "desc" }, select: { id: true, date: true, closedById: true, closedAt: true } });
+    if (latest?.closedById && !names.some((n) => n.id === latest.closedById)) names.push(...(await tx.userLogin.findMany({ where: { id: latest.closedById }, select: { id: true, displayName: true } })));
+    return { view, classes, accounts, split, match, closedYear, closes, pending, closeDate, preview, openingShown, openingPreview, names: new Map(names.map((n) => [n.id, n.displayName])), latestCloseId: latest?.id ?? null, latest };
   });
   const v = data.view;
   const keep = { ...per.keep, class: classId, acct, waiting: waiting ? "1" : null };
@@ -97,9 +102,14 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   const lateDay = data.pending.through ? data.pending.days.find((d) => d < p.today) ?? null : null;
   const closeHref = (d: Date) => here({ do: "close", day: dayKey(d) });
   const closeLabel = data.closeDate.getTime() === p.today.getTime() ? "Close today" : `Close ${formatDate(data.closeDate)}`;
+  // The day the button would close is already closed: a "Day closed" tag instead of a button that only shows an error (loop 4).
+  const alreadyClosed = data.pending.through !== null && data.closeDate <= data.pending.through;
   const closedBy = (id: string | null) => (id && data.names.get(id)) || "someone";
 
+  // Empty sections are named in one line under the others, not shown as cards that each say "None" (loop 4).
+  const emptyTitles: string[] = [];
   const section = (title: string, icon: LucideIcon, rows: DayRow[], tone: "ok" | "warn" | "bad", empty: string, kind: "fee" | "other" | "reversal") => {
+    if (!rows.length && !v.filtered) { emptyTitles.push(title); return null; }
     const counted = rows.filter((r) => !r.waiting);
     const total = counted.reduce((s, r) => s + r.total, ZERO);
     return (
@@ -107,7 +117,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         <CardHeader title={title} icon={icon} description={rows.length ? `${rows.length} ${rows.length === 1 ? "entry" : "entries"} · ${signed(total)}` : "None"}
           action={rows.length ? <Pill tone={tone}>{signed(total)}</Pill> : undefined} />
         {rows.length ? (
-          <DataList rows={rows.map((r, i) => ({ ...r, i: i + 1 }))} rowKey={(r) => r.id} rowHref={(r) => here({ e: r.id })} minWidth={kind === "fee" ? 1180 : 960} footer={false} caption={title}
+          <DataList rows={rows.map((r, i) => ({ ...r, i: i + 1 }))} rowKey={(r) => r.id} rowHref={(r) => here({ e: r.id })} minWidth={kind === "fee" ? 1040 : 900} footer={false} caption={title}
             columns={[
               { key: "i", label: "#", render: (r) => <span className="text-ink3 tnum">{r.i}</span> },
               ...(kind === "fee" ? [
@@ -128,7 +138,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
               ...(kind !== "reversal" ? [{ key: "ref", label: "Reference", render: (r: DayRow) => <Ref v={r.reference} /> }] : []),
               { key: "t", label: oneDay ? "Time" : "Date", nowrap: true, render: (r) => <span className="tnum text-ink2">{oneDay ? formatTime(r.at, p.tz) : formatDate(r.date)}</span> },
               ...(kind !== "fee" || showAcct ? [{ key: "acct", label: kind === "fee" ? "Bank account" : "Paid from", nowrap: true, render: (r: DayRow) => <span className="text-[13px] text-ink2">{(kind === "fee" ? r.depositAccount ?? r.account : r.account) ?? "—"}</span> }] : []),
-              { key: "note", label: "Notes", render: (r) => r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : <span className="text-[12.5px] text-ink3">{r.note ?? ""}</span> },
+              { key: "note", label: "Notes", render: (r) => r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : <span className="block min-w-[140px] max-w-[220px] whitespace-normal break-words text-[12.5px] text-ink3">{r.note ?? ""}</span> },
             ]}
             phone={(r) => ({
               title: r.who, sub: `${r.classLabel ? `${r.classLabel} · ` : ""}${r.head}`, icon: MODE_ICON[r.mode] ?? Wallet, iconTone: "neutral",
@@ -142,11 +152,15 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
 
   const sourceLink = (r: DayRow) => dayBookSourceLink(r, linkAccess);
 
+  // Only the kinds of income there were: "Partial ₹10,100", never "Fees ₹0 + Partial ₹10,100" (loop 4).
+  const incomeParts = [v.feesFull > ZERO ? `Full fees ${formatRupees(v.feesFull)}` : null, v.feesPartial > ZERO ? `Partial ${formatRupees(v.feesPartial)}` : null, v.otherIncome > ZERO ? `Other ${formatRupees(v.otherIncome)}` : null].filter(Boolean);
   const nothing = !v.filtered && [v.sections.full, v.sections.partial, v.sections.otherFees, v.sections.daycare, v.sections.income, v.sections.expense, v.sections.salary, v.sections.refunds].every((x) => !x || x.length === 0);
   return (
     <div>
       <FinanceHead title="Day Book" pageName="Day Book" href={HREF} sub={`Daily income and expense summary, ${dayWords}`}
-        actions={closer && !data.closedYear ? <Link href={closeHref(data.closeDate)} scroll={false} className={buttonClass("primary")}><Lock size={16} aria-hidden="true" />{closeLabel}</Link> : undefined} />
+        actions={closer && !data.closedYear ? (alreadyClosed && data.latest
+          ? <Pill tone="ok" className="!h-9 !px-3 !text-[13px]"><Lock size={14} aria-hidden="true" />{`${data.latest.date.getTime() === p.today.getTime() ? "Today closed" : `Closed to ${formatDate(data.latest.date)}`} · ${closedBy(data.latest.closedById)}, ${formatTime(data.latest.closedAt, p.tz)}`}</Pill>
+          : <Link href={closeHref(data.closeDate)} scroll={false} className={buttonClass("primary")}><Lock size={16} aria-hidden="true" />{closeLabel}</Link>) : undefined} />
       <Stack>
         {lateDay && closer && (
           <Banner tone="bad" title={`${formatDate(lateDay)} is not closed yet.`}
@@ -182,19 +196,21 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="Day Book entries" />
         {allBeforeGoLive(p.goLive, from, to) ? <Card><OldSoftwareEmpty goLive={p.goLive} what="Day Book entries" /></Card> : <>
         <Band items={[
-          { label: "Total income", big: formatRupees(v.totals.income), foot: `${plural(nIn, "transaction")} · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.otherIncome > ZERO ? ` + Other ${formatRupees(v.otherIncome)}` : ""}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
+          { label: "Total income", big: formatRupees(v.totals.income), foot: `${plural(nIn, "transaction")}${incomeParts.length ? ` · ${incomeParts.join(" + ")}` : ""}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
           { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${plural(v.totals.expenseCount, "transaction")}${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}${v.expenseReversed > ZERO ? ` · less ${formatRupees(v.expenseReversed)} cancelled` : ""}` },
           { label: "Net balance", big: signed(v.totals.net), foot: shownClose ? "Day closed and locked" : allClosed ? "All these days are closed" : isToday ? `Live · updated ${formatTime(new Date(), p.tz)}` : oneDay && from < p.today && v.rows.length ? "Not closed yet" : per.label },
         ]} />
 
         {/* Layman loop 15 Nov: a quiet day showed 8 empty cards and 6 "₹0 None" tiles; one line says it. */}
-        {!nothing && <Stats items={v.groups.map((g) => ({
+        {/* One kind only: the band and its table already say it (loop 5: "Partial payments" three times). */}
+        {!nothing && v.groups.filter((g) => g.count).length > 1 && <Stats items={v.groups.filter((g) => g.count).map((g) => ({
           label: g.label, value: formatRupees(g.amount), sub: g.count ? `${g.count} ${g.count === 1 ? "entry" : "entries"}` : g.key === "daycare" ? "No daycare payments" : "None",
           icon: ({ online: Globe, full: CircleCheck, partial: CirclePause, daycare: Baby, "other-fees": Shirt, "other-income": HandCoins } as Record<string, LucideIcon>)[g.key],
         }))} />}
 
-        <Split side={340} className="[&>*]:min-w-0">
-          <Col>
+        {/* The tables need the full width (their last columns were cut off beside a side column), so the summary cards sit above them (loop 4). */}
+        <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
+          <Col className="order-last">
             {nothing ? (
               <Card><EmptyState title={oneDay ? "Nothing was paid in or out on this date" : "Nothing was paid in or out in these dates"} Icon={ReceiptText}>
                 <Words k="Fee payments, other income, expenses, salary and refunds show here as soon as they are made." />
@@ -208,14 +224,19 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
             {section("Expenses", ReceiptText, v.sections.expense, "warn", v.filtered ? hidden : `No expenses paid ${oneDay ? "on this date" : "in these dates"}.`, "other")}
             {!p.payHeads && section("Salary", Wallet, v.sections.salary, "warn", v.filtered ? hidden : "No salary or salary advance paid. Salary is added on the day it is marked paid.", "other")}
             {section("Refunds and reversals", Undo2, v.sections.refunds, "bad", `No refunds or reversals ${oneDay ? "on this date" : "in these dates"}.`, "reversal")}
+            {emptyTitles.length > 0 && <p className="px-1 text-[13.5px] text-ink3">{`Nothing ${oneDay ? "on this date" : "in these dates"}: ${emptyTitles.join(", ")}.`}</p>}
             </>}
           </Col>
-          <Col>
+          <div className="grid gap-5 lg:gap-6 md:grid-cols-2 xl:grid-cols-3 items-start min-w-0">
             {shownClose && (
               <Card>
                 <CardHeader title="Day closed" description={`By ${closedBy(shownClose.closedById)}, ${formatDate(shownClose.closedAt, p.tz)} at ${formatTime(shownClose.closedAt, p.tz)}`} icon={Lock}
                   action={<Pill tone={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "ok" : "warn"}>{shownClose.countedCashPaise === shownClose.expectedCashPaise ? "Cash matched" : "Cash differed"}</Pill>} />
                 <ul className="px-5 pb-4">
+                  {data.openingShown !== null && <>
+                    <Line k="Cash at the start of the day" v={signed(data.openingShown)} />
+                    <Line k="Cash in and out on the day" v={signed(shownClose.expectedCashPaise - data.openingShown)} />
+                  </>}
                   <Line k="Cash the books expected" v={formatRupees(shownClose.expectedCashPaise)} />
                   <Line k="Cash counted" v={formatRupees(shownClose.countedCashPaise)} bold />
                   <Line k="Difference" v={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "None" : signed(shownClose.countedCashPaise - shownClose.expectedCashPaise)} tone={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "ok" : "bad"} />
@@ -262,22 +283,25 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                 <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Online payments show the account Razorpay split them into. Counter payments show the account the cash or cheque goes into." /></p>
               </Card>
             )}
-            <Card>
-              <CardHeader title="Where entries come from" icon={Workflow} />
+            {/* Folded: how the software fills the book is a question, not something to read every day (loop 5). */}
+            <details className="group rounded-2xl bg-surface border border-line shadow-card">
+              <summary className="min-h-11 px-5 py-3 flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-[14px] font-semibold text-ink2 hover:text-ink">
+                <Workflow size={16} aria-hidden="true" /><Words k="How is this filled?" />
+              </summary>
               <ul className="px-5 pb-4 text-[13.5px] text-ink2 flex flex-col gap-2">
                 {([[ReceiptIndianRupee, "Fees", "when a payment is posted, a reversal when it is cancelled"], [HandCoins, "Income", "when other income is posted"], [ReceiptText, "Expenses", "only when marked Paid, on the date paid"], ...(p.payHeads ? [] : [[Wallet, "Salary", "when a month’s salary or an advance is marked Paid"]]), [ShoppingCart, "Inventory", "vendor bill payments, as expenses"]] as [LucideIcon, string, string][]).map(([Ic, k, w]) => (
                   <li key={k} className="flex gap-2.5"><span className="w-7 h-7 rounded-lg bg-sunken text-ink2 grid place-items-center shrink-0"><Ic size={15} aria-hidden="true" /></span><span><b className="font-semibold text-ink">{k}</b> · {w}</span></li>
                 ))}
               </ul>
-            </Card>
-          </Col>
-        </Split>
+            </details>
+          </div>
+        </div>
         </>}
       </Stack>
 
       {data.preview && (
         <CloseDaySheet closeHref={here({ do: null, day: null })} date={dayKey(data.preview.date)} dateWords={formatDate(data.preview.date)}
-          expectedPaise={Number(data.preview.expected)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.entries}
+          expectedPaise={Number(data.preview.expected)} openingPaise={data.openingPreview === null ? null : Number(data.openingPreview)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.incomeEntries}
           isToday={data.preview.date.getTime() === p.today.getTime()} timeNow={formatTime(new Date(), p.tz)} problem={data.preview.problem} />
       )}
       {doing === "reopen" && shownClose && reopener && shownClose.id === data.latestCloseId && shownClose.closedById !== p.current.user.id && (

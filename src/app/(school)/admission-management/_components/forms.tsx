@@ -18,6 +18,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { DateInput } from "@/components/ui/date-input";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
@@ -75,7 +76,7 @@ function Body({ action, hidden, submitLabel, busyLabel, onDone, onCancel, childr
       <FormProblem state={state} />
       {children(helpers(state, pending))}
       <div className="flex gap-2 justify-end pt-1">
-        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={pending}><Words k="Cancel" /></Button>}
+        {onCancel && <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}><Words k="Cancel" /></Button>}
         <Submit variant={submitVariant} busyLabel={busyLabel} icon={submitIcon === undefined ? Check : submitIcon}>{submitLabel}</Submit>
       </div>
     </form>
@@ -146,10 +147,10 @@ export function SegField({ name, label, options, defaultValue, help, size, onCha
   const [v, setV] = useState(defaultValue);
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-[13px] font-semibold text-ink2">{label}{required && <span className="text-bad" aria-hidden="true"> *</span>}</p>
+      <p className="text-[13px] font-semibold text-ink2">{tx(label)}{required && <span className="text-bad" aria-hidden="true"> *</span>}</p>
       <Segmented label={label} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
       <input type="hidden" name={name} value={v} />
-      {help && <p className="text-[12.5px] text-ink3">{help}</p>}
+      {help && <p className="text-[12.5px] text-ink3">{tx(help)}</p>}
     </div>
   );
 }
@@ -161,7 +162,7 @@ export function PhoneField({ name, label, defaultValue, error, help, required, o
     <FieldShell label={label} id={id} error={error} help={help} required={required}>
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 text-[15px]" aria-hidden="true">+91</span>
-        <input id={id} name={name} inputMode="numeric" autoComplete="tel-national" placeholder="98480 12345" defaultValue={defaultValue} onBlur={onBlur}
+        <input id={id} name={name} inputMode="numeric" autoComplete="tel-national" placeholder="10 digits" defaultValue={defaultValue} onBlur={onBlur}
           aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined}
           onInput={(e) => { const t = e.currentTarget; t.value = t.value.replace(/[^\d ]/g, "").slice(0, 11); onValue?.(t.value); }}
           className={cx(inputCls(error), "h-11 pl-12 tnum")} />
@@ -176,7 +177,7 @@ export function MoreDetails({ label = "More details", defaultOpen = false, child
   return (
     <div className="rounded-xl border border-line">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3.5 h-11 text-[14px] font-semibold text-ink2 hover:text-ink">
-        {label}<ChevronDown size={17} className={cx("transition", open && "rotate-180")} aria-hidden="true" />
+        {tx(label)}<ChevronDown size={17} className={cx("transition", open && "rotate-180")} aria-hidden="true" />
       </button>
       <div hidden={!open} className="px-3.5 pb-4 pt-3.5 flex flex-col gap-4 border-t border-line">{children}</div>
     </div>

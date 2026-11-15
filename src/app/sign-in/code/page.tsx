@@ -7,7 +7,7 @@ import { AuthFrame } from "@/components/auth/auth-frame";
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { CodeForm } from "./form";
-import { CODE_SIGN_IN_SENT_TO, isDecoyToken } from "@/lib/auth/decoy";
+import { CODE_SIGN_IN_NOTICE, CODE_SIGN_IN_SENT_TO, isDecoyToken, kindOf } from "@/lib/auth/decoy";
 import { getT, pageTitle } from "@/lib/i18n/server";
 
 /** The tab title in the same language as the page (the browser's choice, else English). */
@@ -19,8 +19,8 @@ export default async function SignInCodePage() {
   if (await getCurrent()) redirect("/dashboard");
   const jar = await cookies();
   const held = jar.get(CHALLENGE_COOKIE)?.value;
-  // An unknown login on "Forgot password?" gets this same page (owner decision 2026-11-12): the first code page
-  // names no contact, for a real login or not, so it cannot tell anyone which logins exist.
+  // "Forgot password?" always gets this same blind page, for a real login or not (owner decisions 2026-11-12 and
+  // 2, 15 Nov 2026): it names no contact and reads nothing from the database, so it cannot tell which logins exist.
   const decoy = isDecoyToken(held);
   const challenge = decoy ? null : await findChallenge(held);
   // Unticking "Keep me signed in" on the password page also ticks "Shared computer" here.
@@ -31,7 +31,7 @@ export default async function SignInCodePage() {
     <AuthFrame eyebrow={second ? t("Last step") : t("One more step")} title={second ? t("Enter the second code") : t("Enter the code")} sub={second ? t("The first code was right. For your safety, we need one more code.") : t("This keeps your school's records safe.")}>
       {/* Keyed without the tries count, so a wrong-code answer is not wiped when the cookie changes. */}
       {decoy ? (
-        <CodeForm key={(held ?? "").slice(0, (held ?? "").lastIndexOf("."))} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} remembers={false} sharedDefault={shared} />
+        <CodeForm key={(held ?? "").slice(0, (held ?? "").lastIndexOf("."))} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} notice={t.any(CODE_SIGN_IN_NOTICE[kindOf(held!)])} remembers={false} sharedDefault={shared} />
       ) : challenge ? (
         // A code typed instead of the password never makes a remembered device, so no choice is shown.
         <CodeForm key={challenge.id} sentTo={challenge.purpose === "code-sign-in" ? t.any(CODE_SIGN_IN_SENT_TO) : challenge.sentTo} remembers={challenge.purpose !== "code-sign-in"} sharedDefault={shared} />

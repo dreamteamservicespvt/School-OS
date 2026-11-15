@@ -61,7 +61,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
       <Stack>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
           <Card>
-            <CardHeader title={t("Item categories")} icon={FolderTree} description={t("Each with its reorder level and the Finance head its bills go to.")} divided
+            <CardHeader title={t("Item categories")} icon={FolderTree} divided
               action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}><Words k="Add category" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.cats.map((c) => (
@@ -82,7 +82,7 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
             </ul>
           </Card>
           <Card>
-            <CardHeader title={t("Stores")} icon={Warehouse} description={t("Where stock is kept. New stock and issues start from the main store.")} divided
+            <CardHeader title={t("Stores")} icon={Warehouse} description={t("Where stock is kept.")} divided
               action={can.settings ? <ButtonLink href={`${base}?store=new`} size="sm" icon={Plus} scroll={false}><Words k="Add store" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.stores.map((l) => (

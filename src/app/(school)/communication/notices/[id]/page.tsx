@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+import { offeredChannels } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, Info, Megaphone } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { OPEN_STATUSES } from "@/lib/approvals";
+import { OPEN_STATUSES, canDecide } from "@/lib/approvals";
 import { commPage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
-import { audienceGuardianIds, audienceLogins, guardiansOnCampus, loginsOnCampus, markRead, noticeOnCampus, PRIORITY_LABEL, readAudience, STATUS_LABEL } from "@/lib/communication/notices";
+import { audienceGuardianIds, audienceLogins, guardiansOnCampus, loginsOnCampus, markRead, noticeOnCampus, readAudience, STATUS_LABEL } from "@/lib/communication/notices";
 import { channelSetups } from "@/lib/messaging/channels";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -18,8 +19,10 @@ import { UrlSegmented } from "@/components/ui/url-filters";
 import { cx } from "@/components/ui/cx";
 import { NoticeActions } from "./notice-actions";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 import { RecordTitle } from "@/components/ui/record-title";
+import { ButtonLink } from "@/components/ui/button";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Notice") };
@@ -54,16 +57,19 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     // Who read it and who saw it: only their campus's people for a person limited to one campus.
     const shown = await loginsOnCampus(tx, current.ctx, logins, campusId);
     const people = manager && shown.length ? await tx.userLogin.findMany({ where: { id: { in: shown } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
-    const guardianIds = manager && n.status !== "DRAFT" ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
+    // "Seen by parents" only once it has gone out: a notice waiting for approval or its time reached nobody yet.
+    const guardianIds = manager && n.publishedAt ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
     const views = manager ? await tx.noticeGuardianView.findMany({ where: { noticeId: n.id } }) : [];
     const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds.slice(0, 2000) } }, select: { id: true, name: true, relationship: true, students: { where: { archivedAt: null }, select: { student: { select: { fullName: true } } } } }, orderBy: { name: "asc" } }) : [];
     const files = n.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: n.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const setups = await channelSetups(tx, current.ctx);
     const author = n.createdById ? await tx.userLogin.findUnique({ where: { id: n.createdById }, select: { displayName: true } }) : null;
     // The person who sent it for approval can take it back while it waits (QA LC14).
-    const asked = n.status === "WAITING_APPROVAL" && n.approvalId ? await tx.approval.findUnique({ where: { id: n.approvalId }, select: { askedById: true, status: true } }) : null;
+    const asked = n.status === "WAITING_APPROVAL" && n.approvalId ? await tx.approval.findUnique({ where: { id: n.approvalId }, select: { type: true, askedById: true, aboutUserIds: true, currentApproverId: true, currentApproverRole: true, status: true } }) : null;
     const canWithdraw = Boolean(asked && asked.askedById === current.user.id && OPEN_STATUSES.includes(asked.status));
-    return { n, a, people, acks, myAck, guardians, views, files, manager, inAudience, setups, canWithdraw, author: author?.displayName ?? null };
+    // The approver opening the notice gets a way to decide it (layman loop 3: "the page leaves her nowhere to act").
+    const canDecideIt = asked ? await canDecide(tx, current.ctx, asked) : false;
+    return { n, a, people, acks, myAck, guardians, views, files, manager, inAudience, setups, canWithdraw, canDecideIt, author: author?.displayName ?? null };
   });
   if (!data) notFound();
   const { n } = data;
@@ -74,7 +80,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     g.students.length ? `${g.relationship} of ${g.students.map((x) => x.student.fullName).join(", ")}` : g.relationship;
   const notRead = data.people.filter((p) => !ackBy.get(p.id)?.[n.askAck ? "acknowledgedAt" : "readAt"]);
   const unseen = data.guardians.filter((g) => !seenBy.has(g.id)).length;
-  const channels = (["whatsapp", "sms", "email"] as const).filter((c) => data.setups[c].isOn);
+  const channels = offeredChannels(["whatsapp", "sms", "email"] as const).filter((c) => data.setups[c].isOn);
   const show = sp.seen === "seen" || sp.seen === "not" ? sp.seen : "all";
   const guardianRows = data.guardians.filter((g) => show === "all" || (show === "seen" ? seenBy.has(g.id) : !seenBy.has(g.id)));
   const peopleRows = data.people.filter((p) => show === "all" || (show === "seen" ? !notRead.includes(p) : notRead.includes(p)));
@@ -82,7 +88,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
   const CH_NAME: Record<string, string> = { board: "Notice board", app: "App notice", "parent-link": "Parent Link", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
   const details: [string, React.ReactNode][] = [
     ["Audience", n.audienceLabel],
-    ["Channels", n.channels.map((c) => CH_NAME[c] ?? c).join(", ")],
+    ["Channels", <>{n.channels.map((c, i) => <span key={c}>{i ? ", " : ""}{tx(CH_NAME[c] ?? c)}</span>)}</>],
     ["Published", n.publishedAt ? formatDateTime(n.publishedAt, tz) : n.publishAt ? `Due ${formatDateTime(n.publishAt, tz)}` : "Not yet"],
     ["Expires on", n.expiresOn ? formatDate(n.expiresOn, "UTC") : "30 days after publishing"],
   ];
@@ -95,8 +101,8 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
       <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
       <RecordTitle name={n.title} /><RecordHead title={n.title}
         sub={<>
-          <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill>
-          <Pill tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]} <Words k="priority" /></Pill>
+          <Pill tone={STATUS_TONE[n.status]} dot>{tx(STATUS_LABEL[n.status])}</Pill>
+          <Pill tone={PRIORITY_TONE[n.priority]}>{n.priority === "HIGH" ? <Words k="High priority" /> : n.priority === "CRITICAL" ? <Words k="Critical priority" /> : <Words k="Normal priority" />}</Pill>
           {n.askAck && <Pill tone="info"><Words k="Asks for “I have read this”" /></Pill>}
         </>}
         actions={<NoticeActions id={n.id}
@@ -109,7 +115,8 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
       </div>
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title="Waiting for the Principal."><Words k="It goes out on the chosen channels once approved." />{data.canWithdraw ? <> <Words k="To change it first, withdraw it: it goes back to Draft." /></> : null}</Banner>}
+        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title={data.canDecideIt ? "Waiting for you." : "Waiting for the Principal."}
+          action={data.canDecideIt && n.approvalId ? <ButtonLink href={`/approvals/${n.approvalId}`} variant="primary" size="sm">Approve or reject</ButtonLink> : undefined}><Words k="It goes out on the chosen channels once approved." />{data.canWithdraw ? <> <Words k="To change it first, withdraw it: it goes back to Draft." /></> : null}</Banner>}
         {n.status === "SCHEDULED" && n.publishAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(n.publishAt, tz)}.`}><Words k="It is published at that time." /></Banner>}
         {n.status === "ARCHIVED" && <Banner tone="info" title="Archived."><Words k="It is no longer on the board or Parent Link." /></Banner>}
         <Split side={340}>
@@ -160,7 +167,10 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
             {data.manager && data.people.length > 0 && (
               <Card className="overflow-hidden">
                 <div className="p-4 md:px-5">
-                  <p className="text-[13px] font-semibold text-ink3">{n.askAck ? "Acknowledged by staff and students" : "Read by staff and students"}</p>
+                  {/* Says who the notice was for: "staff and students" on a staff notice read as if students were counted (layman loop 4). */}
+                  <p className="text-[13px] font-semibold text-ink3"><Words k={n.askAck
+                    ? (data.a.staff && !data.a.students ? "Acknowledged by staff" : data.a.students && !data.a.staff ? "Acknowledged by students" : "Acknowledged by staff and students")
+                    : (data.a.staff && !data.a.students ? "Read by staff with a login" : data.a.students && !data.a.staff ? "Read by students" : "Read by staff and students")} /></p>
                   <p className="font-display text-[24px] font-semibold tnum leading-tight">{data.people.length - notRead.length} <span className="text-[14px] text-ink3 font-sans"><Words k="of" /> {data.people.length}</span></p>
                 </div>
                 <ul className="divide-y divide-line/70 border-t border-line max-h-96 overflow-y-auto scroll-thin">
@@ -171,7 +181,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
                       <li key={p.id} className="flex items-center gap-3 px-4 md:px-5 py-2.5">
                         <Avatar name={p.displayName} size={32} />
                         <p className="min-w-0 flex-1 text-[14px] font-semibold truncate">{p.displayName}</p>
-                        {at ? <span className="text-[12.5px] tnum font-semibold">{formatDateTime(at, tz)}</span> : <Pill tone="warn">{n.askAck ? "Not acknowledged" : "Not read"}</Pill>}
+                        {at ? <span className="text-[12.5px] tnum font-semibold">{formatDateTime(at, tz)}</span> : <Pill tone="warn"><Words k={n.askAck ? "Not acknowledged" : "Not read"} /></Pill>}
                       </li>
                     );
                   })}

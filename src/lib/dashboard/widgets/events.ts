@@ -33,7 +33,7 @@ const ptmFilling: Widget<"attention"> = {
       out.push({
         id: `events.ptm-booking:${p.id}`, tone: "warn" as const, icon: "Users" as const,
         title: `PTM ${dayWord(p.date, c.today) === "Today" ? "today" : `on ${shortDate(p.date)}`}: ${booked} of ${plural(total, "slot")} booked`,
-        detail: `${p.classesLabel}. Parents get a confirmation when the office books their slot.`,
+        detail: p.classesLabel,
         action: "Open", href: `${BASE}/ptm?day=${p.id}`, value: String(booked),
       });
     }

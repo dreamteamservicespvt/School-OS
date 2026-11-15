@@ -64,7 +64,13 @@ function feeEntry(def: ReportDef): ReportEntry {
         group: (["day", "month", "year"].includes(e.group ?? "") ? e.group : "month") as ReportFilter["group"], today: rc.f.today,
       };
       const t = fromMoney(await def.run(rc.tx, rc.ctx, f, viewer));
-      if (def.key === "defaulters") t.links = [{ label: "Open Defaulters to send reminders", href: "/fee-management/defaulters" }];
+      if (def.key === "defaulters") {
+        t.links = [{ label: "Open Defaulters to send reminders", href: "/fee-management/defaulters" }];
+        // The overdue amount right after the class, so it never sits off the screen's right edge (layman loop 2).
+        const at = t.columns.findIndex((c) => c.key === "overdue");
+        const cls = t.columns.findIndex((c) => c.key === "class");
+        if (at > cls && cls >= 0) t.columns.splice(cls + 1, 0, ...t.columns.splice(at, 1));
+      }
       if (def.key === "by-class") t.links = [{ label: "Open Fees by class", href: "/fee-management/dashboard" }];
       return t;
     },

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SchoolContext } from "@/lib/db";
 import { withSchool } from "@/lib/db";
-import { CHANNELS, CHANNEL_LABEL } from "@/lib/messaging/channels";
+import { CHANNELS, CHANNEL_LABEL, offeredChannels } from "@/lib/messaging/channels";
 import { LANGUAGES, TEMPLATE_CATEGORIES, VARIABLES } from "@/lib/messaging/templates";
 import type { TemplateFormData } from "./template-form";
 
@@ -10,7 +10,8 @@ import type { TemplateFormData } from "./template-form";
 export async function templateFormData(ctx: SchoolContext, id: string | null, schoolLanguage: string): Promise<TemplateFormData | null> {
   const base = {
     categories: TEMPLATE_CATEGORIES.map((c) => ({ key: c.key, label: c.label })),
-    channels: CHANNELS.map((c) => ({ key: c, label: CHANNEL_LABEL[c] })),
+    // A new template is not offered SMS while SMS is not used (SMS_OFFERED); a saved SMS template still shows its channel.
+    channels: (id ? CHANNELS : offeredChannels(CHANNELS)).map((c) => ({ key: c, label: CHANNEL_LABEL[c] })),
     languages: LANGUAGES,
     variables: VARIABLES,
   };

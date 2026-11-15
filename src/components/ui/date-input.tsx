@@ -249,7 +249,7 @@ export function DateInput(props: DateProps) {
         aria-haspopup="dialog"
         aria-expanded={Boolean(open)}
         aria-controls={popId}
-        placeholder={placeholder ?? "DD-MM-YYYY"}
+        placeholder={placeholder ?? t("DD-MM-YYYY")}
         disabled={disabled}
         readOnly={readOnly}
         required={required}
@@ -647,9 +647,10 @@ function TimeList({ choices, value, focusOnOpen, label, onPick }: { choices: str
   );
 }
 
-/** A day and a time together (the browser's datetime-local): the form gets YYYY-MM-DDTHH:MM. */
-export function DateTimeInput(props: PickerProps) {
-  const { value, defaultValue, min: minP, max: maxP, step, onChange, wrapperClassName, name, form, disabled, readOnly, required, className, id, ...rest } = props;
+/** A day and a time together (the browser's datetime-local): the form gets YYYY-MM-DDTHH:MM.
+ *  `placeholder` is the day box's; `timePlaceholder` the time box's (for example "Now" when blank means now). */
+export function DateTimeInput(props: PickerProps & { timePlaceholder?: string }) {
+  const { value, defaultValue, min: minP, max: maxP, step, onChange, wrapperClassName, name, form, disabled, readOnly, required, className, id, placeholder, timePlaceholder, ...rest } = props;
   const t = useT();
   const hidden = useRef<HTMLInputElement>(null);
   const [held, setHeld, resetProps] = useHeld(value, str(defaultValue), hidden);
@@ -676,10 +677,10 @@ export function DateTimeInput(props: PickerProps) {
   return (
     <div className={cx("grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2", wrapperClassName)}>
       {/* A day without a time (or a time without a day) was sent empty and lost (layman test LC1): each half needs the other. */}
-      <DateInput {...rest} id={id} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.time)}
+      <DateInput {...rest} id={id} placeholder={placeholder} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.time)}
         aria-label={label ? `${label}: ${t.any("Date")}` : undefined}
         value={parts.date} min={min.slice(0, 10)} max={max.slice(0, 10)} onChange={(e) => change({ ...parts, date: e.target.value })} onUnreadable={setBadDay} />
-      <TimeInput {...rest} id={id ? `${id}-time` : undefined} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.date)}
+      <TimeInput {...rest} id={id ? `${id}-time` : undefined} placeholder={timePlaceholder ? t.any(timePlaceholder) : undefined} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.date)}
         aria-label={label ? `${label}: ${t.any("Time")}` : t.any("Time")} step={step}
         value={parts.time} min={sameDay(min)} max={sameDay(max)} onChange={(e) => change({ ...parts, time: e.target.value })} />
       <input ref={hidden} type="hidden" name={name} form={form} value={badDay ? `${badDay}${parts.time ? `T${parts.time}` : ""}` : held} disabled={disabled} {...resetProps} />

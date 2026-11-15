@@ -8,7 +8,7 @@ import type { Current } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { importKind, leftWords } from "@/lib/importer";
-import { kindInfo, settleImports } from "@/lib/move-in/service";
+import { batchCampusWhere, fileCampusWhere, kindInfo, settleImports } from "@/lib/move-in/service";
 import { shownFileName } from "@/lib/data-security/imports";
 import { errorsHref, fileHref, templateHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
@@ -37,9 +37,11 @@ export async function ImportHome({ current, place, initial, about, students }: {
   const keys = place.kinds ?? [];
   const { files, history } = await withSchool(current.ctx, async (tx) => {
     await settleImports(tx);
+    // One campus: only the files and imports of people of that campus (security review 2026-11-15).
+    const [mineFiles, mineBatches] = [await fileCampusWhere(tx, current.ctx), await batchCampusWhere(tx, current.ctx)];
     const [files, history] = await Promise.all([
-      tx.moveInFile.findMany({ where: { kind: { in: [...keys] }, status: { in: ["open", "importing"] }, archivedAt: null }, orderBy: { createdAt: "desc" }, take: 20 }),
-      tx.importBatch.findMany({ where: { kind: { in: [...keys] } }, orderBy: { createdAt: "desc" }, take: 15 }),
+      tx.moveInFile.findMany({ where: { kind: { in: [...keys] }, status: { in: ["open", "importing"] }, archivedAt: null, ...mineFiles }, orderBy: { createdAt: "desc" }, take: 20 }),
+      tx.importBatch.findMany({ where: { kind: { in: [...keys] }, ...mineBatches }, orderBy: { createdAt: "desc" }, take: 15 }),
     ]);
     return { files, history };
   });
@@ -74,12 +76,12 @@ export async function ImportHome({ current, place, initial, about, students }: {
 
       <section aria-labelledby="ih-step2" className={box}>
         <h2 id="ih-step2" className="text-[16px] font-semibold"><Words k="2. Upload the file" /></h2>
-        <p className="mt-1 text-[14px] text-ink2"><Words k="School OS finds the headings, matches the columns (also when they are written another way) and tidies dates, phones and names. Then you check every row, fix or leave out the ones with problems, and bring in the rest. Nothing is saved before that." /></p>
+        <p className="mt-1 text-[14px] text-ink2"><Words k="School OS matches the columns and tidies dates, phones and names. You check every row before anything is saved." /></p>
         <div className="mt-3">
           {mine.length ? (
             <UploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
-              help="Excel (.xlsx) or CSV, up to 10 MB: the ready sheet, your own sheet or an export from your old software." />
-          ) : <p className="text-ink2"><Words k="Your role can see these imports but not bring records in." /></p>}
+              help="Excel (.xlsx) or CSV, up to 10 MB." />
+          ) : <p className="text-ink2"><Words k="Your role cannot bring records in." /></p>}
           {mine.length > 0 && (
             <details className="mt-4 rounded-xl border border-line px-4">
               <summary className="flex min-h-11 cursor-pointer items-center font-medium"><Words k="Records on paper? Upload photos of the register" /></summary>
@@ -94,7 +96,7 @@ export async function ImportHome({ current, place, initial, about, students }: {
 
       {files.length > 0 && (
         <Card>
-          <CardHeader title="Files being checked" description="Open a file to match its columns, fix its rows and bring them in." divided />
+          <CardHeader title="Files being checked" description="Open one to check and bring it in." divided />
           <ul className="divide-y divide-line/70">
             {files.map((f) => {
               const k = byKey.get(f.kind);
@@ -139,7 +141,7 @@ export async function ImportHome({ current, place, initial, about, students }: {
         </Card>
       )}
       {history.length === 0 && files.length === 0 && (
-        <Card><CardBody><p className="text-[14px] text-ink2"><Words k={"Nothing has been brought in here yet. Every import is also listed in Settings, Data Backup & Security, Imports."} /></p></CardBody></Card>
+        <Card><CardBody><p className="text-[14px] text-ink2"><Words k={"Nothing brought in here yet. All imports are in Settings, Data Backup & Security."} /></p></CardBody></Card>
       )}
     </div>
   );

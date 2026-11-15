@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react";
 import { englishT, type T } from "@/lib/i18n/t";
 import { tx } from "@/lib/i18n/tx";
+import { indianMobileDigits, whatsappChatLink } from "@/lib/parent-link/contact";
 
 function Mark() {
   return (
@@ -14,14 +15,25 @@ function Mark() {
   );
 }
 
-export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, children, right, framed, t = englishT }: {
+export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, whatsappPhone, children, right, framed, privateNote = true, t = englishT }: {
   schoolName?: string; kind?: string; hello?: string; name?: React.ReactNode; schoolPhone?: string | null; children: React.ReactNode; right?: React.ReactNode;
+  /**
+   * The school's "WhatsApp number for parents" (Settings, School Profile; owner decision 17). Not given or
+   * empty: the office phone, when it is a mobile.
+   */
+  whatsappPhone?: string | null;
+  /** "Only you can see this page": not on a message page (wrong link, please wait). */
+  privateNote?: boolean;
   /** The page's language (Parent Link and the other pages a parent opens). */
   t?: T;
   /** Inside a phone frame on a staff screen (the preview), not the whole browser window. */
   framed?: boolean;
 }) {
   const Body = framed ? "div" : "main";
+  const wa = indianMobileDigits(whatsappPhone) ?? indianMobileDigits(schoolPhone);
+  const chat = whatsappChatLink(wa);
+  // The WhatsApp number is shown when it is not the number to call.
+  const waOwn = wa && wa !== indianMobileDigits(schoolPhone) ? wa : null;
   return (
     <div className={framed ? "bg-bg" : "min-h-dvh bg-bg"}>
       <div className="mx-auto max-w-xl pb-10">
@@ -41,13 +53,23 @@ export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, childre
         <Body id={framed ? undefined : "main"} className="px-4 -mt-12 relative flex flex-col gap-4">
           {children}
           <div className="text-center text-[12.5px] text-ink3 px-6 pt-2">
-            {schoolPhone && <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{schoolPhone}</a></>}
-            <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />{t("Only you can see this page")}</p>
+            {schoolPhone ? <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{showPhone(schoolPhone)}</a>
+              {chat && <> · <a href={chat} target="_blank" rel="noreferrer" className="font-semibold text-brand">{t("WhatsApp")}{waOwn && <span className="tnum"> {showPhone(waOwn)}</span>}</a></>}</>
+              : chat && wa ? <>{t.any("Questions? Message the school on WhatsApp")}<br /><a href={chat} target="_blank" rel="noreferrer" className="font-semibold text-brand tnum">{showPhone(wa)}</a></> : null}
+            {privateNote && <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />{t("Only you can see this page")}</p>}
           </div>
         </Body>
       </div>
     </div>
   );
+}
+
+/** "98765 43210", "040 2345 6789", as on the receipt (src/lib/documents/render.ts showPhone). */
+export function showPhone(p: string): string {
+  const d = p.trim().replace(/[\s-]/g, "");
+  if (/^[6-9]\d{9}$/.test(d)) return `${d.slice(0, 5)} ${d.slice(5)}`;
+  if (/^0(11|20|22|33|40|44|79|80)\d{8}$/.test(d)) return `${d.slice(0, 3)} ${d.slice(3, 7)} ${d.slice(7)}`;
+  return p.trim();
 }
 
 /** A white card on the phone page. */

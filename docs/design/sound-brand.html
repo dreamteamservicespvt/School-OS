@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School OS Sounds</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f5f4fb;--card:#ffffff;--fg:#1b1735;--muted:#5d587a;--line:#e3e0f0;--accent:#5b4bd6;--accent2:#e9e6fb;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#110f1f;--card:#1b1830;--fg:#ecebf7;--muted:#a7a3c4;--line:#2c2846;--accent:#9d91ff;--accent2:#25204a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#110f1f;--card:#1b1830;--fg:#ecebf7;--muted:#a7a3c4;--line:#2c2846;--accent:#9d91ff;--accent2:#25204a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:1.6rem;margin:0 0 4px}
+p.sub{color:var(--muted);margin:0 0 20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.card b{font-size:1rem}
+.card span{color:var(--muted);font-size:.9rem}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--accent2);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+button.new{background:var(--accent);color:#fff;border-color:transparent}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.note{margin-top:20px;color:var(--muted);font-size:.92rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>School OS sounds</h1>
+  <p class="sub">Every sound comes from one signature, so people hear "School OS". Tap <b>Play</b>; <b>Old</b> plays the previous sound to compare. Use a normal volume.</p>
+  <div class="grid" id="grid"></div>
+  <p class="note">Plain information messages are now silent. The same sound never repeats within half a second. Sounds play only when "Sound on" is set in the bell panel.</p>
+</div>
+<script>
+let ctx=null,out=null;
+function audio(){if(!ctx){const C=window.AudioContext||window.webkitAudioContext;ctx=C?new C():null}if(ctx&&ctx.state==="suspended")ctx.resume();return ctx}
+function output(c){if(out)return out;const soft=c.createBiquadFilter();soft.type="lowpass";soft.frequency.value=3200;soft.Q.value=.4;const lim=c.createDynamicsCompressor();lim.threshold.value=-18;lim.knee.value=12;lim.ratio.value=6;lim.attack.value=.003;lim.release.value=.15;const d=c.createDelay(.5);d.delayTime.value=.085;const fb=c.createGain();fb.gain.value=.22;const wet=c.createGain();wet.gain.value=.16;const dark=c.createBiquadFilter();dark.type="lowpass";dark.frequency.value=1800;soft.connect(lim);soft.connect(d);d.connect(dark);dark.connect(fb);fb.connect(d);dark.connect(wet);wet.connect(lim);lim.connect(c.destination);out=soft;return soft}
+function playNew(notes,volume){const c=audio();if(!c)return;const dest=output(c);const t0=c.currentTime+.02;for(const n of notes){const v=volume*(n.vol??1);const parts=[[1,1,n.len],[.5,.18,n.len*.8]];if(!n.soft)parts.push([3.93,.22,.05]);for(const [m,sh,len] of parts){const g=c.createGain();g.connect(dest);g.gain.setValueAtTime(.0001,t0+n.at);g.gain.exponentialRampToValueAtTime(v*sh,t0+n.at+.005);g.gain.exponentialRampToValueAtTime(.0001,t0+n.at+len);const o=c.createOscillator();o.type="sine";o.frequency.setValueAtTime(n.f*m,t0+n.at);o.connect(g);o.start(t0+n.at);o.stop(t0+n.at+len+.03)}}}
+const C5=523.25,E5=659.25,A5=880,C6=1046.5,E6=1318.5,A6=1760,A4=440,E4=329.63;
+function playOld(notes,volume){const c=audio();if(!c)return;const t0=c.currentTime+.02;for(const n of notes){const g=c.createGain();g.connect(c.destination);g.gain.setValueAtTime(.0001,t0+n.at);g.gain.exponentialRampToValueAtTime(volume,t0+n.at+.015);g.gain.exponentialRampToValueAtTime(.0001,t0+n.at+n.len);const o=c.createOscillator();o.type=n.type||"sine";o.frequency.setValueAtTime(n.f,t0+n.at);if(n.to)o.frequency.exponentialRampToValueAtTime(n.to,t0+n.at+n.len);o.connect(g);o.start(t0+n.at);o.stop(t0+n.at+n.len+.02)}}
+const S=[
+ {k:"The School OS sound",d:"Our signature: da-da-DING (Sa Ga Dha). Welcome and the Assistant's hello.",n:()=>playNew([{f:C5,at:0,len:.32,vol:.85},{f:E5,at:.12,len:.34,vol:.9},{f:A5,at:.24,len:.9},{f:A6,at:.26,len:.7,vol:.18,soft:true}],.06),o:null},
+ {k:"Big moment",d:"Results published, day closed",n:()=>playNew([{f:C5,at:0,len:.26,vol:.8},{f:E5,at:.09,len:.28,vol:.85},{f:A5,at:.18,len:.7}],.055),o:null},
+ {k:"Saved",d:"Something saved or done",n:()=>playNew([{f:E5,at:0,len:.22,vol:.8},{f:A5,at:.085,len:.5}],.05),o:()=>playOld([{f:1046.5,at:0,len:.16,type:"triangle"},{f:1318.5,at:.07,len:.16,type:"triangle"},{f:1568,at:.14,len:.3,type:"triangle"}],.07)},
+ {k:"Money in",d:"Fee collected, receipt made",n:()=>playNew([{f:C6,at:0,len:.16,vol:.6},{f:E6,at:.06,len:.18,vol:.7},{f:A6,at:.12,len:.45,vol:.6}],.035),o:()=>playOld([{f:1975.5,at:0,len:.09},{f:2637,at:.08,len:.35},{f:3951,at:.08,len:.2}],.06)},
+ {k:"Sent",d:"Message or notice sent",n:()=>playNew([{f:C5,at:0,len:.18,vol:.75},{f:A5,at:.1,len:.5}],.045),o:()=>playOld([{f:520,to:1560,at:0,len:.18},{f:1560,at:.17,len:.18,type:"triangle"}],.05)},
+ {k:"Needs attention",d:"A problem to fix",n:()=>playNew([{f:A4,at:0,len:.24,soft:true},{f:E4,at:.14,len:.42,soft:true}],.055),o:()=>playOld([{f:392,at:0,len:.16,type:"triangle"},{f:311,at:.13,len:.28,type:"triangle"}],.08)},
+ {k:"New notification",d:"The bell",n:()=>playNew([{f:A5,at:0,len:.3,vol:.85},{f:E5,at:.13,len:.6}],.045),o:()=>playOld([{f:880,at:0,len:.33},{f:1320,at:.12,len:.33}],.12)},
+];
+const grid=document.getElementById("grid");
+for(const s of S){const c=document.createElement("div");c.className="card";c.innerHTML=`<b>${s.k}</b><span>${s.d}</span><div class="row"><button class="new">Play</button>${s.o?"<button>Old</button>":""}</div>`;const [a,b]=c.querySelectorAll("button");a.onclick=s.n;if(b)b.onclick=s.o;grid.appendChild(c)}
+</script>
+</body>
+</html>

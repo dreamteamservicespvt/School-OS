@@ -100,7 +100,7 @@ export async function driverToday(tx: Tx, c: DriverCaller, now: Date) {
   const phones = new Map<string, string>();
   if (settings.showParentPhones && studentIds.length) {
     const links = await tx.studentGuardian.findMany({ where: { studentId: { in: studentIds }, ...OPEN_LINK }, orderBy: { isPrimary: "desc" }, select: { studentId: true, guardian: { select: { phone: true } } } });
-    for (const l of links) if (!phones.has(l.studentId)) phones.set(l.studentId, l.guardian.phone);
+    for (const l of links) if (!phones.has(l.studentId) && l.guardian.phone) phones.set(l.studentId, l.guardian.phone);
   }
   return {
     driver: { id: c.driver.id, name: c.driver.name, role: c.driver.role },

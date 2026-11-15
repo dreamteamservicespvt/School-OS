@@ -64,7 +64,7 @@ export default async function AutomationLogPage({ searchParams }: { searchParams
           paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/settings/log", params, { page: p }) }}
           empty={
             <EmptyState bare Icon={Zap} title={filtered ? "Nothing here" : "No automatic messages yet"}>
-              {filtered ? "Change the search or filters." : "When attendance, fees, results and other modules send automatic messages, each one is listed here with its reason."}
+              {filtered ? "Change the search or filters." : "Each automatic message shows here with its reason."}
             </EmptyState>
           }
           columns={[

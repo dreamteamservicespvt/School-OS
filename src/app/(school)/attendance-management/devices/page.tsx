@@ -98,7 +98,7 @@ export default async function DevicesPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub="Biometric devices, QR check-in and the campus area for the app"
+      <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub="Devices, QR check-in and campus area"
         actions={devicesOn && canEdit ? <DeviceForm action={addDeviceAction} campuses={campusOptions} types={[...DEVICE_TYPES]} allowed={[...ALLOWED_USERS]} defaultCampus={access.campusId ?? data.campuses[0]?.id} /> : undefined} />
       {off ? (
         <EmptyState title="Devices, QR and mobile check-in are off" Icon={ScanFace}><Words k="Switch them on in" /> <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}><Words k="Attendance Settings" /></Link><Words k=", Punch methods." /></EmptyState>
@@ -140,8 +140,8 @@ export default async function DevicesPage({ searchParams }: Props) {
                     { key: "st", label: "Status", render: (d) => { const st = deviceStatus(d, now); const h = data.health.get(d.id); return <div><Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill><p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap"><Words k="Last punch" /> {d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}{h ? ` · ${h.received} today` : ""}</p></div>; } },
                   ]}
                   mobile={(d) => { const st = deviceStatus(d, now); return { icon: TYPE_ICON[d.deviceType] ?? ScanFace, iconTone: d.archivedAt ? "neutral" : TONE[st.tone], title: d.name, sub: `${d.location ?? "No location"} · last punch ${d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}`, right: <Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill> }; }}
-                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {data.devices.length} <Words k="devices" /></p>}
-                  empty={<EmptyState bare Icon={ScanFace} title={q ? "No devices match" : "No devices yet"}>{q ? "Try another name, place or serial number." : "Add a device to get its key, then put the key and the address from the Setup guide into the device."}</EmptyState>} />
+                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: data.devices.length }} /> <Words k="devices" /></p>}
+                  empty={<EmptyState bare Icon={ScanFace} title={q ? "No devices match" : "No devices yet"}>{q ? "Try another name, place or serial number." : "Add a device, then follow the Setup guide."}</EmptyState>} />
               </Card>
             </>
           )}
@@ -149,7 +149,7 @@ export default async function DevicesPage({ searchParams }: Props) {
           <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
             {qrOn && (
               <Card>
-                <CardHeader icon={QrCode} title="QR check-in" description="People scan the poster with their own phone. The scan checks the school, the QR, the campus area and blocks a second scan the same day." />
+                <CardHeader icon={QrCode} title="QR check-in" description="People scan the poster with their own phone." />
                 <div className="px-5 pb-5">
                   <QrSettingsForm action={qrSettingsAction} themes={[...POSTER_THEMES]} values={{ qrStudentsOn: settings.qrStudentsOn, qrStaffOn: settings.qrStaffOn, qrRotation: settings.qrRotation, posterTheme: settings.posterTheme }} />
                 </div>
@@ -188,7 +188,7 @@ export default async function DevicesPage({ searchParams }: Props) {
               const f = data.fences.find((x) => x.campusId === c.id);
               return (
                 <Card key={c.id}>
-                  <CardHeader icon={MapPin} title={data.campuses.length > 1 ? `Campus area: ${c.name}` : "Campus area"} description="QR and app check-ins work only inside this circle when it is on" />
+                  <CardHeader icon={MapPin} title={data.campuses.length > 1 ? `Campus area: ${c.name}` : "Campus area"} description="When on, check-ins count only inside this circle" />
                   <div className="px-5 pb-5">
                     <GeoFenceForm action={geoFenceAction} campuses={campusOptions} campusId={c.id}
                       fence={f ? { latitude: Number(f.latitude), longitude: Number(f.longitude), radiusM: f.radiusM, studentsOn: f.studentsOn, staffOn: f.staffOn } : null} />

@@ -2,6 +2,7 @@
 // the person, overdue queries, new app messages, and alerts that a
 // messaging channel or payment gateway needs fixing (01 §2 "Alerts").
 import "server-only";
+import { offeredChannels } from "../../messaging/sms-offered";
 
 import { readListParams } from "../../list";
 import { queryWhere } from "../../communication/queries";
@@ -45,14 +46,18 @@ const overdueQueries: Widget<"attention"> = {
   homes: ["leader"],
   allowed: (v) => reach(v, "communication") === "all",
   async load(c) {
-    const { count, where } = await queryCount(c, { overdue: "1" });
+    // Every open parent message, not only late ones (layman loop 4: a principal could not find the 3 open
+    // complaints from her home). Late ones come first and are named; the card opens Feedback & Queries.
+    const { count, where } = await queryCount(c, {});
     if (!count) return null;
+    const late = await c.tx.query.count({ where: { AND: [where, { dueBy: { lt: c.now } }] } });
     const rows = await c.tx.query.findMany({ where, orderBy: { dueBy: "asc" }, take: 2, select: { fromName: true, number: true } });
+    const names = count > 2 ? `${rows.map((r) => `${r.fromName} (${r.number})`).join(", ")} and ${count - 2} more` : someNames(rows.map((r) => `${r.fromName} (${r.number})`));
     return {
-      id: "communication.overdue-queries", tone: "warn", icon: "MessagesSquare",
-      title: `${plural(count, "parent query", "parent queries")} past the reply time`,
-      detail: count > 2 ? `${rows.map((r) => `${r.fromName} (${r.number})`).join(", ")} and ${count - 2} more` : someNames(rows.map((r) => `${r.fromName} (${r.number})`)),
-      action: "Open", href: `${QUERIES}?overdue=1`, value: String(count),
+      id: "communication.overdue-queries", tone: late ? "warn" : "info", icon: "MessagesSquare",
+      title: `Parent messages: ${n(count)} open`,
+      detail: late ? `${n(late)} past the reply time · ${names}` : names,
+      action: "Open", href: late ? `${QUERIES}?overdue=1` : QUERIES, value: `${count}:${late}`,
     };
   },
 };
@@ -120,7 +125,7 @@ const notDelivered: Widget<"attention"> = {
     return {
       id: "communication.not-delivered", tone: "bad", icon: "Send",
       title: `${plural(messages, "message")} not delivered to ${plural(count, "person", "people")} in the last 7 days`,
-      detail: notSent ? `${plural(notSent, "person", "people")} had no WhatsApp, SMS or app that could reach them, so it was not sent to them` : "Open it to see who did not get it and send it again",
+      detail: notSent ? `${plural(notSent, "person", "people")} had no WhatsApp, SMS or app, so it was not sent` : "Open it to see who did not get it and send it again",
       action: "See who missed it", href: `/communication/history?status=not-delivered&period=custom&from=${range.from}&to=${range.to}`, value: `${messages}:${count}`,
     };
   },
@@ -142,10 +147,11 @@ const settingsAlerts: Widget<"attention"> = {
     ]);
     for (const g of gateways) out.push({
       id: `settings.gateway-test:${g.displayName}`, tone: "bad", icon: "CreditCard",
-      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Fees can still be collected at the counter. DREAM TEAM support fixes this: call or message them.",
+      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Collect at the counter. Call DREAM TEAM support.",
       action: "See details", href: "/settings/payment-gateways", value: "failed",
     });
-    for (const ch of ["whatsapp", "sms"] as const) {
+    // SMS alerts are not shown while SMS is not offered (SMS_OFFERED, owner 15 Nov 2026).
+    for (const ch of offeredChannels(["whatsapp", "sms"] as const)) {
       const s = channels[ch];
       if (!s.isOn) continue;
       if (s.lastTestOk === false) out.push({

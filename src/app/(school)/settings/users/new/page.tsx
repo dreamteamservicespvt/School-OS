@@ -30,7 +30,7 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
       <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Users & Permissions"} /></Link>
       <PageHeader title="Invite a user" href="/settings/users/new" userId={current.user.id} />
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        <Words k="The person gets a link to choose their own password. You never see or send a password. Staff usually get their login from Add Staff; use this for anyone else, or to give an existing staff member a login." />
+        <Words k="They get a link to choose their own password. Staff usually get a login from Add Staff." />
       </p>
       <Card>
         <CardBody>

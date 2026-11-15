@@ -10,7 +10,7 @@ import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { useT } from "@/lib/i18n/client";
 
-export type PayRow = { id: string; head: string; label: string; dueDate: string; balance: string; balancePaise: string; status: { label: string; tone: BadgeTone }; ticked: boolean };
+export type PayRow = { id: string; head: string; label: string; dueDate: string; balance: string; balancePaise: string; paid?: string | null; status: { label: string; tone: BadgeTone }; ticked: boolean };
 
 function rupees(paise: bigint) {
   const n = Number(paise) / 100;
@@ -41,7 +41,7 @@ export function FeesPayForm({ token, studentId, rows, canPay, preview }: { token
               )}
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{t.any(r.head)}{r.label ? `, ${r.label}` : ""}</span>
-                <span className="block text-sm text-ink-2">{t("Due on {date}", { date: r.dueDate })}</span>
+                <span className="block text-sm text-ink-2">{t("Due on {date}", { date: r.dueDate })}{r.paid ? ` · ${r.paid}` : ""}</span>
               </span>
               <span className="text-right">
                 <span className="block font-semibold tabular-nums">{r.balance}</span>

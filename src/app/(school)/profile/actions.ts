@@ -11,7 +11,10 @@ import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { revokeAllSessions } from "@/lib/auth/sessions";
 import { forgetRememberedDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
-import { confirmContactChange, roleNeedsTwoStep, startContactChange, type ContactKind } from "@/lib/auth/two-step";
+import { cleanEmail, cleanMobile, confirmContactChange, roleNeedsTwoStep, startContactChange, type ContactKind } from "@/lib/auth/two-step";
+import { checkProof, CONFIRM_COOKIE, sendConfirmCode, type ProofField } from "@/lib/auth/confirm-me";
+import { tellOldContact } from "@/lib/auth/contact-alert";
+import { securityAlert } from "@/lib/auth/security-alert";
 import { deviceInfo, requireAction, requireCurrent } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { NOTE_CHANNELS, NOTE_KINDS, SOUND_KEY, withSound, type NoteChannel } from "@/lib/notification-kinds";
@@ -45,7 +48,31 @@ export async function saveMyName(_prev: Result, formData: FormData): Promise<Res
   return { ok: true, message: "Your name is saved." };
 }
 
-export type CodeResult = { ok: boolean; message: string; step: "type" | "code" | "done"; kind: ContactKind; value?: string } | null;
+export type CodeResult = { ok: boolean; message: string; step: "type" | "code" | "done"; kind: ContactKind; value?: string; /** The "confirm it is you" box the message is about. */ field?: ProofField } | null;
+
+/** The password (or the code to the current contact) typed in a "confirm it is you" box. */
+async function proofFrom(formData: FormData) {
+  return {
+    password: String(formData.get("confirmPassword") ?? ""),
+    code: String(formData.get("confirmCode") ?? ""),
+    token: (await cookies()).get(CONFIRM_COOKIE)?.value ?? null,
+  };
+}
+
+/**
+ * "Confirm it is you" for a person with no password (owner decision 3, 15 Nov 2026): a code to their
+ * current email or mobile, typed before a new mobile or email, or before switching off two-step login.
+ */
+export async function sendConfirmCodeAction(): Promise<Result> {
+  const current = await requireCurrent();
+  const device = await deviceInfo();
+  const limit = await hitLimit(`confirm-me:ip:${device.ipAddress ?? "unknown"}`, 20, 600);
+  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
+  const started = await sendConfirmCode(current.user.id, current.school.id, device);
+  if (!started.ok) return { ok: false, message: started.message };
+  (await cookies()).set(CONFIRM_COOKIE, started.token, { httpOnly: true, secure, sameSite: "lax", path: "/profile", maxAge: 600 });
+  return { ok: true, message: `We sent a 6-digit code to ${started.sentTo}. It works for 10 minutes.` };
+}
 
 export async function sendContactCode(_prev: CodeResult, formData: FormData): Promise<CodeResult> {
   const current = await requireCurrent();
@@ -54,6 +81,14 @@ export async function sendContactCode(_prev: CodeResult, formData: FormData): Pr
   const device = await deviceInfo();
   const limit = await hitLimit(`contact-change:ip:${device.ipAddress ?? "unknown"}`, 20, 600);
   if (!limit.ok) return { ok: false, message: limitMessage(limit), step: "type", kind, value };
+  // A wrong-looking number or address is said first, so a code typed to confirm it is you is not used up on it.
+  if (!(kind === "phone" ? cleanMobile(value) : cleanEmail(value))) {
+    return { ok: false, message: kind === "phone" ? "Type a 10-digit mobile number." : "Type an email address like name@example.com.", step: "type", kind, value };
+  }
+  // The current password (or a code to the current contact) first (owner decision 3, 15 Nov 2026).
+  const proof = await checkProof(current.user.id, await proofFrom(formData));
+  if (!proof.ok) return { ok: false, message: proof.message, step: "type", kind, value, field: proof.field };
+  if (proof.by === "code") (await cookies()).delete({ name: CONFIRM_COOKIE, path: "/profile" });
   const started = await startContactChange(current.user.id, current.school.id, kind, value, device);
   if (!started.ok) return { ok: false, message: started.message, step: "type", kind, value };
   (await cookies()).set(CONTACT_COOKIE, started.token, { httpOnly: true, secure, sameSite: "lax", path: "/profile", maxAge: 600 });
@@ -71,22 +106,54 @@ export async function confirmContactCode(_prev: CodeResult, formData: FormData):
     return { ok: false, message: result.message, step: result.restart ? "type" : "code", kind, value };
   }
   jar.delete({ name: CONTACT_COOKIE, path: "/profile" });
+  // The old number or address hears about it, in case it was not them (owner decision 3, 15 Nov 2026).
+  await tellOldContact({ schoolId: result.schoolId ?? current.school.id, userLoginId: current.user.id, name: current.user.displayName, kind: result.kind, old: result.old });
   revalidatePath("/profile");
   return { ok: true, message: result.kind === "phone" ? `Your mobile number is now ${result.value}. You can sign in with it.` : `Your email is now ${result.value}.`, step: "done", kind: result.kind, value: result.value };
 }
 
-export async function setTwoStep(on: boolean): Promise<Result> {
+export type TwoStepResult = { ok: boolean; message: string; field?: ProofField } | null;
+
+/** Switching two-step login on; switching it off needs the current password (or a code) first. */
+export async function setTwoStep(on: boolean): Promise<TwoStepResult> {
+  if (!on) return { ok: false, message: "Type your current password first.", field: "confirmPassword" };
   const current = await requireCurrent();
-  if (!on && (await roleNeedsTwoStep(current.user.id, current.school.id))) {
-    return { ok: false, message: "Your role needs two-step login, so it stays on." };
-  }
-  if (on && !current.user.email && !current.user.phone) {
+  if (!current.user.email && !current.user.phone) {
     return { ok: false, message: "Add your mobile number or email first, so the code has somewhere to go." };
   }
-  await prisma.userLogin.update({ where: { id: current.user.id }, data: { twoStepChosen: on } });
-  await audit(on ? "two-step-switched-on" : "two-step-switched-off");
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { twoStepChosen: true } });
+  await audit("two-step-switched-on");
   revalidatePath("/profile");
-  return { ok: true, message: on ? "Two-step login is on from your next sign-in." : "Two-step login is off. Only your password is asked now." };
+  return { ok: true, message: "Two-step login is on from your next sign-in." };
+}
+
+/**
+ * Switches off the two-step login the person chose for themselves, once they
+ * typed their current password, or the code sent to their current contact when
+ * they have no password (owner decision 3, 15 Nov 2026). They are told on their
+ * security alerts, in case it was not them.
+ */
+export async function switchOffTwoStep(_prev: TwoStepResult, formData: FormData): Promise<TwoStepResult> {
+  const current = await requireCurrent();
+  if (await roleNeedsTwoStep(current.user.id, current.school.id)) {
+    return { ok: false, message: "Your role needs two-step login, so it stays on." };
+  }
+  const proof = await checkProof(current.user.id, await proofFrom(formData));
+  if (!proof.ok) return { ok: false, message: proof.message, field: proof.field };
+  if (proof.by === "code") (await cookies()).delete({ name: CONFIRM_COOKIE, path: "/profile" });
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { twoStepChosen: false } });
+  const device = await deviceInfo();
+  const afterSave = await withSchool(current.ctx, async (tx) => {
+    await writeAudit(tx, current.ctx, { action: "two-step-switched-off", recordType: "User Login", recordId: current.user.id, after: { confirmedBy: proof.by }, device: device.userAgent, ipAddress: device.ipAddress });
+    return securityAlert(tx, current.ctx.schoolId, current.user.id, {
+      subject: "Two-step login was switched off",
+      text: "Two-step login was switched off on your School OS login. If this was not you, contact your school.",
+      link: "/profile#password",
+    });
+  });
+  await afterSave();
+  revalidatePath("/profile");
+  return { ok: true, message: "Two-step login is off. Only your password is asked now." };
 }
 
 export async function saveNotePrefs(prefs: Record<string, string[]>): Promise<Result> {

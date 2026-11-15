@@ -27,7 +27,9 @@ import { BASE } from "../../_lib/page";
 import { addEmergencyAction, addNoteAction, archiveDocumentAction, archiveNoteAction, emergencyAction, uploadDocument } from "../../_actions/students";
 import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_actions/guardians";
 import { adjustPointsAction } from "../../_actions/behaviour";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
+import { PhoneMissing } from "../../_lib/phone-missing";
 
 type Base = { can: StudentAbilities; tz: string };
 
@@ -67,7 +69,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
             <DL rows={[
               ...(v.personal ? [
-                ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
+                ["Date of birth", s.dateOfBirth ? <><DayText text={longDate(s.dateOfBirth, tz)} /> ({ageOn(s.dateOfBirth) === 1 ? <Words k="1 year" /> : <Words k="{n} years" vars={{ n: ageOn(s.dateOfBirth) }} />})</> : null],
                 ["Gender", s.gender],
                 ["Blood group", s.bloodGroup],
               ] as [string, React.ReactNode][] : []),
@@ -95,7 +97,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
 
         {p.customFields.length > 0 && (
           <Card>
-            <CardHeader title="Extra fields" description="Added by the school in Settings, Forms & Approvals" action={editLink(href, "extra", can)} />
+            <CardHeader title="Extra fields" action={editLink(href, "extra", can)} />
             <DL rows={p.customFields.map((f) => [f.label, f.fieldType === "date" && p.extra[f.key] ? formatDate(new Date(`${p.extra[f.key]}T00:00:00Z`), tz) : p.extra[f.key] ?? null])} />
           </Card>
         )}
@@ -123,7 +125,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
 
         {v.pickup && !can.lookupOnly && (
           <Card>
-            <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
+            <CardHeader title="Pickup list" description="Who may collect the student" icon={UserRoundCheck} />
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
               {p.pickups.allowed.length === 0 && <li className="text-ink3"><Words k="No one yet. Press “Allow to pick up” on a parent below." /></li>}
               {p.pickups.allowed.map((g) => (
@@ -142,8 +144,8 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
               {p.identifiers.map((i) => (
                 <li key={i.key} className="flex items-center justify-between gap-3">
-                  <span className="min-w-0"><span className="block">{i.label}</span><span className="block text-[13px] text-ink3 font-mono">{i.value ?? "Not added"}</span></span>
-                  <Pill tone={i.level === "highly" ? "bad" : "warn"}>{i.level === "highly" ? "Highly restricted" : "Restricted"}</Pill>
+                  <span className="min-w-0"><span className="block">{tx(i.label)}</span><span className="block text-[13px] text-ink3 font-mono">{i.value ?? <Words k="Not added" />}</span></span>
+                  <Pill tone={i.level === "highly" ? "bad" : "warn"}><Words k={i.level === "highly" ? "Highly restricted" : "Restricted"} /></Pill>
                 </li>
               ))}
             </ul>
@@ -173,7 +175,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
   const primary = p.links.find((l) => l.isPrimary);
   return (
     <Card>
-      <CardHeader title="Parents" description={primary ? `Fee receipts and Parent Link go to ${primary.guardian.name}'s number` : "Choose a primary contact for messages"}
+      <CardHeader title="Parents" description={primary ? <Words k="Fee receipts and Parent Link go to {name}'s number" vars={{ name: primary.guardian.name }} /> : "Choose a primary contact for messages"}
         action={can.manage ? (
           <div className="flex flex-wrap gap-0.5">
             <EditLink href={`${BASE}/guardians/new?student=${studentId}`} label="Add" icon={Plus} />
@@ -189,7 +191,9 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <div className="min-w-0 flex-1">
                   <Link href={`${BASE}/guardians/${l.guardianId}`} className="font-semibold text-[14.5px] leading-tight hover:underline">{l.guardian.name}</Link>
                   <p className="text-[12.5px] text-ink3">{l.relationship}{l.isPrimary ? " · Parent Link" : ""}{l.guardian.occupation ? ` · ${l.guardian.occupation}` : ""}</p>
-                  <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
+                  {l.guardian.phone
+                    ? <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
+                    : <PhoneMissing className="mt-1.5 text-[13.5px]" editHref={can.manage ? `${BASE}/guardians/${l.guardianId}/edit?student=${studentId}` : null} />}
                   {l.guardian.email && <p className="text-[12.5px] text-ink3 truncate">{l.guardian.email}</p>}
                 </div>
               </div>
@@ -226,7 +230,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
 function SiblingsCard({ p }: { p: Profile }) {
   return (
     <Card>
-      <CardHeader title="Brothers and sisters" description="Students at the school who share a parent" icon={Users} />
+      <CardHeader title="Brothers and sisters" icon={Users} />
       {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No brother or sister at the school." /></p> : (
         <ul className="px-2 pb-2">
           {p.siblings.map((b) => (
@@ -258,11 +262,11 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
             <li key={`${e.kind}-${e.id}`} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0 flex-wrap">
               <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum shrink-0">{i + 1}</span>
               <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]"><Words k="Restricted" /></Pill>}</span>
-              <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a>
+              {e.phone ? <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a> : <PhoneMissing className="text-[13.5px]" />}
               {can.manage && (
                 <span className="flex gap-0.5">
-                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="up" /></span></ActionButton>}
-                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="down" /></span></ActionButton>}
+                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move {name} up" vars={{ name: e.name }} /></span></ActionButton>}
+                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move {name} down" vars={{ name: e.name }} /></span></ActionButton>}
                   <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost"><Words k="Remove" /></ActionButton>
                 </span>
               )}
@@ -294,7 +298,7 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
 function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: string }) {
   return (
     <Card>
-      <CardHeader title="Notes" description="Private notes are seen only by the roles chosen and the person who wrote them" icon={StickyNote} />
+      <CardHeader title="Notes" description="Private notes: only chosen roles and the writer see them" icon={StickyNote} />
       <div className="px-5 pb-5 flex flex-col gap-4">
         {can.contribute && (
           <details className="rounded-xl border border-line p-3.5 open:pb-4">
@@ -322,7 +326,7 @@ function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: stri
                   {n.visibleToRoles.length > 0 && <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="Private:" /> {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Pill>}
                   {can.manage && (
                     <ConfirmAction action={archiveNoteAction} fields={{ noteId: n.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title="Remove this note?" confirmLabel="Remove note" confirmVariant="danger">
-                      <Words k="The note is archived and kept in the history; it no longer shows on the profile." />
+                      <Words k="The note leaves the profile but stays in the history." />
                     </ConfirmAction>
                   )}
                 </div>
@@ -343,7 +347,7 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
   return (
     <Split side={340}>
       <Card className="overflow-hidden">
-        <CardHeader title="Class history" description="One row for every year. Past years are never changed." icon={ListChecks} />
+        <CardHeader title="Class history" description="Past years are never changed." icon={ListChecks} />
         {p.history.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No class on record yet." /></p> : (
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full text-[14px] min-w-[480px]">
@@ -379,7 +383,7 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
           <CardHeader title="Previous school" description={p.previousLocked ? `Locked: ${p.previousLocked} is closed.` : undefined} icon={Award} action={editLink(href, "previous", can)} />
           {p.previous ? (
             <DL cols={1} rows={[["School", p.previous.schoolName], ["Board", p.previous.board], ["Last class", p.previous.lastClass], ["Year", p.previous.year], ["Marks or %", p.previous.marks], ["Last changed", formatDate(p.previous.updatedAt, tz)]]} />
-          ) : <p className="px-5 pb-5 text-[14px] text-ink3">{p.student.previousSchool ?? "Not added."}</p>}
+          ) : <p className="px-5 pb-5 text-[14px] text-ink3">{p.student.previousSchool ?? <Words k="Not added" />}</p>}
         </Card>
       </Col>
     </Split>

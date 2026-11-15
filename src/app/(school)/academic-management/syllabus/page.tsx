@@ -141,7 +141,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
                           <div className={`h-full rounded-full ${behind ? "bg-danger" : "bg-success"}`} style={{ width: `${b.completedPct}%` }} />
                           <div className="absolute -top-1 h-4.5 w-0.5 bg-ink" style={{ left: `${b.plannedPct}%` }} title={`Should be done by today: ${b.plannedPct}%`} />
                         </div>
-                        <p className="mt-2 text-sm text-ink-2">{b.done} <Words k="of" /> {b.total} <Words k="topics done ·" /> <Words k="should be" /> {b.plannedPct}<Words k="% done by today" /></p>
+                        <p className="mt-2 text-sm text-ink-2"><Words k="{n} of {n2}" vars={{ n: b.done, n2: b.total }} /> <Words k="topics done ·" /> <Words k="should be" /> {b.plannedPct}<Words k="% done by today" /></p>
                         <p className={`mt-1 text-sm ${b.late.length ? "font-medium text-danger" : "text-success"}`}>{lateWords(b.late)}</p>
                       </>
                     )}
@@ -176,7 +176,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
 
       {data.kind === "log" && (
         data.pairs.length === 0 ? (
-          <EmptyState title="No classes given to you yet"><Words k="The daily log lists the subjects you teach. They appear once you are assigned in Teacher Allocation." /></EmptyState>
+          <EmptyState title="No classes given to you yet"><Words k="Your subjects show here once they are assigned to you in Teacher Allocation." /></EmptyState>
         ) : (
           <>
             <div className="no-print mb-4"><ParamSelect name="pair" label="Class and subject" current={data.pairKey} options={pairOptions} /></div>
@@ -198,7 +198,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
             {page.writable && scope.staffId && data.pairs.length > 0 && <LessonPlanButton yearId={year.id} pairs={pairOptions} defaultPair={data.pairKey || undefined} />}
           </div>
           {data.plans.length === 0 ? (
-            <EmptyState title="No lesson plans yet">{scope.staffId && data.pairs.length ? "Write a plan for the next topic. The topic and date are filled in from the syllabus and the Time Table." : "Lesson plans written by teachers show here."}</EmptyState>
+            <EmptyState title="No lesson plans yet">{scope.staffId && data.pairs.length ? "Write a plan for the next topic." : "Lesson plans written by teachers show here."}</EmptyState>
           ) : (
             <>
               <ul className="space-y-3">
@@ -227,7 +227,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
               </ul>
               {data.total > PAGE_SIZE && (
                 <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-2 text-sm">
-                  <span className="text-ink-2">{plural(data.total, "plan")}<Words k=", page" /> {data.pageNo} <Words k="of" /> {Math.ceil(data.total / PAGE_SIZE)}</span>
+                  <span className="text-ink-2">{plural(data.total, "plan")}<Words k=", page" /> <Words k="{n} of {n2}" vars={{ n: data.pageNo, n2: Math.ceil(data.total / PAGE_SIZE) }} /></span>
                   <span className="flex gap-2">
                     {data.pageNo > 1 && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo - 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}><Words k="Previous" /></Link>}
                     {data.pageNo * PAGE_SIZE < data.total && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo + 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}><Words k="Next" /></Link>}

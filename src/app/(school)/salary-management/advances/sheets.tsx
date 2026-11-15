@@ -46,13 +46,14 @@ export function GiveSheet({ closeHref, staff, months, approver }: { closeHref: s
 
 const MODES = [{ value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }, { value: "CASH", label: "Cash" }];
 
-export function PaySheet({ closeHref, advanceId, title, amount, today, banks, mainBank }: { closeHref: string; advanceId: string; title: string; amount: string; today: string; banks: Option[]; mainBank: string }) {
+/** recovery: when it is taken back, like "₹2,000 a month from December 2026 salary" (loop 4). */
+export function PaySheet({ closeHref, advanceId, title, amount, today, banks, mainBank, recovery }: { closeHref: string; advanceId: string; title: string; amount: string; today: string; banks: Option[]; mainBank: string; recovery?: string }) {
   const [mode, setMode] = useState("BANK_TRANSFER");
   return (
-    <SheetForm title={title} sub="It goes into the Day Book as money out on this date." closeHref={closeHref} action={payAdvanceAction} submitLabel={`Mark ${amount} paid`} pendingText="Saving…" hidden={{ advanceId }}>
+    <SheetForm title={title} sub={`It goes into the Day Book as money out on this date.${recovery ? ` Taken back: ${recovery}.` : ""}`} closeHref={closeHref} action={payAdvanceAction} submitLabel={`Mark ${amount} paid`} pendingText="Saving…" hidden={{ advanceId }}>
       <SDate name="date" label="Paid on" required start={today} max={today} />
       <SegField name="mode" label="Mode" options={MODES} start="BANK_TRANSFER" onValue={setMode} />
-      {mode !== "CASH" && <PaymentRefField mode={mode} label="Reference" className="font-mono" placeholder="UTR or cheque number" />}
+      {mode !== "CASH" && <PaymentRefField mode={mode} label="Reference" placeholder="UTR or cheque number" />}
       {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
     </SheetForm>
   );

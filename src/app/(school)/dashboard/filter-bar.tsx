@@ -35,7 +35,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
       {dates !== null && (
         <div className="flex items-center gap-2">
           <UrlDate param="from" label="From" value={dates.from || dates.to || today} max={dates.to || today} className="sm:w-44" />
-          <span className="text-[13px] text-ink3"><Words k="to" /></span>
+          <span className="text-[13px] text-ink3" aria-hidden="true">–</span>
           <UrlDate param="to" label="To" value={dates.to || today} max={today} className="sm:w-44" />
         </div>
       )}
@@ -46,7 +46,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
       </PhoneFilters>
       {showing && (
         <p className="text-[13px] text-ink2">
-          <Words k="Showing" /> {showing}<Words k=". Each number opens its list with the same filter." />{" "}
+          <Words k="Showing" /> {showing}.{" "}
           <Link href="/dashboard?view=dashboard" className="font-semibold text-brand hover:underline"><Words k="Reset" /></Link>
         </p>
       )}

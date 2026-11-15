@@ -18,12 +18,12 @@ describe("app notice to parents", () => {
   it("says parents will not get it when nothing is connected", async () => {
     const plan = await withSchool(off.ctx, (tx) => planMessage(tx, off.ctx, { to: { kinds: ["parents"], sectionIds: [off.a.id] }, channels: ["app"], text: "PTM on Saturday." }));
     expect(plan.people).toBe(0);
-    expect(plan.skipped.map((g) => g.reason)).toContain("Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it");
+    expect(plan.skipped.map((g) => g.reason)).toContain("Parents have no app, and WhatsApp and email are not connected, so they will not get it");
   });
 
-  it("points to WhatsApp, SMS or email when one is connected", async () => {
+  it("points to WhatsApp or email when one is connected (SMS is not offered for now)", async () => {
     const plan = await withSchool(on.ctx, (tx) => planMessage(tx, on.ctx, { to: { kinds: ["parents"], sectionIds: [on.a.id] }, channels: ["app"], text: "PTM on Saturday." }));
-    expect(plan.skipped.map((g) => g.reason)).toContain("Parents have no app; they get WhatsApp, SMS or email");
+    expect(plan.skipped.map((g) => g.reason)).toContain("Parents have no app; they get WhatsApp or email");
   });
 });
 

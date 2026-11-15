@@ -52,11 +52,12 @@ export default async function PaperFormsPage({ searchParams }: Search) {
   return (
     <div className="grid max-w-3xl gap-4">
       <h2 className="text-lg font-semibold"><Words k="Paper forms received" /></h2>
-      <p className="max-w-prose text-ink-2"><Words k="For consent forms parents already signed on paper. Tick the students whose signed form you hold; each is recorded for the child's first parent on record, as given on the date of the forms, and kept as recorded from a paper form with your name. For a whole school, a parent who said no, or another parent who signed, use Student Management, Import students, Consent from paper forms." /></p>
+      <p className="max-w-prose text-ink-2"><Words k="Tick each student whose signed paper form you hold. It is recorded for the child's first parent, with your name." /></p>
+      <p className="max-w-prose text-sm text-ink-2"><Words k="Whole school, a parent who said no, or another parent? Use Student Management, Import students, Consent from paper forms." /></p>
       {!may ? (
-        <EmptyState title="Your role cannot record consent forms"><Words k="Recording consent is Student Management work. Ask the School Admin or the office." /></EmptyState>
+        <EmptyState title="Your role cannot record consent forms"><Words k="Ask the School Admin or the office." /></EmptyState>
       ) : data.texts.length === 0 ? (
-        <EmptyState title="No consent texts yet"><Words k="Add the consent texts on the Consent page first, so each form is kept with the version it carried." /></EmptyState>
+        <EmptyState title="No consent texts yet"><Words k="Add them on the Consent page first." /></EmptyState>
       ) : (
         <>
           <Card>
@@ -88,7 +89,7 @@ export default async function PaperFormsPage({ searchParams }: Search) {
                   <ActionForm action={paperFormsAction} submitLabel="Record the ticked forms" pendingText="Recording…" className="grid gap-4">
                     <input type="hidden" name="sectionId" value={data.section.value} />
                     <input type="hidden" name="consentType" value={data.type} />
-                    <FormText name="formDate" label="Date on the forms" type="date" required max={today} defaultValue={today} help="The date the parents signed. If the dates differ, use the import instead." />
+                    <FormText name="formDate" label="Date on the forms" type="date" required max={today} defaultValue={today} help="Dates differ? Use the import instead." />
                     <fieldset>
                       <legend className="mb-2 text-[13px] font-semibold text-ink2"><Words k="Signed forms received" /></legend>
                       <ul className="divide-y divide-line/70 rounded-xl border border-line">

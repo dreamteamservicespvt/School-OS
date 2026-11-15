@@ -13,7 +13,7 @@ import { BackLink } from "../../../_components/page-top";
 import { MarksGrid, type GridStudent } from "../../marks-grid";
 import { LockPaperButton, ReopenButton } from "../../marks-ui";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Marks Entry") };
@@ -25,6 +25,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
   const { entryId, sectionId } = await params;
   if (!UUID.test(entryId) || !UUID.test(sectionId)) notFound();
   const page = await examPage(await searchParams);
+  const t = await getT();
   const data = await withSchool(page.current.ctx, async (tx) => {
     const p = await loadPaper(tx, page.current.ctx, entryId, sectionId, page.scope);
     if (!p) return null;
@@ -68,11 +69,11 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
     <>
       {p.exam.status === "DRAFT" && <Banner tone="warn" title="Marks open once the datesheet is published."><Words k="Publish the datesheet of" /> {p.exam.title} <Words k="first." /></Banner>}
       {!page.writable && <Banner tone="warn" title="This year is closed."><Words k="Marks can be seen but not changed." /></Banner>}
-      {page.writable && open && checksOnly && <Banner tone="info" title={`${teachers.join(", ") || "The subject teacher"} enters these marks.`}><Words k="You can see them here. To hurry them up, use Remind on Marks Entry." /></Banner>}
-      {notWritten && canEdit && <Banner tone="info" title={`This paper is written on ${formatDate(p.entry.date, tz)}.`}><Words k="Enter marks after the students write it." /></Banner>}
-      {overdue && canEdit && <Banner tone="bad" title={`Marks were due on ${formatDate(due!, tz)}.`}><Words k="Enter the rest and submit as soon as you can." /></Banner>}
-      {p.paper.status === "SUBMITTED" && <Banner tone="brand" icon={Send} title={p.paper.submittedAt ? `Submitted ${formatDateTime(p.paper.submittedAt, tz)}${name(p.paper.submittedById) ? ` by ${name(p.paper.submittedById)}` : ""}.` : "Submitted."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." />{page.scope.manage ? " Lock the marks once you have checked them." : ""}</Banner>}
-      {p.paper.status === "LOCKED" && <Banner tone="ok" icon={Lock} title={p.paper.lockedAt ? `Locked ${formatDateTime(p.paper.lockedAt, tz)}.` : "Locked."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." /></Banner>}
+      {page.writable && open && checksOnly && <Banner tone="info" title={t("{name} enters these marks.", { name: teachers.join(", ") || t("The subject teacher") })}><Words k="You can see them here. To hurry them up, use Remind on Marks Entry." /></Banner>}
+      {notWritten && canEdit && <Banner tone="info" title={t("This paper is written on {date}.", { date: formatDate(p.entry.date, tz) })}><Words k="Enter marks after the students write it." /></Banner>}
+      {overdue && canEdit && <Banner tone="bad" title={t("Marks were due on {date}.", { date: formatDate(due!, tz) })}><Words k="Enter the rest and submit as soon as you can." /></Banner>}
+      {p.paper.status === "SUBMITTED" && <Banner tone="brand" icon={Send} title={p.paper.submittedAt ? (name(p.paper.submittedById) ? t("Submitted {when} by {name}.", { when: formatDateTime(p.paper.submittedAt, tz), name: name(p.paper.submittedById) }) : t("Submitted {when}.", { when: formatDateTime(p.paper.submittedAt, tz) })) : t("Submitted.")}><Words k="A change needs a reason and an approval, and the old mark stays in the history." />{page.scope.manage ? ` ${t("Lock the marks once you have checked them.")}` : ""}</Banner>}
+      {p.paper.status === "LOCKED" && <Banner tone="ok" icon={Lock} title={p.paper.lockedAt ? t("Locked {when}.", { when: formatDateTime(p.paper.lockedAt, tz) }) : t("Locked.")}><Words k="A change needs a reason and an approval, and the old mark stays in the history." /></Banner>}
     </>
   );
 
@@ -90,9 +91,10 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
         head={{
           title: `${p.subject.name} · ${p.section.label}`, sectionShort: p.section.label.replace(/^Class /, ""), examTitle: p.exam.title,
           paperOn: `${formatDate(p.entry.date, tz)}, ${timeRange(p.entry.startTime, p.entry.durationMin)}`,
-          teachers: teachers.join(", ") || "No teacher given", dueText: due && open ? `marks due ${formatDate(due, tz)}` : null,
+          teachers: teachers.join(", ") || "No teacher given", dueText: due && open ? formatDate(due, tz) : null,
           statusWords: PAPER_STATUS_WORDS[p.paper.status], statusTone: PAPER_STATUS_TONE[p.paper.status],
           onBehalf: page.scope.manage && !(page.scope.staffId && teacherIds.includes(page.scope.staffId)), approver: "the Principal (or the approver your school set for marks changes)",
+          overdue,
         }}
         notes={notes}
         actions={page.scope.manage && page.writable && p.paper.status === "SUBMITTED" ? <><ReopenButton entryId={entryId} sectionId={sectionId} label={label} /><LockPaperButton entryId={entryId} sectionId={sectionId} label={label} /></> : null}

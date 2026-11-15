@@ -12,9 +12,10 @@ export async function acceptInviteAction(token: string, _prev: InviteState, form
   if (password !== String(formData.get("confirm") ?? "")) {
     return { message: "The two passwords are not the same. Type them again." };
   }
-  const limit = await hitLimit(`invite:ip:${(await deviceInfo()).ipAddress ?? "unknown"}`, 20, 600);
+  const device = await deviceInfo();
+  const limit = await hitLimit(`invite:ip:${device.ipAddress ?? "unknown"}`, 20, 600);
   if (!limit.ok) return { message: limitMessage(limit) };
-  const result = await acceptInvite(token, password);
+  const result = await acceptInvite(token, password, new Date(), device);
   if (!result.ok) return { message: result.message };
   redirect("/sign-in?welcome=1");
 }

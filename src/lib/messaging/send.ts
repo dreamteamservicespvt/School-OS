@@ -16,10 +16,11 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { formatDate } from "../format";
-import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, whatsappIsLive, type Channel } from "./channels";
+import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, SMS_OFFERED, whatsappIsLive, type Channel } from "./channels";
 import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, spendCredits } from "./credits";
 import { describeAudience, resolveAudience, SYSTEM_SCOPE, type AudienceRule, type Candidate, type Scope, type StudentInfo } from "./recipients";
-import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, type Rendered, type UsableVersion } from "./templates";
+import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, withLastApproved, type Rendered, type UsableVersion } from "./templates";
+import { PARENT_LINK_BLANK, parentLinkBlanks, usesParentLink } from "../parent-link/blank";
 import { blanksFor, unknownBlankWords, type BlankAudience } from "./blanks";
 import { inTestMode } from "./providers";
 import { countWithReason } from "./skip-words";
@@ -210,13 +211,18 @@ function baseValues(school: { name: string; phone: string | null; timeZone: stri
 function addressFor(c: Candidate, channel: Channel, providersOn = true): { address: string } | { skip: string } {
   if (channel === "app") {
     // With no WhatsApp, SMS or email connected, parents cannot get it at all: say so plainly.
-    if (c.type === "guardian") return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
+    // SMS is named only while it is offered (SMS_OFFERED).
+    if (c.type === "guardian") {
+      if (!SMS_OFFERED) return { skip: providersOn ? "Parents have no app; they get WhatsApp or email" : "Parents have no app, and WhatsApp and email are not connected, so they will not get it" };
+      return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
+    }
     return c.userLoginId ? { address: c.userLoginId } : { skip: "No School OS login for app messages" };
   }
   if (c.type === "student") return { skip: "Students get app messages only" };
   if (channel === "email") return c.email ? { address: c.email } : { skip: "No email address" };
   const phone = digits(c.phone);
-  return phone ? { address: phone } : { skip: "No mobile number" };
+  // A parent with no phone (owner decision 15) is left out and counted as "No phone" until one is added.
+  return phone ? { address: phone } : { skip: c.type === "guardian" ? "No phone" : "No mobile number" };
 }
 
 type Filled = { ok: true; text: string; values: Record<string, string> } | { ok: false; missing: string[] };
@@ -356,18 +362,24 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   const problem = (p: string) => { if (!problems.includes(p)) problems.push(p); };
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true, timeZone: true, defaultLanguage: true, smsDltEntityId: true, smsSenderHeader: true } });
   const setups = await channelSetups(tx, ctx);
-  const on = new Set<Channel>(["app", ...PROVIDER_CHANNELS.filter((c) => setups[c].isOn)]);
+  // While SMS is not offered (SMS_OFFERED, owner 15 Nov 2026) SMS counts as not connected, so nothing
+  // goes by SMS by default or by accident. Sign-in and confirmation codes (oneTimeCode) keep their SMS path.
+  const smsAllowed = SMS_OFFERED || Boolean(input.oneTimeCode);
+  const on = new Set<Channel>(["app", ...PROVIDER_CHANNELS.filter((c) => setups[c].isOn && (c !== "sms" || smsAllowed))]);
   const providersOn = on.has("whatsapp") || on.has("sms") || on.has("email");
   const live = whatsappIsLive(setups.whatsapp);
   const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
   const preferred = input.channels === "preferred";
-  const primary: Channel[] = preferred ? [] : [...new Set(input.channels as Channel[])];
-  const fallback: Channel[] = [...new Set(preferred ? PREFERRED_ORDER : input.fallback ?? [])].filter((c) => !primary.includes(c));
+  // SMS asked for while it is not offered is simply left out (an old saved choice, or a caller's list).
+  const asked: Channel[] = preferred ? [] : [...new Set(input.channels as Channel[])];
+  const primary: Channel[] = smsAllowed ? asked : asked.filter((c) => c !== "sms");
+  const fallback: Channel[] = [...new Set(preferred ? PREFERRED_ORDER : input.fallback ?? [])].filter((c) => !primary.includes(c) && (smsAllowed || c !== "sms"));
   const tried = [...primary, ...fallback];
+  if (!tried.length && asked.includes("sms")) problem("SMS is not used for now. Send by WhatsApp instead.");
   const typed = (input.text ?? "").trim();
   const title = (input.title ?? "").trim() || null;
 
-  if (tried.length === 0) problem("Choose at least one channel.");
+  if (tried.length === 0 && !asked.includes("sms")) problem("Choose at least one channel.");
   for (const ch of primary) {
     if (!on.has(ch)) problem(`${CHANNEL_LABEL[ch]} is switched off. Switch it on in Settings, SMS, WhatsApp & Email, or choose another channel.`);
   }
@@ -388,6 +400,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
       versions = versions.filter((v) => v.dltTemplateId);
       if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID yet. DREAM TEAM adds it.`);
     }
+    // New words waiting for WhatsApp's approval: the last approved words go meanwhile.
+    if (ch === "whatsapp" && live) versions = await withLastApproved(tx, ctx, t.id, versions);
     chosen.set(ch, { name: t.name, versions });
   }
   if (typed.length > MAX_TEXT) problem(`The message has ${typed.length} characters. It can have at most ${MAX_TEXT}.`);
@@ -450,7 +464,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   // SMS backup (fee, attendance and result messages only).
   let backupVersions: UsableVersion[] = [];
   let backupTemplateId: string | null = null;
-  const backupWanted = Boolean(input.smsBackup && input.messageType && (BACKUP_TYPES as readonly string[]).includes(input.messageType) && tried.some((c) => c !== "sms"));
+  const backupWanted = Boolean(SMS_OFFERED && input.smsBackup && input.messageType && (BACKUP_TYPES as readonly string[]).includes(input.messageType) && tried.some((c) => c !== "sms"));
   if (backupWanted) {
     backupTemplateId = input.backupTemplateId ?? null;
     if (!backupTemplateId) {
@@ -471,6 +485,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
 
   const scope = input.scope ?? SYSTEM_SCOPE;
   const candidates = await resolveAudience(tx, ctx, input.to, scope);
+  // {parent_link}: each parent's own Parent Link, or "Ask the school office for your Parent Link." (../parent-link/blank.ts).
+  const linkBodies = [typed, ...[...chosen.values()].flatMap((c) => c.versions.map((v) => v.body)), ...backupVersions.map((v) => v.body)];
+  const parentLinks = usesParentLink(...linkBodies) ? await parentLinkBlanks(tx, ctx, candidates.filter((c) => c.type === "guardian").map((c) => c.id)) : {};
   if (unknownTyped.length) {
     const kinds = [...new Set(candidates.map((c): BlankAudience => (c.type === "guardian" ? "parents" : c.type === "student" ? "students" : "staff")))];
     problem(unknownBlankWords(unknownTyped, blanksFor(kinds))!);
@@ -495,6 +512,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
       const values: Record<string, string> = {
         ...asTyped,
         ...baseValues(school, c, students),
+        ...(c.type === "guardian" && parentLinks[c.id] ? { [PARENT_LINK_BLANK]: parentLinks[c.id] } : {}),
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
         ...(input.perPerson?.[c.id] ?? {}),

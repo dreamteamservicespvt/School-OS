@@ -86,11 +86,11 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <StudentsHead page="Promotion" href={`${BASE}/promotion`} sub="Move a whole class to the next class at year end, after checking results and the list." />
+      <StudentsHead page="Promotion" href={`${BASE}/promotion`} sub="Move a whole class up at year end" />
       <div className="flex flex-col gap-5">
         {nextYear && (
           <Banner tone="info" icon={CalendarDays} title={`${nextYear.name} is being prepared.`}>
-            <Words k="The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved promotions move students into" /> {nextYear.name}.
+            <Words k="Uses final results, attendance and fees. Saved promotions move students into" /> {nextYear.name}.
           </Banner>
         )}
         <Card className="p-2.5 md:p-3">
@@ -106,7 +106,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         </Card>
 
         <Card>
-          <CardHeader title="Choose the class" description="Default target: the next class, same section name, next year" icon={ListChecks} />
+          <CardHeader title="Choose the class" icon={ListChecks} />
           {!data.fromYear ? (
             <Empty icon={CalendarDays} title="No open academic year" body="Open an academic year in Academic Management, then return." action={<ButtonLink href="/academic-management"><Words k="Open Academic Management" /></ButtonLink>} />
           ) : (
@@ -169,7 +169,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         )}
 
         <Card>
-          <CardHeader title="Promotion history" description="Past promotions and who confirmed them" icon={History} />
+          <CardHeader title="Promotion history" icon={History} />
           {data.batches.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No promotions yet. Promotions you confirm show here with who confirmed them." /></p> : (
             <ul className="px-3 pb-3">
               {data.batches.map((b) => {

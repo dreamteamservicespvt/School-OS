@@ -3,6 +3,7 @@
 // Take Attendance: saving a class (online, or later from the phone's
 // offline queue). Every rule is checked again here on the server.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { revalidatePath } from "next/cache";
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
@@ -10,7 +11,9 @@ import { UUID_RE } from "@/lib/staff/act";
 import { actionContext } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { problemState } from "@/lib/attendance/act";
-import { saveClassAttendance, type Entry } from "@/lib/attendance/marks";
+import { dayText, saveClassAttendance, type Entry } from "@/lib/attendance/marks";
+import { todayIn } from "@/lib/academic/common";
+import { isoDay } from "@/lib/staff/dates";
 import { formatTime } from "@/lib/format";
 import { flash } from "@/lib/flash";
 
@@ -90,9 +93,10 @@ export async function saveSheet(payload: SheetPayload): Promise<SheetResult> {
     const absent = result.counts.absent ?? 0;
     if (result.messagesAt && absent) parts.push(`Parents of ${absent} absent ${absent === 1 ? "student" : "students"} get a message at ${formatTime(result.messagesAt, tz)}.`);
     else if (result.held && absent) parts.push("No absence message goes to parents yet: messages start when your school goes live on School OS.");
-    else if (result.noChannel && absent) parts.push("No absence message goes to parents: WhatsApp or SMS is not connected yet (Settings, Messaging).");
+    else if (result.noChannel && absent) parts.push(SMS_OFFERED ? "No absence message goes to parents: WhatsApp or SMS is not connected yet (Settings, Messaging)." : "No absence message goes to parents: WhatsApp is not connected yet (Settings, Messaging).");
     else if (result.ruleOff && absent) parts.push("No absence message goes to parents: the \"Absent today\" message is switched off in Communication, Message Settings.");
-    else if (!absent && !input.offline) parts.push("Everyone is in today.");
+    // A past day is not "today" (layman loop 4: "Everyone is in today." for 12 November).
+    else if (!absent && !input.offline) parts.push(isoDay(input.date) === isoDay(todayIn(tz, now)) ? "Everyone is in today." : `Everyone was in on ${dayText(input.date)}.`);
     if (result.clockFlagged) parts.push("The phone's clock was wrong, so the school's time was used.");
     const message = parts.join(" ");
     if (!input.offline) await flash({ message });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
@@ -85,18 +86,18 @@ export default async function SettingsPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={path} sub="How attendance is taken, when it locks, and who is told" />
+      <AttHead access={access} features={features} userId={current.user.id} href={path} />
       <div className="flex max-w-5xl flex-col gap-5 lg:gap-6">
         <Chips label="Settings sections" value={tab} options={TABS.map((t) => ({ value: t.key, label: t.label, href: `${path}?tab=${t.key}` }))} />
 
         {tab === "punch" && (
           <>
             <Card>
-              <CardHeader icon={ListChecks} title="Punch methods" description="How attendance is taken, for students and for staff. Details for devices, QR and the campus area are on Devices & QR." />
+              <CardHeader icon={ListChecks} title="Punch methods" description="For students and staff. Device details are on Devices & QR." />
               <CardBody><PunchMethodsForm action={savePunchMethodsAction} v={v} /></CardBody>
             </Card>
             <Card className="overflow-hidden">
-              <CardHeader icon={ScanFace} title="More options" description="Optional parts, switched on for this school only." />
+              <CardHeader icon={ScanFace} title="More options" />
               <ul className="divide-y divide-line/70 border-t border-line/70">
                 {extra.map((f) => {
                   const isOn = features.has(f.key);
@@ -149,7 +150,7 @@ export default async function SettingsPage({ searchParams }: Props) {
               </div>
               <div className="border-t border-line/70 px-5 py-3.5">
                 <p className="text-[14px] font-semibold"><Words k="Who can change marks after the lock" /></p>
-                <p className="mb-2.5 text-[12.5px] text-ink3"><Words k="Everyone else sends a correction request to Approvals. The original stays in the audit log." /></p>
+                <p className="mb-2.5 text-[12.5px] text-ink3"><Words k="Everyone else asks for a correction in Approvals." /></p>
                 <div className="flex flex-wrap gap-2">
                   {s.lockOverrideRoles.length ? s.lockOverrideRoles.map((r) => <span key={r} className="inline-flex h-9 items-center rounded-full border border-line px-3 text-[13px] font-medium">{roleName(r)}</span>) : <span className="text-[13px] text-ink3"><Words k="Nobody. Every change after the lock is a correction request." /></span>}
                 </div>
@@ -165,11 +166,11 @@ export default async function SettingsPage({ searchParams }: Props) {
         {tab === "alerts" && (
           <>
             <Card>
-              <CardHeader icon={MessageCircle} title="Absence message to parents" description="One message per absent student per day. None for approved leave. The text and channels are Communication's “Absent today” message."
+              <CardHeader icon={MessageCircle} title="Absence message to parents" description="Once a day per absent student. None for approved leave."
                 action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic"><Words k="Change the message" /></ButtonLink>} />
               <div className="border-t border-line/70 px-5 py-4 space-y-3">
                 {message && !message.on && <Alert tone="warning" title="No absence message goes to parents"><Words k="The “Absent today” message is switched off in Communication, Message Settings." /></Alert>}
-                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents"><Words k="No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." /></Alert>}
+                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents">{SMS_OFFERED ? <Words k="No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." /> : <Words k="No channel that can carry it is switched on. Switch WhatsApp on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect it." />}</Alert>}
                 {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here"><Words k="Switch on “Absence message to parents” below to send it after each register." /></Alert>}
                 <p className="eyebrow text-ink3"><Words k="Message parents get" /></p>
                 <div className="max-w-md rounded-2xl rounded-tl-md bg-ok/10 px-4 py-3 text-[14px] leading-relaxed">
@@ -179,7 +180,7 @@ export default async function SettingsPage({ searchParams }: Props) {
               </div>
             </Card>
             <Card>
-              <CardHeader icon={BellRing} title="Alerts" description="Messages to parents go through Communication and appear in Message History." />
+              <CardHeader icon={BellRing} title="Alerts" description="Sent messages show in Message History." />
               <CardBody><NotificationsForm action={saveNotificationsAction} v={v} /></CardBody>
             </Card>
           </>
@@ -188,7 +189,7 @@ export default async function SettingsPage({ searchParams }: Props) {
         {tab === "leave" && (
           <>
             <Card className="overflow-hidden">
-              <CardHeader icon={CalendarDays} title="Student leave types" description="Leave types offered when recording student leave" action={<LeaveTypeForm action={saveLeaveTypeAction} quotasOn={v.quotasOn} />} />
+              <CardHeader icon={CalendarDays} title="Student leave types" action={<LeaveTypeForm action={saveLeaveTypeAction} quotasOn={v.quotasOn} />} />
               {data.types.length === 0 ? (
                 <p className="border-t border-line/70 px-5 py-4 text-[13px] text-ink3"><Words k="No leave types yet. Add the first one." /></p>
               ) : (
@@ -211,7 +212,7 @@ export default async function SettingsPage({ searchParams }: Props) {
               )}
             </Card>
             <Card>
-              <CardHeader icon={Scale} title="Leave quotas and who decides" description={v.quotasOn ? "Quotas are on. Shown while recording leave, like “Medical: 4 of 6 days left this term”." : "Quotas are off. The days above are kept but not checked."} />
+              <CardHeader icon={Scale} title="Leave quotas and who decides" description={v.quotasOn ? "Quotas are on. Days left show while recording leave." : "Quotas are off. The days above are kept but not checked."} />
               <CardBody><LeaveRulesForm action={saveLeaveRulesAction} v={v} /></CardBody>
             </Card>
           </>

@@ -93,13 +93,13 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
   return (
     <>
       <CommHead access={access} page="Parent Link" href="/communication/parent-link"
-        sub="One personal link per guardian for all their children. No password, no app."
+        sub="One link per guardian. No password, no app."
         actions={<>
           <ButtonLink href="/communication/parent-link/consent" variant="secondary" icon={FileSignature} className="hidden md:inline-flex"><Words k="Request consent" /></ButtonLink>
           <ButtonLink href="/communication/parent-link/send" variant="primary" icon={Send}><Words k="Send to existing families" /></ButtonLink>
         </>} />
       <div className="flex flex-col gap-5 lg:gap-6">
-        {!pl.on && <Banner tone="warn" title="Parent Link is switched off."><Words k="Parents who open their link see “Parent Link is not available right now”. Switch it on under What parents see." /></Banner>}
+        {!pl.on && <Banner tone="warn" title="Parent Link is switched off."><Words k="Parents see “Parent Link is not available right now”. Switch it on under What parents see." /></Banner>}
         <Stats items={[
           { label: "Links active", value: s.active.toLocaleString("en-IN"), icon: Link2, sub: "One per guardian", href: quick({ status: "ACTIVE" }) },
           { label: "Opened in last 30 days", value: s.opened30.toLocaleString("en-IN"), icon: Eye, tone: "ok", sub: `${pct(s.opened30, s.active)} of guardians`, href: quick({ status: "ACTIVE", opened: "30" }) },
@@ -108,7 +108,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
           { label: "Families with no link", value: s.withoutLink.toLocaleString("en-IN"), icon: Users, tone: s.withoutLink ? "info" : undefined, sub: "Send them theirs", href: "/communication/parent-link/send" },
         ]} />
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6 items-start">
-          <ShowsCard settings={pl} switches={sectionSwitches()} previewHref={data.previewId ? `/communication/parent-link/${data.previewId}/preview` : null} />
+          <ShowsCard settings={pl} switches={sectionSwitches().filter((sw) => sw.key !== "transport" || current.modulesOn.has("transport-management"))} previewHref={data.previewId ? `/communication/parent-link/${data.previewId}/preview` : null} />
           <Card className="min-w-0">
             <CardHeader title="Links sent and opened" description="Guardians opening their link each week" icon={ChartColumn} />
             <div className="px-5"><Bars data={bars} height={150} ariaLabel="Guardians opening Parent Link per week" /></div>
@@ -145,7 +145,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
                   </li>
                 );
               })}
-              {!data.consents.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet. Guardians agree to each form on their Parent Link with a one-time code." /></li>}
+              {!data.consents.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet." /></li>}
               {data.consents.length > 0 && <li><Link href="/communication/parent-link/consent" className="text-[13px] font-semibold text-brand hover:underline"><Words k="All consent requests" /></Link></li>}
             </ul>
           </Card>
@@ -171,7 +171,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
             empty={
               <EmptyState bare Icon={Link2} title={filtered ? "No links here" : "No Parent Links yet"}
                 action={!filtered ? <ButtonLink href="/communication/parent-link/send" icon={Send}><Words k="Send to existing families" /></ButtonLink> : undefined}>
-                {filtered ? "Change the search or filters." : "Each guardian gets one personal link to see their children's fees, attendance and notices on a phone. Links are sent when an admission is approved."}
+                {filtered ? "Change the search or filters." : "One personal link per guardian. Sent when an admission is approved."}
               </EmptyState>
             }
             columns={[

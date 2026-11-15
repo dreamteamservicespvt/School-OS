@@ -5,6 +5,7 @@ import { formatDateTime, formatRupees } from "@/lib/format";
 import { aiUsage } from "@/lib/ai";
 import { MODULES } from "@/lib/modules";
 import { readPreferences, systemPreferences } from "@/lib/settings/profile-rules";
+import { mascotCharacterOf } from "@/lib/assistant/mascot-state";
 import { INTEGRATIONS, OPTIONAL_MODULES, SCHOOL_TEMPLATES, SHOWN_AI_FEATURES, aiFeatureReady, aiRolesOf, canSwitchOn } from "@/lib/settings/switches";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -91,7 +92,7 @@ export default async function ModulesPage() {
               </p>
               <p className="mt-1 text-sm"><Words k="This month:" /> {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}<Words k=", about" /> {formatRupees(usage.month.costPaise)} <Words k="· Today:" /> {usage.today} <Words k="of" /> {usage.dailyLimit} <Words k="a day" /></p>
             </div>
-            <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} />
+            <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} character={mascotCharacterOf(prefs.assistantCharacter)} />
             <div>
               <p className="mb-2 font-medium"><Words k="AI features" /></p>
               {!assistantOn && <p className="mb-2 text-sm text-ink-2"><Words k="Switch on the AI assistant first. While it is off, every feature is off." /></p>}

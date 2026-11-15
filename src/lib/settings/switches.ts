@@ -14,6 +14,7 @@ import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, aiFeatureReady, aiRolesOf,
 import { aiPlatformDailyLimit } from "../ai/config";
 import { AddressRefused, publicFetch } from "../net/public-fetch";
 import { schoolRoles } from "../school-roles";
+import { isMascotCharacter, mascotCharacterOf } from "../assistant/mascot-state";
 
 export * from "./switch-rules";
 
@@ -56,7 +57,7 @@ export async function savePreferences(tx: Tx, ctx: SchoolContext, input: { weekS
 }
 
 /** The AI assistant on or off, and which roles may use it. With it off, every AI feature is off. */
-export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boolean; roles: string[]; dailyLimit?: number | null }) {
+export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boolean; roles: string[]; dailyLimit?: number | null; character?: string | null }) {
   const { school, prefs } = await prefsOf(tx, ctx);
   const roleRows = await schoolRoles(tx, ctx, { where: { key: { in: input.roles }, archivedAt: null, isEnabled: true }, select: { key: true } });
   const roles = roleRows.map((r) => r.key!).filter(Boolean);
@@ -65,17 +66,20 @@ export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boo
   const cap = aiPlatformDailyLimit();
   const dailyLimit = input.dailyLimit === undefined ? prefs.aiDailyLimit ?? null : input.dailyLimit;
   if (input.dailyLimit !== undefined && dailyLimit !== null && (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > cap)) throw new SettingsProblem(`Give a whole number from 1 to ${cap}, or leave it empty for ${cap} a day.`, "aiDailyLimit");
+  // The School OS Assistant's look: Robot or Cat. Not sent (the choice hidden while off): kept as it was.
+  if (input.character != null && !isMascotCharacter(input.character)) throw new SettingsProblem("Choose Robot or Cat.", "assistantCharacter");
+  const character = input.character != null && isMascotCharacter(input.character) ? input.character : mascotCharacterOf(prefs.assistantCharacter);
   const was = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "ai-assistant" } } });
   await tx.schoolFeature.upsert({
     where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "ai-assistant" } },
     create: { schoolId: ctx.schoolId, featureKey: "ai-assistant", isOn: input.on },
     update: { isOn: input.on },
   });
-  await tx.school.update({ where: { id: school.id }, data: { preferences: { ...prefs, aiRoles: roles, aiDailyLimit: dailyLimit } as Prisma.InputJsonValue } });
+  await tx.school.update({ where: { id: school.id }, data: { preferences: { ...prefs, aiRoles: roles, aiDailyLimit: dailyLimit, assistantCharacter: character } as Prisma.InputJsonValue } });
   await writeAudit(tx, ctx, {
     action: "changed-ai-assistant", recordType: "School", recordId: school.id,
-    before: { on: was?.isOn ?? false, roles: aiRolesOf(prefs), dailyLimit: prefs.aiDailyLimit ?? null },
-    after: { on: input.on, roles, dailyLimit },
+    before: { on: was?.isOn ?? false, roles: aiRolesOf(prefs), dailyLimit: prefs.aiDailyLimit ?? null, character: mascotCharacterOf(prefs.assistantCharacter) },
+    after: { on: input.on, roles, dailyLimit, character },
   });
 }
 

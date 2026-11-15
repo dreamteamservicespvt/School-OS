@@ -21,3 +21,19 @@ No live (paid) model call was made. Live check, after the owner's OK:
 
 Not checked yet: the panel in a real browser (screenshots at 390 and 1440 px, light and dark), real voice
 recognition and voices on a phone (plan section 5 test), the live eval.
+
+## 15 Nov 2026: mascot in the panel
+
+Built: art in public/assistant, `mascot.tsx` + `mascot.module.css`, `mascot-state.ts` (feelings, poses, face
+screens, lip sync), panel in the approved layout, reply `feel` (done/sorry) from the conversation core, Robot/Cat
+setting, panel mount through `assistantPanelFor()` (src/lib/assistant/panel.ts). ui-sound.ts ported from main.
+
+Checked in a real browser: dev server on port 3100 from an SSD mirror (C:/Users/chala/sos-assist; the D: drive
+compiles too slowly), against a copy of the demo database (`school_os_assist`, with this branch's migration and the
+School Feature on for Sunrise Public School), Principal signed in from the saved session. Idle, thinking (server
+action held 3.5 s), speaking (rules answer, no AI key), Telugu question, sorry, at 390 and 1440, light and dark, robot
+and cat: docs/assistant/shots/panel-robot-sheet.png, panel-cat-sheet.png, panel-settings-character-1440-light.png.
+Feelings seen in order: thinking -> speaking -> idle; "Delete all fee records" -> sorry.
+
+Not checked: real microphone and voices on a phone, the done sparkles after a real enquiry "Yes" (needs the AI
+planner to prepare the card; covered by the mapping test), the live eval.

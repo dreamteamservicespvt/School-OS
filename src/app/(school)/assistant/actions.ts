@@ -24,7 +24,7 @@ export async function sendToAssistant(input: { conversationId?: string | null; t
   const screen = personLanguage(current.user, current.school);
   const chosen: AssistantLang | null = isAssistantLang(input?.chosen) ? input.chosen : null;
   const lang: AssistantLang = chosen ?? (isAssistantLang(screen) ? screen : "en");
-  const no = (reply: string): TurnReply => ({ ok: false, conversationId: input?.conversationId ?? null, lang, switched: false, reply, by: "rules", sources: [], chips: [], card: null });
+  const no = (reply: string): TurnReply => ({ ok: false, conversationId: input?.conversationId ?? null, lang, switched: false, reply, by: "rules", sources: [], chips: [], card: null, feel: "sorry" });
   // DREAM TEAM support access looks only; it does not use the school's AI requests.
   if (current.support) return no(words(lang, "role"));
   if (!(await hitLimit(`assistant:${current.user.id}`, PER_MINUTE, 60)).ok) return { ...no(words(lang, "tooMany")), ok: true };
@@ -52,6 +52,6 @@ export async function answerAssistantCard(input: { conversationId: string; cardI
     // The role may not add enquiries (or support access looks only): said plainly, nothing changed.
     const refused = e instanceof Error && /PermissionDenied|SupportLookOnly/.test(e.name);
     if (!refused) console.error(JSON.stringify({ level: "error", event: "assistant-card-failed", schoolId: current.school.id, error: e instanceof Error ? e.message : String(e) }));
-    return { ok: true, conversationId: input?.conversationId ?? null, lang, switched: false, reply: words(lang, refused ? "notYourRole" : "error"), by: "rules", sources: [], chips: [], card: null };
+    return { ok: true, conversationId: input?.conversationId ?? null, lang, switched: false, reply: words(lang, refused ? "notYourRole" : "error"), by: "rules", sources: [], chips: [], card: null, feel: "sorry" };
   }
 }

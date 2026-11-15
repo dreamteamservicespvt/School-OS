@@ -52,6 +52,17 @@ const W = {
 
   // The panel.
   title: ["School assistant", "స్కూల్ అసిస్టెంట్", "स्कूल असिस्टेंट"],
+  schoolTitle: ["{school} assistant", "{school} అసిస్టెంట్", "{school} असिस्टेंट"],
+  greet: ["Hi! I'm your School OS Assistant", "హాయ్! నేను మీ School OS అసిస్టెంట్‌ని", "नमस्ते! मैं आपका School OS असिस्टेंट हूँ"],
+  greetLead: ["How can I help you today?", "ఈ రోజు మీకు ఎలా సహాయం చేయగలను?", "आज मैं आपकी कैसे मदद करूँ?"],
+  typeInstead: ["Type a question", "ప్రశ్న టైప్ చేయండి", "सवाल लिखिए"],
+  ask: ["Ask", "అడగండి", "पूछिए"],
+  tapHello: ["Tap the assistant to say hello", "హలో చెప్పడానికి అసిస్టెంట్‌ను నొక్కండి", "नमस्ते कहने के लिए असिस्टेंट को छुएँ"],
+  stReady: ["Ready to help", "సహాయానికి సిద్ధం", "मदद के लिए तैयार"],
+  stSpeaking: ["Telling you", "చెబుతున్నాను", "बता रहा हूँ"],
+  stDone: ["All set!", "అయిపోయింది!", "हो गया!"],
+  stSorry: ["Can't do that", "అది చేయలేను", "यह नहीं कर सकता"],
+  stSurprised: ["Oh!", "ఓహ్!", "अरे!"],
   picker: ["Which language will you speak?", "మీరు ఏ భాషలో మాట్లాడతారు?", "आप किस भाषा में बोलेंगे?"],
   placeholder: ["Ask about attendance, fees, homework…", "హాజరు, ఫీజులు, హోంవర్క్ గురించి అడగండి…", "हाज़िरी, फ़ीस, होमवर्क के बारे में पूछिए…"],
   send: ["Send", "పంపండి", "भेजें"],

@@ -40,6 +40,7 @@ import { COMPOSER_SYSTEM, PLANNER_SYSTEM, composerRequest, plannerRequest, planS
 import { isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, type ToolArgs, type ToolName, type ToolResult } from "./tools";
 import { cardOf, ENQUIRY_FORM, mayAddEnquiry, newPrepared, planEnquiry, type Confirmed, type ConfirmCard, type EnquiryPlan, type Prepared } from "./enquiry";
 import { words, type WordKey } from "./words";
+import type { ReplyFeel } from "./mascot-state";
 
 export type StoredTurn = { said: string; tools: { tool: ToolName; args: ToolArgs }[]; action: string | null; reply: string; at: string };
 export type TurnSource = { label: string; href: string; scope: string | null };
@@ -57,6 +58,8 @@ export type TurnReply = {
   sources: TurnSource[];
   chips: string[];
   card: ConfirmCard | null;
+  /** How it ended, for the mascot's face: "done" after a confirmed change, "sorry" on a refusal or a problem. */
+  feel?: ReplyFeel;
 };
 
 export type TurnInput = {
@@ -130,6 +133,8 @@ function readyChips(who: Viewer, lang: AssistantLang, skip: ToolName[] = []): st
   const t = makeT(lang);
   return readyMadeFor(who).filter((q) => !skip.includes(QUESTION_TOOL[q.key])).slice(0, 3).map((q) => questionTitleIn(t, q.key, paramsOfHref(q.href)));
 }
+/** The first question chips for the panel, before anything is asked. */
+export const startChips = (who: Viewer, lang: AssistantLang) => readyChips(who, lang);
 const paramsOfHref = (href: string): AskParams => {
   const u = new URLSearchParams(href.split("?")[1] ?? "");
   const amount = Number(u.get("amount"));
@@ -168,7 +173,7 @@ const sourcesOf = (results: ToolResult[]): TurnSource[] =>
 export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClock): Promise<TurnReply> {
   const screen = screenLang(input.screen);
   const first = input.chosen && isAssistantLang(input.chosen) ? input.chosen : screen ?? "en";
-  const blocked = (key: WordKey, lang: AssistantLang = first): TurnReply => ({ ok: false, conversationId: input.conversationId ?? null, lang, switched: false, reply: words(lang, key), by: "rules", sources: [], chips: [], card: null });
+  const blocked = (key: WordKey, lang: AssistantLang = first): TurnReply => ({ ok: false, conversationId: input.conversationId ?? null, lang, switched: false, reply: words(lang, key), by: "rules", sources: [], chips: [], card: null, feel: "sorry" });
 
   const stop = assistantOff(who);
   if (stop) return blocked(stop);
@@ -176,7 +181,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   const said = String(input.text ?? "").replace(/\s+/g, " ").trim().slice(0, 500);
   const now = clock.now;
   const convo = await withSchool(who.ctx, (tx) => loadConvo(tx, who, input.conversationId, now));
-  if (!said) return { ...blocked("empty", convo?.state?.lang ?? first), ok: true };
+  if (!said) return { ...blocked("empty", convo?.state?.lang ?? first), ok: true, feel: "answer" };
 
   const state = convo?.state ?? null;
   const turns = convo?.turns ?? [];
@@ -222,10 +227,12 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let calls: { tool: ToolName; args: ToolArgs }[] = [];
   let action: string | null = null;
   let numberCheck: "passed" | "replaced" | null = null;
+  let feel: ReplyFeel = "answer";
 
   if (!plan) {
     reply = words(lang, aiProblem === "daily-limit" ? "limit" : aiProblem && aiProblem !== "not-connected" ? "aiDown" : "notUnderstood");
     chips = readyChips(who, lang);
+    feel = "sorry";
   } else if (plan.kind === "tools") {
     calls = callsOf(plan, offered);
     if (!calls.length) {
@@ -233,6 +240,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
       const named = plan.tools.some((c) => isToolName(c.tool));
       reply = words(lang, named ? "notYourRole" : "notUnderstood");
       chips = readyChips(who, lang);
+      feel = "sorry";
     } else {
       // 4. Read, each list in its own short transaction, as the person.
       for (const c of calls) results.push(await withSchool(who.ctx, (tx) => runTool({ tx, who, clock, lang }, c.tool, c.args)));
@@ -259,7 +267,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     }
   } else if (plan.kind === "action") {
     action = "add an enquiry";
-    if (!mayAddEnquiry(who)) reply = words(lang, "notYourRole");
+    if (!mayAddEnquiry(who)) { reply = words(lang, "notYourRole"); feel = "sorry"; }
     else {
       const p: EnquiryPlan = await withSchool(who.ctx, (tx) => planEnquiry(tx, who, plan.enquiry ?? {}, said, prepared?.plan ?? null, now));
       prepared = newPrepared(p, now);
@@ -273,6 +281,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     const fits = Boolean(text) && inLanguage(text, lang) && inventedNumbers(text, allowedNumbers([said])).length === 0;
     reply = fits ? text : words(lang, fallback);
     by = fits ? "ai" : "rules";
+    if (plan.kind === "cannot") feel = "sorry";
     if (plan.kind !== "clarify") chips = readyChips(who, lang);
   }
 
@@ -288,7 +297,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     return id;
   });
 
-  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: sourcesOf(results), chips, card };
+  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: sourcesOf(results), chips, card, feel };
 }
 
 /* ---------- The card: "Yes" or "No" ---------- */
@@ -303,8 +312,8 @@ export async function answerCard(who: Viewer, input: { conversationId: string; c
   const convo = await withSchool(who.ctx, (tx) => loadConvo(tx, who, input.conversationId, now));
   const lang = convo?.state?.lang ?? "en";
   const base: TurnReply = { ok: true, conversationId: convo?.id ?? null, lang, switched: false, reply: "", by: "rules", sources: [], chips: [], card: null };
-  if (assistantOff(who)) return { ...base, ok: false, reply: words(lang, assistantOff(who)!) };
-  if (!convo || !convo.prepared || convo.prepared.id !== input.cardId) return { ...base, reply: words(lang, "expired") };
+  if (assistantOff(who)) return { ...base, ok: false, reply: words(lang, assistantOff(who)!), feel: "sorry" };
+  if (!convo || !convo.prepared || convo.prepared.id !== input.cardId) return { ...base, reply: words(lang, "expired"), feel: "sorry" };
   const prepared = convo.prepared;
   let reply: string;
   let keep: Prepared | null = null;
@@ -330,5 +339,6 @@ export async function answerCard(who: Viewer, input: { conversationId: string; c
     await saveConvo(tx, who, convo, { state: convo.state ?? { lang, pending: null }, turns: [...convo.turns, turn], prepared: keep });
     await writeAudit(tx, who.ctx, { action: "answered an assistant card", recordType: "Assistant Conversation", recordId: convo.id, after: { change: "add an enquiry", outcome } });
   });
-  return { ...base, reply, sources, card: keep ? cardOf(keep, lang) : null };
+  const feel: ReplyFeel = outcome === "added" ? "done" : outcome === "duplicate" || outcome === "refused" ? "sorry" : "answer";
+  return { ...base, reply, sources, card: keep ? cardOf(keep, lang) : null, feel };
 }

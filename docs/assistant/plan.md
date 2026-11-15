@@ -207,7 +207,20 @@ the device the reply stays text and says so. Model speech (Gemini TTS / Live) is
 and a second provider in `src/lib/ai/provider.ts` (the one door), which is the owner's call.
 
 Panel: `src/components/assistant/assistant-panel.tsx`, mounted in the school layout only when the switch allows
-(no visual change for any school until then). `mascot-live.html` is untouched; the face joins later.
+(no visual change for any school until then).
+
+Mascot in the panel (15 Nov): the owner-approved art of `mascot-live.html` (now also in `public/assistant/*.webp`,
+never redrawn) in `src/components/assistant/mascot.tsx`: robot (live neon face fitted to each pose's measured
+screen) or cat (faces in the art, two mouth frames), float, pointer tilt, crossfade, holo ring, sound arcs, thinking
+dots, sparkles; reduced motion stops float, tilt and loops. The panel follows the approved page: mascot on top on a
+phone, on the left on a computer (900 px panel); greeting "Hi! I'm your School OS Assistant" in the conversation's
+language, question chips (the role's ready-made questions), big mic, keyboard button, reply bubbles. The header shows
+the school's logo and "<School> assistant"; the mascot keeps the School OS book badge. Feelings come from the real
+conversation (`src/lib/assistant/mascot-state.ts`, `feelingFor`): listening (mic on), thinking (turn running),
+speaking (reply read aloud, or shown with the mouth moving up to 3.2 s when speech is off), done (a confirmed change),
+sorry (a refusal or problem: the reply's new `feel`), surprised (the person switched language). The School OS "logo"
+sound plays once when the panel first opens, if sound is on. Robot or Cat per school: Settings, Modules On/Off,
+AI assistant, "School assistant look" (School preferences `assistantCharacter`, no migration; default Robot).
 
 Tests: `tests/assistant/` (language, numbers, tools with role/campus/school walls, whole turns with a fake
 model), `tests/assistant-eval/` (37 cases: 10 English, 10 Telugu script, 12 romanised or mixed, 4 must-refuse,

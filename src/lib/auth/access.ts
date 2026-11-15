@@ -3,6 +3,7 @@
 
 import { readPreferences } from "../settings/profile-rules";
 import { aiRolesOf } from "../settings/switch-rules";
+import { mascotCharacterOf, type MascotCharacter } from "../assistant/mascot-state";
 import { withSchool, withUser } from "../db";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap } from "../permissions";
 import { MODULES, type ModuleKey } from "../modules";
@@ -36,7 +37,7 @@ export async function worksElsewhere(userLoginId: string, exceptSchoolId: string
 }
 
 export type SchoolAccessView = {
-  school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday"; languages: string[]; defaultLanguage: string };
+  school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday"; languages: string[]; defaultLanguage: string; /** The School OS Assistant's look (School preferences); Robot when not set. */ assistantCharacter?: MascotCharacter };
   /** Set by DREAM TEAM in the console. Suspended or Closed: the school is paused (see /paused). */
   schoolStatus: "TRIAL" | "ACTIVE" | "SUSPENDED" | "CLOSED";
   /** Each role with its own levels (the Settings copy of 05-roles.md), for who does the desk work (src/lib/duty.ts). */
@@ -79,7 +80,7 @@ export async function supportAccessView(schoolId: string): Promise<SchoolAccessV
       tx.schoolFeature.findMany({ where: { schoolId, isOn: true } }),
     ]);
     return {
-      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday", languages: school.languages, defaultLanguage: school.defaultLanguage },
+      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday", languages: school.languages, defaultLanguage: school.defaultLanguage, assistantCharacter: mascotCharacterOf(readPreferences(school.preferences).assistantCharacter) },
       schoolStatus: school.status,
       roles: [],
       permissions: SUPPORT_PERMISSIONS,
@@ -118,7 +119,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     const scope = accesses.map((a) => a.scope).sort((x, y) => ORDER.indexOf(y) - ORDER.indexOf(x))[0];
     const combined = combineRoles(roles.map((r) => r.permissions as RolePermissions));
     return {
-      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday", languages: school.languages, defaultLanguage: school.defaultLanguage },
+      school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday", languages: school.languages, defaultLanguage: school.defaultLanguage, assistantCharacter: mascotCharacterOf(readPreferences(school.preferences).assistantCharacter) },
       schoolStatus: school.status,
       roles: roles.map((r) => ({ key: r.key, name: r.name, permissions: r.permissions as RolePermissions, sensitive: isSensitiveLevel(r.sensitiveFields) ? r.sensitiveFields : null })),
       permissions: applyExceptions(

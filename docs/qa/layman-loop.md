@@ -43,6 +43,7 @@ Progress page: see docs/HANDOFF.md (link).
 6. Console WhatsApp webhook forwards unsigned requests to the gym's live site (shared live setup: not touched).
 7. Admissions: drag-and-drop removed from the pipeline (step list with buttons instead); bring back as an extra?
 8. WhatsApp (DONE in code c5747f67): after deploy, Communication > Message Templates > "Make N templates ready for WhatsApp", then "Send N templates to WhatsApp for approval"; Meta answers in minutes to a day. Root cause corrected: defaults were fixed 30 Oct, but the live school kept old words (test mode had marked them approved, then the real account reset them to Not submitted). Admission messages to families now go inside the approved General announcement template on a real account (commit e1c2697b — its message says "moving-in finding logged" but it also holds this change; tests 423/424, the 1 is the translation check during the text pass); screens now say "The parent was not messaged (…). Please tell them by phone." instead of always "told".
+9. Assistant face: the owner rejected the 3 flat looks and the code-built 3D helper ("worst"); now building a lifelike 3D person with the free TalkingHead engine (loaded from a public CDN, no running cost).
 
 ## Mindsets (one per round, then start over)
 
@@ -88,7 +89,9 @@ Progress page: see docs/HANDOFF.md (link).
 | 120 | Moving in: student import stuck "Bringing in…" forever (job runner frozen after one hung burst) | Clerk | Import | Bursts give up after 35 s; stale flag no longer blocks | cd427d52 |
 | 121 | Moving in: old register's "Emp Code"/"Salary" silently left out; no Staff ID column | Clerk | Staff import | Lists columns not brought in; Staff ID column from Emp Code etc. | ccb91c74 |
 
+| 122-212 | Loop 2: 5 people (clerk, teacher on a phone, accountant, receptionist, principal) used the rebuilt app; 91 findings (docs/qa/layman-loop2-findings.json). 87 fixed by area; plus dashboard money approval confirm, one waiting refund per receipt (triple refund), phone bar steps aside for the keyboard, My leave title, plainer approval titles | All | All | Full suite 2,891 pass (2 load timeouts re-run clean) | c54c1b52 |
 ### Noted for the next batches
-- Teacher home on a holiday: "Take attendance" shown twice and "not a working day" said 3 times (teaching batch).
+- Concession form stays open after Apply (loop 2, money): reproduce in the browser; may be shared SheetForm.
+- Shared pieces asked for by loop 2: student picker (parent phone, father's name, close after pick), staff type-to-search picker, action-form error clears when fixed, School holiday WhatsApp template.
 - Send Message is heavy for a simple notice: 4 channels, Message type, 2 template boxes, Title, SMS backup (parent/communication batch: simplify the first view).
 - 76 forms use side-by-side pairs; check each at 390 px in screenshots and stack where text is cut.

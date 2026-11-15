@@ -2,6 +2,7 @@
 // them (11-communication.md, Message Templates and §5 "A blank reaches a parent
 // unfilled"). Plain functions with no database, so the Send Message form can
 // check a typed message in the browser while the server checks it again.
+import { cardBody, cardProblems, gluedBlanks, type WhatsappCard } from "./card";
 
 /** The blanks a person can insert, with an example used in previews. */
 export const VARIABLES: { key: string; label: string; sample: string }[] = [
@@ -28,6 +29,19 @@ export const VARIABLES: { key: string; label: string; sample: string }[] = [
   { key: "parent_link", label: "Parent Link", sample: "https://app.schoolos.in/p/…" },
   { key: "how_to_pay", label: "How to pay", sample: "Pay online on your Parent Link: https://app.schoolos.in/p/…" },
   { key: "message", label: "Message text", sample: "School will close at 12:30 PM today." },
+  // The fee receipt card (docs/research/inkwelly-2026-11-15.md, adopt items 1-2): how it was paid and what is still due after it.
+  { key: "payment_mode", label: "Paid by", sample: "UPI" },
+  { key: "balance_due", label: "Still due", sample: "₹7,500" },
+  // Bus messages, one blank per fact (src/lib/transport/messages.ts).
+  { key: "bus", label: "Bus", sample: "Bus 4" },
+  { key: "route", label: "Route", sample: "2" },
+  { key: "stop", label: "Bus stop", sample: "KPHB 6th Phase" },
+  { key: "place", label: "Place", sample: "KPHB 6th Phase" },
+  { key: "time", label: "Time", sample: "7:43 AM" },
+  { key: "minutes", label: "Minutes", sample: "5" },
+  // Front Office messages to visitors (src/lib/front-office/notify.ts) and the salary slip.
+  { key: "visitor_name", label: "Visitor name", sample: "Ramesh" },
+  { key: "month", label: "Month", sample: "October 2026" },
 ];
 
 export const VARIABLE_KEYS = new Set(VARIABLES.map((v) => v.key));
@@ -72,8 +86,9 @@ export function whatsappParts(body: string): { text: string; variables: string[]
  * INCORRECT_CATEGORY, live test 15 Nov 2026).
  */
 export const isCodeTemplate = (body: string) => variablesIn(body).includes("code");
-export type WhatsappCategory = "UTILITY" | "AUTHENTICATION";
-export const whatsappCategoryOf = (body: string): WhatsappCategory => (isCodeTemplate(body) ? "AUTHENTICATION" : "UTILITY");
+export type WhatsappCategory = "UTILITY" | "MARKETING" | "AUTHENTICATION";
+/** Meta's category: a code is Authentication; a card marked Marketing (birthday wishes) is Marketing; the rest Utility. */
+export const whatsappCategoryOf = (body: string, card?: WhatsappCard | null): WhatsappCategory => (isCodeTemplate(body) ? "AUTHENTICATION" : card?.category === "MARKETING" ? "MARKETING" : "UTILITY");
 
 /** Words in a text besides its blanks, in any script ("Dear", "ప్రియమైన", "10"). */
 function wordCount(text: string) {
@@ -87,17 +102,18 @@ function wordCount(text: string) {
  * enough), two blanks with only a space between them, and a text with too many
  * blanks for its length. School OS asks for 2 words per blank, and 2 more.
  */
-export function whatsappProblems(body: string): string[] {
-  const lines = body.split("\n").filter((l) => !Object.keys(BUTTON_BLANKS).some((k) => l.includes(`{${k}}`)));
-  const text = lines.join("\n").trim();
+export function whatsappProblems(body: string, card?: WhatsappCard | null): string[] {
+  // A card's link-button lines are not words WhatsApp gets (./card.ts); an old text's "Open receipt" line neither.
+  const text = card ? cardBody(body, card).trim() : body.split("\n").filter((l) => !Object.keys(BUTTON_BLANKS).some((k) => l.includes(`{${k}}`))).join("\n").trim();
+  const out: string[] = card ? cardProblems(card) : [];
   const blanks = [...text.matchAll(BLANK)].length;
-  if (!blanks) return [];
-  const out: string[] = [];
+  if (!blanks) return out;
   const edge = /[\s\p{P}\p{S}]*/u.source;
   if (new RegExp(`^${edge}\\{[a-z_]+\\}`, "u").test(text)) out.push("Start the text with words, not a blank.");
   if (new RegExp(`\\{[a-z_]+\\}${edge}$`, "u").test(text)) out.push("End the text with words, not a blank (a full stop is not enough).");
-  const glued = text.match(/\{[a-z_]+\}\s*\{[a-z_]+\}/);
-  if (glued) out.push(`Put a word between the blanks in "${glued[0]}".`);
+  // Only spaces, marks or emoji between two blanks ("*{a}*\n👤 *{b}*") count as next to each other.
+  const glued = gluedBlanks(text);
+  if (glued) out.push(`Put a word between the blanks in "${glued.replace(/\s+/g, " ")}".`);
   const need = blanks * 2 + 2;
   if (wordCount(text) < need) out.push(`Too many blanks for its length: write at least ${need} words besides the ${blanks} blank${blanks === 1 ? "" : "s"}.`);
   return out;

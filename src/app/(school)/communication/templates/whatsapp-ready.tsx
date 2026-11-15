@@ -1,9 +1,10 @@
 "use client";
 
 // Message Templates: the steps to get the school's WhatsApp templates approved.
-// 1. "Make N templates ready for WhatsApp" (still in School OS's first words),
+// 1. "Make N templates ready for WhatsApp" (still in School OS's earlier words: they get the new card),
 // 2. "Send N templates to WhatsApp for approval", one text at a time, with each answer,
-// 3. texts the school changed that WhatsApp would refuse, each with Edit.
+// 3. School OS's own texts WhatsApp rejected, with WhatsApp's reason,
+// 4. texts the school changed that WhatsApp would refuse, each with Edit.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Send, Sparkles } from "lucide-react";
@@ -27,10 +28,11 @@ function answer(status: string): { tone: Result["tone"]; text: string } {
 
 const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 
-export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved }: {
+export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pending, approved }: {
   fixable: Row[];
   toSend: (Row & { versionId: string; again?: "wrong-type" })[];
   toEdit: (Row & { problems: string[] })[];
+  rejectedOwn: (Row & { problems: string[] })[];
   pending: number;
   approved: number;
 }) {
@@ -72,7 +74,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
     router.refresh();
   };
 
-  if (!fixable.length && !toSend.length && !toEdit.length && !results.length) return null;
+  if (!fixable.length && !toSend.length && !toEdit.length && !rejectedOwn.length && !results.length) return null;
   return (
     <Card className="min-w-0">
       <CardHeader title="Getting WhatsApp messages approved" icon={Send}
@@ -82,7 +84,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
 
         {fixable.length > 0 && (
           <section className="flex flex-col gap-2">
-            <p className="text-ink2"><Words k="These still have School OS's first words, which WhatsApp would refuse. Making them ready saves a new version; the old one stays." /></p>
+            <p className="text-ink2"><Any text="A new WhatsApp card is ready for these: a title, the facts in bold, the school's name and buttons. Making them ready saves a new version; approved words keep going until WhatsApp approves the new one." /></p>
             <p className="text-[13px] text-ink3">{fixNames.join(", ")}</p>
             <div>
               <Button variant="primary" icon={Sparkles} loading={busy} loadingText="Making ready…" onClick={makeReady} disabled={Boolean(sending)}>
@@ -114,11 +116,21 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
           </ul>
         )}
 
-        {toEdit.length > 0 && (
+        {rejectedOwn.length > 0 && <EditList rows={rejectedOwn} label={label} intro={<Any text="WhatsApp rejected these School OS texts. Its reason is below. Edit the words and send them again, or ask DREAM TEAM support." />} />}
+
+        {toEdit.length > 0 && <EditList rows={toEdit} label={label} intro={<Any text="Change these before sending. The school wrote or changed them, so School OS does not replace them." />} />}
+      </div>
+    </Card>
+  );
+}
+
+/** Texts to change, each with its problems and Edit. */
+function EditList({ rows, label, intro }: { rows: (Row & { problems: string[] })[]; label: (r: Row) => string; intro: React.ReactNode }) {
+  return (
           <section className="flex flex-col gap-2">
-            <p className="text-ink2"><Words k="Change these before sending. The school wrote them, so School OS does not replace them." /></p>
+            <p className="text-ink2">{intro}</p>
             <ul className="flex flex-col divide-y divide-line rounded-xl border border-line">
-              {toEdit.map((r) => (
+              {rows.map((r) => (
                 <li key={`${r.templateId}:${r.languageLabel}`} className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{label(r)}</p>
@@ -129,9 +141,6 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
               ))}
             </ul>
           </section>
-        )}
-      </div>
-    </Card>
   );
 }
 

@@ -10,6 +10,9 @@ import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
 import { dayInfo, dayOffTitle, lastSchoolDay, nextSchoolDay } from "@/lib/attendance/calendar";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { clockHHMM } from "@/lib/attendance/time";
+import { leaveFacts, leaveRowNote } from "@/lib/attendance/leave-row";
+import { parentsTold, toldLine, whyNotTold } from "@/lib/attendance/told";
+import { absenceSendTime } from "@/lib/attendance/after-save";
 import { day, isoDay } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
 import { Banner } from "@/components/ui/banner";
@@ -68,7 +71,20 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
       const teacher = sheet.section.classTeacherId ? await tx.staff.findFirst({ where: { id: sheet.section.classTeacherId }, select: { fullName: true } }) : null;
       // What happened to the day's absence messages, sent or not and why (from the Attendance Alerts).
       const messages = sheet.saved ? await absenceMessagesOn(tx, date, [sheet.section.id]) : null;
-      return { choices, chosen, sheet, problem: null, info: sheet.day, year, teacher: teacher?.fullName ?? null, messages };
+      // Approved leave in the row: which days and who approved it (adopt item 3).
+      const leaves = await leaveFacts(tx, sheet.students.flatMap((s) => (s.leave ? [s.leave.id] : [])));
+      // "Saved · 2 parents told": only parents a message really reached (src/lib/attendance/told.ts).
+      let told: string | null = null;
+      if (sheet.saved) {
+        const absentKeys = new Set(sheet.statuses.filter((s) => s.counts === "absent").map((s) => s.key));
+        const absent = sheet.students.filter((s) => s.statusKey && absentKeys.has(s.statusKey)).length;
+        const count = await parentsTold(tx, date, sheet.section.id);
+        const quiet = !count.told && !count.waiting && !count.test && !count.notTold && absent > 0;
+        const why = quiet ? await whyNotTold(tx, current.ctx, settings) : null;
+        const sendAt = quiet && !why && sheet.savedAt ? absenceSendTime(settings, sheet.savedAt) : null;
+        told = toldLine(count, { absent, why, sendAtText: sendAt && sendAt > now ? formatTime(sendAt, tz) : null });
+      }
+      return { choices, chosen, sheet, problem: null, info: sheet.day, year, teacher: teacher?.fullName ?? null, messages, leaves, told };
     } catch (e) {
       if (e instanceof AttendanceProblem) return { choices, chosen, sheet: null, problem: e.message, info: null, year, teacher: null };
       throw e;
@@ -141,11 +157,12 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
         </EmptyState>
       ) : (
         <>
-        {messageLine && (
+        {/* The told count sits on the Saved line; this box stays only for messages that did not go, with why. */}
+        {messageLine && data.messages?.notSent ? (
           <Banner tone={data.messages?.notSent ? "warn" : "info"} className="mb-4" title={`${messageLine}.`}>
-            {data.messages?.notSent ? "Call those parents. Then check their phone number or the message switch in Communication." : "Parents of students marked absent are told once for the day."}
+            <Words k="Call those parents. Then check their phone number or the message switch in Communication." />
           </Banner>
-        )}
+        ) : null}
         <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}:${sheet.savedAt?.getTime() ?? 0}:${sheet.correction?.id ?? ""}:${sheet.correction?.status ?? ""}`}
           correction={sheet.correction ? {
             status: sheet.correction.status, by: sheet.correction.by, note: sheet.correction.note,
@@ -160,14 +177,14 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           defaultStatus={settings.defaultStatus === "none" ? "not-marked" : "present"}
           students={sheet.students.map((s) => ({
             id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note,
-            leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason } : null,
+            leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason, note: leaveRowNote(s.leave, "leaves" in data ? data.leaves?.get(s.leave.id) : null) } : null,
             reason: s.reason ? { key: s.reason.key, label: s.reason.label, note: s.reason.note } : null,
           }))}
           reasons={sheet.reasons}
           saved={sheet.saved}
           savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}
-          correctionHref={correctionHref} offlineOn={offlineOn} next={nextLink} />
+          correctionHref={correctionHref} offlineOn={offlineOn} next={nextLink} told={"told" in data ? data.told ?? null : null} />
         </>
       )}
     </>

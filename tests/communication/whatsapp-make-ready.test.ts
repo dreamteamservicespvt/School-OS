@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { ensureReadyTemplates, READY_TEMPLATES, templateByKey, whatsappProblems } from "@/lib/messaging/templates";
 import { PAST_READY_WHATSAPP } from "@/lib/messaging/ready-history";
+import { readyCard } from "@/lib/messaging/ready-whatsapp";
 import { makeReadyForWhatsapp, newReadyWords, readyWhatsappWords, whatsappReadiness } from "@/lib/communication/whatsapp-ready";
 import { submitForApproval } from "@/lib/communication/templates-admin";
 import { makeSchool } from "../helpers";
@@ -16,8 +17,9 @@ import { makeSchool } from "../helpers";
 const readyWhatsapp = READY_TEMPLATES.filter((t) => t.channel === "whatsapp").flatMap((t) => Object.entries(t.texts).map(([language, body]) => ({ name: `${t.key} (${language})`, key: t.key, language, body })));
 
 describe("every ready WhatsApp text, in every language", () => {
-  it.each(readyWhatsapp)("$name is a text WhatsApp takes", ({ body }) => {
-    expect(whatsappProblems(body)).toEqual([]);
+  // Each with its card (header, buttons): a card's link line is its button.
+  it.each(readyWhatsapp)("$name is a text WhatsApp takes", ({ key, language, body }) => {
+    expect(whatsappProblems(body, readyCard(key, language))).toEqual([]);
   });
 
   // Everything that sends a WhatsApp message to parents (or staff) by itself uses one of these keys.
@@ -30,7 +32,7 @@ describe("every ready WhatsApp text, in every language", () => {
   it.each(SENDERS)("%s has a ready WhatsApp text that passes", (key) => {
     const t = READY_TEMPLATES.find((x) => x.key === key && x.channel === "whatsapp");
     expect(t, key).toBeTruthy();
-    for (const body of Object.values(t!.texts)) expect(whatsappProblems(body), key).toEqual([]);
+    for (const [language, body] of Object.entries(t!.texts)) expect(whatsappProblems(body, readyCard(key, language)), key).toEqual([]);
   });
 });
 
@@ -73,7 +75,7 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
       // As a school made before the ready texts were reworded: old words, back to Not submitted.
       await set(absence, { body: PAST_READY_WHATSAPP["absence|en"][0], whatsappStatus: "NOT_SUBMITTED" });
       await set(ptm, { body: PAST_READY_WHATSAPP["ptm|en"][0], whatsappStatus: "REJECTED", whatsappName: "ptm_reminder_x", whatsappNote: "Variables can't be at the start or end" });
-      // Old words WhatsApp already approved: left alone.
+      // Old words WhatsApp already approved: since the cards they get the card too, and keep going until it is approved.
       await set(general, { body: PAST_READY_WHATSAPP["general|en"][0], whatsappStatus: "APPROVED", whatsappName: "general_x" });
       // Words the school changed itself, which WhatsApp would refuse.
       await set(late, { body: "Dear {guardian_name}, {student_name} came late today. - {school_name}" });
@@ -88,7 +90,7 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
   it("lists what to make ready, what to send and what to edit", async () => {
     const { ctx, ids } = await setUp();
     const r = await withSchool(ctx, (tx) => whatsappReadiness(tx, ctx));
-    expect(r.fixable.map((x) => x.templateId).sort()).toEqual([ids.absence, ids.ptm].sort());
+    expect(r.fixable.map((x) => x.templateId).sort()).toEqual([ids.absence, ids.general, ids.ptm].sort());
     expect(r.toEdit.map((x) => x.templateId)).toEqual([ids.late]);
     expect(r.toEdit[0].problems.join(" ")).toMatch(/End the text with words/);
     // Only the English texts were changed above; Hindi and Telugu of "Absent today" are in today's words.
@@ -104,7 +106,7 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
     const { ctx, ids, current } = await setUp();
     const before = { absence: await current(ids.absence), general: await current(ids.general), late: await current(ids.late) };
     const done = await withSchool(ctx, (tx) => makeReadyForWhatsapp(tx, ctx, null));
-    expect(done.map((d) => d.templateId).sort()).toEqual([ids.absence, ids.ptm].sort());
+    expect(done.map((d) => d.templateId).sort()).toEqual([ids.absence, ids.general, ids.ptm].sort());
 
     const absence = await current(ids.absence);
     expect(absence.body).toBe(readyWhatsappWords("absence", "en"));
@@ -120,7 +122,12 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
     expect(ptm.whatsappStatus).toBe("NOT_SUBMITTED");
     expect(ptm.whatsappName).toBeNull();
 
-    expect((await current(ids.general)).id).toBe(before.general.id);
+    // The approved old words get the card as a new version; the approved one stays for sending until then.
+    const general = await current(ids.general);
+    expect(general.body).toBe(readyWhatsappWords("general", "en"));
+    expect(general.whatsappCard).toMatchObject({ header: { type: "text", text: "📢 Message from school" }, buttons: [{ type: "PHONE", text: "Call school" }] });
+    const approvedOld = await withSchool(ctx, (tx) => tx.templateVersion.findUniqueOrThrow({ where: { id: before.general.id } }));
+    expect(approvedOld).toMatchObject({ isCurrent: false, whatsappStatus: "APPROVED", whatsappName: "general_x" });
     expect((await current(ids.late)).id).toBe(before.late.id);
 
     const audit = await withSchool(ctx, (tx) => tx.auditLogEntry.findMany({ where: { recordType: "Template", recordId: ids.absence } }));
@@ -149,5 +156,6 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
     expect(after.toSend).toEqual([]);
     expect(after.toEdit.length).toBe(1);
     expect(after.approved).toBe(r.approved + r.toSend.length);
-  });
+    // About 90 texts now (cards in three languages, Front Office), each sent one at a time.
+  }, 120_000);
 });

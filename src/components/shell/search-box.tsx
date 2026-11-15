@@ -18,6 +18,7 @@ import { askInWords } from "@/app/(school)/ask/actions";
 import { askHref, closestQuestions, isQuestionKey, looksLikeQuestion, matchIntent, type QuestionKey } from "@/lib/ask/questions";
 import { linkTitleIn, questionTitleIn } from "@/lib/ask/titles";
 import { useT } from "@/lib/i18n/client";
+import { DueChipView, type DueChip } from "@/components/students/due-chip";
 import { screenMessage } from "@/lib/i18n/messages";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
@@ -77,8 +78,9 @@ export const withWords = (label: string, href: string) => {
   return w ? `${label} ${w}` : label;
 };
 
-type Person = { id: string; name: string; sub: string; href: string };
-type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string; run?: () => void };
+type Person = { id: string; name: string; sub: string; href: string; due?: DueChip };
+type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string; run?: () => void; due?: DueChip };
+
 
 /** Remembers the pages this person opens, for "Recent". */
 export function RecentPages({ userId, pages }: { userId: string; pages: PageLink[] }) {
@@ -206,7 +208,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     // A label is found by its English words or by its words in the person's language.
     const found = (label: string, href = "") => matches(withWords(label, href), typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
     people.collect.forEach((s) => out.push({ sec: t("Collect fee"), label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
-    people.students.forEach((s) => out.push({ sec: t("Students"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
+    people.students.forEach((s) => out.push({ sec: t("Students"), label: s.name, sub: s.sub, href: s.href, avatar: s.name, due: s.due }));
     people.staff.forEach((s) => out.push({ sec: t("Staff"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.parents.forEach((s) => out.push({ sec: t("Parents"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.receipts.forEach((s) => out.push({ sec: t("Receipts"), label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
@@ -273,6 +275,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
                     <span className="block text-[14.5px] font-semibold truncate">{r.label}</span>
                     {r.sub && <span className="block text-[12.5px] text-ink3 truncate">{r.sub}</span>}
                   </span>
+                  {r.due && <DueChipView due={r.due} />}
                   {sel === i && <I.CornerDownLeft size={16} className="text-ink3 hidden md:block" aria-hidden="true" />}
                 </button>
               </Fragment>

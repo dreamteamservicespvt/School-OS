@@ -110,7 +110,8 @@ describe("full data export", () => {
     expect(second.already).toBe(true);
 
     const job = await withSchool(ctx, (tx) => tx.backgroundJob.findFirstOrThrow({ where: { idempotencyKey: `data-export:${row.id}` } }));
-    const result = await withSchool(ctx, (tx) => runDataExport(tx, ctx, job.payload as { exportId: string; models: string[] }));
+    // The real job runs in its own long transaction (600 s, ownTransaction); a loaded test machine needs more than the default 15 s.
+    const result = await withSchool(ctx, (tx) => runDataExport(tx, ctx, job.payload as { exportId: string; models: string[] }), { timeout: 600_000 });
     expect(result).toMatchObject({ files: expect.any(Number) });
 
     const ready = await withSchool(ctx, (tx) => tx.dataExport.findUniqueOrThrow({ where: { id: row.id } }));

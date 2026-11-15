@@ -20,7 +20,9 @@ export { CANCELLED_REASON };
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
 import { linksIn, receiptKeyIn, withRealLinks } from "../parent-link/token";
-import { isCodeTemplate, whatsappParts } from "./blanks";
+import { isCodeTemplate, variablesIn, whatsappParts } from "./blanks";
+import { cardBody, effectiveButtons, readCard, type SubmittedCard, type WhatsappCard } from "./card";
+import { buttonSuffix, receiptPaymentIn } from "./button-links";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
 import { CODE_EXPIRED, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
 import { word } from "../notification-words";
@@ -39,11 +41,16 @@ const historyWith = (h: unknown, line: HistoryLine) => [...((Array.isArray(h) ? 
 
 type Claimed = Prisma.MessageRecipientGetPayload<{ include: { message: { select: { title: true; attachmentFileIds: true; messageType: true } } } }>;
 
+type CachedVersion = { id: string; templateId: string; language: string; whatsappName: string | null; whatsappStatus: string | null; whatsappNote: string | null; body: string; dltTemplateId: string | null; whatsappCard: unknown };
+const VERSION_FIELDS = { id: true, templateId: true, language: true, whatsappName: true, whatsappStatus: true, whatsappNote: true, body: true, dltTemplateId: true, whatsappCard: true } as const;
+
 type Context = {
   providers: Partial<Record<ProviderChannel, Provider>>;
   dlt: { entityId: string | null; header: string | null };
-  versions: Map<string, { whatsappName: string | null; whatsappStatus: string | null; body: string; dltTemplateId: string | null }>;
+  versions: Map<string, CachedVersion>;
   attachments: Map<string, { filename: string; content: Buffer; contentType: string }[]>;
+  /** Receipt PDFs made in this run, by payment: made once and shared by all the payment's parents. */
+  receipts: Map<string, Promise<{ content: Buffer; filename: string } | null>>;
 };
 
 async function loadContext(ctx: SchoolContext): Promise<Context> {
@@ -52,30 +59,86 @@ async function loadContext(ctx: SchoolContext): Promise<Context> {
     const providers: Context["providers"] = {};
     for (const c of ["whatsapp", "sms", "email"] as const) providers[c] = providerFor(setups[c], await channelSecrets(tx, ctx, c));
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
-    return { providers, dlt: { entityId: school.smsDltEntityId, header: school.smsSenderHeader }, versions: new Map(), attachments: new Map() };
+    return { providers, dlt: { entityId: school.smsDltEntityId, header: school.smsSenderHeader }, versions: new Map(), attachments: new Map(), receipts: new Map() };
   });
 }
 
+const realApproval = (v: Pick<CachedVersion, "whatsappStatus" | "whatsappName" | "whatsappNote">) =>
+  v.whatsappStatus === "APPROVED" && Boolean(v.whatsappName) && !(v.whatsappNote ?? "").startsWith("Test mode");
+
+/**
+ * The approved WhatsApp text a message goes in when the version it was planned
+ * with is not approved (its words changed, WhatsApp rejected that language, or
+ * it was planned in test mode): the last approved version in the same
+ * language, else the approved English one, else any approved one, whose blanks
+ * this person's values fill. Null when there is none: then nothing is sent,
+ * because a plain text is dropped by WhatsApp outside a 24-hour reply window
+ * (live test 15 Nov 2026, item 7).
+ */
+async function approvedFallback(tx: Tx, ctx: SchoolContext, v: CachedVersion, values: Record<string, string>): Promise<CachedVersion | null> {
+  const rows = await tx.templateVersion.findMany({
+    where: { schoolId: ctx.schoolId, templateId: v.templateId, whatsappStatus: "APPROVED", whatsappName: { not: null } },
+    select: VERSION_FIELDS,
+    orderBy: [{ isCurrent: "desc" }, { version: "desc" }],
+  });
+  const usable = rows.filter((x) => realApproval(x) && variablesIn(x.body).every((k) => values[k] !== undefined && String(values[k]).trim() !== ""));
+  return usable.find((x) => x.language === v.language) ?? usable.find((x) => x.language === "en") ?? usable[0] ?? null;
+}
+
+/** The parts a card was approved with; a card never sent shows its own parts (test mode, and versions from before `submitted`). */
+function layoutOf(body: string, card: WhatsappCard): SubmittedCard {
+  if (card.submitted) return card.submitted;
+  return {
+    header: card.header ? (card.header.type === "document" ? "document" : "text") : null,
+    buttons: effectiveButtons(body, card).map((b) => (b.type === "PHONE" ? { type: "PHONE" as const } : "target" in b ? { type: "URL" as const, target: b.target, blank: b.blank } : { type: "URL" as const, path: b.path })),
+  };
+}
+
+type Prepared = Outgoing & { refuse?: string; receiptFor?: string };
+
 /** code: a one-time code, put in only now, for the provider (QA SEC-01). */
-async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Outgoing> {
+async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Prepared> {
   let v = r.templateVersionId ? c.versions.get(r.templateVersionId) : undefined;
   if (r.templateVersionId && !v) {
-    const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: { whatsappName: true, whatsappStatus: true, body: true, dltTemplateId: true } });
+    const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: VERSION_FIELDS });
     if (row) { v = row; c.versions.set(r.templateVersionId, row); }
   }
   const values = (r.values ?? {}) as Record<string, string>;
-  const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(r.text), code), subject: r.message.title };
+  const out: Prepared = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(r.text), code), subject: r.message.title };
   if (r.channel === "sms") Object.assign(out, { dltTemplateId: v?.dltTemplateId ?? null, dltEntityId: c.dlt.entityId, senderHeader: c.dlt.header });
-  if (r.channel === "whatsapp" && v?.whatsappStatus === "APPROVED" && v.whatsappName) {
-    // The same parts the template was approved with: blanks in order, and the "Open receipt" button's end of address.
-    const parts = whatsappParts(v.body);
-    const button = parts.button ? receiptKeyIn(values[parts.button.blank] ?? "") : null;
-    if (isCodeTemplate(v.body)) {
-      // An Authentication template (Meta's own words): the code is its only blank, and the "Copy code" button's too.
-      const otp = code ?? values.code ?? "";
-      out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: [otp], buttonParam: otp };
-    } else {
-      out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: parts.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)), ...(button ? { buttonParam: button } : {}) };
+  if (r.channel === "whatsapp" && v) {
+    const real = c.providers.whatsapp && c.providers.whatsapp.key !== "sandbox";
+    // A real WhatsApp account takes a message from an approved template only; the planned text not
+    // approved (any more) goes in the approved one, never as plain text.
+    if (real && !realApproval(v)) {
+      const other = await approvedFallback(tx, ctx, v, values);
+      if (!other) return { ...out, refuse: "WhatsApp has not approved this message's template in any language yet, so it was not sent. Send the template for approval in Message Templates, then retry." };
+      v = other;
+    }
+    if (v.whatsappStatus === "APPROVED" && v.whatsappName) {
+      const language = v.language;
+      const card = readCard(v.whatsappCard);
+      const fill = (k: string) => withCode(withRealLinks(values[k] ?? ""), code);
+      if (isCodeTemplate(v.body)) {
+        // An Authentication template (Meta's own words): the code is its only blank, and the "Copy code" button's too.
+        const otp = code ?? values.code ?? "";
+        out.whatsappTemplate = { name: v.whatsappName, language, params: [otp], buttonParam: otp };
+      } else if (card) {
+        // A card: the same parts it was approved with. Each link button gets this person's own secret at its own position.
+        const layout = layoutOf(v.body, card);
+        const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: buttonSuffix(b.target, values[b.blank]) }] : []));
+        out.whatsappTemplate = { name: v.whatsappName, language, params: variablesIn(cardBody(v.body, card)).map(fill), buttons };
+        if (layout.header === "document") {
+          const paid = receiptPaymentIn(values);
+          out.whatsappTemplate.header = { type: "document", filename: "receipt.pdf" };
+          if (paid && paid.schoolId === ctx.schoolId) out.receiptFor = paid.paymentId;
+        }
+      } else {
+        // An older plain text: blanks in order, and the "Open receipt" line as the first button.
+        const parts = whatsappParts(v.body);
+        const button = parts.button ? receiptKeyIn(values[parts.button.blank] ?? "") : null;
+        out.whatsappTemplate = { name: v.whatsappName, language, params: parts.variables.map(fill), ...(button ? { buttons: [{ index: 0, value: button }] } : {}) };
+      }
     }
   }
   if (r.channel === "email" && r.message.attachmentFileIds.length) {
@@ -92,6 +155,30 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
     out.attachments = files;
   }
   return out;
+}
+
+/**
+ * The parent copy of a payment's receipt as a PDF, the same one /r/ opens
+ * (src/lib/fees/documents.ts), made once per delivery run. Null when it cannot be made.
+ */
+function receiptPdf(ctx: SchoolContext, c: Context, paymentId: string) {
+  let p = c.receipts.get(paymentId);
+  if (!p) {
+    p = (async () => {
+      try {
+        const { renderReceipt } = await import("../fees/documents");
+        return await withSchool(ctx, async (tx) => {
+          const doc = await renderReceipt(tx, ctx, paymentId, "parent");
+          return { content: await doc.pdf(), filename: doc.fileName };
+        }, { timeout: 60_000 });
+      } catch (e) {
+        console.error(JSON.stringify({ level: "error", event: "whatsapp-receipt-pdf-failed", school: ctx.schoolId, payment: paymentId, error: e instanceof Error ? e.message : String(e) }));
+        return null;
+      }
+    })();
+    c.receipts.set(paymentId, p);
+  }
+  return p;
 }
 
 async function inPool<T, R>(items: T[], size: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -159,8 +246,16 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
     const results = await inPool(prepared, IN_FLIGHT, async ({ r, out, refuse }): Promise<SendResult> => {
       if (refuse) return { ok: false, retryable: false, reason: refuse };
       if (!out) return { ok: true, providerMessageId: `app-${r.id}`, status: "DELIVERED" };
+      if (out.refuse) return { ok: false, retryable: false, reason: out.refuse };
       const provider = c.providers[r.channel as ProviderChannel];
       if (!provider) return { ok: false, retryable: false, reason: `${CHANNEL_LABEL[r.channel as Channel] ?? r.channel} is not connected.` };
+      // The fee receipt card: its PDF is made once (outside any transaction) and goes to WhatsApp as the header.
+      const head = out.whatsappTemplate?.header;
+      if (head?.type === "document" && provider.key !== "sandbox") {
+        const pdf = out.receiptFor ? await receiptPdf(ctx, c, out.receiptFor) : null;
+        if (!pdf) return { ok: false, retryable: true, reason: "The receipt PDF could not be made. It will be tried again." };
+        out.whatsappTemplate = { ...out.whatsappTemplate!, header: { type: "document", filename: pdf.filename, file: { content: pdf.content } } };
+      }
       // Test mode sends nothing: on a tester's computer the personal links it would have sent go to the server log.
       if (provider.key === "sandbox" && testModeCarriesCodes()) for (const l of linksIn(r.text)) logTestModeLink({ to: r.address, what: l.what, url: l.url });
       try {

@@ -93,7 +93,8 @@ describe("a Parent Link code on a real WhatsApp account", () => {
     const calls = stubMeta();
     await withSchool(s.ctx, (tx) => submitForApproval(tx, s.ctx, v.id));
     expect(calls[0].body).toMatchObject({ category: "UTILITY", name: expect.not.stringMatching(/_otp$/) });
-    expect((calls[0].body.components as { type: string; text?: string }[])[0]).toMatchObject({ type: "BODY", text: expect.stringContaining("{{1}}") });
+    // A card: its header first, then its own words.
+    expect((calls[0].body.components as { type: string; text?: string }[]).find((c) => c.type === "BODY")).toMatchObject({ type: "BODY", text: expect.stringContaining("{{1}}") });
   });
 
   it("once approved, the screen says WhatsApp, and the code goes in the body and the copy-code button", async () => {

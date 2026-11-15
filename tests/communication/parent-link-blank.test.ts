@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { READY_TEMPLATES, variablesIn, whatsappProblems } from "@/lib/messaging/templates";
 import { PAST_READY_WHATSAPP } from "@/lib/messaging/ready-history";
+import { readyCard } from "@/lib/messaging/ready-whatsapp";
 import { planMessage, sendAutomatic } from "@/lib/messaging";
 import { updateSettings } from "@/lib/messaging/settings";
 import { requestConsent } from "@/lib/parent-link/consent";
@@ -23,7 +24,7 @@ const LINK_BLANKS = ["link", "parent_link", "how_to_pay"];
 const CODE_KEYS = new Set(["parent-link-code"]);
 
 describe("every ready text that sends a parent to Parent Link has a link blank", () => {
-  const texts = READY_TEMPLATES.flatMap((t) => Object.entries(t.texts).map(([language, body]) => ({ name: `${t.key} ${t.channel} (${language})`, key: t.key, channel: t.channel, body })));
+  const texts = READY_TEMPLATES.flatMap((t) => Object.entries(t.texts).map(([language, body]) => ({ name: `${t.key} ${t.channel} (${language})`, key: t.key, channel: t.channel, language, body })));
   const mentions = texts.filter((t) => /Parent Link/i.test(t.body) && !CODE_KEYS.has(t.key));
 
   it("finds the texts the owner's test was about", () => {
@@ -35,8 +36,9 @@ describe("every ready text that sends a parent to Parent Link has a link blank",
     expect(variablesIn(body).some((b) => LINK_BLANKS.includes(b))).toBe(true);
   });
 
-  it.each(mentions.filter((t) => t.channel === "whatsapp"))("$name is a text WhatsApp takes", ({ body }) => {
-    expect(whatsappProblems(body)).toEqual([]);
+  // A WhatsApp card's link line is its button (src/lib/messaging/card.ts).
+  it.each(mentions.filter((t) => t.channel === "whatsapp"))("$name is a text WhatsApp takes", ({ key, language, body }) => {
+    expect(whatsappProblems(body, readyCard(key, language))).toEqual([]);
   });
 
   // Each language of these templates fills the same blanks (else a parent's language would miss one).
@@ -58,7 +60,8 @@ describe("at send time", () => {
     const link = await withSchool(s.ctx, (tx) => tx.parentLink.findFirstOrThrow({ where: { guardianId: s.father.id, status: "ACTIVE" } }));
     expect(link.lastSentAt).not.toBeNull();
     const rec = await recipientOf(s.ctx, r.message!.messageId, s.father.id);
-    expect(rec.text).toContain("Please open your Parent Link to read it and agree: ");
+    // The WhatsApp card keeps the link on its own last line (sent to WhatsApp as the "Read and answer" button).
+    expect(rec.text).toContain("Please read the details on your Parent Link and give your answer there.\n");
     expect(rec.text).toContain(placeholderFor(link.id));
     expect(rec.text).not.toContain(tokenFor(link.id));
     expect(withRealLinks(rec.text)).toContain(linkUrl(link.id));
@@ -80,7 +83,7 @@ describe("at send time", () => {
       expect(rec.text).not.toContain(tokenFor(links[0].id));
       expect(withRealLinks(rec.text)).toContain(linkUrl(links[0].id));
       // Padma reads Telugu: the Telugu text, with her link.
-      expect(rec.text).toMatch(/Parent Link లో చూడండి: ⟦parent-link:/);
+      expect(rec.text).toMatch(/Parent Link (లో ఉంది\. శుభాకాంక్షలు!|తెరవండి\.)\n⟦parent-link:/);
     }
   });
 
@@ -90,7 +93,7 @@ describe("at send time", () => {
     const r = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, { rule: "result", event: { key: `result:off:${s.kiran.id}`, label: "Results" }, to: { guardiansOf: [s.kiran.id] }, values: { exam_name: "Half Yearly" } }));
     expect(r.status).toBe("sent");
     const rec = await recipientOf(s.ctx, (r as { result: { messageId: string } }).result.messageId, s.otherFather.id);
-    expect(rec.text).toContain(`See the report card on your Parent Link: ${NO_PARENT_LINK} Thank you`);
+    expect(rec.text).toContain(`Open your Parent Link to see the full report card.\n${NO_PARENT_LINK}`);
     expect(await withSchool(s.ctx, (tx) => tx.parentLink.count({ where: { guardianId: s.otherFather.id } }))).toBe(0);
   });
 
@@ -155,6 +158,6 @@ describe("a school whose WhatsApp approved the old words", () => {
     await withSchool(s.ctx, (tx) => tx.templateVersion.update({ where: { id: now.id }, data: { whatsappStatus: "APPROVED" } }));
     const after = await plan();
     expect(after.rows[0].version?.id).toBe(now.id);
-    expect(after.rows[0].text).toContain("read it and agree: ");
+    expect(after.rows[0].text).toContain("give your answer there.\n");
   });
 });

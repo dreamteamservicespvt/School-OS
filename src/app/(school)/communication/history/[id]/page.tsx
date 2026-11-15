@@ -104,9 +104,11 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const when = (r: R) => r.readAt ? formatDateTime(r.readAt, tz) : r.deliveredAt ? formatDateTime(r.deliveredAt, tz) : r.sentAt ? formatDateTime(r.sentAt, tz) : r.failedAt ? formatDateTime(r.failedAt, tz) : "Waiting to go";
   // "Not sent": no channel could carry it to this person (the reason says why); resend once a channel can.
   const notSent = (r: R) => r.status === "FAILED" && Boolean(r.failReason?.startsWith(NOT_SENT));
-  const statusWord = (r: R) => (inTestMode(r) ? (r.isBackup ? "SMS backup · test mode" : "Test mode") : r.isBackup ? "Sent by SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]);
+  // WhatsApp took it, and no delivery report can come back: the owner left the shared webhook alone (decision 15 Nov 2026).
+  const waSent = (r: R) => r.channel === "whatsapp" && r.status === "SENT" && !inTestMode(r) && !r.isBackup;
+  const statusWord = (r: R) => (inTestMode(r) ? (r.isBackup ? "SMS backup · test mode" : "Test mode") : r.isBackup ? "Sent by SMS backup" : notSent(r) ? "Not sent" : waSent(r) ? "Sent to WhatsApp" : DELIVERY_LABEL[r.status]);
   const tone = (r: R): PillTone => (inTestMode(r) ? "warn" : TONE[r.status]);
-  const why = (r: R) => r.status === "FAILED" ? (notSent(r) ? r.failReason!.slice(NOT_SENT.length) : r.failReason ?? "Failed") : inTestMode(r) ? "Only recorded; nobody received it" : r.isBackup && r.backupReason ? r.backupReason : null;
+  const why = (r: R) => r.status === "FAILED" ? (notSent(r) ? r.failReason!.slice(NOT_SENT.length) : r.failReason ?? "Failed") : inTestMode(r) ? "Only recorded; nobody received it" : r.isBackup && r.backupReason ? r.backupReason : waSent(r) ? "Delivery reports are not connected" : null;
   const senderName = sender.replace(/^Rule: /, "");
   const details: [string, React.ReactNode][] = [["To", m.audienceLabel], ["Status", MESSAGE_STATUS_LABEL[m.status]]];
   if (m.trigger) details.push(["Why", m.trigger]);
@@ -177,7 +179,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
                 { key: "st", label: "Status", render: (r) => <div><Pill tone={tone(r)} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
                 { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
               ]}
-              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={tone(r)} className="!h-[22px] !text-[11.5px]">{inTestMode(r) ? "Test mode" : r.isBackup ? "SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]}</Pill> })}
+              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={tone(r)} className="!h-[22px] !text-[11.5px]">{inTestMode(r) ? "Test mode" : r.isBackup ? "SMS backup" : notSent(r) ? "Not sent" : waSent(r) ? "Sent to WhatsApp" : DELIVERY_LABEL[r.status]}</Pill> })}
             />
           </Card>
           <Col>

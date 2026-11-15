@@ -11,17 +11,20 @@ import { authTemplateComponents, CODE_EXPIRY_MINUTES, templateComponents, templa
 import { CODE_SEND_WINDOW_MS } from "@/lib/messaging/one-time-code";
 import { rejectedAsWrongType, whatsappNameFor } from "@/lib/communication/templates-admin";
 
-const CODE_KEYS = ["parent-link-code", "admission-consent-code", "sign-in-code"];
+const CODE_KEYS = ["parent-link-code", "admission-consent-code", "sign-in-code", "pickup-code"];
+// Birthday wishes are sent for approval as Marketing (their card says so; docs/design/whatsapp-messages.md).
+const MARKETING_KEYS = ["birthday-student", "birthday-staff"];
 
 describe("each template's WhatsApp category", () => {
   it("is Authentication for every one-time code template and Utility for the rest", () => {
     for (const t of READY_TEMPLATES) {
       for (const body of Object.values(t.texts)) {
         expect(whatsappCategoryOf(body), `${t.key} (${t.channel})`).toBe(CODE_KEYS.includes(t.key) ? "AUTHENTICATION" : "UTILITY");
+        if (t.channel === "whatsapp" && MARKETING_KEYS.includes(t.key)) expect(whatsappCategoryOf(body, { category: "MARKETING" })).toBe("MARKETING");
       }
     }
     // The WhatsApp code templates School OS has today.
-    expect(READY_TEMPLATES.filter((t) => t.channel === "whatsapp" && Object.values(t.texts).some(isCodeTemplate)).map((t) => t.key).sort()).toEqual(["admission-consent-code", "parent-link-code"]);
+    expect(READY_TEMPLATES.filter((t) => t.channel === "whatsapp" && Object.values(t.texts).some(isCodeTemplate)).map((t) => t.key).sort()).toEqual(["admission-consent-code", "parent-link-code", "pickup-code"]);
   });
 });
 

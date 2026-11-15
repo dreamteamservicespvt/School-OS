@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { READY_TEMPLATES, whatsappProblems } from "@/lib/messaging/templates";
 import { PAST_READY_WHATSAPP } from "@/lib/messaging/ready-history";
+import { readyCard } from "@/lib/messaging/ready-whatsapp";
 
 describe("whatsappProblems", () => {
   it("finds a blank at the end, even with a full stop after it", () => {
@@ -37,10 +38,11 @@ describe("whatsappProblems", () => {
 });
 
 describe("ready WhatsApp texts", () => {
-  const texts = READY_TEMPLATES.filter((t) => t.channel === "whatsapp").flatMap((t) => Object.entries(t.texts).map(([lang, body]) => ({ name: `${t.key} (${lang})`, body })));
+  const texts = READY_TEMPLATES.filter((t) => t.channel === "whatsapp").flatMap((t) => Object.entries(t.texts).map(([lang, body]) => ({ name: `${t.key} (${lang})`, key: t.key, lang, body })));
 
-  it.each(texts)("$name is a text Meta takes", ({ body }) => {
-    expect(whatsappProblems(body)).toEqual([]);
+  // Each with its card: a card's link line is its button (src/lib/messaging/card.ts).
+  it.each(texts)("$name is a text Meta takes", ({ key, lang, body }) => {
+    expect(whatsappProblems(body, readyCard(key, lang))).toEqual([]);
   });
 });
 
@@ -68,7 +70,8 @@ describe("migration for schools made before", () => {
       const words = body.replace(/\\n/g, "\n").replace(/\\'/g, "'");
       // Today's ready words, or words School OS had then that "Make ready for WhatsApp" now rewords.
       expect([ready, ...(PAST_READY_WHATSAPP[`${key}|${lang}`] ?? [])], `${key} (${lang})`).toContain(words);
-      expect(whatsappProblems(words)).toEqual([]);
+      // Those words went to WhatsApp as plain texts; today's ready words are cards (checked with their card above).
+      if (words !== ready) expect(whatsappProblems(words)).toEqual([]);
     }
   });
 });

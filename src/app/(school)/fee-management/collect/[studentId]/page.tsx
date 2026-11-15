@@ -8,6 +8,8 @@ import { studentYear } from "@/lib/academic/years";
 import { canSeeStudent } from "@/lib/fees/access";
 import { advanceHeld, allDues, dueStatus, netAmount, studentCard, totalsOf } from "@/lib/fees/dues";
 import { gatewayFor } from "@/lib/fees/settings";
+import { feeTimelines } from "@/lib/fees/timeline";
+import { ruleReady } from "@/lib/messaging/automatic";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Ring } from "@/components/ui/display";
@@ -43,7 +45,12 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
     const heads = await tx.feeHead.findMany({ where: { id: { in: dues.map((d) => d.feeHeadId) } }, select: { id: true, name: true } });
     const advance = await advanceHeld(tx, studentId);
     const gateway = await gatewayFor(tx, p.current.ctx, card.classId);
-    return { card, dues, heads, advance, gateway: Boolean(gateway), year };
+    // Each unpaid installment's timeline (adopt item 4) and, after collecting, why no receipt message
+    // would go (adopt item 7: the receipt sheet says the honest reason, never "sent" when it was not).
+    const timelines = await feeTimelines(tx, p.current.ctx, studentId, p.today);
+    const rule = await ruleReady(tx, p.current.ctx, "fee-paid");
+    const receiptOff = !rule.on ? "the “Fee received” message is off in Message Settings." : rule.held ? "messages start when your school goes live." : !rule.ready ? "no message channel is connected yet." : null;
+    return { card, dues, heads, advance, gateway: Boolean(gateway), year, timelines, receiptOff };
   });
   if (!data) notFound();
   const { card, dues, heads, advance, year } = data;
@@ -64,6 +71,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
         balance: Number(d.balancePaise),
         status,
         lateFee: d.kind === "LATE_FEE",
+        timeline: data.timelines.get(d.id) ?? null,
       };
     });
   const paidPct = pct(totals.paid, totals.total);
@@ -87,6 +95,8 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
         father={card.fatherName ?? card.primaryGuardian?.name ?? "the parent"}
         rows={rows}
         today={p.today.toISOString().slice(0, 10)}
+        todayText={formatDate(p.today, "UTC")}
+        receiptOff={data.receiptOff}
         counter={counter}
         advanceOn={p.features.has("fee-advance")}
         advanceHeld={advance > BigInt(0) ? formatRupees(advance) : null}

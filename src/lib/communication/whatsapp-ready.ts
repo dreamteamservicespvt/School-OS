@@ -5,18 +5,25 @@
 // in test mode when prisma/schema/migrations/*_whatsapp_ready_texts ran, and
 // went back to Not submitted once a real WhatsApp account was connected), so:
 // - "Make ready for WhatsApp" gives a template still in School OS's old words
-//   today's ready words, as a new version (the old one stays on record);
+//   today's ready words, as a new version (the old one stays on record). Since
+//   the cards (15 Nov 2026, ../messaging/ready-whatsapp.ts) that includes texts
+//   WhatsApp approved in old words: the new card goes for approval under a new
+//   name and the approved words keep sending until it is approved;
 // - a text the school wrote or changed is never replaced: it is listed with
 //   what to change, for the person to edit;
+// - School OS's own texts WhatsApp rejected are listed apart, with WhatsApp's reason;
 // - every ready text not yet sent can be sent for approval in one go.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import type { Prisma } from "@prisma/client";
 import { languageLabel, READY_TEMPLATES, variablesIn, whatsappProblems } from "../messaging/templates";
 import { PAST_READY_WHATSAPP } from "../messaging/ready-history";
 import { isCodeTemplate } from "../messaging/blanks";
-import { rejectedAsWrongType } from "./templates-admin";
+import { readCard } from "../messaging/card";
+import { readyCard } from "../messaging/ready-whatsapp";
+import { rejectedAsWrongType, rejectedWords } from "./templates-admin";
 
 /** Statuses a text can still be (re)worded and sent from: WhatsApp has not approved it and is not looking at it. */
 const OPEN = new Set(["NOT_SUBMITTED", "REJECTED"]);
@@ -40,22 +47,24 @@ export function newReadyWords(key: string | null, language: string, body: string
   return (PAST_READY_WHATSAPP[`${key}|${language}`] ?? []).includes(text) ? now : null;
 }
 
+/** Is this text exactly School OS's own ready words for its key, today's or earlier ones? (A text the school changed is not.) */
+export function isOwnReadyText(key: string | null, language: string, body: string): boolean {
+  const text = body.replace(/\r\n/g, "\n").trim();
+  return Boolean(key) && (readyWhatsappWords(key, language) === text || (PAST_READY_WHATSAPP[`${key}|${language}`] ?? []).includes(text));
+}
+
 /**
- * The new words "Make ready for WhatsApp" gives a text, or null. A text not
- * approved (Not submitted, Rejected) gets them when it is still in School OS's
- * old words. A text WhatsApp approved in old words gets them only when they
- * carry a blank the old words lack (the {parent_link} of 15 Nov 2026: an
- * approved text can never take a new blank): the new version goes for approval
- * under a new name, and the approved one keeps going until it is approved
- * (withLastApproved in ../messaging/templates.ts).
+ * The new words "Make ready for WhatsApp" gives a text, or null: any text still
+ * exactly in School OS's earlier words, approved or not. Since the cards (15 Nov
+ * 2026) an approved text in earlier words gets the card too: the new version goes
+ * for approval under a new name ("…_v2"), and the approved one keeps going until
+ * WhatsApp approves it (withLastApproved in ../messaging/templates.ts). A text
+ * WhatsApp is checking (Pending) is left alone.
  */
 function rewordFor(key: string | null, v: { language: string; body: string; whatsappStatus: string | null }): string | null {
   const status = statusOf(v);
   if (status !== "APPROVED" && !OPEN.has(status)) return null;
-  const words = newReadyWords(key, v.language, v.body);
-  if (!words || OPEN.has(status)) return words;
-  const had = variablesIn(v.body);
-  return variablesIn(words).some((b) => !had.includes(b)) ? words : null;
+  return newReadyWords(key, v.language, v.body);
 }
 
 export type ReadyRow = { templateId: string; name: string; language: string; languageLabel: string };
@@ -69,6 +78,8 @@ export type WhatsappReadiness = {
   toSend: (ReadyRow & { versionId: string; again?: "wrong-type" })[];
   /** Texts the school wrote or changed that WhatsApp would refuse, or that WhatsApp rejected: the person edits them. */
   toEdit: (ReadyRow & { problems: string[] })[];
+  /** School OS's own ready texts that WhatsApp rejected, with WhatsApp's reason: never called the school's words. */
+  rejectedOwn: (ReadyRow & { problems: string[] })[];
   pending: number;
   approved: number;
 };
@@ -77,10 +88,10 @@ export type WhatsappReadiness = {
 export async function whatsappReadiness(tx: Tx, ctx: SchoolContext): Promise<WhatsappReadiness> {
   const rows = await tx.template.findMany({
     where: { schoolId: ctx.schoolId, archivedAt: null, channel: "whatsapp" },
-    select: { id: true, name: true, key: true, versions: { where: { isCurrent: true }, select: { id: true, language: true, body: true, whatsappName: true, whatsappStatus: true, whatsappNote: true }, orderBy: { language: "asc" } } },
+    select: { id: true, name: true, key: true, versions: { where: { isCurrent: true }, select: { id: true, language: true, body: true, whatsappName: true, whatsappStatus: true, whatsappNote: true, whatsappCard: true }, orderBy: { language: "asc" } } },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
-  const out: WhatsappReadiness = { fixable: [], toSend: [], toEdit: [], pending: 0, approved: 0 };
+  const out: WhatsappReadiness = { fixable: [], toSend: [], toEdit: [], rejectedOwn: [], pending: 0, approved: 0 };
   for (const t of rows) {
     for (const v of t.versions) {
       const status = statusOf(v);
@@ -94,9 +105,12 @@ export async function whatsappReadiness(tx: Tx, ctx: SchoolContext): Promise<Wha
       if (newReadyWords(t.key, v.language, v.body)) { out.fixable.push({ ...row, versionId: v.id }); continue; }
       // A code template WhatsApp rejected as Utility (INCORRECT_CATEGORY) goes again as a code (Authentication) template.
       if (rejectedAsWrongType(v)) { out.toSend.push({ ...row, versionId: v.id, again: "wrong-type" }); continue; }
-      const problems = isCodeTemplate(v.body) ? [] : whatsappProblems(v.body);
-      if (status === "REJECTED") out.toEdit.push({ ...row, problems: [v.whatsappNote ? `WhatsApp rejected this text: “${v.whatsappNote}”` : "WhatsApp rejected this text.", ...problems] });
-      else if (problems.length) out.toEdit.push({ ...row, problems });
+      const problems = isCodeTemplate(v.body) ? [] : whatsappProblems(v.body, readCard(v.whatsappCard));
+      if (status === "REJECTED") {
+        const said = [v.whatsappNote ? `WhatsApp rejected this text: ${rejectedWords(v.whatsappNote)}` : "WhatsApp rejected this text and gave no reason.", ...problems];
+        if (isOwnReadyText(t.key, v.language, v.body)) out.rejectedOwn.push({ ...row, problems: said });
+        else out.toEdit.push({ ...row, problems: said });
+      } else if (problems.length) out.toEdit.push({ ...row, problems });
       else out.toSend.push({ ...row, versionId: v.id });
     }
   }
@@ -126,10 +140,12 @@ export async function makeReadyForWhatsapp(tx: Tx, ctx: SchoolContext, templateI
       const retired = await tx.templateVersion.updateMany({ where: { id: v.id, schoolId: ctx.schoolId, isCurrent: true }, data: { isCurrent: false } });
       if (!retired.count) continue;
       const last = await tx.templateVersion.findFirst({ where: { templateId: t.id, language: v.language }, orderBy: { version: "desc" }, select: { version: true } });
+      const card = readyCard(t.key, v.language);
       await tx.templateVersion.create({
         data: {
           schoolId: ctx.schoolId, templateId: t.id, language: v.language, version: (last?.version ?? 0) + 1,
           subject: v.subject, body: words, variables: variablesIn(words), whatsappStatus: "NOT_SUBMITTED", createdById: ctx.userId,
+          ...(card ? { whatsappCard: card as Prisma.InputJsonValue } : {}),
         },
       });
       languages.push(v.language);

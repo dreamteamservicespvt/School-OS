@@ -13,6 +13,8 @@ import { SMTP_PORTS } from "./providers/smtp";
 import { META_ID } from "./providers/whatsapp";
 import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappReady, isMetaWhatsapp } from "./dream-team";
 import { publicHostProblem } from "../net/public-address";
+import { variablesIn } from "./blanks";
+import { cardBody, readCard } from "./card";
 
 export class ChannelProblem extends Error {}
 
@@ -127,9 +129,22 @@ export async function testChannel(tx: Tx, ctx: SchoolContext, channel: ProviderC
   let ok = false;
   let note: string;
   if (channel === "whatsapp" && setup.environment === "live") {
-    // WhatsApp only allows approved templates to start a chat; a plain test is not allowed by Meta.
-    note = "WhatsApp settings saved. WhatsApp only allows approved templates, so send a test from Send Message with an approved template.";
-    ok = Boolean(setup.config.phoneNumberId);
+    // WhatsApp lets a plain text through only within 24 hours of the person's own message, so the
+    // test goes in the approved "WhatsApp connection test" template (src/lib/messaging/ready-whatsapp.ts).
+    const test = await connectionTest(tx, ctx);
+    if (!test) {
+      note = "WhatsApp settings saved. To send a test, first send the \"WhatsApp connection test\" template for approval in Message Templates; once WhatsApp approves it, test again.";
+      ok = false;
+    } else {
+      let r;
+      try {
+        r = await provider.send({ channel, to: target, text, whatsappTemplate: { name: test.name, language: test.language, params: test.params } });
+      } catch {
+        r = { ok: false as const, reason: "WhatsApp did not answer.", retryable: true };
+      }
+      ok = r.ok;
+      note = r.ok ? "Sent. Check your phone." : r.reason;
+    }
   } else {
     let r;
     try {
@@ -147,6 +162,20 @@ export async function testChannel(tx: Tx, ctx: SchoolContext, channel: ProviderC
   });
   await writeAudit(tx, ctx, { action: "tested", recordType: "Messaging Channel", recordId: null, after: { channel, ok, note } });
   return { ok, note };
+}
+
+/** The school's approved "WhatsApp connection test" template, filled for the person testing; null when it is not approved yet. */
+async function connectionTest(tx: Tx, ctx: SchoolContext) {
+  const { ensureReadyTemplates, templateByKey, currentVersions, withLastApproved, isApproved, versionFor } = await import("./templates");
+  await ensureReadyTemplates(tx, ctx);
+  const t = await templateByKey(tx, ctx, "connection-test", "whatsapp");
+  if (!t) return null;
+  const v = versionFor((await withLastApproved(tx, ctx, t.id, await currentVersions(tx, ctx, t.id))).filter(isApproved), "en", "en");
+  if (!v?.whatsappName) return null;
+  const me = ctx.userId ? await tx.userLogin.findUnique({ where: { id: ctx.userId }, select: { displayName: true } }) : null;
+  const values: Record<string, string> = { staff_name: me?.displayName?.trim() || "there" };
+  const params = variablesIn(cardBody(v.body, readCard(v.whatsappCard))).map((k) => values[k] ?? "School OS");
+  return { name: v.whatsappName, language: v.language, params };
 }
 
 /** The DLT entity ID and sender header registered on the telecom DLT portal (rule 34). */

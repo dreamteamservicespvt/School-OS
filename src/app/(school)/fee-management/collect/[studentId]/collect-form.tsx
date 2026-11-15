@@ -7,7 +7,7 @@
 import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Banknote, Check, ChevronDown, CreditCard, Download, FileSignature, Info, Landmark, LoaderCircle, MessageCircle, PartyPopper, Printer, QrCode, Send, Smartphone, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Banknote, CalendarDays, Check, ChevronDown, CreditCard, Download, FileSignature, Info, Landmark, LoaderCircle, MessageCircle, PartyPopper, Printer, QrCode, Send, Smartphone, TriangleAlert, type LucideIcon } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/controls";
@@ -22,19 +22,22 @@ import type { DueStatus } from "@/lib/fees/dues";
 import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, receiptDelivery, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 import { FormProblems, bringToBox } from "@/components/ui/form-problems";
 import { DateInput, DateTimeInput } from "@/components/ui/date-input";
 import { UTR_LENGTH, paymentRefProblem, upiTyping } from "@/lib/payment-ref";
+import type { FeeTimeline } from "@/lib/fees/timeline";
+import { FeeTimelineLine } from "../../ledger/[studentId]/timeline";
+import { quickAmounts, staysDue } from "./quick-amounts";
 
-export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean };
+export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean; timeline?: FeeTimeline | null };
 
-const MODES: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "CASH", label: "Cash", icon: Banknote },
-  { id: "UPI", label: "UPI", icon: Smartphone },
-  { id: "CARD", label: "Card", icon: CreditCard },
-  { id: "CHEQUE", label: "Cheque", icon: FileSignature },
-  { id: "BANK_TRANSFER", label: "Bank transfer", icon: Landmark },
+const MODES: { id: string; label: string; short: string; icon: LucideIcon }[] = [
+  { id: "CASH", label: "Cash", short: "Cash", icon: Banknote },
+  { id: "UPI", label: "UPI", short: "UPI", icon: Smartphone },
+  { id: "CARD", label: "Card", short: "Card", icon: CreditCard },
+  { id: "CHEQUE", label: "Cheque", short: "Cheque", icon: FileSignature },
+  { id: "BANK_TRANSFER", label: "Bank transfer", short: "Bank", icon: Landmark },
 ];
 const NEEDS_REF = ["UPI", "CARD", "BANK_TRANSFER"];
 
@@ -49,13 +52,18 @@ const rupeesText = (paise: number) => (paise % 100 === 0 ? String(paise / 100) :
 
 type Problem = { link?: { href: string; label: string }; warning?: boolean; code?: string };
 
-export function CollectForm({ studentId, studentName, firstName, father, rows, today, counter, advanceOn, advanceHeld, gateway, verifyModes, limit, limitPaise, nextDueText, studentCard }: {
+export function CollectForm({ studentId, studentName, firstName, father, rows, today, todayText, counter, advanceOn, advanceHeld, gateway, verifyModes, limit, limitPaise, nextDueText, studentCard, receiptOff = null }: {
   studentId: string; studentName: string; firstName: string; father: string; rows: DueRow[]; today: string;
+  /** Today as the screen shows dates ("15-11-2026"): the payment date unless changed. */
+  todayText?: string;
   counter: { discount: boolean; waive: boolean; changeDate: boolean };
   advanceOn: boolean; advanceHeld: string | null; gateway: boolean; verifyModes: string[]; limit: string; limitPaise: number; nextDueText: string;
   studentCard: React.ReactNode;
+  /** Why the parents' "Fee received" message would not go (messages off, no channel, not live), or null. */
+  receiptOff?: string | null;
 }) {
   const router = useRouter();
+  const tr = useT();
   const [state, formAction, busy] = useActionState<FormState<Collected | Problem>, FormData>(collectFee as never, null);
   const [askState, askAction, askBusy] = useActionState<FormState<unknown>, FormData>(askDiscountApproval as never, null);
   const [linkState, linkAction, linkBusy] = useActionState<FormState<unknown>, FormData>(sendLink as never, null);
@@ -83,6 +91,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   // The last payment stays named on the card after its receipt sheet is closed, to print again (layman loop 3).
   const [last, setLast] = useState<Collected | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
+  // The payment date: empty means now (today); the chip says which day the receipt will carry.
+  const [paidOn, setPaidOn] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const dupRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +116,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   // The fee a part payment leaves unpaid: rows are paid oldest first, so it is the last ticked one when the rest fits on it.
   const lastTicked = [...rows].reverse().find((r) => ticked.has(r.id) && !waive.has(r.id));
   const leftOn = partial && lastTicked && owed - amt + discountPaise <= lastTicked.balance ? `${lastTicked.head} · ${lastTicked.label}` : null;
+  // Quick amounts and the live "stays due" line (whole paise; never more than what is ticked).
+  const quick = quickAmounts(owed);
+  const stays = staysDue(owed, Number.isNaN(amt) ? 0 : amt);
   // A part payment's split on the rows before saving, oldest first (layman loop 2). Only without a discount or waiver, where the split is plain.
   const split = new Map<string, number>();
   if (partial && discountPaise === 0 && waiveTotal === 0) {
@@ -135,6 +148,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       setReason("");
       setWaive(new Set());
       setTried(false);
+      setPaidOn("");
     }
     setAsked(false);
   }
@@ -195,7 +209,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                         : <Checkbox checked={on} onChange={() => toggle(r.id)} label={`${r.head} ${r.label}`} />}
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14.5px]">{r.head} <span className="text-ink3 font-normal">· {r.label}</span></p>
-                        <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>
+                        {r.timeline && !isPaid
+                          ? <>{r.paid > 0 && <p className="text-[12.5px] text-ink3 tnum">{tr.any(`${inr(r.paid)} already paid`)}</p>}<FeeTimelineLine t={r.timeline} className="!mt-0.5" /></>
+                          : <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>}
                       </div>
                       <Pill tone={DUE_WORD[r.status].tone} className="hidden sm:inline-flex">{DUE_WORD[r.status].label}</Pill>
                       <span className="w-24 text-right tnum">
@@ -233,7 +249,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           )}
           {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
-            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on ${leftOn ?? "the newest fees ticked"}.` : "Change it for a part payment"}>
+            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : quick.length ? undefined : "Change it for a part payment"}>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-semibold text-ink3" aria-hidden="true">₹</span>
               <input id="pay-amt" name="amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(e) => setEdited(e.target.value)} placeholder="0"
@@ -241,20 +257,50 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 className={cx(inputCls((tried && errAmt) || serverErr("amount")), "!h-14 pl-10 !text-[24px] font-semibold tnum font-display")} />
             </div>
           </FieldShell>
+          {/* Quick amounts (adopt item 7): Full, Half or Quarter of what is ticked, and what stays due. */}
+          {quick.length > 0 && (
+            <div className="-mt-1 flex flex-col gap-1.5">
+              <div className="flex gap-1.5" role="group" aria-label={tr.any("Quick amount")}>
+                {quick.map((qa) => {
+                  const on = !Number.isNaN(amt) && amt === qa.paise;
+                  return (
+                    <button key={qa.key} type="button" aria-pressed={on} onClick={() => setEdited(rupeesText(qa.paise))}
+                      className={cx("flex-1 min-w-0 h-11 rounded-xl border px-2 text-[13px] font-semibold transition flex flex-col items-center justify-center leading-tight",
+                        on ? "border-brand bg-brand/8 text-brand ring-1 ring-brand" : "border-line text-ink2 hover:border-ink3/50")}>
+                      <span>{tr.any(qa.label)}</span><span className="text-[11.5px] font-medium tnum opacity-80">{inr(qa.paise)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!Number.isNaN(amt) && amt > 0 && amt <= owed && (
+                <p className={cx("text-[13px] font-semibold tnum", stays > 0 ? "text-warn" : "text-ok")} aria-live="polite" data-testid="stays-due">
+                  {stays > 0 ? <>{tr.any(`${inr(stays)} stays due`)}{leftOn ? <span className="font-normal text-ink3"> · {leftOn}</span> : null}</> : tr.any("Settles everything ticked")}
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <p className="text-[13px] font-semibold text-ink2 mb-1.5" id="mode-label"><Words k="How is it paid?" /></p>
-            <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-labelledby="mode-label">
+            {/* One segmented row: every mode one tap away, at least 44 px tall. */}
+            <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-sunken" role="radiogroup" aria-labelledby="mode-label">
               {MODES.map((m) => (
-                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => { setMode(m.id); setTried(false); if (m.id === "UPI") setRef((r) => upiTyping(r)); }}
-                  className={cx("h-[58px] rounded-xl border flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold transition",
-                    mode === m.id ? "border-brand bg-brand/8 text-brand ring-1 ring-brand" : "border-line text-ink2 hover:border-ink3/50")}>
-                  <m.icon size={18} aria-hidden="true" />{m.label}
+                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} aria-label={tr.any(m.label)} onClick={() => { setMode(m.id); setTried(false); if (m.id === "UPI") setRef((r) => upiTyping(r)); }}
+                  className={cx("min-w-0 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 text-[12px] font-semibold transition",
+                    mode === m.id ? "bg-surface text-brand shadow-card ring-1 ring-brand/40" : "text-ink2 hover:text-ink")}>
+                  <m.icon size={17} aria-hidden="true" /><span className="truncate max-w-full px-0.5">{tr.any(m.short)}</span>
                 </button>
               ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              {/* The day the receipt carries: today unless changed under "Date or note". */}
+              <button type="button" disabled={!counter.changeDate} onClick={() => { setMore(true); requestAnimationFrame(() => document.getElementById("pay-when")?.focus()); }}
+                className="h-11 px-3 rounded-xl border border-line text-[13px] font-semibold text-ink2 inline-flex items-center gap-1.5 enabled:hover:border-ink3/50 disabled:cursor-default tnum">
+                <CalendarDays size={15} aria-hidden="true" />{paidOn ? tr.any(`Paid on ${paidOn.slice(8, 10)}-${paidOn.slice(5, 7)}-${paidOn.slice(0, 4)}`) : tr.any(`Today, ${todayText ?? today}`)}
+              </button>
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
                 title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}
-                className="h-[58px] rounded-xl border border-dashed border-line flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
-                {qrBusy ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <QrCode size={18} aria-hidden="true" />}<Words k="Show QR" />
+                className="h-11 px-3 rounded-xl border border-dashed border-line inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
+                {qrBusy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <QrCode size={16} aria-hidden="true" />}<Words k="Show QR" />
               </button>
             </div>
           </div>
@@ -320,7 +366,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               )}
               {counter.changeDate && (
                 <FieldShell label="Paid on" id="pay-when" error={serverErr("paidAt")} help="Leave empty for now. Never before a closed day.">
-                  <DateTimeInput id="pay-when" name="paidAt" max={`${today}T23:59`} className={cx(inputCls(serverErr("paidAt")), "h-11 tnum")} />
+                  <DateTimeInput id="pay-when" name="paidAt" max={`${today}T23:59`} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className={cx(inputCls(serverErr("paidAt")), "h-11 tnum")} />
                 </FieldShell>
               )}
               <FieldShell label="Note" id="pay-note" help="On the office copy of the receipt">
@@ -364,7 +410,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
         <QrSheet qr={qrState.data} father={father} onClose={() => { setQrOpen(false); router.refresh(); }} />
       )}
       {receipt && (
-        <ReceiptSheet r={receipt} studentName={studentName} onClose={() => { setReceipt(null); router.refresh(); }} />
+        <ReceiptSheet r={receipt} studentName={studentName} receiptOff={receiptOff} onClose={() => { setReceipt(null); router.refresh(); }} />
       )}
     </>
   );
@@ -395,7 +441,8 @@ function QrSheet({ qr, father, onClose }: { qr: QrLink; father: string; onClose:
   );
 }
 
-function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: string; onClose: () => void }) {
+function ReceiptSheet({ r, studentName, receiptOff, onClose }: { r: Collected; studentName: string; receiptOff: string | null; onClose: () => void }) {
+  const tr = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [resent, resend, resending] = useActionState<FormState<unknown>, FormData>(resendReceipt as never, null);
@@ -427,7 +474,7 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
             </span>
             <h2 id={titleId} className="font-display text-[26px] font-semibold mt-4 tnum">{r.waiting ? `${total} saved` : `${total} received`}</h2>
             <p className="text-ink3 text-[14px] mt-1">
-              {r.waiting ? "It waits for verification. The receipt is made once the accountant approves it." : !r.messageId && !resentOk ? "The receipt is ready to print. No message was sent to the parents." : told ?? "Sending the receipt to the parents…"}
+              {r.waiting ? "It waits for verification. The receipt is made once the accountant approves it." : !r.messageId && !resentOk ? (receiptOff ? tr.any(`The receipt is ready to print. Not sent to the parents: ${receiptOff}`) : "The receipt is ready to print. No message was sent to the parents.") : told ?? "Sending the receipt to the parents…"}
             </p>
             <div className="w-full mt-5 text-left rounded-2xl border border-line overflow-hidden">
               <div className="flex justify-between items-center px-4 py-3 bg-sunken/60 text-[13px]">

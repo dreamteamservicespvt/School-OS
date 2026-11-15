@@ -17,6 +17,7 @@ import { countWithReason } from "@/lib/messaging/skip-words";
 import { offeredChannels, SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { EMERGENCY_EVENT } from "./send-head-actions";
 import { TranslatePanel } from "./translate-panel";
+import { audienceLine } from "./audience-line";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -293,6 +294,10 @@ export function SendForm({ data }: { data: SendFormData }) {
   // A send that cannot go (nobody reached, a blank that cannot be filled, credits short) cannot be pressed; the reason shows below it.
   const cannotSend = Boolean(live) && whoReady && blocked;
   const serverMessage = state && !state.ok ? state.message : null;
+  const whoLine = audienceLine({
+    checking, ready: whoReady, people: live ? n : null, noun, credits: paidTotal, upTo: Boolean(live?.backupCost && !live.backupTest),
+    test: Boolean(testWords) && !paidTotal, free: channels.every((c) => c === "app" || c === "email"), leftOut: skippedTotal,
+  });
 
   function trySend() {
     setTried(true);
@@ -468,6 +473,14 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
               {tried && <Problem text={err.who} />}
+              {/* The live count and cost right under the choice (adopt item 10), from the same preview as "Check and send". */}
+              {whoLine && (
+                <p className={cx("rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold tnum flex items-center gap-2 transition-opacity", n === 0 && live ? "bg-bad/8 text-bad" : "bg-brand/8 text-brand", checking && "opacity-60")}
+                  aria-live="polite" data-testid="audience-line">
+                  <Users size={16} className="shrink-0" aria-hidden="true" />
+                  <span>{whoLine.split(" · ").map((part) => tr.any(part)).join(" · ")}</span>
+                </p>
+              )}
             </div>
           </Card>
 

@@ -8,7 +8,8 @@ import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction } from "@/lib/communication/access";
-import { archiveTemplate, checkTemplate, refreshApproval, saveTemplate, submitForApproval, TemplateProblem, WHATSAPP_STATUS_LABEL, type TemplateInput } from "@/lib/communication/templates-admin";
+import { archiveTemplate, checkTemplate, refreshApproval, rejectedWords, saveTemplate, submitForApproval, TemplateProblem, WHATSAPP_STATUS_LABEL, type TemplateInput } from "@/lib/communication/templates-admin";
+import { languageLabel } from "@/lib/messaging/templates";
 import { makeReadyForWhatsapp } from "@/lib/communication/whatsapp-ready";
 import { isChannel } from "@/lib/messaging/channels";
 
@@ -104,8 +105,13 @@ export async function refreshApprovalAction(templateId: string): Promise<string 
   if (!uuid.test(templateId)) return "This template was not found.";
   try {
     const access = await fullAccess("edit");
-    const n = await withSchool(access.current.ctx, (tx) => refreshApproval(tx, access.current.ctx, templateId));
-    await flash({ message: n ? "WhatsApp approval status updated." : "No change yet. WhatsApp usually answers within a day.", tone: "info" });
+    const r = await withSchool(access.current.ctx, (tx) => refreshApproval(tx, access.current.ctx, templateId));
+    // A rejection says WhatsApp's own reason (saved on the version too, so the page keeps showing it).
+    const why = r.rejected.map((x) => `${languageLabel(x.language)}: ${x.note ? rejectedWords(x.note) : "no reason given."}`).join(" ");
+    await flash({
+      message: r.rejected.length ? `WhatsApp rejected this text. ${why}` : r.changed ? "WhatsApp approval status updated." : "No change yet. WhatsApp usually answers within a day.",
+      tone: r.rejected.length ? "danger" : "info",
+    });
   } catch (e) {
     if (e instanceof TemplateProblem) return e.message;
     throw e;
@@ -123,7 +129,7 @@ export async function makeReadyAction(templateId: string | null): Promise<string
     const access = await fullAccess("edit");
     const done = await withSchool(access.current.ctx, (tx) => makeReadyForWhatsapp(tx, access.current.ctx, templateId));
     if (!done.length) return "Nothing to change: these templates no longer have the first words School OS gave them.";
-    await flash({ message: "The templates now have words WhatsApp accepts. Next, send them to WhatsApp for approval.", tone: "success" });
+    await flash({ message: "The templates now have the new WhatsApp card. Next, send them to WhatsApp for approval.", tone: "success" });
   } catch (e) {
     if (e instanceof TemplateProblem) return e.message;
     throw e;

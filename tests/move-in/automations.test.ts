@@ -51,7 +51,7 @@ describe("while the school is moving in", () => {
   });
 
   it("still sends a copy a person asks for, and messages to staff", async () => {
-    const byHand = await withSchool(f.ctx, (tx) => sendAutomatic(tx, f.ctx, { rule: "fee-paid", event: { key: `t:${randomUUID()}`, label: "Receipt sent again" }, to: { guardiansOf: [f.ravi.id] }, perStudent: { [f.ravi.id]: { paid_amount: "₹100", payment_date: "01-10-2026", receipt_number: "R-1", receipt_link: receiptPlaceholderFor(f.school.id, randomUUID()) } }, byHand: true }));
+    const byHand = await withSchool(f.ctx, (tx) => sendAutomatic(tx, f.ctx, { rule: "fee-paid", event: { key: `t:${randomUUID()}`, label: "Receipt sent again" }, to: { guardiansOf: [f.ravi.id] }, perStudent: { [f.ravi.id]: { paid_amount: "₹100", payment_date: "01-10-2026", receipt_number: "R-1", payment_mode: "Cash", balance_due: "₹0", receipt_link: receiptPlaceholderFor(f.school.id, randomUUID()) } }, byHand: true }));
     expect(byHand.status).toBe("sent");
     const staff = await withSchool(f.ctx, (tx) => sendAutomatic(tx, f.ctx, { rule: "salary-slip", event: { key: `t:${randomUUID()}`, label: "Salary" }, to: { staffIds: [] } }));
     expect(staff.status).not.toBe("held");

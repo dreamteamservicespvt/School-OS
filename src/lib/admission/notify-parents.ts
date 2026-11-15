@@ -15,7 +15,7 @@ import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } 
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
 import { channelSetups, codeChannels, onChannels, whatsappIsLive, type Channel } from "../messaging/channels";
 import { CODE_MASK, withCode } from "../messaging/one-time-code";
-import { bareText, currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, TYPED_CARRIER, versionFor, type UsableVersion } from "../messaging/templates";
+import { bareText, currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, TYPED_CARRIER, versionFor, type UsableVersion, withLastApproved } from "../messaging/templates";
 import { formatDate } from "../format";
 
 export type ParentMessage = {
@@ -72,7 +72,8 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
     // to parents do (TYPED_CARRIER in planMessage, send.ts). In test mode they stay plain, as before.
     await ensureReadyTemplates(tx, ctx);
     const t = await templateByKey(tx, ctx, TYPED_CARRIER.guardian, "whatsapp");
-    const v = t ? versionFor((await currentVersions(tx, ctx, t.id)).filter(isApproved), "en", "en") : null;
+    // The last approved version keeps sending while a new card waits for WhatsApp (15 Nov).
+    const v = t ? versionFor((await withLastApproved(tx, ctx, t.id, await currentVersions(tx, ctx, t.id))).filter(isApproved), "en", "en") : null;
     if (!v) return { status: "skipped", channel, note: CARRIER_NOT_APPROVED };
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true, timeZone: true } });
     const filled: Record<string, string> = {

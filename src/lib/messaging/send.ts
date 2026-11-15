@@ -449,7 +449,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     if (ch === "whatsapp" && !live) return { ok: true, versions: null, carried: false };
     // SMS, and WhatsApp on a real account, take typed words only inside a ready template.
     const t = await templateByKey(tx, ctx, TYPED_CARRIER[kind], ch);
-    const all = t ? await currentVersions(tx, ctx, t.id) : [];
+    const now = t ? await currentVersions(tx, ctx, t.id) : [];
+    // New card words waiting for WhatsApp's approval: the last approved words carry typed messages meanwhile.
+    const all = t && ch === "whatsapp" ? await withLastApproved(tx, ctx, t.id, now) : now;
     const versions = ch === "sms" ? all.filter((v) => v.dltTemplateId) : all.filter(isApproved);
     if (versions.length) return { ok: true, versions, carried: true };
     const name = t?.name ?? (kind === "guardian" ? "General announcement" : "Message to staff");

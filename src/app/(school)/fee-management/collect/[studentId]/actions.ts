@@ -8,7 +8,7 @@ import { appOrigin } from "@/lib/origin";
 import { collectPayment } from "@/lib/fees/collect";
 import { giveConcession } from "@/lib/fees/concessions";
 import { createPaymentLink, payPath, sendPaymentLink } from "@/lib/fees/online";
-import { sendAutomatic } from "@/lib/fees/notify-parents";
+import { sendAutomatic, feePaidFacts } from "@/lib/fees/notify-parents";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { COUNTER_MODES } from "@/lib/fees/words";
 import { dateTimeOf, id, ids, needRupees, optionalText, rupeesOf, str, UUID_RE } from "@/lib/fees/act";
@@ -162,7 +162,8 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
       rule: "fee-paid",
       event: { key: `fee-paid:${p.id}:again:${Date.now()}`, label: `Receipt ${receipt.number} sent again` },
       to: { guardiansOf: [p.studentId] },
-      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.paymentDate), receipt_number: receipt.number, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.id) } },
+      // "Paid by" and "Still due" too, as on the first copy (the card needs them: without them nobody could be messaged).
+      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.paymentDate), receipt_number: receipt.number, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.id), ...((await feePaidFacts(tx, p.id)) ?? {}) } },
       source: { type: "Payment", id: p.id },
       // A person asked for this copy: it goes even while the school is moving in.
       byHand: true,

@@ -193,10 +193,17 @@ describe("a real WhatsApp account: only approved templates", () => {
   it("the Fee received template fills its Open receipt button, not the words, with the receipt's address", async () => {
     stubWhatsapp();
     await approve(s, "fee-paid", "fee_received_1");
+    // Approved with a text header here (the receipt PDF header needs a real payment; tests/messaging/whatsapp-card-deliver.test.ts).
+    const feeId = await templateId(s.ctx, "fee-paid", "whatsapp");
+    await withSchool(s.ctx, async (tx) => {
+      for (const v of await tx.templateVersion.findMany({ where: { templateId: feeId, isCurrent: true } })) {
+        await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappCard: { ...(v.whatsappCard as object), submitted: { header: "text", buttons: [{ type: "URL", target: "receipt", blank: "receipt_link" }] } } } });
+      }
+    });
     const paymentId = randomUUID();
     const r = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, {
       rule: "fee-paid", event: { key: `fee-paid:${paymentId}`, label: "Fee received, receipt R-9" }, to: { guardiansOf: [s.ravi.id] },
-      perStudent: { [s.ravi.id]: { paid_amount: "₹6,000", payment_date: "10-10-2026", receipt_number: "R-9", receipt_link: receiptPlaceholderFor(s.school.id, paymentId) } },
+      perStudent: { [s.ravi.id]: { paid_amount: "₹6,000", payment_date: "10-10-2026", receipt_number: "R-9", receipt_link: receiptPlaceholderFor(s.school.id, paymentId), payment_mode: "Cash", balance_due: "₹4,000" } },
     }));
     expect(r.status).toBe("sent");
     if (r.status !== "sent") return;
@@ -204,8 +211,8 @@ describe("a real WhatsApp account: only approved templates", () => {
     const template = sent.at(-1)!.body.template as { name: string; components: { type: string; sub_type?: string; parameters: { text: string }[] }[] };
     expect(template.name).toBe("fee_received_1");
     const body = template.components.find((c) => c.type === "body")!.parameters.map((p) => p.text);
-    expect(body).toEqual(["Srinivas Kumar", s.school.name, "₹6,000", "Ravi Kumar", "10-10-2026", "R-9"]);
-    expect(template.components.find((c) => c.type === "button")).toMatchObject({ sub_type: "url", parameters: [{ text: receiptKeyFor(s.school.id, paymentId) }] });
+    expect(body).toEqual(["Srinivas Kumar", "Ravi Kumar", expect.stringContaining("5"), "₹6,000", "Cash", "10-10-2026", "R-9", "₹4,000"]);
+    expect(template.components.find((c) => c.type === "button")).toMatchObject({ sub_type: "url", index: "0", parameters: [{ text: receiptKeyFor(s.school.id, paymentId) }] });
   });
 
   // Layman loop 15 Nov: WhatsApp and App notice ticked, the typed WhatsApp message not approved yet. The screen said
@@ -226,16 +233,14 @@ describe("a real WhatsApp account: only approved templates", () => {
     expect(before.skipped[0].reason).toMatch(/WhatsApp has not approved the "General announcement" message yet, so typed words cannot go by WhatsApp/);
     await approve(s, "general", "general_announcement_1");
     const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, input));
-    expect(plan.rows[0].text).toBe(`Dear Srinivas Kumar, here is a message from ${s.school.name}:
-school closes at noon today.
-Please contact the school office if you have any questions.`);
+    expect(plan.rows[0].text).toBe("Dear Srinivas Kumar, here is a message from the school.\n\n💬 school closes at noon today.\n\nPlease call the school office if you have any questions.");
     expect(plan.rows[0].values.message).toBe("school closes at noon today.");
     const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, input));
     await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: r.messageId, round: "0", chunk: 0 }));
     const body = sent.at(-1)!.body as { type: string; template: { name: string; components: { parameters: { text: string }[] }[] } };
     expect(body.type).toBe("template");
     expect(body.template.name).toBe("general_announcement_1");
-    expect(body.template.components[0].parameters.map((p) => p.text)).toEqual(["Srinivas Kumar", s.school.name, "school closes at noon today."]);
+    expect(body.template.components[0].parameters.map((p) => p.text)).toEqual(["Srinivas Kumar", "school closes at noon today."]);
   });
 });
 

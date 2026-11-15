@@ -77,7 +77,8 @@ async function cannotCarry(tx: Tx, ctx: SchoolContext, ch: "whatsapp" | "sms", t
     return ok ? null : "The SMS template has no DLT template ID. Add it in Message Templates, or send by WhatsApp.";
   }
   if (!whatsappIsLive(setups.whatsapp)) return null;
-  const ok = await tx.templateVersion.count({ where: { templateId, isCurrent: true, whatsappStatus: "APPROVED", whatsappName: { not: null } } });
+  // The current version, or the last approved one while a new version waits for WhatsApp (withLastApproved, 15 Nov).
+  const ok = await tx.templateVersion.count({ where: { templateId, whatsappStatus: "APPROVED", whatsappName: { not: null }, OR: [{ whatsappNote: null }, { NOT: { whatsappNote: { startsWith: "Test mode" } } }] } });
   return ok ? null : SMS_OFFERED ? "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS." : "WhatsApp has not approved the template yet. Send it for approval in Message Templates.";
 }
 

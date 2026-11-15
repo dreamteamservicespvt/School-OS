@@ -6,6 +6,7 @@ import type { Outgoing, Provider, ProviderConfig, SendResult } from "./types";
 import { networkFailure, postJson } from "./types";
 import { whatsappParts } from "../blanks";
 import { appUrl } from "../../parent-link/token";
+import { cardSubmission, metaSample, samplePdf, type SubmittedCard, type WhatsappCard } from "../card";
 
 /** Meta retires each Graph API version about two years after it comes out, so the version is a setting. */
 export const GRAPH_VERSION = /^v\d+\.\d+$/.test(process.env.WHATSAPP_GRAPH_API_VERSION ?? "") ? process.env.WHATSAPP_GRAPH_API_VERSION! : "v23.0";
@@ -48,36 +49,78 @@ export function whatsappReason(code: number | undefined, message?: string): { re
 
 /**
  * What is posted to Meta's /messages for one message. A template goes with its
- * blanks in order and, for its first button, the button's blank. An
- * Authentication (code) template carries the code twice, as Meta requires: as
- * the body's only blank and as the "Copy code" button's blank (sub_type "url",
- * index 0); see deliver.ts.
+ * header's value (the receipt PDF's media id), its blanks in order, and each
+ * link button's end of address at that button's own position (index) in the
+ * template. A header and footer without blanks, a phone button and a fixed
+ * link need nothing. An Authentication (code) template carries the code twice,
+ * as Meta requires: as the body's only blank and as the "Copy code" button's
+ * blank (sub_type "url", index 0); see deliver.ts.
  */
 export function whatsappMessageBody(msg: Pick<Outgoing, "to" | "text" | "whatsappTemplate">) {
   const to = `91${msg.to}`;
-  if (!msg.whatsappTemplate) return { messaging_product: "whatsapp", to, type: "text", text: { body: msg.text, preview_url: true } };
+  const t = msg.whatsappTemplate;
+  if (!t) return { messaging_product: "whatsapp", to, type: "text", text: { body: msg.text, preview_url: true } };
+  const buttons = t.buttons ?? (t.buttonParam ? [{ index: 0, value: t.buttonParam }] : []);
+  const header = t.header?.type === "document" && t.header.id
+    ? [{ type: "header", parameters: [{ type: "document", document: { id: t.header.id, filename: t.header.filename } }] }]
+    : [];
   return {
     messaging_product: "whatsapp",
     to,
     type: "template",
     template: {
-      name: msg.whatsappTemplate.name,
-      language: { code: msg.whatsappTemplate.language },
+      name: t.name,
+      language: { code: t.language },
       components: [
-        ...(msg.whatsappTemplate.params.length ? [{ type: "body", parameters: msg.whatsappTemplate.params.map((text) => ({ type: "text", text })) }] : []),
-        // The first button's blank: the code of an authentication template, or the end of a link button.
-        ...(msg.whatsappTemplate.buttonParam ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: msg.whatsappTemplate.buttonParam }] }] : []),
+        ...header,
+        ...(t.params.length ? [{ type: "body", parameters: t.params.map((text) => ({ type: "text", text })) }] : []),
+        ...buttons.map((b) => ({ type: "button", sub_type: "url", index: String(b.index), parameters: [{ type: "text", text: b.value }] })),
       ],
     },
   };
 }
 
+/** Uploads a file to WhatsApp's media store for this number (POST /<phone number id>/media) and returns its media id. */
+export async function uploadWhatsappMedia(p: ProviderConfig, file: { content: Buffer; filename: string; contentType: string }): Promise<{ ok: true; id: string } | { ok: false; reason: string; retryable: boolean }> {
+  if (!p.config.phoneNumberId || !p.secrets.accessToken || !META_ID.test(p.config.phoneNumberId)) return { ok: false, retryable: false, reason: "WhatsApp is not fully connected. Check Settings, SMS, WhatsApp & Email." };
+  try {
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", file.contentType);
+    form.append("file", new Blob([new Uint8Array(file.content)], { type: file.contentType }), file.filename);
+    const res = await fetch(`${GRAPH}/${encodeURIComponent(p.config.phoneNumberId)}/media`, { method: "POST", headers: { Authorization: `Bearer ${p.secrets.accessToken}` }, body: form, signal: AbortSignal.timeout(15_000) });
+    const json = (await res.json().catch(() => null)) as ({ id?: string } & GraphError) | null;
+    if (res.ok && json?.id) return { ok: true, id: json.id };
+    if (res.status >= 500) return { ok: false, retryable: true, reason: "WhatsApp could not take the receipt PDF just now. It will be tried again." };
+    return { ok: false, retryable: false, reason: json?.error?.message ? `WhatsApp did not take the receipt PDF: ${json.error.message.slice(0, 160)}.` : "WhatsApp did not take the receipt PDF." };
+  } catch {
+    return { ok: false, retryable: true, reason: "Could not send the receipt PDF to WhatsApp. It will be tried again." };
+  }
+}
+
 export function whatsappProvider({ config, secrets }: ProviderConfig): Provider {
+  // One upload per receipt PDF for this delivery run: the parents of one payment share it.
+  const uploaded = new Map<string, string>();
   return {
     key: "meta-cloud",
     async send(msg: Outgoing): Promise<SendResult> {
       if (!config.phoneNumberId || !secrets.accessToken) return { ok: false, retryable: false, reason: "WhatsApp is not fully connected. Check Settings, SMS, WhatsApp & Email." };
       if (!META_ID.test(config.phoneNumberId)) return { ok: false, retryable: false, reason: "The WhatsApp phone number ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
+      // A document header (the receipt PDF) goes to WhatsApp's media store first; the message carries its media id.
+      // Meta never fetches it from our receipt link, which is rate limited per address.
+      const head = msg.whatsappTemplate?.header;
+      if (head?.type === "document" && !head.id) {
+        if (!head.file) return { ok: false, retryable: true, reason: "The receipt PDF could not be made. It will be tried again." };
+        const key = `${head.filename}:${head.file.content.length}`;
+        let id = uploaded.get(key);
+        if (!id) {
+          const up = await uploadWhatsappMedia({ config, secrets }, { content: head.file.content, filename: head.filename, contentType: "application/pdf" });
+          if (!up.ok) return { ok: false, retryable: up.retryable, reason: up.reason };
+          id = up.id;
+          uploaded.set(key, id);
+        }
+        msg = { ...msg, whatsappTemplate: { ...msg.whatsappTemplate!, header: { ...head, id } } };
+      }
       const body = whatsappMessageBody(msg);
       try {
         const res = await postJson(`${GRAPH}/${encodeURIComponent(config.phoneNumberId)}/messages`, body, { Authorization: `Bearer ${secrets.accessToken}` });
@@ -103,7 +146,7 @@ export function templateComponents(body: string) {
   const parts = whatsappParts(body);
   let text = parts.text;
   parts.variables.forEach((v, i) => { text = text.split(`{${v}}`).join(`{{${i + 1}}}`); });
-  const components: Record<string, unknown>[] = [{ type: "BODY", text, ...(parts.variables.length ? { example: { body_text: [parts.variables.map((v) => `sample ${v.replace(/_/g, " ")}`)] } } : {}) }];
+  const components: Record<string, unknown>[] = [{ type: "BODY", text, ...(parts.variables.length ? { example: { body_text: [parts.variables.map(metaSample)] } } : {}) }];
   if (parts.button) {
     components.push({ type: "BUTTONS", buttons: [{ type: "URL", text: parts.button.label, url: `${appUrl()}/r/{{1}}`, example: [`${appUrl()}/r/${"0".repeat(64)}SampleReceiptKey123456`] }] });
   }
@@ -129,31 +172,85 @@ export function authTemplateComponents() {
   ];
 }
 
-export type TemplateSubmission = { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string };
+export type TemplateSubmission = {
+  name: string;
+  language: string;
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  body: string;
+  /** A card's header, footer and buttons (../card.ts); without one, the plain words (and an old "Open receipt" line). */
+  card?: WhatsappCard | null;
+  school?: { name: string; phone: string | null };
+  parentLinkOn?: boolean;
+  /** WhatsApp's handle of the sample receipt PDF, for a document header. */
+  documentHandle?: string | null;
+};
 
-/** What is posted to Meta's /message_templates: a code template in Meta's fixed form, any other with its own words. */
-export function templateSubmission(t: TemplateSubmission) {
-  return {
-    name: t.name,
-    language: t.language,
-    category: t.category,
-    components: t.category === "AUTHENTICATION" ? authTemplateComponents() : templateComponents(t.body),
-  };
+/**
+ * What is posted to Meta's /message_templates: a code template in Meta's fixed
+ * form; a card with its header, footer and buttons; any other with its own words.
+ */
+export function templateSubmission(t: TemplateSubmission): { name: string; language: string; category: string; components: Record<string, unknown>[] } {
+  return templateSubmissionParts(t).body as { name: string; language: string; category: string; components: Record<string, unknown>[] };
 }
 
-/** Sends a template to WhatsApp for approval (see templateSubmission). */
-export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmission) {
+/** templateSubmission, and the card parts it gave WhatsApp (saved with the version for sending). */
+export function templateSubmissionParts(t: TemplateSubmission): { body: Record<string, unknown>; submitted: SubmittedCard | null } {
+  const base = { name: t.name, language: t.language, category: t.category };
+  if (t.category === "AUTHENTICATION") return { body: { ...base, components: authTemplateComponents() }, submitted: null };
+  if (t.card) {
+    const r = cardSubmission(t.body, t.card, { appUrl: appUrl(), schoolName: t.school?.name ?? "", schoolPhone: t.school?.phone ?? null, parentLinkOn: Boolean(t.parentLinkOn), documentHandle: t.documentHandle ?? null });
+    return { body: { ...base, components: r.components }, submitted: r.submitted };
+  }
+  return { body: { ...base, components: templateComponents(t.body) }, submitted: null };
+}
+
+/**
+ * The sample PDF a document header needs at submission, given to WhatsApp with
+ * the Resumable Upload API (an upload session on the Meta app, then the bytes);
+ * returns WhatsApp's handle. The app is WHATSAPP_APP_ID on the server, or the
+ * app the access token belongs to. Null when it cannot be done: the card then
+ * goes with its text header instead.
+ */
+export async function uploadTemplateSample(p: ProviderConfig): Promise<string | null> {
+  const token = p.secrets.accessToken;
+  if (!token) return null;
+  try {
+    let appId = (process.env.WHATSAPP_APP_ID ?? "").trim();
+    if (!appId) {
+      const res = await fetch(`${GRAPH}/app`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+      appId = res.ok ? String(((await res.json()) as { id?: string }).id ?? "") : "";
+    }
+    if (!META_ID.test(appId)) return null;
+    const pdf = samplePdf();
+    const start = await fetch(`${GRAPH}/${appId}/uploads?file_name=sample-receipt.pdf&file_length=${pdf.length}&file_type=application/pdf`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+    const session = start.ok ? String(((await start.json()) as { id?: string }).id ?? "") : "";
+    if (!/^upload:[A-Za-z0-9_=:-]+$/.test(session)) return null;
+    const put = await fetch(`${GRAPH}/${session}`, { method: "POST", headers: { Authorization: `OAuth ${token}`, file_offset: "0" }, body: new Uint8Array(pdf), signal: AbortSignal.timeout(15_000) });
+    const h = put.ok ? ((await put.json()) as { h?: string }).h : null;
+    return typeof h === "string" && h ? h : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sends a template to WhatsApp for approval (see templateSubmission), and says
+ * what was submitted, so each message is later sent with the same parts.
+ */
+export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmission): Promise<{ ok: true; status: string; submitted: SubmittedCard | null } | { ok: false; reason: string }> {
   if (!p.config.businessAccountId || !p.secrets.accessToken) return { ok: false as const, reason: "Add the WhatsApp Business account ID and access token in Settings, SMS, WhatsApp & Email first." };
   if (!META_ID.test(p.config.businessAccountId)) return { ok: false as const, reason: "The WhatsApp Business account ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
   try {
+    const documentHandle = t.card?.header?.type === "document" ? t.documentHandle ?? (await uploadTemplateSample(p)) : null;
+    const { body, submitted } = templateSubmissionParts({ ...t, documentHandle });
     const res = await postJson(
       `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates`,
-      templateSubmission(t),
+      body,
       { Authorization: `Bearer ${p.secrets.accessToken}` },
       8000,
     );
     const json = res.json as ({ id?: string; status?: string } & GraphError) | null;
-    if (res.ok && json?.id) return { ok: true as const, status: (json.status ?? "PENDING").toUpperCase() };
+    if (res.ok && json?.id) return { ok: true as const, status: (json.status ?? "PENDING").toUpperCase(), submitted };
     return { ok: false as const, reason: json?.error?.message ? `WhatsApp said: ${json.error.message.slice(0, 200)}` : "WhatsApp did not accept the template." };
   } catch {
     return { ok: false as const, reason: "Could not reach WhatsApp. Please try again." };

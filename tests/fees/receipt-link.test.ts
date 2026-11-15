@@ -23,7 +23,10 @@ import { collect, dues, makeFeeSchool, R, type FeeSchool } from "./fixture";
 
 const SCHOOL = "11111111-1111-1111-1111-111111111111";
 const PAYMENT = "22222222-2222-2222-2222-222222222222";
-const READY = READY_TEMPLATES.find((t) => t.key === "fee-paid" && t.channel === "whatsapp")!.texts.en;
+// The plain words with the "Open receipt" line (the migration of 24 Oct 2026 wrote them); since the cards
+// (15 Nov 2026) the ready text is a card whose receipt link is its button (tests/messaging/whatsapp-cards.test.ts).
+const READY = "Dear {guardian_name}, {school_name} has received {paid_amount} for {student_name} on {payment_date}. Your receipt number is {receipt_number}. Thank you for your payment.\nOpen your receipt: {receipt_link}";
+const CARD = READY_TEMPLATES.find((t) => t.key === "fee-paid" && t.channel === "whatsapp")!.texts.en;
 const OLD = "Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}";
 const open = (key: string) => GET(new Request(`http://localhost/r/${key}`), { params: Promise.resolve({ key }) });
 
@@ -87,7 +90,12 @@ describe("a fee paid at the counter", () => {
       const m = await tx.message.findFirstOrThrow({ where: { sourceType: "Payment", sourceId: paymentId } });
       return (await tx.messageRecipient.findFirstOrThrow({ where: { messageId: m.id, guardianId: f.ravi.guardian.id } })).text;
     });
-    expect(text).toContain(`Open your receipt: ${receiptPlaceholderFor(f.school.id, paymentId)}`);
+    // The card keeps the link on its own last line: WhatsApp gets it as the "Open receipt" button.
+    expect(CARD.endsWith("\n{receipt_link}")).toBe(true);
+    expect(text).toContain(`Please keep this message for your records.\n${receiptPlaceholderFor(f.school.id, paymentId)}`);
+    // "Paid by" and "Still due" come from the payment and the open dues, never made up.
+    expect(text).toMatch(/💳 Paid by: \*\w[^*]*\*/);
+    expect(text).toMatch(/⏳ Still due: \*₹[\d,]+(\.\d\d)?\*/);
     expect(text).not.toContain("http");
   });
 
@@ -125,7 +133,8 @@ describe("ready Fee received templates of schools made before", () => {
     await tx.templateVersion.updateMany({ where: { templateId: wa.id }, data: { body, whatsappStatus } });
   });
   const versions = (s: FeeSchool) => withSchool(s.ctx, (tx) => tx.templateVersion.findMany({
-    where: { template: { key: "fee-paid" } }, orderBy: [{ templateId: "asc" }, { version: "asc" }],
+    // English: the migration of 24 Oct 2026 wrote English words (the Hindi and Telugu cards came later).
+    where: { template: { key: "fee-paid" }, language: "en" }, orderBy: [{ templateId: "asc" }, { version: "asc" }],
     select: { version: true, isCurrent: true, body: true, variables: true, template: { select: { channel: true } } },
   }));
 

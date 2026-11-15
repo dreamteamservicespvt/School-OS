@@ -3,6 +3,7 @@ import { withSchool } from "@/lib/db";
 import { abilities, studentScope } from "@/lib/students/access";
 import { feePageAllowedFor, feeViewer, studentScope as feeStudentScope } from "@/lib/fees/access";
 import { feeIntent, findStudents as findFeeStudents } from "@/lib/fees/find";
+import { dueChipsFor } from "@/lib/fees/due-chips";
 import { todayIn } from "@/lib/staff/dates";
 import { doesWork } from "@/lib/duty";
 import { formatDate, formatRupees } from "@/lib/format";
@@ -50,9 +51,14 @@ export async function GET(req: Request) {
       ? await findStudents(tx, who, { scope: scope ?? {}, yearId: yearIds, statuses: "any", byParent: seeParents, take: 6 })
       : [];
 
+    // The due chip beside each student (adopt item 8), only for people who may see fees and only
+    // for students inside their fee reach (src/lib/fees/due-chips.ts); a teacher gets none.
+    const today = todayIn(current.school?.timeZone ?? "Asia/Kolkata");
+    const chips = students.length ? await dueChipsFor(tx, current.ctx, current, students.map((s) => s.id), today) : new Map();
+
     // "fee <name>": Collect Fee for each student found, within the person's fee reach, with what is due now.
     const collect = forCollect
-      ? (await findFeeStudents(tx, await feeViewer(tx, current.ctx, current), who, todayIn(current.school?.timeZone ?? "Asia/Kolkata"), 4)).map((s) => ({
+      ? (await findFeeStudents(tx, await feeViewer(tx, current.ctx, current), who, today, 4)).map((s) => ({
           id: s.id,
           name: s.name,
           sub: [s.classSection, s.admissionNo, s.due > BigInt(0) ? `${formatRupees(s.due)} due${s.overdue ? ", overdue" : ""}` : "Nothing due now"].join(" · "),
@@ -122,6 +128,7 @@ export async function GET(req: Request) {
         name: s.name,
         sub: [s.classSection, s.rollNo ? `Roll ${s.rollNo}` : null, s.admissionNo, s.parent ? `Parent ${s.parent}` : null].filter(Boolean).join(" · "),
         href: `/student-management/students/${s.id}`,
+        ...(chips.has(s.id) ? { due: chips.get(s.id) } : {}),
       })),
       staff: staff.map((s) => ({ id: s.id, name: s.fullName, sub: `${s.designation} · ${s.staffCode}`, href: `/staff-hr-management/${s.id}` })),
     };

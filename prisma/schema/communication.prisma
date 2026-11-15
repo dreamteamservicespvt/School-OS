@@ -90,6 +90,8 @@ model TemplateVersion {
   /// NOT_SUBMITTED, PENDING, APPROVED, REJECTED.
   whatsappStatus String?  @map("whatsapp_status")
   whatsappNote   String?  @map("whatsapp_note")
+  /// WhatsApp card parts (src/lib/messaging/card.ts): header, footer, buttons, category, and what was submitted to Meta.
+  whatsappCard   Json?    @map("whatsapp_card")
   createdById    String?  @map("created_by_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at")
 

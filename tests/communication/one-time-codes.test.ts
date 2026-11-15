@@ -155,7 +155,8 @@ describe("one-time codes are never kept in messaging", () => {
     const m = await withSchool(s.ctx, (tx) => tx.message.findFirstOrThrow({ where: { trigger: "Pickup code" }, orderBy: { createdAt: "desc" } }));
     sent.push({ messageId: m.id, code, what: "pickup" });
     const rows = await expectHidden(sent.at(-1)!);
-    expect(rows.recipients[0].text).toMatch(/^Code •••••• to collect Ravi from school\./);
+    // The pickup code goes in its own code template (Front Office, src/lib/front-office/notify.ts).
+    expect(rows.recipients[0].text).toMatch(/^Your one-time code to collect your child from .+ is ••••••\./);
     expect(senderWords(rows.message, new Map())).toBe("School OS (pickup code)");
   });
 

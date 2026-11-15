@@ -155,6 +155,7 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   await ensureReadyTemplates(tx, ctx);
   const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
   if (!state.isOn) return { status: "off", duplicates: 0 };
+  input = await withFeePaidFacts(tx, input);
 
   const logged = await tx.automationLog.findMany({ where: { schoolId: ctx.schoolId, ruleKey: def.key, eventKey: input.event.key, outcome: { in: ["sent", "no-credits", "not-sent"] } }, select: { recipientKey: true, outcome: true } });
   const done = new Set(logged.filter((r) => r.outcome !== "not-sent").map((r) => r.recipientKey));
@@ -189,6 +190,21 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   for (const r of notSent) await logLines(tx, ctx, def.key, input.event, [{ key: r.rowKey, name: r.candidate.name }], "not-sent", r.reason, result.messageId);
   if (plan.rows.length === 0) return { status: "not-sent", result, reason, duplicates };
   return { status: "sent", result, duplicates };
+}
+
+/**
+ * The fee receipt card's "Paid by" and "Still due" (src/lib/fees/notify-parents.ts
+ * feePaidFacts), filled for every "Fee received" message about a payment, also
+ * the ones a person sends again from Collect Fee, when the sender did not.
+ */
+async function withFeePaidFacts(tx: Tx, input: AutomaticInput): Promise<AutomaticInput> {
+  if (input.rule !== "fee-paid" || input.source?.type !== "Payment" || !input.perStudent) return input;
+  const missing = Object.values(input.perStudent).some((v) => !v.payment_mode || !v.balance_due);
+  if (!missing) return input;
+  const { feePaidFacts } = await import("../fees/notify-parents");
+  const facts = await feePaidFacts(tx, input.source.id);
+  if (!facts) return input;
+  return { ...input, perStudent: Object.fromEntries(Object.entries(input.perStudent).map(([id, v]) => [id, { ...facts, ...v }])) };
 }
 
 /** The message a rule sends for an event: its channels, the next ones to try, templates and SMS backup. */

@@ -6,8 +6,10 @@ import { commPage } from "@/lib/communication/access";
 import { formatDateTime } from "@/lib/format";
 import { channelSetups } from "@/lib/messaging/channels";
 import { categoryLabel, languageLabel, render, sampleValues, smsParts, variableLabel, whatsappProblems } from "@/lib/messaging/templates";
-import { rejectedAsWrongType, ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { rejectedAsWrongType, rejectedWords, ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
 import { isCodeTemplate } from "@/lib/messaging/blanks";
+import { cardBody, effectiveButtons, footerFor, readCard } from "@/lib/messaging/card";
+import { readyCard } from "@/lib/messaging/ready-whatsapp";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
@@ -17,7 +19,8 @@ import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
 import { MakeReadyButton } from "../whatsapp-ready";
-import { newReadyWords } from "@/lib/communication/whatsapp-ready";
+import { isOwnReadyText, newReadyWords } from "@/lib/communication/whatsapp-ready";
+import { WhatsappCardPreview } from "../card-preview";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -53,17 +56,23 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   const v = currentVersions.find((x) => x.language === lang) ?? null;
   const rules = usedBy(t, data.firstIds, t.id);
   const canEdit = access.full && !t.archivedAt;
-  const anyPending = currentVersions.some((x) => x.whatsappStatus === "PENDING");
+  // "Check approval status" also asks again about rejected texts, and shows WhatsApp's reason.
+  const anyPending = currentVersions.some((x) => x.whatsappStatus === "PENDING" || x.whatsappStatus === "REJECTED");
   const isSms = t.channel === "sms";
   const isWa = t.channel === "whatsapp";
   const missingDlt = isSms && currentVersions.some((x) => !x.dltTemplateId);
   const wa = v?.whatsappStatus ?? "NOT_SUBMITTED";
   // A code template goes in Meta's own words (Authentication), so its words here are not checked.
-  const waProblems = isWa && v && !isCodeTemplate(v.body) ? whatsappProblems(v.body) : [];
+  const card = isWa && v ? readCard(v.whatsappCard) : null;
+  const waProblems = isWa && v && !isCodeTemplate(v.body) ? whatsappProblems(v.body, card) : [];
   const wrongType = isWa && v ? rejectedAsWrongType(v) : false;
-  // Still in the first words School OS gave it, never approved: one click gives today's ready words.
-  const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED") ? newReadyWords(t.key, v.language, v.body) : null;
-  const preview = v ? render(v.body, sampleValues) : null;
+  // School OS's own words rejected by WhatsApp: never called the school's words.
+  const ownRejected = isWa && v && wa === "REJECTED" && !wrongType ? isOwnReadyText(t.key, v.language, v.body) : false;
+  // Still in earlier words School OS gave it (approved ones too, for the new card): one click gives today's card.
+  const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED" || wa === "APPROVED") ? newReadyWords(t.key, v.language, v.body) : null;
+  const preview = v ? render(card ? cardBody(v.body, card) : v.body, sampleValues) : null;
+  const shownCard = card && v ? { ...card, buttons: effectiveButtons(v.body, card) } : null;
+  const newCard = readyWords && v ? readyCard(t.key, v.language) : null;
   const usedIn = (vid: string) => { const n = data.uses.get(vid) ?? 0; return `${n.toLocaleString("en-IN")} message${n === 1 ? "" : "s"}`; };
   const maxVersion = Math.max(1, ...currentVersions.map((x) => x.version));
 
@@ -100,7 +109,9 @@ export default async function TemplatePage({ params, searchParams }: { params: P
         {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once DREAM TEAM connects WhatsApp, they go to WhatsApp for real." /></Banner>}
         {wrongType
           ? <Banner tone="warn" title="Rejected by WhatsApp: wrong type."><Words k="Send it for approval again. It now goes as a code message, in WhatsApp's own words." /></Banner>
-          : v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
+          : v?.whatsappStatus === "REJECTED" && (ownRejected
+            ? <Banner tone="warn" title="WhatsApp rejected School OS's words for this template.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : <><Any text="Press Check approval status to see WhatsApp's reason." />{" "}</>}<Any text="Edit the words and send them again, or ask DREAM TEAM support." /></Banner>
+            : <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : null}<Words k="Change the wording with Edit and send it again." /></Banner>)}
         <Split side={340}>
           <Card className="min-w-0">
             <CardHeader title="The text" icon={FileText} description={v ? `Saved ${formatDateTime(v.createdAt, tz)}${v.createdById ? ` by ${data.people.get(v.createdById) ?? "staff"}` : ""} · used in ${usedIn(v.id)}` : undefined} />
@@ -119,14 +130,20 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                 </div>
                 <div>
                   <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
-                  <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>
+                  {shownCard
+                    ? <WhatsappCardPreview header={shownCard.header ?? null} text={preview?.ok ? preview.text : cardBody(v.body, shownCard)} footer={shownCard.footer ?? footerFor(current.school.name)} buttons={shownCard.buttons ?? []} marketing={shownCard.category === "MARKETING"} />
+                    : <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>}
                 </div>
                 {readyWords && (
                   <div className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 flex flex-col gap-3">
-                    <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Words k="These are the first words School OS gave this template." /></b> <Words k="WhatsApp would refuse them. Making it ready saves a new version; the old one stays." /></p>
+                    {wa === "APPROVED"
+                      ? <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Any text="A new WhatsApp card is ready for this template." /></b> <Any text="Making it ready saves a new version to send for approval. Parents keep getting the approved words until WhatsApp approves the new card." /></p>
+                      : <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Any text="These are earlier words School OS gave this template." /></b> <Any text="Making it ready saves the new WhatsApp card as a new version; the old one stays." /></p>}
                     <div>
                       <p className="eyebrow text-ink3 mb-1.5"><Words k="New words" /></p>
-                      <div className="rounded-xl bg-surface border border-line p-3 text-[14px] leading-relaxed whitespace-pre-line break-words"><BlankText text={readyWords} /></div>
+                      {newCard
+                        ? <WhatsappCardPreview header={newCard.header ?? null} text={cardBody(readyWords, newCard)} footer={footerFor(current.school.name)} buttons={effectiveButtons(readyWords, newCard)} marketing={newCard.category === "MARKETING"} blanks />
+                        : <div className="rounded-xl bg-surface border border-line p-3 text-[14px] leading-relaxed whitespace-pre-line break-words"><BlankText text={readyWords} /></div>}
                     </div>
                     {canEdit && <MakeReadyButton id={t.id} />}
                   </div>

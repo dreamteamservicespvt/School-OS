@@ -9,15 +9,30 @@ import type { SchoolContext, Tx } from "../db";
 import { sendAutomatic, sendMessage, planMessage, MessagingProblem, type SendInput } from "../messaging";
 import { formatDate, formatRupees } from "../format";
 import { receiptPlaceholderFor } from "../parent-link/token";
+import { openDues } from "./dues";
+import { modeLabel } from "./words";
+
+/**
+ * "Paid by" and "Still due" on the parent's receipt card (docs/research/inkwelly-2026-11-15.md,
+ * adopt items 1-2), from the payment and the student's open dues: the same figure the receipt
+ * PDF shows as the balance due (documents.ts receiptData), never a made-up one.
+ */
+export async function feePaidFacts(tx: Tx, paymentId: string): Promise<{ payment_mode: string; balance_due: string } | null> {
+  const p = await tx.payment.findFirst({ where: { id: paymentId }, select: { mode: true, studentId: true } });
+  if (!p) return null;
+  const balance = (await openDues(tx, p.studentId)).reduce((s, d) => s + d.balancePaise, BigInt(0));
+  return { payment_mode: modeLabel(p.mode), balance_due: formatRupees(balance) };
+}
 
 /** A1: the parent's "Fee received" message. Never stops the payment: a messaging setup problem is only logged. */
 export async function sendFeePaid(tx: Tx, ctx: SchoolContext, p: { paymentId: string; studentId: string; amountPaise: bigint; date: Date; receiptNo: string }) {
   try {
+    const facts = await feePaidFacts(tx, p.paymentId);
     return await sendAutomatic(tx, ctx, {
       rule: "fee-paid",
       event: { key: `fee-paid:${p.paymentId}`, label: `Fee received, receipt ${p.receiptNo}` },
       to: { guardiansOf: [p.studentId] },
-      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.date), receipt_number: p.receiptNo, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.paymentId) } },
+      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.date), receipt_number: p.receiptNo, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.paymentId), ...(facts ?? {}) } },
       source: { type: "Payment", id: p.paymentId },
     });
   } catch (e) {

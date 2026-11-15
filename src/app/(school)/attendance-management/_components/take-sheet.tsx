@@ -2,11 +2,13 @@
 
 // Take Attendance (05 §2, design/ui-prototype/src/attendance.jsx): a register
 // not saved yet starts everyone Present (./sheet-start.ts); a saved or locked
-// one shows only saved marks, the rest "Not marked"; tap A or L for the exceptions; a long press (or "Add note")
-// opens every status and a note. One fixed Save button says what will be
+// one shows only saved marks, the rest "Not marked". Every status the school
+// uses is a button on each row (adopt item 3: no hidden long press); "Add note"
+// opens a note and, for an absence, its reason. A live counter says how many
+// are marked; approved leave is pre-set and says which days and who approved it. One fixed Save button says what will be
 // saved. Offline, the save waits on this phone and is sent when online.
 // When the school records absence reasons, an absent student shows "Reason:
-// Not known yet"; tapping it (or the long press) picks the reason. Optional:
+// Not known yet"; tapping it (or "Add note") picks the reason. Optional:
 // saving without one keeps "Not known yet".
 
 import Link from "next/link";
@@ -24,14 +26,14 @@ import { saveSheet } from "../actions";
 import { enqueueSave, isNetworkError, newClientId } from "./offline-queue";
 import { QuickChips } from "./sheet-form";
 import { STATUS_ON, STATUS_SOFT, type StatusView } from "./status";
-import { startMarks, unsavedCount } from "./sheet-start";
+import { sheetCounter, startMarks, unsavedCount } from "./sheet-start";
 import { Words, useT } from "@/lib/i18n/client";
 
 export type SheetStatus = StatusView & { counts: string };
 export type SheetRow = {
   id: string; roll: number | null; name: string; admissionNo: string; photoUrl: string | null;
   statusKey: string | null; note: string | null;
-  leave: { typeName: string; halfDay: boolean; reason: string | null } | null;
+  leave: { typeName: string; halfDay: boolean; reason: string | null; note?: string } | null;
   /** The saved absence reason, as this person may see it. */
   reason?: { key: string; label: string; note: string | null } | null;
 };
@@ -54,18 +56,23 @@ type Props = {
   reasons?: ReasonChoice[] | null;
   /** The next class of the day not taken yet: offered after saving, never opened by itself. */
   next?: { href: string; label: string } | null;
+  /** After saving: "2 parents told", "not told: messages off" (src/lib/attendance/told.ts), or null. */
+  told?: string | null;
 };
 
 type Why = { key: string | null; note: string };
 type Mark = { statusKey: string | null; note: string };
-const QUICK = ["present", "absent", "late"];
+/** The counter bar's colour for each status tone (theme tokens, so dark mode and the school's colour work). */
+const STATUS_BAR: Record<string, string> = { success: "bg-ok", danger: "bg-bad", warning: "bg-warn", info: "bg-info", brand: "bg-brand", neutral: "bg-ink3/50" };
 const NOTE_CHIPS = ["Came at 9:20", "Doctor visit", "Left early, parent picked up", "No uniform"];
 
 export function TakeSheet(p: Props) {
   const router = useRouter();
   const tr = useT();
   const byKey = useMemo(() => new Map(p.statuses.map((s) => [s.key, s])), [p.statuses]);
-  const quick = useMemo(() => QUICK.filter((k) => byKey.has(k)), [byKey]);
+  // Every status the school uses, in its own order, as a button on each row.
+  const quick = useMemo(() => p.statuses.map((s) => s.key), [p.statuses]);
+  const many = quick.length > 3;
   const fixed = useCallback((s: SheetRow) => Boolean(s.leave && !s.leave.halfDay), []);
   const readOnly = p.locked && !p.canChangeAfterLock;
   // Present by default only on a register not saved yet that this person may save (./sheet-start.ts).
@@ -78,10 +85,8 @@ export function TakeSheet(p: Props) {
   const [confirmAll, setConfirmAll] = useState(false);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ text: string; link?: { href: string; label: string } } | null>(null);
-  const lockedProblem = { text: `Locked at ${p.lockText}. To change a mark, use Request a correction.`, link: { href: p.correctionHref, label: "Request a correction" } };
   const [pending, startTransition] = useTransition();
   const clientId = useRef<string>(newClientId());
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Absence reasons, kept apart from the marks: key null = not chosen ("Not known yet" when saved).
   const [why, setWhy] = useState<Record<string, Why>>(() => Object.fromEntries(p.students.map((s) => [s.id, { key: s.reason?.key ?? null, note: s.reason?.note ?? "" }])));
   const isAbsent = (k: string | null | undefined) => Boolean(k && byKey.get(k)?.counts === "absent");
@@ -90,7 +95,6 @@ export function TakeSheet(p: Props) {
     const label = p.reasons?.find((x) => x.key === r?.key)?.label ?? p.students.find((s) => s.id === id)?.reason?.label ?? "Not known yet";
     return `Reason: ${label}${r?.note ? ` · ${r.note}` : ""}`;
   };
-  const longPressed = useRef(false);
 
   // Warn before leaving with unsaved marks.
   useEffect(() => {
@@ -156,7 +160,7 @@ export function TakeSheet(p: Props) {
   const save = () => {
     const list = entries();
     if (list.length === 0) { setProblem({ text: "Mark at least one student before saving." }); return; }
-    if (counts.notMarked > 0) { setProblem({ text: `${counts.notMarked} ${counts.notMarked === 1 ? "student is" : "students are"} not marked yet. Tap P, A or L for each one, then save.` }); return; }
+    if (counts.notMarked > 0) { setProblem({ text: `${counts.notMarked} ${counts.notMarked === 1 ? "student is" : "students are"} not marked yet. Tap a status for each one, then save.` }); return; }
     if (p.offlineOn && typeof navigator !== "undefined" && navigator.onLine === false) { keepOffline(list); return; }
     startTransition(async () => {
       try {
@@ -186,7 +190,9 @@ export function TakeSheet(p: Props) {
   const needle = q.trim().toLowerCase();
   const list = needle ? p.students.filter((s) => s.name.toLowerCase().includes(needle) || String(s.roll ?? "") === needle || s.admissionNo.toLowerCase().includes(needle)) : p.students;
   const noteRow = p.students.find((s) => s.id === noteFor) ?? null;
-  const extraStatuses = p.statuses.filter((s) => !quick.includes(s.key));
+  const counter = sheetCounter(p.students, marks, p.statuses);
+  // A " · " line said part by part in the screen's language (names and reasons stay as typed).
+  const parts = (text: string) => text.split(" · ").map((x) => tr.any(x)).join(" · ");
   const tiles = [
     ...["present", "absent", "late", "leave"].filter((k) => byKey.has(k)).map((k) => ({ key: k, label: byKey.get(k)!.name, value: counts.c[k] ?? 0 })),
     ...(counts.notMarked ? [{ key: "none", label: "Not marked", value: counts.notMarked }] : []),
@@ -235,7 +241,7 @@ export function TakeSheet(p: Props) {
             : `${unsaved ? `${tr("{who} not marked: no mark is saved for them on this day.", { who: tr.any(studentsWord(unsaved)) })} ` : ""}${tr("A change now needs a correction request. The principal approves it, and the old marks are kept.")}`}
         </Banner>
       ) : savedNow ? (
-        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={p.savedBy ? tr("Saved at {time} by {name}.", { time: p.savedAtText ?? "", name: p.savedBy }) : tr("Saved at {time}.", { time: p.savedAtText ?? "" })}
+        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`${p.savedBy ? tr("Saved at {time} by {name}.", { time: p.savedAtText ?? "", name: p.savedBy }) : tr("Saved at {time}.", { time: p.savedAtText ?? "" })}${p.told ? ` · ${p.told.split(", ").map((x) => tr.any(x)).join(", ")}` : ""}`}
           action={p.next && !unsaved ? <Link href={p.next.href} className={buttonClass("secondary", "sm")}><Words k="Next class: {class}" vars={{ class: p.next.label }} /> →</Link> : undefined}>
           {unsaved ? `${tr("{who} not marked yet: tap P, A or L for each, then save.", { who: tr.any(studentsWord(unsaved)) })} ` : ""}
           {p.locked ? tr("It locked at {time}; the school keeps a record of who changed it and when.", { time: p.lockText }) : tr("You can change it until {time}.", { time: p.lockText })}
@@ -254,9 +260,19 @@ export function TakeSheet(p: Props) {
         <Banner tone="info" icon={Info} className="mb-4" title="Nobody is marked yet."><Words k="Tap P, A or L for each student, or mark everyone present first." /></Banner>
       )}
 
+      {/* Live counter: how many are marked, and how (adopt item 3). */}
+      <div className="mb-3" aria-live="polite" data-testid="sheet-counter">
+        <p className="text-[14px] font-semibold tnum">{parts(counter.text)}</p>
+        <div className="mt-1.5 h-2 rounded-full bg-sunken overflow-hidden flex" aria-hidden="true">
+          {p.statuses.filter((s) => counter.by[s.key]).map((s) => (
+            <span key={s.key} className={cx("h-full transition-[width] duration-200 motion-reduce:transition-none", STATUS_BAR[s.tone] ?? STATUS_BAR.neutral)} style={{ width: `${(counter.by[s.key] / Math.max(1, counter.total)) * 100}%` }} />
+          ))}
+        </div>
+      </div>
+
       {/* Counts + tools */}
       <div className="flex flex-col xl:flex-row gap-3 xl:items-center mb-4">
-        <div className="grid gap-2 flex-1 grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]" aria-live="polite">
+        <div className="grid gap-2 flex-1 grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]">
           {tiles.map((t) => (
             <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
               <p className={cx("font-display text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
@@ -290,50 +306,39 @@ export function TakeSheet(p: Props) {
           const v = m?.statusKey ?? null;
           const st = v ? byKey.get(v) : undefined;
           const isFixed = fixed(s);
-          const extra = v && !quick.includes(v) && !isFixed ? st : undefined;
           return (
-            <li key={s.id} className={cx("min-w-0 flex items-center gap-2.5 md:gap-3 rounded-2xl border bg-surface px-3 py-2.5 transition",
-              v === "absent" ? "border-bad/40 bg-bad/[.04]" : v === "late" ? "border-warn/40 bg-warn/[.04]" : isFixed ? "border-line bg-sunken/40" : "border-line")}>
+            <li key={s.id} className={cx("min-w-0 flex flex-wrap items-center gap-x-2.5 md:gap-x-3 gap-y-2 rounded-2xl border bg-surface px-3 py-2.5 transition",
+              v === "absent" ? "border-bad/40 bg-bad/[.04]" : v === "late" ? "border-warn/40 bg-warn/[.04]" : isFixed ? "border-info/30 bg-info/[.04]" : "border-line")}>
               <span className="w-6 text-center text-[13px] font-semibold text-ink3 tnum shrink-0">{s.roll ?? "–"}</span>
               <Avatar name={s.name} src={s.photoUrl} size={36} className="hidden sm:inline-grid" />
               <div className="min-w-0 flex-1">
                 <p className={cx("font-semibold text-[14.5px] truncate", isFixed && "text-ink2")}>{s.name}</p>
                 <p className="text-[12px] text-ink3 truncate">
-                  {isFixed ? `On approved leave · ${s.leave!.reason || s.leave!.typeName}`
+                  {isFixed ? <span className="text-info">{parts(s.leave!.note ?? `On approved leave · ${s.leave!.reason || s.leave!.typeName}`)}</span>
                     : p.reasons && isAbsent(v) ? (readOnly
                       ? reasonText(s.id)
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="text-bad/90 hover:text-brand text-left truncate max-w-full">{reasonText(s.id)}{m?.note ? ` · ${m.note}` : ""}</button>)
-                    : readOnly ? (m?.note || s.admissionNo)
-                      : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full min-h-10">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
+                    : readOnly ? (m?.note || (s.leave?.halfDay ? parts(s.leave.note ?? "Half-day leave approved") : s.admissionNo))
+                      : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full min-h-10">{m?.note ? m.note : s.leave?.halfDay ? `${parts(s.leave.note ?? "Half-day leave approved")} · ${tr("Add note")}` : tr("Add note")}</button>}
                 </p>
               </div>
               {isFixed ? <Pill tone="info"><Words k="Leave" /></Pill> : readOnly ? (
-                // Locked: only the saved mark shows, not faded P/A/L that looked tappable and did nothing (layman loop 5).
+                // Locked: only the saved mark shows, not faded buttons that looked tappable and did nothing (layman loop 5).
                 <span title={st ? tr.any(st.name) : undefined} className={cx("min-w-11 h-11 px-1.5 rounded-xl border text-[14px] font-bold grid place-items-center shrink-0", st ? STATUS_ON[st.tone] ?? STATUS_ON.neutral : "border-dashed border-line text-ink3")}>
                   <span aria-hidden="true">{st?.letter ?? "–"}</span><span className="sr-only">{st ? tr.any(st.name) : tr("Not marked")}</span>
                 </span>
               ) : (
-                <div className="flex gap-1 shrink-0" role="radiogroup" aria-label={tr("Attendance for {name}", { name: s.name })}>
-                  {extra && (
-                    <button type="button" role="radio" aria-checked="true" aria-label={tr.any(extra.name)} title={tr("{status}. Tap to choose another status.", { status: tr.any(extra.name) })} disabled={readOnly}
-                      onClick={() => setNoteFor(s.id)}
-                      className={cx("min-w-11 h-11 px-1.5 rounded-xl border text-[13px] font-bold transition", STATUS_ON[extra.tone] ?? STATUS_ON.neutral)}>
-                      {extra.letter}
-                    </button>
-                  )}
+                // Every status is a button (no hidden long press). With more than P, A and L they take a line
+                // of their own on a phone, each at least 44 px wide.
+                <div className={cx("flex gap-1 shrink-0", many && "w-full sm:w-auto")} role="radiogroup" aria-label={tr("Attendance for {name}", { name: s.name })}>
                   {quick.map((k) => {
                     const sk = byKey.get(k)!;
                     const on = v === k;
                     return (
-                      <button key={k} type="button" role="radio" aria-checked={on} aria-label={sk.name} aria-disabled={readOnly || undefined}
-                        onClick={() => { if (readOnly) { setProblem(lockedProblem); return; } if (longPressed.current) { longPressed.current = false; return; } set(s.id, { statusKey: k }); }}
-                        onPointerDown={() => { if (readOnly) return; longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setNoteFor(s.id); }, 550); }}
-                        onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
-                        onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
-                        onContextMenu={(e) => { e.preventDefault(); if (!readOnly) setNoteFor(s.id); }}
-                        className={cx("w-11 h-11 rounded-xl border text-[14px] font-bold transition select-none",
-                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : readOnly ? "border-line/60 text-ink3/50 bg-sunken/50 cursor-not-allowed" : "border-line text-ink3 hover:border-ink3/60 hover:text-ink",
-                          readOnly && on && "cursor-not-allowed")}>
+                      <button key={k} type="button" role="radio" aria-checked={on} aria-label={tr.any(sk.name)} title={tr.any(sk.name)}
+                        onClick={() => set(s.id, { statusKey: k })}
+                        className={cx("min-w-11 h-11 px-1 rounded-xl border text-[13.5px] font-bold transition select-none", many && "flex-1 sm:flex-none",
+                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : "border-line text-ink3 hover:border-ink3/60 hover:text-ink")}>
                         {sk.letter}
                       </button>
                     );
@@ -344,7 +349,6 @@ export function TakeSheet(p: Props) {
           );
         })}
       </ul>
-      {!readOnly && extraStatuses.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="For Half-day or Leave, press and hold a student's button (right-click on a computer)." /></p>}
       {list.length === 0 && <p className="text-center text-ink3 py-10"><Words k="No student called “" />{q}<Words k="” in" /> {p.sectionName}.</p>}
 
       {/* Save bar */}
@@ -364,7 +368,7 @@ export function TakeSheet(p: Props) {
         <div />
       </Dialog>
 
-      <NoteSheet row={noteRow} mark={noteRow ? marks[noteRow.id] : undefined} statuses={p.statuses} extra={extraStatuses}
+      <NoteSheet row={noteRow} mark={noteRow ? marks[noteRow.id] : undefined} statuses={p.statuses}
         reasons={p.reasons ?? null} reason={noteRow ? why[noteRow.id] : undefined}
         onClose={() => setNoteFor(null)}
         onSave={(statusKey, note, reason) => {
@@ -380,8 +384,8 @@ export function TakeSheet(p: Props) {
 
 const studentsWord = (n: number) => (n === 1 ? "1 student" : `${n} students`);
 
-function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSave }: {
-  row: SheetRow | null; mark: Mark | undefined; statuses: SheetStatus[]; extra: SheetStatus[];
+function NoteSheet({ row, mark, statuses, reasons, reason, onClose, onSave }: {
+  row: SheetRow | null; mark: Mark | undefined; statuses: SheetStatus[];
   reasons: ReasonChoice[] | null; reason: Why | undefined;
   onClose: () => void; onSave: (statusKey: string | null, note: string, reason: Why | null) => void;
 }) {
@@ -412,7 +416,6 @@ function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSav
                 );
               })}
             </div>
-            {extra.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="P, A and L are on the list. The others are here." /></p>}
           </div>
           {absent && reasons && (
             <div>

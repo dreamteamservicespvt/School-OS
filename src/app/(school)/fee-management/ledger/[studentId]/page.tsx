@@ -16,6 +16,7 @@ import { findStudents, mostOverdue } from "@/lib/fees/find";
 import { gatewayFor } from "@/lib/fees/settings";
 import { structureForStudent } from "@/lib/fees/structure";
 import { promisesOf, promiseWords } from "@/lib/fees/promises";
+import { feeTimelines } from "@/lib/fees/timeline";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ import { BASE, feeGuard, feePeriod, feeYearView, one, qs, type SearchParams } fr
 import { backToThisYear, withYearDates } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
 import { PeriodFilter } from "@/components/list/period-filter";
+import { FeeTimelineLine } from "./timeline";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -96,7 +98,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     const gateway = canEdit && doing === "invoice" ? Boolean(await gatewayFor(tx, p.current.ctx, card.classId)) : false;
     // Promise to Pay (when on): an open promise, or a broken one still waiting for a new call.
     const promise = (await promisesOf(tx, p.current.ctx, [studentId], p.today)).get(studentId) ?? null;
-    return { promise: promise && (promise.state === "OPEN" || promise.state === "BROKEN") ? promise : null, card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway, year };
+    // Each unpaid installment's timeline: bill, due date, late fee and the reminder plan (adopt item 4).
+    const timelines = tab === "fees" ? await feeTimelines(tx, p.current.ctx, studentId, p.today) : new Map();
+    return { timelines, promise: promise && (promise.state === "OPEN" || promise.state === "BROKEN") ? promise : null, card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway, year };
   });
   if (!data) notFound();
 
@@ -271,7 +275,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                 footer={`${installments.filter((r) => r.status === "Paid").length} of ${installments.filter((r) => r.status !== "Removed").length} installments paid · Year total ${formatRupees(L.yearTotal)}`}
                 empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canAssignFees ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}><Words k="Assign fee plan" /></ButtonLink> : undefined} />}
                 columns={[
-                  { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]"><Words k="Brought in" /></Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p></> },
+                  { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]"><Words k="Brought in" /></Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p>{data.timelines.get(r.id) && <FeeTimelineLine t={data.timelines.get(r.id)!} />}</> },
                   { key: "due", label: "Due date", nowrap: true, render: (r) => <span className="tnum">{formatDate(r.dueDate)}</span> },
                   { key: "amount", label: "Amount", align: "right", render: (r) => formatRupees(r.amount) },
                   { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : "—") },
@@ -283,6 +287,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                   title: `${r.head} · ${r.label}`,
                   sub: `Due ${formatDate(r.dueDate)}${r.paid > ZERO && r.status !== "Paid" ? ` · ${formatRupees(r.paid)} paid` : ""}${r.late > ZERO ? ` · late fee ${formatRupees(r.late)}` : ""}`,
                   icon: ReceiptIndianRupee, iconTone: feeTone(r.status),
+                  pills: data.timelines.get(r.id) ? <FeeTimelineLine t={data.timelines.get(r.id)!} className="mt-0" /> : undefined,
                   right: <><p className="font-semibold tnum">{formatRupees(r.status === "Paid" ? r.amount : r.balance)}</p><Pill tone={feeTone(r.status)} className="!h-5 !text-[11px]">{r.status}</Pill>{r.removalWaiting && <RemovalWaiting />}</>,
                 })} />
             </Card>

@@ -43,7 +43,8 @@ async function asBefore(f: FeeSchool, opts: { whatsappStatus: string; dlt: strin
 }
 
 const versions = (f: FeeSchool) => withSchool(f.ctx, (tx) => tx.templateVersion.findMany({
-  where: { template: { key: "fee-due" } }, orderBy: [{ templateId: "asc" }, { language: "asc" }, { version: "asc" }],
+  // The old migration knew English, Telugu and SMS; the Hindi version new schools now get is not its business.
+  where: { template: { key: "fee-due" }, language: { not: "hi" } }, orderBy: [{ templateId: "asc" }, { language: "asc" }, { version: "asc" }],
   select: { language: true, version: true, isCurrent: true, body: true, variables: true, template: { select: { channel: true } } },
 }));
 

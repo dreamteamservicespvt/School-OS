@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/button";
 import { searchStudents, studentsInSection, type PickedStudent } from "@/app/(school)/student-management/_actions/lookup";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words, useT } from "@/lib/i18n/client";
+import { DueChipView } from "@/components/students/due-chip";
 
 export function StudentPicker({ name, label, multiple = false, sections = [], initial = [], anyStatus = false, required = true, help }: {
   name: string; label: string; multiple?: boolean; sections?: { value: string; label: string }[];
@@ -79,7 +80,8 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
                 <li key={s.id}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1">
                     <KeepCheck type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-brand" />
-                    <span>{s.name} <span className="text-[13.5px] text-ink2">{s.cls} · {s.admissionNo}</span></span>
+                    <span className="min-w-0 flex-1">{s.name} <span className="text-[13.5px] text-ink2">{s.cls} · {s.admissionNo}</span></span>
+                    {s.due && <DueChipView due={s.due} />}
                   </label>
                 </li>
               ))}

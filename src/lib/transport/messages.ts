@@ -43,15 +43,25 @@ async function tripWords(tx: Tx, trip: TripLike) {
   return { route, bus: busName(vehicle, route.number) };
 }
 
-/** "Aarav boarded Bus 4 at 7:43 AM" to the student's parents, once per trip (rule bus-pickup). */
+/** Where the stop is not known, the card still says something true. */
+const SOME_STOP = "the bus stop";
+
+/**
+ * "Aarav boarded Bus 4 at 7:43 AM" to the student's parents, once per trip (rule bus-pickup).
+ * The WhatsApp card has a blank for each fact (bus, time); {message} keeps the whole
+ * sentence for a school's own text that still uses it.
+ */
 export async function pickupMessage(tx: Tx, ctx: SchoolContext, trip: TripLike, studentId: string, atMin: number, stopName: string | null) {
-  const { bus } = await tripWords(tx, trip);
+  const { bus, route } = await tripWords(tx, trip);
   const s = await tx.student.findFirst({ where: { id: studentId }, select: { firstName: true } });
   return sendAutomatic(tx, ctx, {
     rule: "bus-pickup",
     event: { key: `bus-pickup:${trip.id}:${studentId}`, label: `Boarded ${bus}` },
     to: { guardiansOf: [studentId] },
-    perStudent: { [studentId]: { message: `${s?.firstName ?? "Your child"} boarded ${bus}${stopName ? ` at ${stopName}` : ""} at ${clockOf(atMin)}.` } },
+    perStudent: { [studentId]: {
+      message: `${s?.firstName ?? "Your child"} boarded ${bus}${stopName ? ` at ${stopName}` : ""} at ${clockOf(atMin)}.`,
+      bus, route: String(route.number), stop: stopName ?? SOME_STOP, place: stopName ?? SOME_STOP, time: clockOf(atMin),
+    } },
     source: { type: "Trip", id: trip.id },
   });
 }
@@ -59,9 +69,14 @@ export async function pickupMessage(tx: Tx, ctx: SchoolContext, trip: TripLike, 
 /** "Aarav reached school at 7:52 AM" (morning) or "got off at KPHB 6th Phase at 4:31 PM" (evening), once per trip (rule bus-drop). */
 export async function dropMessage(tx: Tx, ctx: SchoolContext, trip: TripLike, studentIds: string[], atMin: number, stopName: string | null) {
   if (!studentIds.length) return null;
-  const { bus } = await tripWords(tx, trip);
+  const { bus, route } = await tripWords(tx, trip);
   const names = await tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, firstName: true } });
-  const perStudent = Object.fromEntries(names.map((s) => [s.id, { message: trip.kind === "MORNING" ? `${s.firstName} reached school on ${bus} at ${clockOf(atMin)}.` : `${s.firstName} got off ${bus}${stopName ? ` at ${stopName}` : ""} at ${clockOf(atMin)}.` }]));
+  // In the morning the bus drops at school; in the evening at the student's stop.
+  const place = trip.kind === "MORNING" ? "school" : stopName ?? SOME_STOP;
+  const perStudent = Object.fromEntries(names.map((s) => [s.id, {
+    message: trip.kind === "MORNING" ? `${s.firstName} reached school on ${bus} at ${clockOf(atMin)}.` : `${s.firstName} got off ${bus}${stopName ? ` at ${stopName}` : ""} at ${clockOf(atMin)}.`,
+    bus, route: String(route.number), stop: stopName ?? SOME_STOP, place, time: clockOf(atMin),
+  }]));
   return sendAutomatic(tx, ctx, {
     rule: "bus-drop",
     event: { key: `bus-drop:${trip.id}`, label: `${tripKind(trip.kind)}: dropped` },
@@ -83,7 +98,7 @@ export async function arrivingMessage(tx: Tx, ctx: SchoolContext, trip: TripLike
     rule: "bus-arriving",
     event: { key: eventKey, label: `${bus} arriving at ${stop.name}` },
     to: { guardiansOf: students },
-    perStudent: Object.fromEntries(students.map((id) => [id, { message: text }])),
+    perStudent: Object.fromEntries(students.map((id) => [id, { message: text, bus, route: String(route.number), stop: stop.name, place: stop.name, minutes: String(Math.max(1, minutes)) }])),
     source: { type: "Trip", id: trip.id },
   });
 }

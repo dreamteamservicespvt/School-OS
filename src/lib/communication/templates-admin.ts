@@ -13,6 +13,9 @@ import { isCodeTemplate, whatsappCategoryOf, type WhatsappCategory } from "../me
 import { RULES } from "../messaging/automatic";
 import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
 import { isMetaWhatsapp } from "../messaging/dream-team";
+import { cardSubmission, readCard } from "../messaging/card";
+import { messageSettings } from "../messaging/settings";
+import { appUrl } from "../parent-link/token";
 
 export class TemplateProblem extends Error {}
 
@@ -51,6 +54,14 @@ const SYSTEM_USES: Record<string, string> = {
   "query-number": "Feedback & Queries (ticket number)",
   "query-rating": "Feedback & Queries (rating request)",
   notice: "Notice Board",
+  "appointment-confirmed": "Front Office (appointment confirmation)",
+  "appointment-reminder": "Front Office (appointment reminder)",
+  "appointment-cancelled": "Front Office (appointment cancelled)",
+  "visitor-pass": "Front Office (visitor pass)",
+  "walk-in-number": "Front Office (walk-in request number)",
+  "gate-pass": "Front Office (pickup gate pass)",
+  "pickup-code": "Front Office (pickup code)",
+  "connection-test": "Settings (WhatsApp test)",
 };
 
 /** The first template of each key and channel, which automatic rules use. */
@@ -98,6 +109,30 @@ export function checkTemplate(input: TemplateInput): Record<string, string> {
 
 const SAME = (a: string | null | undefined, b: string | null | undefined) => (a ?? "") === (b ?? "");
 
+/** A version's card for its next version: unchanged words keep what WhatsApp was given; new words go for approval afresh. */
+function cardFor(raw: unknown, sameWords: boolean): Prisma.InputJsonValue {
+  const card = readCard(raw) ?? {};
+  if (!sameWords) delete card.submitted;
+  return card as Prisma.InputJsonValue;
+}
+
+/**
+ * WhatsApp's rejection reason in plain words, with Meta's own code kept
+ * ("INCORRECT_CATEGORY") so DREAM TEAM support can look it up.
+ */
+export function rejectedWords(note: string): string {
+  const code = note.trim().toUpperCase();
+  const words: Record<string, string> = {
+    INCORRECT_CATEGORY: "WhatsApp says the words do not fit the message type (a code, account or sign-in message is not a Utility message)",
+    INVALID_FORMAT: "WhatsApp says the format is wrong (blanks, buttons or the header)",
+    TAG_CONTENT_MISMATCH: "WhatsApp says the words do not match the message type",
+    PROMOTIONAL: "WhatsApp says the words read like an advertisement",
+    ABUSIVE_CONTENT: "WhatsApp says the words break its rules",
+    SCAM: "WhatsApp says the words look like a scam (often a link in the words)",
+  };
+  return words[code] ? `${words[code]} (${code}).` : `“${note.trim().slice(0, 200)}”`;
+}
+
 /**
  * Saves a template. Each language whose text, subject or DLT ID changed gets a
  * new version; the old one stays for messages already sent. Approved WhatsApp
@@ -133,6 +168,8 @@ export async function saveTemplate(tx: Tx, ctx: SchoolContext, id: string | null
           whatsappName: keepWhatsapp ? now.whatsappName : null,
           whatsappStatus: input.channel === "whatsapp" ? (keepWhatsapp ? now.whatsappStatus : "NOT_SUBMITTED") : null,
           whatsappNote: keepWhatsapp ? now.whatsappNote : null,
+          // The card's header and buttons stay with new words; what was sent to WhatsApp stays only with the same words.
+          ...(now?.whatsappCard && input.channel === "whatsapp" ? { whatsappCard: cardFor(now.whatsappCard, Boolean(keepWhatsapp)) } : {}),
           createdById: ctx.userId,
         },
       });
@@ -216,9 +253,10 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
   const v = await tx.templateVersion.findFirst({ where: { id: versionId, schoolId: ctx.schoolId, isCurrent: true }, include: { template: true } });
   if (!v || v.template.channel !== "whatsapp") throw new TemplateProblem("Only the current version of a WhatsApp template can be sent for approval.");
   if (v.whatsappStatus === "APPROVED" || v.whatsappStatus === "PENDING") throw new TemplateProblem(v.whatsappStatus === "APPROVED" ? "This text is already approved." : "This text is already waiting for WhatsApp's answer.");
-  const category = whatsappCategoryOf(v.body);
+  const card = readCard(v.whatsappCard);
+  const category = whatsappCategoryOf(v.body, card);
   // A code template goes in Meta's own words, so its words here are not checked.
-  const problems = category === "AUTHENTICATION" ? [] : whatsappProblems(v.body);
+  const problems = category === "AUTHENTICATION" ? [] : whatsappProblems(v.body, card);
   if (problems.length) throw new TemplateProblem(`WhatsApp would refuse these words. ${problems.join(" ")} Edit the template, then send it again.`);
   const setup = (await channelSetups(tx, ctx)).whatsapp;
   // New words for a text already sent to WhatsApp before (approved, rejected or waiting) go under a new name with
@@ -229,17 +267,27 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
   const name = sentBefore ? `${otp ? unversioned.slice(0, -OTP_SUFFIX.length) : unversioned}_v${v.version}${otp ? OTP_SUFFIX : ""}` : unversioned;
   let status: string;
   let note: string | null = null;
+  // A card's footer holds the school's name and its "Call school" button the school's phone, written in now
+  // (a footer or a phone button cannot hold a blank); a Parent Link button only while Parent Link is on.
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true } });
+  const parentLinkOn = card ? (await messageSettings(tx, ctx)).parentLink.on : false;
+  let submitted = null;
   if (setup.provider === "sandbox") {
     status = "APPROVED";
     note = "Test mode: approved straight away.";
+    if (card) submitted = cardSubmission(v.body, card, { appUrl: appUrl(), schoolName: school.name, schoolPhone: school.phone, parentLinkOn, documentHandle: card.header?.type === "document" ? "test-mode" : null }).submitted;
   } else {
     const r = await submitWhatsappTemplate({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") }, {
-      name, language: v.language, category, body: v.body,
+      name, language: v.language, category, body: v.body, card, school: { name: school.name, phone: school.phone }, parentLinkOn,
     });
     if (!r.ok) throw new TemplateProblem(r.reason);
     status = r.status === "APPROVED" || r.status === "REJECTED" ? r.status : "PENDING";
+    submitted = r.submitted ?? null;
   }
-  await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappName: name, whatsappStatus: status, whatsappNote: note } });
+  await tx.templateVersion.update({
+    where: { id: v.id },
+    data: { whatsappName: name, whatsappStatus: status, whatsappNote: note, ...(card ? { whatsappCard: { ...card, submitted } as Prisma.InputJsonValue } : {}) },
+  });
   await writeAudit(tx, ctx, { action: "changed", recordType: "Template", recordId: v.templateId, actorNote: `Template "${v.template.name}" (${v.language}) sent for WhatsApp approval: ${WHATSAPP_STATUS_LABEL[status]}` });
   return status;
 }
@@ -276,24 +324,33 @@ export async function syncWhatsappApprovals(tx: Tx, ctx: SchoolContext): Promise
   return { changed };
 }
 
-/** Asks WhatsApp for the status of every pending version of a template. */
-export async function refreshApproval(tx: Tx, ctx: SchoolContext, templateId: string) {
+export type ApprovalCheck = { changed: number; rejected: { language: string; note: string | null }[] };
+
+/**
+ * "Check approval status": asks WhatsApp for every pending or rejected version
+ * of a template, and saves WhatsApp's reason for a rejection so the page shows it.
+ */
+export async function refreshApproval(tx: Tx, ctx: SchoolContext, templateId: string): Promise<ApprovalCheck> {
   const setup = (await channelSetups(tx, ctx)).whatsapp;
-  const pending = await tx.templateVersion.findMany({ where: { schoolId: ctx.schoolId, templateId, isCurrent: true, whatsappStatus: "PENDING" } });
-  if (!pending.length) return 0;
+  const open = await tx.templateVersion.findMany({ where: { schoolId: ctx.schoolId, templateId, isCurrent: true, whatsappStatus: { in: ["PENDING", "REJECTED"] } } });
+  const out: ApprovalCheck = { changed: 0, rejected: [] };
+  if (!open.length) return out;
   if (setup.provider === "sandbox") {
+    const pending = open.filter((x) => x.whatsappStatus === "PENDING");
     for (const v of pending) await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappStatus: "APPROVED", whatsappNote: "Test mode: approved straight away." } });
-    return pending.length;
+    out.changed = pending.length;
+    return out;
   }
   const p = { config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") };
-  let n = 0;
-  for (const v of pending) {
+  for (const v of open) {
     if (!v.whatsappName) continue;
     const s = await whatsappTemplateStatus(p, v.whatsappName, v.language);
-    if (!s || s.status === v.whatsappStatus) continue;
+    if (!s) continue;
     const status = WHATSAPP_STATUS_LABEL[s.status] ? s.status : "PENDING";
+    if (status === "REJECTED") out.rejected.push({ language: v.language, note: s.note });
+    if (status === v.whatsappStatus && s.note === v.whatsappNote) continue;
     await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappStatus: status, whatsappNote: s.note } });
-    n++;
+    out.changed++;
   }
-  return n;
+  return out;
 }

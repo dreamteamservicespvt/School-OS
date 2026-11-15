@@ -6,7 +6,9 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import type { Channel } from "./channels";
 import { appUrl } from "../parent-link/token";
+import type { Prisma } from "@prisma/client";
 import { STRAY, VARIABLES, variablesIn } from "./blanks";
+import { READY_WHATSAPP, readyCard } from "./ready-whatsapp";
 
 export const TEMPLATE_CATEGORIES = [
   { key: "fees", label: "Fees" },
@@ -20,6 +22,7 @@ export const TEMPLATE_CATEGORIES = [
   { key: "parent-link", label: "Parent Link" },
   { key: "queries", label: "Queries" },
   { key: "transport", label: "Transport" },
+  { key: "front-office", label: "Front Office" },
 ] as const;
 
 export const categoryLabel = (key: string) => TEMPLATE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
@@ -84,13 +87,15 @@ export type UsableVersion = {
   dltTemplateId: string | null;
   whatsappName: string | null;
   whatsappStatus: string | null;
+  /** WhatsApp card parts (./card.ts readCard), or null for a plain text. */
+  whatsappCard?: unknown;
 };
 
 /** The current version of a template in each language. */
 export async function currentVersions(tx: Tx, ctx: SchoolContext, templateId: string): Promise<UsableVersion[]> {
   return tx.templateVersion.findMany({
     where: { schoolId: ctx.schoolId, templateId, isCurrent: true },
-    select: { id: true, templateId: true, language: true, body: true, subject: true, variables: true, dltTemplateId: true, whatsappName: true, whatsappStatus: true },
+    select: { id: true, templateId: true, language: true, body: true, subject: true, variables: true, dltTemplateId: true, whatsappName: true, whatsappStatus: true, whatsappCard: true },
     orderBy: { language: "asc" },
   });
 }
@@ -106,7 +111,7 @@ export async function withLastApproved(tx: Tx, ctx: SchoolContext, templateId: s
   if (!waiting.length) return versions;
   const older = await tx.templateVersion.findMany({
     where: { schoolId: ctx.schoolId, templateId, isCurrent: false, language: { in: waiting }, whatsappStatus: "APPROVED", whatsappName: { not: null }, OR: [{ whatsappNote: null }, { NOT: { whatsappNote: { startsWith: "Test mode" } } }] },
-    select: { id: true, templateId: true, language: true, body: true, subject: true, variables: true, dltTemplateId: true, whatsappName: true, whatsappStatus: true },
+    select: { id: true, templateId: true, language: true, body: true, subject: true, variables: true, dltTemplateId: true, whatsappName: true, whatsappStatus: true, whatsappCard: true },
     orderBy: { version: "desc" },
   });
   return versions.map((v) => (isApproved(v) ? v : older.find((o) => o.language === v.language) ?? v));
@@ -161,99 +166,66 @@ export const languageLabel = (code: string) => LANGUAGES.find((l) => l.code === 
 
 type ReadyTemplate = { key: string; name: string; category: string; channel: Channel; subject?: string; texts: Record<string, string> };
 
+/** A ready WhatsApp card (./ready-whatsapp.ts) as a ready template; its header and buttons come from readyCard. */
+const wa = (key: string): ReadyTemplate => {
+  const t = READY_WHATSAPP.find((x) => x.key === key);
+  if (!t) throw new Error(`No ready WhatsApp card for ${key}`);
+  return { key: t.key, name: t.name, category: t.category, channel: "whatsapp", texts: t.texts };
+};
+
 /**
  * Ready templates every school starts with, so automatic messages work from
- * the first day. SMS ones still need the school's own DLT template IDs.
+ * the first day. SMS ones still need the school's own DLT template IDs. The
+ * WhatsApp ones are cards (./ready-whatsapp.ts); SMS and app texts keep their words.
  */
 export const READY_TEMPLATES: ReadyTemplate[] = [
-  { key: "absence", name: "Absent today", category: "attendance", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} of {class} is absent from school today, {date}. If this is not expected, please call {school_name} on {school_phone}. We hope all is well.",
-    hi: "प्रिय {guardian_name}, आज {date} को {student_name} स्कूल नहीं आए। अगर आपको इसकी जानकारी नहीं है, तो कृपया {school_name} को {school_phone} पर फ़ोन करें। धन्यवाद।",
-    te: "ప్రియమైన {guardian_name}, ఈరోజు {date} న {student_name} పాఠశాలకు హాజరు కాలేదు. ఇది మీకు తెలియకపోతే, దయచేసి {school_name} కు {school_phone} నంబరులో కాల్ చేయండి. ధన్యవాదాలు.",
-  } },
+  wa("absence"),
   { key: "absence", name: "Absent today (SMS)", category: "attendance", channel: "sms", texts: {
     en: "Dear Parent, {student_name} of {class} is absent today {date}. Please contact the school. - {school_name}",
   } },
-  { key: "late", name: "Arrived late", category: "attendance", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} of {class} reached school late today, {date}. Please help your child be on time tomorrow. Thank you, {school_name} team.",
-  } },
-  { key: "fee-due", name: "Fee reminder", category: "fees", channel: "whatsapp", texts: {
-    // {how_to_pay} is filled for each parent: their Parent Link with its Pay button, a payment link,
-    // or "Please pay at the school office." when online payment is off (src/lib/fees/reminder-pay.ts).
-    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} of {class} is due on {due_date}. Here is how to pay:\n{how_to_pay}\nPlease ignore this message if you have already paid. Thank you, {school_name} office.",
-    te: "ప్రియమైన {guardian_name}, {student_name} యొక్క ఫీజు {due_amount} ను {due_date} లోపు చెల్లించాలి. ఎలా చెల్లించాలో ఇక్కడ ఉంది:\n{how_to_pay}\nఇప్పటికే చెల్లించి ఉంటే, ఈ సందేశాన్ని పట్టించుకోవద్దు. ధన్యవాదాలు, {school_name} కార్యాలయం.",
-  } },
+  wa("late"),
+  // On WhatsApp the way to pay is the card's button (the parent's own Parent Link). {how_to_pay} stays for SMS:
+  // each parent's Parent Link, a payment link, or "Please pay at the school office." (src/lib/fees/reminder-pay.ts).
+  wa("fee-due"),
   { key: "fee-due", name: "Fee reminder (SMS)", category: "fees", channel: "sms", texts: {
     en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. {how_to_pay} - {school_name}",
   } },
-  { key: "fee-paid", name: "Fee received", category: "fees", channel: "whatsapp", texts: {
-    // The last line becomes WhatsApp's "Open receipt" button on an approved template (blanks.ts, whatsappParts);
-    // schools made before it get it by prisma/schema/migrations/*_fee_paid_receipt_link.
-    en: "Dear {guardian_name}, {school_name} has received {paid_amount} for {student_name} on {payment_date}. Your receipt number is {receipt_number}. Thank you for your payment.\nOpen your receipt: {receipt_link}",
-  } },
+  // The receipt PDF is the card's header and "Open receipt" its button (./card.ts).
+  wa("fee-paid"),
   { key: "fee-paid", name: "Fee received (SMS)", category: "fees", channel: "sms", texts: {
     en: "Received {paid_amount} for {student_name} on {payment_date}. Receipt {receipt_number}. Thank you. - {school_name}",
   } },
-  { key: "exam-reminder", name: "Exam reminder", category: "exam", channel: "whatsapp", texts: {
-    // {parent_link} is each parent's own Parent Link, or "Ask the school office for your Parent Link." (src/lib/parent-link/blank.ts).
-    en: "Dear {guardian_name}, {exam_name} for {student_name} of {class} starts on {date}. Please see the datesheet on your Parent Link: {parent_link} All the best from the {school_name} team!",
-    hi: "प्रिय {guardian_name}, {class} के {student_name} की {exam_name} परीक्षा {date} को शुरू होगी। कृपया डेटशीट अपने Parent Link पर देखें: {parent_link} आपको {school_name} टीम की ओर से शुभकामनाएँ!",
-    te: "ప్రియమైన {guardian_name}, {class} లోని {student_name} కు {exam_name} పరీక్షలు {date} న ప్రారంభమవుతాయి. దయచేసి డేట్‌షీట్‌ను మీ Parent Link లో చూడండి: {parent_link} మీకు {school_name} బృందం తరఫున శుభాకాంక్షలు!",
-  } },
-  { key: "result", name: "Results published", category: "exam", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link: {parent_link} Thank you, {school_name} team.",
-    hi: "प्रिय {guardian_name}, {student_name} के {exam_name} के परिणाम आ गए हैं। रिपोर्ट कार्ड अपने Parent Link पर देखें: {parent_link} धन्यवाद, {school_name} टीम।",
-    te: "ప్రియమైన {guardian_name}, {student_name} యొక్క {exam_name} ఫలితాలు వచ్చాయి. రిపోర్ట్ కార్డును మీ Parent Link లో చూడండి: {parent_link} ధన్యవాదాలు, {school_name} బృందం.",
-  } },
+  // {parent_link} is each parent's own Parent Link, or "Ask the school office for your Parent Link." (src/lib/parent-link/blank.ts).
+  wa("exam-reminder"),
+  wa("result"),
   { key: "result", name: "Results published (SMS)", category: "exam", channel: "sms", texts: {
     en: "Results of {exam_name} for {student_name} are ready. See your Parent Link: {parent_link} - {school_name}",
   } },
-  { key: "ptm", name: "PTM reminder", category: "events", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend to hear how your child is doing. Thank you, {school_name} team.",
-  } },
-  { key: "bus-pickup", name: "Picked up by the bus", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
-  } },
-  { key: "bus-drop", name: "Dropped by the bus", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
-  } },
-  { key: "bus-arriving", name: "Bus arriving", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
-  } },
+  wa("ptm"),
+  wa("bus-pickup"),
+  wa("bus-drop"),
+  wa("bus-arriving"),
   { key: "homework-set", name: "Homework set", category: "homework", channel: "app", subject: "New homework", texts: {
     en: "New homework for {class}: {message}",
   } },
   // Parents have no app: the "Homework set" rule reaches them on WhatsApp (17 Done when 10).
-  { key: "homework-set", name: "Homework set", category: "homework", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, new homework has been set for {class}:\n{message}\nPlease help your child finish it on time. Thank you, {school_name} team.",
-  } },
-  { key: "homework-pending", name: "Homework pending", category: "homework", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} has not yet submitted the homework due on {date}. Please help your child finish it soon. Thank you, {school_name} team.",
-  } },
-  { key: "birthday-student", name: "Birthday wishes (student)", category: "general", channel: "whatsapp", texts: {
-    en: "Happy birthday, {student_name}! Everyone at {school_name} wishes you a wonderful year ahead.",
-    te: "ప్రియమైన {student_name}, పుట్టినరోజు శుభాకాంక్షలు! {school_name} తరఫున మీకు హృదయపూర్వక శుభాకాంక్షలు. ఈ సంవత్సరం మీకు ఆనందంగా గడవాలని కోరుకుంటున్నాము.",
-  } },
-  { key: "birthday-staff", name: "Birthday wishes (staff)", category: "staff", channel: "whatsapp", texts: {
-    en: "Happy birthday, {staff_name}! Thank you for all you do for {school_name}. Have a lovely day.",
-  } },
+  wa("homework-set"),
+  wa("homework-pending"),
+  wa("birthday-student"),
+  wa("birthday-staff"),
   { key: "salary-slip", name: "Salary slip ready", category: "staff", channel: "app", subject: "Salary slip ready", texts: {
     en: "Dear {staff_name}, your salary slip is ready. Open it in My profile.",
   } },
-  { key: "admission-welcome", name: "Admission welcome", category: "admission", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, welcome to {school_name}! We are happy to tell you that {student_name} is admitted to {class}. The admission number is {admission_no}; please keep it for your records.",
-  } },
-  { key: "parent-link", name: "Parent Link", category: "parent-link", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, this is your personal Parent Link from {school_name}. See fees, attendance and notices for your children: {link} Please do not share it.",
-    te: "ప్రియమైన {guardian_name}, ఇది {school_name} నుండి మీ వ్యక్తిగత Parent Link: {link} దయచేసి ఎవరితోనూ పంచుకోవద్దు.",
-    hi: "प्रिय {guardian_name}, यह {school_name} से आपका निजी Parent Link है। इसमें अपने बच्चों की फीस, उपस्थिति और सूचनाएँ देखें: {link} कृपया इसे किसी के साथ साझा न करें।",
-  } },
+  wa("salary-slip"),
+  wa("admission-welcome"),
+  wa("parent-link"),
   { key: "parent-link", name: "Parent Link (SMS)", category: "parent-link", channel: "sms", texts: {
     en: "Dear Parent, your Parent Link from {school_name}: {link} Do not share it.",
   } },
   { key: "parent-link-code", name: "Parent Link code (SMS)", category: "parent-link", channel: "sms", texts: {
     en: "{code} is your one-time code for Parent Link of {school_name}. It works for 10 minutes. Do not share it.",
   } },
+  // Code templates go to WhatsApp as Authentication, in Meta's own fixed words (providers/whatsapp.ts authTemplateComponents).
   { key: "parent-link-code", name: "Parent Link code", category: "parent-link", channel: "whatsapp", texts: {
     en: "Your one-time code for Parent Link of {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },
@@ -263,21 +235,10 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "admission-consent-code", name: "Admission consent code", category: "admission", channel: "whatsapp", texts: {
     en: "Your one-time code to confirm consent for admission at {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },
-  { key: "consent-request", name: "Consent request", category: "parent-link", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree: {parent_link} Thank you.",
-    hi: "प्रिय {guardian_name}, {school_name} आपकी सहमति माँग रहा है: {title}। कृपया इसे पढ़ने और सहमति देने के लिए अपना Parent Link खोलें: {parent_link} धन्यवाद।",
-    te: "ప్రియమైన {guardian_name}, {school_name} మీ అనుమతి కోరుతోంది: {title}. దయచేసి చదివి అంగీకరించడానికి మీ Parent Link తెరవండి: {parent_link} ధన్యవాదాలు.",
-  } },
-  { key: "query-number", name: "Query received", category: "queries", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, we have noted your {message}. Your ticket number is {ticket_number}. We will get back to you soon. Thank you, {school_name} team.",
-  } },
-  { key: "query-rating", name: "Query rating request", category: "queries", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, your ticket {ticket_number} is closed. How happy are you with our help? Reply with a number from 1 (not happy) to 5 (very happy). Thank you, {school_name} team.",
-  } },
-  { key: "staff-invite", name: "Staff invite", category: "staff", channel: "whatsapp", texts: {
-    // No "password" or "sign in": Meta rejects such a Utility text as INCORRECT_CATEGORY (it wants Authentication, which carries only codes).
-    en: "Dear {staff_name}, your School OS account at {school_name} is ready. Open it with this link: {link} The link works once, for 7 days. Please do not share it.",
-  } },
+  wa("consent-request"),
+  wa("query-number"),
+  wa("query-rating"),
+  wa("staff-invite"),
   { key: "staff-invite", name: "Staff invite (SMS)", category: "staff", channel: "sms", texts: {
     en: "Dear {staff_name}, set your School OS password for {school_name}: {link} Works once, for 7 days. Do not share it.",
   } },
@@ -287,32 +248,34 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "sign-in-code", name: "Sign-in code (SMS)", category: "staff", channel: "sms", texts: {
     en: "{code} is your School OS sign-in code for {school_name}. It works for 10 minutes. Do not share it.",
   } },
-  { key: "staff-message", name: "Message to staff", category: "staff", channel: "whatsapp", texts: {
-    en: "Dear {staff_name}, here is a message from {school_name}:\n{message}\nPlease contact the school office if you have any questions.",
-  } },
+  wa("staff-message"),
   { key: "staff-message", name: "Message to staff (SMS)", category: "staff", channel: "sms", texts: {
     en: "Dear {staff_name}, {message} - {school_name}",
   } },
-  { key: "behaviour-note", name: "Behaviour note", category: "general", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, this is to let you know about {student_name} of {class}: {title} on {date}. Please contact the class teacher if you would like to know more. Thank you, {school_name} team.",
-  } },
+  wa("behaviour-note"),
   { key: "behaviour-note", name: "Behaviour note (SMS)", category: "general", channel: "sms", texts: {
     en: "Dear Parent, about {student_name} ({class}): {title} on {date}. Please contact the class teacher. - {school_name}",
   } },
-  { key: "notice", name: "New notice", category: "general", channel: "whatsapp", texts: {
-    en: "Dear Parent, there is a new notice from {school_name}: {title}.\nDetails: {message}\nYou can also read this notice on your Parent Link: {parent_link} Thank you.",
-    hi: "प्रिय अभिभावक, {school_name} की ओर से नई सूचना: {title}।\nविवरण: {message}\nआप यह सूचना अपने Parent Link पर भी पढ़ सकते हैं: {parent_link} धन्यवाद।",
-    te: "ప్రియమైన తల్లిదండ్రులకు, {school_name} నుండి కొత్త నోటీసు: {title}.\nవివరాలు: {message}\nఈ నోటీసును మీ Parent Link లో కూడా చదవవచ్చు: {parent_link} ధన్యవాదాలు.",
-  } },
+  wa("notice"),
   { key: "notice", name: "New notice (SMS)", category: "general", channel: "sms", texts: {
     en: "{school_name}: New notice: {title}. See it on your Parent Link: {parent_link}",
   } },
-  { key: "general", name: "General announcement", category: "general", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, here is a message from {school_name}:\n{message}\nPlease contact the school office if you have any questions.",
-  } },
+  wa("general"),
   { key: "general", name: "General announcement (SMS)", category: "general", channel: "sms", texts: {
     en: "Dear Parent, {message} - {school_name}",
   } },
+  // Front Office (src/lib/front-office/notify.ts): approved templates, because plain text reaches a visitor
+  // only within 24 hours of their own message. The pickup code is a code template (Authentication).
+  wa("appointment-confirmed"),
+  wa("appointment-reminder"),
+  wa("appointment-cancelled"),
+  wa("visitor-pass"),
+  wa("walk-in-number"),
+  wa("gate-pass"),
+  { key: "pickup-code", name: "Pickup code", category: "front-office", channel: "whatsapp", texts: {
+    en: "Your one-time code to collect your child from {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
+  } },
+  wa("connection-test"),
 ];
 
 /** Creates the ready templates a school does not have yet. Safe to run twice. */
@@ -339,6 +302,7 @@ export async function ensureReadyTemplates(tx: Tx, ctx: SchoolContext) {
             body,
             variables: variablesIn(body),
             whatsappStatus: t.channel === "whatsapp" ? "NOT_SUBMITTED" : null,
+            ...(t.channel === "whatsapp" && readyCard(t.key, language) ? { whatsappCard: readyCard(t.key, language) as Prisma.InputJsonValue } : {}),
             createdById: ctx.userId,
           })),
         },

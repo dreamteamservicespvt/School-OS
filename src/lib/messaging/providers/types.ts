@@ -12,7 +12,17 @@ export type Outgoing = {
   dltEntityId?: string | null;
   senderHeader?: string | null;
   /** WhatsApp: an approved template's name, language and blanks in order. */
-  whatsappTemplate?: { name: string; language: string; params: string[]; /** The blank in the template's first button: a code for "Copy code", or the end of a link button. */ buttonParam?: string } | null;
+  whatsappTemplate?: {
+    name: string;
+    language: string;
+    params: string[];
+    /** The blank in the template's first button: a code for "Copy code", or the end of a link button. Used when `buttons` is not given. */
+    buttonParam?: string;
+    /** Each link button's end of address, at the button's position in the template (0-based). */
+    buttons?: { index: number; value: string }[];
+    /** A document header (the fee receipt PDF): WhatsApp's media id, or the file, uploaded first by the provider. */
+    header?: { type: "document"; filename: string; id?: string; file?: { content: Buffer } } | null;
+  } | null;
   /** Email attachments, already read from storage. */
   attachments?: { filename: string; content: Buffer; contentType: string }[];
 };

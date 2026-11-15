@@ -64,7 +64,8 @@ describe("admission messages on a real WhatsApp account", () => {
     // The template adds its own greeting, so the family's words go in {message} without "Dear …,".
     expect(values.guardian_name).toBe(father);
     expect(values.message).toMatch(/^application .+ needs a few more details: The birth certificate number\. Please share them with the school office\.$/);
-    expect(row.text).toBe(`Dear ${father}, here is a message from Carrier School:\n${values.message}\nPlease contact the school office if you have any questions.`);
+    // The General announcement card (15 Nov): the school's name is in the card's footer, not the words.
+    expect(row.text).toBe(`Dear ${father}, here is a message from the school.\n\n💬 ${values.message}\n\nPlease call the school office if you have any questions.`);
     // Message History keeps the words the school wrote.
     expect(row.message.body).toMatch(/^Dear .+, application .+ needs a few more details/);
 

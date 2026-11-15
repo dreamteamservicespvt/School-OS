@@ -39,7 +39,7 @@ h1{font-family:var(--display);font-size:1.5rem;margin:0;text-wrap:balance}
 </style>
 <div class="wrap">
   <h1>School OS: the layman loop</h1>
-  <p class="sub">Testing as one non-technical person at a time, fixing, checking, then starting over. Runs until Monday morning. Nothing is pushed or deployed.</p>
+  <p class="sub">Testing as one non-technical person at a time, fixing, checking, then starting over. Runs until Monday morning. Deployed when needed (owner gave full freedom on 15 Nov).</p>
   <div class="now">Now doing: <span id="now"></span></div>
   <div class="clock">
     <div class="box"><b>Time spent</b><div class="v" id="spent">–</div><small>since 11:55 pm, Sat 14 Nov</small></div>
@@ -66,30 +66,77 @@ const DATA={
   found:695, fixed:740, commits:101, loop:5,
   you:"Nothing right now. Try the Assistant (robot/cat) and the sound preview when free.",
   rows:[
-    {n:"Loop 2: 5 people use the app again",p:100,s:"Done",l:"91 found, 87 fixed + 5 follow-ups. All 2,891 tests pass. Browser check: side menu fits with More below; phone homes cleaner; concession form closes fine.",e:"took 2 h"},
-    {n:"Loop 3: 5 new kinds of people",p:100,s:"Done",l:"96 found, 99 fixes + 227 Telugu words: Parent Link consent and size, Cancel drops drafts, no blank form on Back, fees not overdue on day one, honest test-mode words. All tests pass.",e:"took 2.5 h"},
-    {n:"Loop 4: 5 showcase-minded people",p:100,s:"Done",l:"94 found, ~100 fixed + 259 Hindi words: marks over the maximum never saved, test mode never priced, bank below zero explained, absent list with staff, approvals Next request, one student count, dark band calm.",e:"took 2 h"},
-    {n:"Extra helpers (parallel)",p:100,s:"Done",l:"Code review (no money/security bugs; old-iPhone break fixed), leftovers 7/7, accessibility 17 found and fixed in loop 5, dashboard speed (433 to 305 queries, 8 to 4 connections, no more 30 s busy).",e:"took 90 min"},
-    {n:"WhatsApp: every message kind to 9390011378",p:10,s:"Running",l:"First real test arrived 3:24 pm. Deployed the template fix; making templates ready, sending to Meta, then each kind sent and checked on the phone.",e:"Est. 2-3 h (Meta approval)"},
-    {n:"Your 12 decisions + calm animations",p:10,s:"Running",l:"Same message for sign-in codes, password before changing your contact, console-only group reset, short menu labels, parents without phone, parent WhatsApp number, consent drafts, bell in your language, calm motion.",e:"Est. 90 min"},
-    {n:"Loop 5: start over on the new screens",p:100,s:"Done",l:"100 found, 101 fixes + 233 Telugu words; full tests pass; deployed live (deploy 7).",e:"took 3 h"}, page is 2 MB; Cancel brings back the last visitor; new school fees Overdue on day one. Re-check of loop 2: no serious leftovers.",e:"Est. 90 min"},
-    {n:"Round 0: first layman pass (Sat evening)",p:100,s:"Done",l:"10 found, 10 fixed: year off, receipts, 4 quick buttons, homework count, paper note, file boxes, Different family, sounds.",e:"took 3 h"},
-    {n:"Less text everywhere (founder review)",p:100,s:"Done",l:"Shorter page subtitles, card lines, help and empty screens in 368 files; every money warning, undo note and who-approves line kept. 817 new short words in English, Hindi, Telugu. All 2,889 tests pass.",e:"took 50 min"},
-    {n:"Audit: 6 mindsets read every screen (code)",p:100,s:"Done",l:"143 findings (20 high, 66 medium, 57 low). Fixing area by area: All 6 areas done: shell 23/24, money 24/24, front 23/25, teaching 26/28, setup 20/21 (rest already fine). Parent/WhatsApp area next.",e:"took 6 min"},
-    {n:"Your requests tonight",p:85,s:"Running",l:"Done: Sunday shown once, one-choice dropdown, Pipeline redesigned, Calendar simplified, SMS off everywhere, WhatsApp texts made approvable (2 clicks after deploy). Running: admission messages via approved template. Moving data in: import works well; job freeze fixed.",e:"Est. 1 h"},
-    {n:"Security: white-box + black-box (local only)",p:100,s:"Done",l:"No school can see another's data. 3 real holes inside a school + 3 medium closed (reset links, other campus import files, one-campus admin, lockout and code races, reset signs out old sessions). 560 security tests pass. 6 items need your decision on Monday.",e:"took 2 h"},
-    {n:"School OS Assistant (new, separate branch)",p:70,s:"Running",l:"Code-built faces dropped. 14 premium pictures made in your ChatGPT (robot 6 poses with a live face screen, cat 8 feelings). Live page with both being built.",e:"Est. 60 min"},
-    {n:"1. Older office clerk, little English",p:100,s:"Done",l:"Found 6 (parent phone hidden 4 clicks deep, Send Message '0 parents' with no reason, cut-off year on phone, certificate shows TC-only boxes, 'signatories', heavy message form). 3 fixed now, 3 in the next batches.",e:"took 75 min"},
-    {n:"2. Teacher on a phone, 2 minutes",p:100,s:"Done",l:"Phone screenshots of 5 daily screens. Fixed: cut-off top bar, Attendance tab always looked selected, day-off advice a teacher cannot follow, Go to today on today, holiday said 3 times. 1 more for the teaching batch (overdue word cut).",e:"took 45 min"},
-    {n:"3. Accountant afraid of money mistakes",p:100,s:"Done",l:"24 audit problems + 2 from phone screenshots fixed (quiet Day Book, 6,000 px class list). 266 fee and finance tests pass; dark mode checked.",e:"took 70 min"},
-    {n:"4. Receptionist, impatient parent",p:100,s:"Done",l:"25 front-office problems fixed; 224 tests pass; reception desk checked on a phone, light and dark: clear.",e:"took 60 min"},
-    {n:"5. Principal: is everything okay today?",p:100,s:"Done",l:"Phone Dashboard was 7,000 px: now the 6 most urgent items first. Early warnings in plain words. Approvals cards clear. 622 tests pass.",e:"took 40 min"},
-    {n:"6. Parent on a cheap phone (WhatsApp link)",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
-    {n:"7. Brand-new school, day one, empty",p:70,s:"Running",l:"Made a new school from the console like DREAM TEAM does; invite, password, setup list, year, 13 classes all worked. Fixed: password ticks all green but refused, current tab hidden, extra hop to set the year, logo picker cut.",e:"Est. 40 min"},
-    {n:"8. Wrong click, back, refresh, gives up",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
-    {n:"9. Telugu-first user",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
-    {n:"10. Careless fast user",p:0,s:"Waiting",l:"",e:"Est. 60 min"}
-  ]
+    {
+    "n": "WhatsApp: every message kind to 9390011378",
+    "p": 10,
+    "s": "Running",
+    "l": "First real test arrived 3:24 pm. Template fix deployed (deploy 7, 16:09); making templates ready, sending to Meta, then each kind sent and checked on the phone.",
+    "e": "Est. 2-3 h (Meta approval)"
+    },
+    {
+    "n": "Your 12 decisions + calm animations",
+    "p": 10,
+    "s": "Running",
+    "l": "Same message for sign-in codes, password before changing your contact, console-only group reset, short menu labels, parents without phone, parent WhatsApp number, consent drafts, bell in your language, calm motion.",
+    "e": "Est. 90 min"
+    },
+    {
+    "n": "School OS Assistant (separate branch)",
+    "p": 75,
+    "s": "Running",
+    "l": "Robot and cat live from your own designs (premium pictures from your ChatGPT). Now: it follows your language (English / Telugu) and talks from real school data, not templates.",
+    "e": "Est. 60 min"
+    },
+    {
+    "n": "Sound brand",
+    "p": 100,
+    "s": "Done",
+    "l": "One School OS signature (da-da-DING) and every app sound built from it; soft, quiet, info messages silent. Preview page shared.",
+    "e": "took 40 min"
+    },
+    {
+    "n": "Extra helpers (parallel)",
+    "p": 100,
+    "s": "Done",
+    "l": "Code review (no money/security bugs; old-iPhone break fixed), leftovers 7/7, accessibility 17 found and fixed, dashboard speed (433 to 305 queries, no more 30 s busy).",
+    "e": "took 90 min"
+    },
+    {
+    "n": "Loop 5: start over on the new screens",
+    "p": 100,
+    "s": "Done",
+    "l": "100 found, 101 fixes + 233 Telugu words; full tests pass; deployed live (deploy 7).",
+    "e": "took 3 h"
+    },
+    {
+    "n": "Loop 4: 5 showcase-minded people",
+    "p": 100,
+    "s": "Done",
+    "l": "94 found, about 100 fixed + 259 Hindi words: marks over the maximum never saved, test mode never priced, bank below zero explained, absent list with staff, approvals Next request.",
+    "e": "took 2 h"
+    },
+    {
+    "n": "Loop 3: 5 new kinds of people",
+    "p": 100,
+    "s": "Done",
+    "l": "96 found, 99 fixes + 227 Telugu words: Parent Link consent and size, Cancel drops drafts, no blank form on Back, fees not overdue on day one.",
+    "e": "took 2.5 h"
+    },
+    {
+    "n": "Loop 2: 5 people use the app again",
+    "p": 100,
+    "s": "Done",
+    "l": "91 found, 87 fixed + 5 follow-ups: one-click money approvals, refund duplicates, phone keyboard, side menu.",
+    "e": "took 2 h"
+    },
+    {
+    "n": "Loop 1 and your night requests",
+    "p": 100,
+    "s": "Done",
+    "l": "Sunday once, one-choice dropdowns, Pipeline, Calendar, SMS off, less text everywhere, security review, moving data in.",
+    "e": "took 8 h"
+    }
+    ]
 };
 const $=id=>document.getElementById(id);
 const fmt=d=>d.toLocaleString("en-IN",{weekday:"short",hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Kolkata"});

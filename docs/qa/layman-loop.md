@@ -69,6 +69,8 @@ Progress page: see docs/HANDOFF.md (link).
 - 14 Bell notifications in each reader's language: build it (kind + values, safe migration; old ones stay English).
 - 17 Parent Link footer: a per-school "WhatsApp number for parents" in School Profile; fallback the office mobile.
 - 10 Consent texts: draft Hindi and Telugu, marked draft, NOT shown to parents until the owner approves on Monday.
+- 6/WhatsApp webhook (15 Nov): leave the shared gym webhook as it is; School OS says 'Sent to WhatsApp' honestly (delivery reports not connected).
+- URGENT for the owner (outside School OS): a WhatsApp chat (Govardhan, 23-10-2026) holds the WhatsApp access token and a Firebase private key in plain text: rotate both and delete the message.
 
 ## Mindsets (one per round, then start over)
 

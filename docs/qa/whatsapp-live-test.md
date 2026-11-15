@@ -111,3 +111,13 @@ Tested by Claude, 16:05 to 16:57 IST.
 - Parent Link for Venkatesh (active).
 
 Behaviour points and the query rating were switched back off.
+
+## Lead's follow-up list (15 Nov)
+- Code templates as AUTHENTICATION + "on WhatsApp" wording: helper running.
+- Parent Link inside every message that mentions it (consent, exam reminder, results), with versioned Meta names: helper running.
+- Front Office messages (appointment confirmation/reminder/cancellation, visitor pass, walk-in number, pickup code, gate pass) need approved templates: in the rich-message redesign batch.
+- Message Templates page: rejected School OS texts labelled wrongly; "Check approval status" should also refresh rejected ones and show the reason.
+- deliver.ts: when the parent's language version is not approved, send the approved English version, never plain text.
+- Wording: "Send to parent again" when nothing was sent; Resolve dialog says "sent to the requester".
+- Delivery status: say "Sent to WhatsApp (delivery reports not connected)" (owner: leave the gym webhook).
+- Behaviour incident with points off: fixed (points optional).

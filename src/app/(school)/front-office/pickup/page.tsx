@@ -7,7 +7,7 @@ import { qrSvg } from "@/lib/students/codes";
 import { fileLink } from "@/lib/files";
 import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
-import { pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
+import { pickupCodeCheckFor, pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
 import { clockAt, shortDay } from "@/lib/front-office/time";
 import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -52,6 +52,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
   const keep = { ...period.keep, student: studentId };
 
   const data = await withSchool(ctx, async (tx) => {
+    const codeCheck = await pickupCodeCheckFor(tx, ctx, p.settings.pickupCodeCheck);
     const [results, info, list, pass, check, school, lock] = await Promise.all([
       q ? searchStudents(tx, ctx, q, 8, p.current) : Promise.resolve([]),
       studentId ? pickupStudent(tx, ctx, studentId, p.today) : Promise.resolve(null),
@@ -60,14 +61,14 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
       "check" in sp ? checkPass(tx, one(sp.check), p.now) : Promise.resolve(null),
       tx.school.findUnique({ where: { id: ctx.schoolId }, select: { phone: true } }),
       // Too many wrong pickup codes lock code checks for a while (gap list G04).
-      studentId && p.settings.pickupCodeCheck && canRelease ? pickupCodeLock(tx, studentId, ctx.userId, p.now) : Promise.resolve(null),
+      studentId && codeCheck.on && canRelease ? pickupCodeLock(tx, studentId, ctx.userId, p.now) : Promise.resolve(null),
     ]);
     const passMore = pass ? await Promise.all([
       tx.student.findFirst({ where: { id: pass.studentId }, select: { fullName: true, photoFileId: true } }),
       pass.guardianId ? tx.guardian.findFirst({ where: { id: pass.guardianId }, select: { photoFileId: true } }) : null,
       pass.issuedById ? tx.userLogin.findUnique({ where: { id: pass.issuedById }, select: { displayName: true } }) : null,
     ]) : null;
-    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock };
+    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck };
   });
 
   const info = data.info;
@@ -129,8 +130,9 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                     {t("Release {name} only if they are at school today, for example for an event or a special class.", { name: info.student.first })}{hostelOn ? ` ${t("Boarders going out use a Hostel Outing pass in Hostel Management.")}` : ""}
                   </Banner>
                 )}
+                {canRelease && data.codeCheck.why && <Banner tone="info" title={t.any(data.codeCheck.why)} />}
                 {canRelease ? (
-                  <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={p.settings.pickupCodeCheck}
+                  <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={data.codeCheck.on}
                     codeLock={data.lock ? pickupLockWords(data.lock, info.student.first, p.tz) : null}
                     releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}
                     photoBase={abilities(p.current).manage ? "/student-management/guardians/" : null} />
@@ -185,7 +187,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
             <p className="font-semibold text-[14.5px] flex items-center gap-2"><ShieldCheck size={17} className="text-brand" aria-hidden="true" /><Words k="How pickup stays safe" /></p>
             <ul className="mt-2.5 flex flex-col gap-2 text-[13.5px] text-ink2">
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="Only people on the approved list can be chosen." /></li>
-              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{p.settings.pickupCodeCheck ? t("Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone.") : t("Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian.")}</li>
+              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{data.codeCheck.on ? t("Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone.") : t("Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian.")}</li>
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="The gate checks the pass before the child leaves." /></li>
               <li className="flex gap-2"><Ban size={16} className="text-bad shrink-0 mt-0.5" aria-hidden="true" /><Words k="The list is changed only in Student Management, never at the desk or gate." /></li>
             </ul>

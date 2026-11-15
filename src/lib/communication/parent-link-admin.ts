@@ -122,7 +122,7 @@ export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds
 
 const HISTORY_WORDS: Record<string, string> = {
   created: "Created", sent: "Sent", opened: "Opened", revoked: "Revoked", reissued: "Reissued (new link made)",
-  "phone-confirmed": "Phone confirmed", "code-sent": "One-time code sent", "code-wrong": "Wrong one-time code typed", "consent-given": "Consent given", "consent-withdrawn": "Consent withdrawn",
+  "phone-confirmed": "Phone confirmed", "code-sent": "Confirmation sent (a tap on WhatsApp, or a code by SMS)", "code-wrong": "Wrong one-time code typed", "consent-given": "Consent given", "consent-withdrawn": "Consent withdrawn",
 };
 
 /** A link's history from the audit log: created, sent, each open with date, time and phone, revoked, reissued. */

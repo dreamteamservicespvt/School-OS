@@ -114,6 +114,8 @@ export default async function TemplatePage({ params, searchParams }: { params: P
           : v?.whatsappStatus === "REJECTED" && (ownRejected
             ? <Banner tone="warn" title="WhatsApp rejected School OS's words for this template.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : <><Any text="Press Check approval status to see WhatsApp's reason." />{" "}</>}<Any text="Edit the words and send them again, or ask DREAM TEAM support." /></Banner>
             : <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : null}<Words k="Change the wording with Edit and send it again." /></Banner>)}
+        {/* A receipt card that went without its PDF says so whatever its status (live test 16 Nov: the note was only in the audit log). */}
+        {v?.whatsappStatus !== "REJECTED" && v?.whatsappNote?.startsWith("Sent without the receipt PDF") && <Banner tone="info" title="The receipt PDF is not on this card."><Any text={v.whatsappNote} /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
             <CardHeader title="The text" icon={FileText} description={v ? `Saved ${formatDateTime(v.createdAt, tz)}${v.createdById ? ` by ${data.people.get(v.createdById) ?? "staff"}` : ""} · used in ${usedIn(v.id)}` : undefined} />

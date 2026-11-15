@@ -12,7 +12,7 @@ import { foAction, foT, inFrontOffice, need, problemState, str, id, optionalId, 
 import { FrontOfficeProblem } from "@/lib/front-office/problem";
 import { addGateEntry, checkOutVisitor, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
 import { loginsWithRole } from "@/lib/front-office/people";
-import { letOut, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
+import { letOut, pickupCodeCheckFor, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
 import { findStudents } from "@/lib/students/find";
 import { inCampus } from "@/lib/campus";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
@@ -148,7 +148,7 @@ export async function releaseAction(_: S, fd: FormData): Promise<S> {
     return releaseStudent(w.tx, w.ctx, {
       studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting"), photoMatch: str(fd, "photoMatch") === "on",
       otherCheck: ((c) => (isNoPhotoCheck(c) ? c : null))(str(fd, "otherCheck")), code: str(fd, "code") || null, reason: str(fd, "reason"), otherReason: str(fd, "otherReason") || null, minute: hhmm(fd, "time", "time"),
-    }, { timeZone: w.tz, codeCheck: (await w.tx.frontOfficeSetting.findUnique({ where: { schoolId: w.ctx.schoolId } }))?.pickupCodeCheck ?? false });
+    }, { timeZone: w.tz, codeCheck: (await pickupCodeCheckFor(w.tx, w.ctx, (await w.tx.frontOfficeSetting.findUnique({ where: { schoolId: w.ctx.schoolId } }))?.pickupCodeCheck ?? false)).on });
   }, (r, t) => r.classTeacher ? t("{student} released to {name}. {teacher} told.", { student: r.student.first, name: r.person.name, teacher: r.classTeacher }) : t("{student} released to {name}.", { student: r.student.first, name: r.person.name }));
   if (!r?.ok || !r.data) return r as S;
   const d = r.data as { pass: { id: string }; student: { id: string } };

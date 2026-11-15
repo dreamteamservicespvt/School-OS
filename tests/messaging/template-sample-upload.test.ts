@@ -2,7 +2,7 @@
 // PDF upload now says which step failed, and the template is sent with a note saying so. The four texts
 // Meta refused (INCORRECT_CATEGORY) are reworded, and the passes have their own blanks.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { submitWhatsappTemplate, uploadTemplateSample } from "@/lib/messaging/providers/whatsapp";
+import { submitWhatsappTemplate, UPLOAD_SESSION, uploadTemplateSample } from "@/lib/messaging/providers/whatsapp";
 import { readyCard, READY_WHATSAPP } from "@/lib/messaging/ready-whatsapp";
 import { variablesIn } from "@/lib/messaging/blanks";
 
@@ -40,6 +40,16 @@ describe("the receipt card's sample PDF", () => {
     const r = await submitWhatsappTemplate(p, { name: "fee_received", language: "en", category: "UTILITY", body: t.texts.en!, card, school: { name: "Chaitanya", phone: "9876500001" } });
     expect(r).toMatchObject({ ok: true });
     expect(r.ok && r.note).toMatch(/^Sent without the receipt PDF on top: the Meta app could not be found/);
+  });
+});
+
+describe("Meta's upload session id", () => {
+  it("takes the real form with its signature, and nothing that could leave Meta's address", () => {
+    expect(UPLOAD_SESSION.test("upload:MTphdHRhY2htZW50OjQ1Njc4OTA=?sig=ARZx-9_ab/cd+ef%3D")).toBe(true);
+    expect(UPLOAD_SESSION.test("upload:abc123")).toBe(true);
+    expect(UPLOAD_SESSION.test("upload:abc?x=1")).toBe(false);
+    expect(UPLOAD_SESSION.test("upload:abc@evil.com")).toBe(false);
+    expect(UPLOAD_SESSION.test("https://evil.com/upload:abc")).toBe(false);
   });
 });
 

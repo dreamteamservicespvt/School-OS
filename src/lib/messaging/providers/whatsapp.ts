@@ -213,6 +213,8 @@ export function templateSubmissionParts(t: TemplateSubmission): { body: Record<s
  * step failed and WhatsApp's words: the card then goes with its text header and
  * the person is told why (live test 16 Nov: the receipt PDF went missing silently).
  */
+export const UPLOAD_SESSION = /^upload:[A-Za-z0-9_=:+/%-]+(\?sig=[A-Za-z0-9_=:+/%-]+)?$/;
+
 export async function uploadTemplateSample(p: ProviderConfig): Promise<{ handle: string } | { problem: string }> {
   const token = p.secrets.accessToken;
   if (!token) return { problem: "no access token" };
@@ -236,7 +238,8 @@ export async function uploadTemplateSample(p: ProviderConfig): Promise<{ handle:
     const start = await fetch(`${GRAPH}/${appId}/uploads?file_name=sample-receipt.pdf&file_length=${pdf.length}&file_type=application/pdf`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
     if (!start.ok) return { problem: `WhatsApp did not open the upload (${await metaSaid(start)})` };
     const session = String(((await start.json()) as { id?: string }).id ?? "");
-    if (!/^upload:[A-Za-z0-9_=:-]+$/.test(session)) return { problem: "WhatsApp did not open the upload" };
+    // Meta's session id is "upload:<id>?sig=<signature>" (live test 16 Nov: the old check refused the real one).
+    if (!UPLOAD_SESSION.test(session)) return { problem: "WhatsApp gave an upload address School OS does not recognise" };
     const put = await fetch(`${GRAPH}/${session}`, { method: "POST", headers: { Authorization: `OAuth ${token}`, file_offset: "0" }, body: new Uint8Array(pdf), signal: AbortSignal.timeout(15_000) });
     if (!put.ok) return { problem: `WhatsApp did not take the sample PDF (${await metaSaid(put)})` };
     const h = ((await put.json()) as { h?: string }).h;

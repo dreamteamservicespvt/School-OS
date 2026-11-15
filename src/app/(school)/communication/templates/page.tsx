@@ -6,7 +6,8 @@ import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { CHANNELS, offeredChannels, SMS_OFFERED } from "@/lib/messaging/channels";
 import { categoryLabel, ensureReadyTemplates, languageLabel, TEMPLATE_CATEGORIES } from "@/lib/messaging/templates";
-import { ruleTemplateIds, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { ruleTemplateIds, syncWhatsappApprovals, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { hitLimit } from "@/lib/rate-limit";
 import { whatsappReadiness } from "@/lib/communication/whatsapp-ready";
 import { Card } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -42,6 +43,10 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
   const params = readListParams(await searchParams, TEMPLATE_FILTERS);
   const data = await withSchool(current.ctx, async (tx) => {
     if (access.full) await ensureReadyTemplates(tx, current.ctx);
+    // Texts waiting for WhatsApp are checked when the list opens, at most once a minute, so it does not
+    // lag behind WhatsApp until the 15-minute check (live test 16 Nov: "Pending" for 12 minutes after approval).
+    if (access.full && await tx.templateVersion.count({ where: { schoolId: current.ctx.schoolId, isCurrent: true, whatsappStatus: "PENDING" } })
+      && (await hitLimit(`wa-approvals:${current.ctx.schoolId}`, 1, 60)).ok) await syncWhatsappApprovals(tx, current.ctx).catch(() => null);
     const where = templateWhere(current.ctx, params);
     const orderBy = params.sort === "name" ? { name: params.dir } : params.sort === "updated" ? { updatedAt: params.dir } : [{ category: "asc" as const }, { name: "asc" as const }];
     const [rows, total, firstIds, noDlt, ready] = await Promise.all([

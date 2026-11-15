@@ -76,7 +76,9 @@ function rewordFor(key: string | null, v: { language: string; body: string; what
  */
 function pdfNotTried(key: string | null, v: { language: string; body: string; whatsappCard?: unknown; whatsappNote?: string | null }) {
   const card = v.whatsappCard as { header?: { type?: string }; submitted?: { header?: string | null } } | null | undefined;
-  return card?.header?.type === "document" && card.submitted?.header === "text" && !v.whatsappNote?.startsWith("Sent without the receipt PDF") && isOwnReadyText(key, v.language, v.body);
+  // "did not open the upload" was School OS refusing Meta's real upload id (fixed 16 Nov): that one is tried again.
+  const toldWhy = v.whatsappNote?.startsWith("Sent without the receipt PDF") && !v.whatsappNote.endsWith("WhatsApp did not open the upload.");
+  return card?.header?.type === "document" && card.submitted?.header === "text" && !toldWhy && isOwnReadyText(key, v.language, v.body);
 }
 
 export type ReadyRow = { templateId: string; name: string; language: string; languageLabel: string };

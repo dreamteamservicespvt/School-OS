@@ -20,6 +20,7 @@ import { loginsWithRole } from "./people";
 import { messageVisitor } from "./notify";
 import { channelInTestMode, logCodeSentBy } from "../dev-codes";
 import { CODE_MASK } from "../messaging/one-time-code";
+import { codeChannels, WHATSAPP_NO_CODES } from "../messaging/channels";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
 import { word } from "../notification-words";
@@ -158,6 +159,18 @@ export function pickupLockWords(lock: PickupCodeLock, first: string, timeZone: s
   return lock.by === "student"
     ? `Code checks for ${first} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask the parent to wait, or call the Principal.`
     : `Your code checks are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask a colleague to check the code, or call the Principal.`;
+}
+
+/**
+ * Whether the pickup code check really applies: switched on, and a code can go (SMS, or WhatsApp in
+ * Test mode). On a real WhatsApp account no code can go to a +91 number (live test 16 Nov), and with
+ * the check on no child could be released at all; the photo, ID or call check stands, and the desk
+ * is told why.
+ */
+export async function pickupCodeCheckFor(tx: Tx, ctx: SchoolContext, switchedOn: boolean): Promise<{ on: boolean; why: string | null }> {
+  if (!switchedOn) return { on: false, why: null };
+  const can = await codeChannels(tx, ctx);
+  return can.has("whatsapp") || can.has("sms") ? { on: true, why: null } : { on: false, why: `Pickup code check is on, but ${WHATSAPP_NO_CODES}. Check the photo, ID proof or call a guardian instead.` };
 }
 
 /** Sends a one-time 4-digit code to the guardian's registered mobile (kept only as a hash). */

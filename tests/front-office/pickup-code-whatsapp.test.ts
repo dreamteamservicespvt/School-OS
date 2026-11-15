@@ -4,7 +4,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { codeChannels, WHATSAPP_NO_CODES } from "@/lib/messaging/channels";
-import { sendPickupCode } from "@/lib/front-office/pickup";
+import { pickupCodeCheckFor, sendPickupCode } from "@/lib/front-office/pickup";
 import { as, makeFrontOfficeSchool, type FoFixture } from "./fixture";
 
 let f: FoFixture;
@@ -21,6 +21,12 @@ beforeAll(async () => {
 describe("one-time codes on a real WhatsApp account", () => {
   it("never go by WhatsApp", async () => {
     expect((await withSchool(as(f, null), (tx) => codeChannels(tx, as(f, null)))).has("whatsapp")).toBe(false);
+  });
+  it("with the check switched on, it does not apply while no code can go, so a child can still be released", async () => {
+    const r = await withSchool(as(f, null), (tx) => pickupCodeCheckFor(tx, as(f, null), true));
+    expect(r.on).toBe(false);
+    expect(r.why).toBe(`Pickup code check is on, but ${WHATSAPP_NO_CODES}. Check the photo, ID proof or call a guardian instead.`);
+    expect((await withSchool(as(f, null), (tx) => pickupCodeCheckFor(tx, as(f, null), false))).on).toBe(false);
   });
   it("the desk is told the pickup code cannot go, and to call the guardian", async () => {
     const ctx = as(f, f.office.id);

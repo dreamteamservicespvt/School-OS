@@ -322,3 +322,65 @@ All in `qa/whatsapp-cards/`, desktop width (1536 px). The files are JPEGs, so th
 - Admission welcome v4, Staff invite v4, Visitor pass v2 and Pickup gate pass v2: new versions with the deploy 11 words.
 - The WhatsApp Chrome is now a confirmed device for Venkatesh's Parent Link.
 - Photos consent for Sri Lakshmi is **given**.
+
+## Deploy 12 (16 Nov)
+
+Deploy 12 (main 4b252769). Tested by Claude, 04:21 to 04:50 IST (School OS clock). Messages went to 9390011378 only. WhatsApp Web showed only the chat from +91 79896 17553.
+
+### Templates
+- **"Make 4 templates ready for WhatsApp"** offered "Admission welcome, Fee received, Pickup gate pass, Visitor pass". Bug 1 is fixed.
+  - Only English: this school has no hi/te versions of these four.
+  - Staff invite was not offered: it was still pending.
+- **"Send 4 templates to WhatsApp for approval"** (04:21): all four "Sent. Waiting for WhatsApp's answer." None was refused at once.
+- **All approved.** Pressing "Check approval status" on each template page (about 04:46) showed "WhatsApp approved" for Admission welcome v5, Fee received v4, Pickup gate pass v3, Visitor pass v3, **and Staff invite v4**.
+  - No refusal happened, so the new "filed as" wording could not be seen.
+  - **Bug:** the Message Templates list still showed all five as **Pending** at 04:58, while Meta had already approved them. Each flipped only when its own "Check approval status" was pressed; the background sync had not caught up.
+  - The "Getting WhatsApp messages approved" box (with "Approved: N · Waiting: N") also disappeared from the page while five texts were pending.
+- **Fee received: the receipt PDF still does not go on top.**
+  - The template page shows no note. The preview header is the text "Fee received", which is honest now (deploy 11 claimed "Receipt PDF … attached").
+  - The note exists only in the **Audit log** (Settings > Data Backup & Security > Audit log), word for word: **`Template "Fee received" (en) sent for WhatsApp approval: Pending. Sent without the receipt PDF on top: WhatsApp did not open the upload.`**
+  - **Bug, page:** `[id]/page.tsx` shows `whatsappNote` only in the "rejected" banner. A pending or approved card sent without its PDF shows nothing.
+  - **Likely root cause:** the message has no "(…)" after it, so Meta answered the upload-session POST with 200. The failing check is then `/^upload:[A-Za-z0-9_=:-]+$/` (`providers/whatsapp.ts:239`). Meta's upload session ids look like `upload:<base64>?sig=<…>`, and `?` (and possibly `+` or `/`) is not allowed by that pattern, so a good session is thrown away. Suggest allowing `?`, `&`, `+`, `/` (for example `^upload:\S+$`) and keeping the id as is for the second POST.
+
+### Sends (real flows)
+
+| Kind | Template | How sent | Arrived | What the card showed | Problem |
+|---|---|---|---|---|---|
+| Fee received | Approved (v4, text header) | Accountant collected **₹1 cash** for Sri (C-CHE-001/2026-27/00013), then "Send to parent again" | 4:47 AM | Header "Fee received" (text, **no PDF on top**), ₹1, Paid by: Cash, Receipt 00013, Still due ₹19,799, Open receipt button | No PDF (cause above). Still says "Send to parent again" when nothing was sent first |
+| Visitor pass | Approved (v3, "Visit registered") | Admin > Front Office > Visitors > Add visitor 9390011378 (returning visitor **Ramesh Reddy**, meets anjali) > Register and make pass V-0009 > **Send to phone** | 4:48 AM | "Visit registered", "Dear Ramesh Reddy, your visit to the school today is registered at the front desk.", "🗂️ Visit V-0009, until 1:00 PM", "For any help, please ask at the front desk.", footer | None. The visitor was checked out afterwards (04:50) |
+| Pickup gate pass | Approved (v3, "Pickup noted") | Admin > Student Pickup > Sri > Venkatesh > "A parent or guardian confirmed on a call" > Other ("School OS WhatsApp test") > **Release Sri and make gate pass** GP-2026-0002 > **Send to phone** | 4:49 AM | "Pickup noted", "Dear Venkatesh, the school has noted that Sri leaves with you at 4:48 AM today.", "🗂️ School record GP-2026-0002", "If you did not ask for this, please call the school." | Small: WhatsApp turns "2026-0002" into a phone link (green) |
+| Admission welcome | Approved (v5) | Not sent (needs a real admission) | – | – | – |
+| Staff invite | Approved (v4) | Not sent (aswini already has a login) | – | – | – |
+
+### Pickup code (Front Office)
+- "Pickup code check" is off on this school. I switched it on for the test (Admin > Front Office settings), opened Student Pickup > Sri > Venkatesh, and pressed **Send code**.
+- The desk sees, word for word: **"The code could not be sent: WhatsApp does not deliver one-time codes to Indian (+91) numbers, so no code can be sent. Verify by calling the guardian instead."**
+- No message went out.
+- **Bug:** with the setting on, release is still blocked. After ticking "A parent or guardian confirmed on a call" and a reason, the button says **"Send the code first"** and stays disabled, so no child can be released.
+  - Suggest: while codes cannot be sent, let the call check count, or hide or disable the "Pickup code check" switch with the same reason.
+- I switched the setting back **off** (checked).
+
+### Consent step wording
+- On the confirmed Parent Link (WhatsApp Chrome), Consent forms > Photos of my child > **Remove consent** (cancelled, nothing sent).
+- The step now says **"We send a message to +91 ••••• ••378 to confirm it is you."**, with a **"Send to confirm"** button. Fix 5 is OK.
+
+### Screenshots
+All in `qa/whatsapp-cards/`. Some are PNG data saved under `.jpg` as asked.
+- `deploy12-fee-received.jpg`
+- `deploy12-visit-registered.jpg`
+- `deploy12-pickup-noted.jpg`
+- `deploy12-pickup-code-desk.jpg`
+- `deploy12-consent-step-wording.jpg`
+
+### Credits
+- **3 WhatsApp credits** (Fee received, Visit registered, Pickup noted), all to 9390011378.
+
+### Also noticed
+- The audit log calls each Parent Link card send "Code sent · Parent Link" and "One time code sent · Message". These are cards now, not codes.
+
+### Test changes left on the test school
+- ₹1 cash receipt C-CHE-001/2026-27/00013 for Sri.
+- Visitor V-0009 (Ramesh Reddy), checked out.
+- Early pickup GP-2026-0002 (Sri with Venkatesh, 4:48 AM, "Other: School OS WhatsApp test").
+- New approved versions: Admission welcome v5, Fee received v4, Pickup gate pass v3, Visitor pass v3. Staff invite v4 is approved.
+- "Pickup code check" was switched on and off again.

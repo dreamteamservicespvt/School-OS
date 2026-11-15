@@ -74,7 +74,8 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pendi
     router.refresh();
   };
 
-  if (!fixable.length && !toSend.length && !toEdit.length && !rejectedOwn.length && !results.length) return null;
+  // Kept while texts wait for WhatsApp, so the counts stay in view (live test 16 Nov: it vanished with 5 waiting).
+  if (!fixable.length && !toSend.length && !toEdit.length && !rejectedOwn.length && !results.length && !pending) return null;
   return (
     <Card className="min-w-0">
       <CardHeader title="Getting WhatsApp messages approved" icon={Send}

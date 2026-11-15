@@ -8,12 +8,9 @@
   Engine: TalkingHead 1.8.2 by met4citizen, MIT licence
     https://github.com/met4citizen/TalkingHead  (npm: @met4citizen/talkinghead)
   3D library: three.js 0.186.1, MIT licence.
-  Sample avatars (loaded at runtime from jsDelivr's mirror of the TalkingHead repo, tag v1.8.2):
-    - brunette.glb  (woman): made with Ready Player Me. CC BY-NC 4.0 (non-commercial use only).
-    - avatarsdk.glb (man):   made with Avatar SDK / MetaPerson Creator. Non-commercial use only.
-  Neither sample avatar may be used in a paid product. A commercial build needs our own avatar
-  (for example one made with MPFB in Blender, which is CC0) or a licensed one.
-  Nothing from TalkingHead is stored in this repo: every file loads from the CDN when the page opens.
+  Characters: our own "Meera" and "Arjun" (avatars/meera.glb, avatars/arjun.glb, served next to
+  this page). Made in Blender with MPFB from CC0 MakeHuman assets, with TalkingHead's MIT rig and
+  face targets. Commercial use is allowed; details in avatars/LICENCES.md.
 -->
 <script type="importmap">
 {
@@ -88,6 +85,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { overflow-x: clip; }
 body {
   margin: 0;
@@ -267,8 +265,8 @@ form.ask input::placeholder { color: var(--muted); }
       <div class="card">
         <span class="label" id="whoLabel">Assistant</span>
         <div class="seg" role="group" aria-labelledby="whoLabel">
-          <button type="button" data-who="woman" aria-pressed="true">Woman</button>
-          <button type="button" data-who="man" aria-pressed="false">Man</button>
+          <button type="button" data-who="meera" aria-pressed="true">Meera</button>
+          <button type="button" data-who="arjun" aria-pressed="false">Arjun</button>
         </div>
         <p class="status" id="status" role="status" aria-live="polite">Loading the assistant…</p>
       </div>
@@ -278,32 +276,24 @@ form.ask input::placeholder { color: var(--muted); }
 
 <script type="module">
 // ---------- Avatars ----------
-// Files load from jsDelivr's GitHub mirror of TalkingHead (tag v1.8.2). If that is blocked,
-// the page also tries "avatars/<file>" next to the page, so a host can serve its own copy.
-const AVATAR_CDN = "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@v1.8.2/avatars/";
+// Our own characters, served next to this page (avatars/<file>).
 const AVATARS = {
-  woman: {
-    file: "brunette.glb", // Ready Player Me sample, CC BY-NC 4.0
-    look: { tints: [[/Wolf3D_Skin|Wolf3D_Body/, 0xe2c2a8]] },
+  meera: {
+    file: "meera.glb",
     cfg: { body: "F", avatarMood: "neutral", lipsyncLang: "en",
-      baseline: { headRotateX: -0.02, eyeBlinkLeft: 0.05, eyeBlinkRight: 0.05 } },
-    view: { cameraDistance: 0.6, cameraY: 0.36 },
+      baseline: { headRotateX: -0.02, eyeBlinkLeft: 0.06, eyeBlinkRight: 0.06, mouthSmile: 0.08 } },
+    view: { cameraDistance: 0.2, cameraY: 0.35 },
     voiceWants: [/en-IN/i, /heera|neerja|swara|kajal|aditi|raveena|veena/i, /zira|aria|jenny|susan|hazel|samantha|female|libby|sonia/i]
   },
-  man: {
-    file: "avatarsdk.glb", // Avatar SDK / MetaPerson sample, non-commercial use
-    look: { tints: [[/^AvatarHead|^AvatarBody/, 0xb59c90]] },
+  arjun: {
+    file: "arjun.glb",
     cfg: { body: "M", avatarMood: "neutral", lipsyncLang: "en",
-      retarget: {
-        Neck: { z: -0.01, rx: -0.15 }, Neck1: { z: -0.01, rx: -0.15 }, Neck2: { z: -0.01, rx: -0.15 },
-        LeftShoulder: { rz: -0.3 }, RightShoulder: { rz: 0.3 },
-        scaleToEyesLevel: 1.0, origin: { y: -0.1 }
-      },
-      baseline: { headRotateX: -0.04, eyeBlinkLeft: 0.05, eyeBlinkRight: 0.05 } },
-    view: { cameraDistance: 0.65, cameraY: 0.2 },
+      baseline: { headRotateX: -0.02, eyeBlinkLeft: 0.06, eyeBlinkRight: 0.06, mouthSmile: 0.05 } },
+    view: { cameraDistance: 0.25, cameraY: 0.35 },
     voiceWants: [/en-IN/i, /ravi|prabhat|hemant|madhur/i, /david|guy|mark|george|ryan|daniel|male/i]
   }
 };
+const WHO_ALIAS = { woman: "meera", man: "arjun" };
 
 // ---------- Sample answers (demo only) ----------
 const ANSWERS = {
@@ -326,8 +316,8 @@ const statusEl = $("#status"), overlay = $("#overlay"), loadText = $("#loadText"
 const spinner = $("#spinner"), retryBtn = $("#retry"), chip = $("#chip"), chipText = $("#chipText"), caption = $("#caption");
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const askedWho = new URLSearchParams(location.search).get("who");
-let TalkingHead = null, head = null, who = AVATARS[askedWho] ? askedWho : "woman", busy = false, runId = 0, feeling = "neutral";
+const askedWho = (q => WHO_ALIAS[q] || q)(new URLSearchParams(location.search).get("who"));
+let TalkingHead = null, head = null, who = AVATARS[askedWho] ? askedWho : "meera", busy = false, runId = 0, feeling = "neutral";
 const timers = new Set();
 const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
 const wait = (ms, id) => new Promise((res) => later(() => res(id === runId), ms));
@@ -353,6 +343,7 @@ function setControls(on) {
 }
 
 async function boot() {
+  document.querySelectorAll("[data-who]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.who === who)));
   setControls(false);
   showLoading("Getting the assistant ready…", null);
   try {
@@ -377,11 +368,13 @@ async function boot() {
         avatarIdleHeadMove: reduceMotion ? 0.15 : 0.45,
         avatarSpeakingEyeContact: 0.75,
         avatarSpeakingHeadMove: reduceMotion ? 0.2 : 0.5,
-        // Warm, soft studio light
-        lightAmbientColor: 0xfff3e8, lightAmbientIntensity: 2.2,
-        lightDirectColor: 0xfff0e0, lightDirectIntensity: 22, lightDirectPhi: 0.7, lightDirectTheta: 1.9,
-        lightSpotColor: 0x9fc4ff, lightSpotIntensity: 6, lightSpotPhi: 0.3, lightSpotTheta: 4, lightSpotDispersion: 1
+        // Warm, soft studio light (key light from the front left, gentle cool rim from behind)
+        lightAmbientColor: 0xffe9d6, lightAmbientIntensity: 2.0,
+        lightDirectColor: 0xfff1e2, lightDirectIntensity: 10, lightDirectPhi: 0.7, lightDirectTheta: 1.9,
+        lightSpotColor: 0xbcd6ff, lightSpotIntensity: 0, lightSpotPhi: 0.3, lightSpotTheta: 4, lightSpotDispersion: 1
       });
+      // The default room reflection washes out skin; keep it low so the skin tone stays warm.
+      head.scene.environmentIntensity = 0.35;
     }
   } catch (e) {
     showFailure("This browser cannot show 3D graphics, so the assistant cannot appear here.");
@@ -396,22 +389,21 @@ async function loadAvatar(name) {
   setControls(false);
   showLoading("Loading the assistant…", 0);
   say("Loading the assistant…");
-  const sources = [AVATAR_CDN + a.file, "avatars/" + a.file];
   let loaded = false;
-  for (const url of sources) {
-    try {
-      await head.showAvatar({ url, ...structuredClone(a.cfg) }, (ev) => {
-        if (ev && ev.lengthComputable && ev.total) showLoading("Loading the assistant…", (ev.loaded / ev.total) * 100);
-      });
-      loaded = true; break;
-    } catch (e) { /* try the next source */ }
-  }
+  try {
+    await head.showAvatar({ url: "avatars/" + a.file, ...structuredClone(a.cfg) }, (ev) => {
+      if (ev && ev.lengthComputable && ev.total) showLoading("Loading the assistant…", (ev.loaded / ev.total) * 100);
+    });
+    loaded = true;
+  } catch (e) { /* shown below */ }
   if (!loaded) {
     showFailure("The assistant's 3D model could not be downloaded. Please check your internet connection and try again.");
     return;
   }
-  applyLook(a);
-  head.setView("head", a.view);
+  applyLook();
+  // Narrow stages (phones) get the camera a little further back so the hair is never cut off.
+  const narrow = $("#avatar").clientWidth < 600;
+  head.setView("head", narrow ? { ...a.view, cameraDistance: a.view.cameraDistance + 0.25, cameraY: a.view.cameraY - 0.05 } : a.view);
   overlay.hidden = true; chip.hidden = false;
   setControls(true);
   setFeeling("neutral", { quiet: true });
@@ -421,26 +413,20 @@ async function loadAvatar(name) {
 
 retryBtn.addEventListener("click", () => boot());
 
-// Small material fixes: hair cards use alpha-to-coverage (no stringy see-through hair),
-// and an optional colour tint per material group (skin, hair) set in AVATARS[..].look.
-function applyLook(a) {
-  const look = a.look || {};
-  const q = new URLSearchParams(location.search);
-  const noTint = q.get("tint") === "0";
+// Small material fixes: soft hair edges; eyebrow and eyelash cards use alpha-to-coverage.
+function applyLook() {
   head.armature.traverse((o) => {
     if (!o.isMesh) return;
     const ms = Array.isArray(o.material) ? o.material : [o.material];
     ms.forEach((m) => {
       const n = (m.name || "") + " " + (o.name || "");
-      if (/hair|eyelash/i.test(n) && m.map) {
-        m.transparent = false; m.depthWrite = true;
-        m.alphaTest = /eyelash/i.test(n) ? 0.2 : 0.3;
-        m.alphaToCoverage = true;
+      if (/hair/i.test(n) && m.map) {
+        // Soft hairline: blended edges, but the hair still writes depth so it never looks see-through
+        m.transparent = true; m.depthWrite = true; m.alphaTest = 0.05; m.alphaToCoverage = false;
         m.needsUpdate = true;
-      }
-      if (noTint) return;
-      for (const [rx, hex] of look.tints || []) {
-        if (rx.test(n)) { m.color.setHex(hex); m.needsUpdate = true; }
+      } else if (/eyelash|eyebrow/i.test(n) && m.map) {
+        m.transparent = false; m.depthWrite = true; m.alphaTest = 0.25; m.alphaToCoverage = true;
+        m.needsUpdate = true;
       }
     });
   });
@@ -470,7 +456,7 @@ function endThink() {
   it.ts = it.ts.map((t, k) => Math.min(t, now + 40 * (k + 1)));
 }
 function clearFixed() {
-  ["browInnerUp", "eyeWideLeft", "eyeWideRight", "mouthSmile", "jawOpen", "mouthFunnel", "eyesRotateX", "eyesRotateY"].forEach((m) => head.setFixedValue(m, null));
+  ["browInnerUp", "eyeWideLeft", "eyeWideRight", "mouthSmile", "jawOpen", "mouthFunnel", "mouthPressLeft", "eyesRotateX", "eyesRotateY"].forEach((m) => head.setFixedValue(m, null));
 }
 // Look at a screen point, without the random brow/mouth twitch that lookAt() adds.
 function calmLookAt(x, y, ms) {
@@ -512,7 +498,8 @@ function setFeeling(f, opt = {}) {
       head.setFixedValue("eyesRotateY", 0.28);
       anim("tilt", [600, 1900, 700], { headRotateY: [0.15, 0.15, 0], headRotateX: [-0.08, -0.08, 0], headRotateZ: [0.05, 0.05, 0] });
       think(2600);
-      if (!reduceMotion) later(() => head.playGesture("index", 2.2), 250);
+      head.setFixedValue("browInnerUp", 0.25);
+      head.setFixedValue("mouthPressLeft", 0.25);
       break;
     case "speaking":
       head.setMood("neutral");
@@ -521,7 +508,7 @@ function setFeeling(f, opt = {}) {
       head.setMood("happy");
       head.makeEyeContact(3000);
       head.playGesture("🙂", 2.2);
-      later(() => head.playGesture("thumbup", 2.4), 150);
+      head.setFixedValue("mouthSmile", 0.5);
       break;
     case "sorry":
       head.setMood("sad");
@@ -539,7 +526,6 @@ function setFeeling(f, opt = {}) {
       head.setFixedValue("jawOpen", 0.12);
       head.setFixedValue("mouthFunnel", 0.18);
       anim("tilt", [180, 1600, 600], { headRotateX: [-0.06, -0.06, 0] });
-      if (!reduceMotion) later(() => head.playGesture("handup", 1.6, true), 120);
       later(() => { if (feeling === "surprised") { clearFixed(); head.setFixedValue("mouthSmile", 0.2); } }, 2200);
       break;
   }
@@ -573,7 +559,7 @@ function pickVoice(name) {
   tries.push(local[0], pool[0]);
   // A woman should not get a voice that is clearly male, and the other way round
   const male = /david|guy|mark|george|ryan|daniel|ravi|prabhat|hemant|male\b/i, female = /zira|aria|jenny|susan|hazel|heera|neerja|female|samantha|libby|sonia/i;
-  return tries.find((v) => v && !(name === "woman" ? male.test(v.name) : female.test(v.name))) || tries.find(Boolean) || null;
+  return tries.find((v) => v && !(AVATARS[name].cfg.body === "F" ? male.test(v.name) : female.test(v.name))) || tries.find(Boolean) || null;
 }
 
 const lipStats = { boundary: 0, estimated: 0 }; // read by tests: which timing path moved the lips

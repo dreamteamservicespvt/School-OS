@@ -153,3 +153,10 @@ the line our code returns; the output transcript is compared with the card in th
 ## Avatar decision log (15 Nov)
 - Owner: the MPFB Meera/Arjun were "literally ugly and not cute and attractive". Realistic faces from free tools are dropped. The owner wants CUTE and ATTRACTIVE, live 3D, with emotions.
 - Next route (proposed): a stylised (anime / animated-film) 3D character made in VRoid Studio (free, by pixiv; models you make there may be used commercially), exported as VRM and shown live with @pixiv/three-vrm (MIT): built-in expressions (happy, sad, angry, surprised, relaxed), lip-sync mouth shapes (aa, ih, ou, ee, oh), blinking and look-at. Needs the owner's OK to install VRoid Studio.
+
+## Badge and branding decision (15 Nov, lead's call at the owner's request)
+- The mascot's chest badge carries the School OS mark (the glowing open book), the same in every school. Not the school's logo (shapes and quality vary; pasted onto the 3D badge it looks cheap) and not the Dream Team Services logo (staff and parents do not know the vendor; it reads as an ad).
+- The school's own logo and name sit next to the Assistant in the panel header ("Sunrise Public School's assistant"), taken from School Profile.
+- Dream Team Services appears as the maker in "About School OS" and the sign-in footer ("School OS by Dream Team Services").
+- Monday question for the owner: switch the app icon (now a rising sun on blue) to the same glowing book mark, so the product logo, the mascot and the sound brand match.
+- Final art: docs/assistant/mascot-live.html with docs/assistant/mascot-live/*.webp (owner's ChatGPT renders; robot face drawn live). Shared at https://claude.ai/artifact/3QBC68PCuaUj2RaWPzzkxY.

@@ -77,6 +77,13 @@ const collectedToday: Widget<"band"> = {
   },
 };
 
+/** "All cash accounts", or the last close's count when it did not match: "Closed 14 Nov: ₹507.50 short". */
+function cashSub(lc: { date: Date; countedCashPaise: bigint; expectedCashPaise: bigint } | null) {
+  if (!lc || lc.countedCashPaise === lc.expectedCashPaise) return "All cash accounts";
+  const d = lc.countedCashPaise - lc.expectedCashPaise;
+  return `Closed ${shortDate(lc.date)}: ${formatRupees(d < ZERO ? -d : d)} ${d < ZERO ? "short" : "extra"}`;
+}
+
 const chequesToVerify: Widget<"band"> = {
   id: "fees.cheques-to-verify",
   module: "fee-management",
@@ -242,13 +249,15 @@ const moneyToday: Widget<"panel"> = {
   allowed: finance("day-book"),
   async load(c) {
     const only = await onCampus(c);
-    const [t, waiting, oldest, book, balances, cashAccounts] = await Promise.all([
+    const [t, waiting, oldest, book, balances, cashAccounts, lastClose] = await Promise.all([
       tiles(c),
       c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false, ...only }, _sum: { amountPaise: true }, _count: { _all: true } }),
       c.tx.payment.findFirst({ where: { status: "WAITING", broughtIn: false, ...only }, orderBy: { paymentDate: "asc" }, select: { paymentDate: true } }),
       dayBookToday(c),
       accountBalances(c.tx, c.viewer.ctx),
       c.tx.bankAccount.findMany({ where: { kind: "CASH", archivedAt: null }, select: { id: true } }),
+      // The latest close still in force: a short or extra count shows on the Cash in hand row, as on Cash & Bank (layman loop 4).
+      c.tx.dayClose.findFirst({ where: { reopenedAt: null }, orderBy: { date: "desc" }, select: { date: true, countedCashPaise: true, expectedCashPaise: true } }),
     ]);
     const cash = cashAccounts.reduce((s, a) => s + (balances.get(a.id) ?? ZERO), ZERO);
     const v = c.viewer;
@@ -258,7 +267,7 @@ const moneyToday: Widget<"panel"> = {
       feeOk && { id: "cheques", title: "Waiting for verification", sub: plural(waiting._count._all, "payment"), right: formatRupees(waiting._sum.amountPaise ?? ZERO), rightTone: waiting._count._all ? "warn" as const : "neutral" as const, href: waitingHref(oldest?.paymentDate ?? null, c.today) },
       // The Day Book's own "Total expense" for today (expenses and salary paid, less any cancelled), so the row and the page agree.
       { id: "spent", title: "Spent today", sub: plural(book.totals.expenseCount, "payment"), right: formatRupees(book.totals.expense), rightTone: "neutral" as const, href: `${FIN}/day-book?period=today` },
-      { id: "cash", title: "Cash in hand", sub: "All cash accounts", right: formatRupees(cash), rightTone: cash < ZERO ? "bad" as const : "neutral" as const, href: financePageAllowed(v.permissions, "cash-bank") ? `${FIN}/cash-bank` : undefined },
+      { id: "cash", title: "Cash in hand", sub: cashSub(lastClose), right: formatRupees(cash), rightTone: cash < ZERO ? "bad" as const : "neutral" as const, href: financePageAllowed(v.permissions, "cash-bank") ? `${FIN}/cash-bank` : undefined },
     ].filter((r): r is Exclude<typeof r, false> => Boolean(r));
     return {
       slot: "first",

@@ -103,6 +103,25 @@ async function paymentOfRecipient(tx: Tx, paymentId: string, r: Claimed): Promis
   return Boolean(await tx.studentGuardian.findFirst({ where: { guardianId: r.guardianId, studentId: p.studentId }, select: { studentId: true } }));
 }
 
+const PARENT_LINK_CODE = /⟦parent-link:([0-9a-f-]{36})⟧/g;
+const RECEIPT_CODE = /⟦receipt:([0-9a-f-]{36}):([0-9a-f-]{36})⟧/g;
+/** The same words with every Parent Link code not of this recipient, and every receipt code not of their own child, removed. */
+async function ownCodesOnly(tx: Tx, r: Claimed, words: Record<string, string>): Promise<Record<string, string>> {
+  const all = Object.values(words).join(" ");
+  const linkIds = [...new Set([...all.matchAll(PARENT_LINK_CODE)].map((m) => m[1]))];
+  const receipts = [...new Set([...all.matchAll(RECEIPT_CODE)].map((m) => m[2]))];
+  if (!linkIds.length && !receipts.length) return words;
+  const ownLinks = new Set(linkIds.length && r.guardianId
+    ? (await tx.parentLink.findMany({ where: { id: { in: linkIds }, guardianId: r.guardianId }, select: { id: true } })).map((l) => l.id)
+    : []);
+  const ownPayments = new Set<string>();
+  for (const id of receipts) if (await paymentOfRecipient(tx, id, r)) ownPayments.add(id);
+  const clean = (v: string) => v
+    .replace(PARENT_LINK_CODE, (m, id: string) => (ownLinks.has(id) ? m : ""))
+    .replace(RECEIPT_CODE, (m, _school: string, id: string) => (ownPayments.has(id) ? m : ""));
+  return Object.fromEntries(Object.entries(words).map(([k, v]) => [k, typeof v === "string" ? clean(v) : v]));
+}
+
 type Prepared = Outgoing & { refuse?: string; receiptFor?: string };
 
 /** code: a one-time code, put in only now, for the provider (QA SEC-01). */
@@ -112,8 +131,11 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
     const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: VERSION_FIELDS });
     if (row) { v = row; c.versions.set(r.templateVersionId, row); }
   }
-  const values = (r.values ?? {}) as Record<string, string>;
-  const out: Prepared = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(r.text), code), subject: r.message.title };
+  // A Parent Link or receipt code in this person's words or blanks must be their own; any other is dropped,
+  // so a code that slipped in can never send another family's link or receipt (security review, 15 Nov).
+  const values = await ownCodesOnly(tx, r, (r.values ?? {}) as Record<string, string>);
+  const ownText = (await ownCodesOnly(tx, r, { t: r.text })).t;
+  const out: Prepared = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(ownText), code), subject: r.message.title };
   if (r.channel === "sms") Object.assign(out, { dltTemplateId: v?.dltTemplateId ?? null, dltEntityId: c.dlt.entityId, senderHeader: c.dlt.header });
   if (r.channel === "whatsapp" && v) {
     const real = c.providers.whatsapp && c.providers.whatsapp.key !== "sandbox";

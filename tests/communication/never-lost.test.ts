@@ -200,7 +200,8 @@ describe("a real WhatsApp account: only approved templates", () => {
         await tx.templateVersion.update({ where: { id: v.id }, data: { whatsappCard: { ...(v.whatsappCard as object), submitted: { header: "text", buttons: [{ type: "URL", target: "receipt", blank: "receipt_link" }] } } } });
       }
     });
-    const paymentId = randomUUID();
+    // A real payment of Ravi's: a receipt code is sent only for a payment of the recipient's own child (security review 15 Nov).
+    const paymentId = (await withSchool(s.ctx, (tx) => tx.payment.create({ data: { schoolId: s.school.id, studentId: s.ravi.id, amountPaise: BigInt(600000), mode: "CASH", paidAt: new Date(), paymentDate: new Date("2026-10-10") }, select: { id: true } }))).id;
     const r = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, {
       rule: "fee-paid", event: { key: `fee-paid:${paymentId}`, label: "Fee received, receipt R-9" }, to: { guardiansOf: [s.ravi.id] },
       perStudent: { [s.ravi.id]: { paid_amount: "₹6,000", payment_date: "10-10-2026", receipt_number: "R-9", receipt_link: receiptPlaceholderFor(s.school.id, paymentId), payment_mode: "Cash", balance_due: "₹4,000" } },

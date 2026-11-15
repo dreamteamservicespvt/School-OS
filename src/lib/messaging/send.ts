@@ -40,6 +40,8 @@ export const CANCELLED_REASON = "Cancelled before it was sent.";
 export class MessagingProblem extends Error {}
 
 const LINK_CODE = /⟦[^⟧]*⟧/g;
+/** The blanks School OS fills with its own link codes (Parent Link, receipt, invite/survey link, how to pay). */
+const LINK_BLANKS = new Set(["link", "parent_link", "receipt_link", "how_to_pay"]);
 /** The input with every link code removed from the words a person typed (text, title, translations). */
 export function stripTypedLinkCodes(input: SendInput): SendInput {
   const clean = (s: string | null | undefined) => (typeof s === "string" ? s.replace(LINK_CODE, "") : s);
@@ -537,6 +539,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         // The code itself is never in a stored text or blank: only the mask is.
         ...(input.oneTimeCode ? { code: CODE_MASK } : {}),
       };
+      // Only School OS's own link blanks may carry a link code; any other value (a name, a reason a person
+      // typed) loses it, so no value can smuggle another family's link or receipt (security review, 15 Nov).
+      for (const k of Object.keys(values)) if (!LINK_BLANKS.has(k) && typeof values[k] === "string") values[k] = values[k].replace(LINK_CODE, "");
       const rowKey = studentId ? `${c.key}:${studentId}` : c.key;
       const whys: string[] = [];
       let addressSkip: string | null = null;

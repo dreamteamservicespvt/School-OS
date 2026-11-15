@@ -83,7 +83,7 @@ export default async function TasksPage({ searchParams }: Search) {
   const page = sorted.slice((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE);
   const name = (id: string) => data.names.get(id) ?? "Someone";
   const due = (d: Date | null) => (d ? formatDateTime(d, tz) : "No due date");
-  const peopleOptions = data.people.map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.name }));
+  const peopleOptions = data.people.map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.designation ? `${p.name} · ${p.designation}` : p.name }));
 
   type Row = (typeof sorted)[number];
   const columns: Column<Row>[] = [
@@ -109,7 +109,7 @@ export default async function TasksPage({ searchParams }: Search) {
         crumbs={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft size={14} aria-hidden="true" /><Words k="Dashboard" /></Link>}
         title="My Tasks"
         sub={access === "full" ? "Give tasks to staff, with reminders." : "Your tasks and ones given to you."}
-        actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today} />}
+        actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name, role: p.designation }))} meId={current.user.id} today={today} />}
       />
 
       {d && (
@@ -128,7 +128,7 @@ export default async function TasksPage({ searchParams }: Search) {
             comments: d.t.comments.map((c) => ({ id: c.id, who: d.nm.get(c.authorId) ?? "Someone", when: formatDateTime(c.createdAt, tz), text: c.text })),
             history: d.history,
           }}
-          access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today}
+          access={access} people={data.people.map((p) => ({ id: p.id, name: p.name, role: p.designation }))} meId={current.user.id} today={today}
           closeHref={`/dashboard/tasks${view === "mine" ? "" : `?view=${view}`}`}
         />
       )}

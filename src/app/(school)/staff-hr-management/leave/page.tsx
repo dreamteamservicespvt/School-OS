@@ -13,6 +13,8 @@ import { allLeaveWhere, campusStaffWhere, offCampus } from "@/lib/staff/list";
 import { narrowToCampus, personCampusId } from "@/lib/campus";
 import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
+import { isSchoolDay } from "@/lib/calendar/school-days";
+import { nextSchoolDay } from "@/lib/attendance/calendar";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
@@ -73,7 +75,10 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       tx.leaveTypeRule.findMany(),
       viewer.staffId ? tx.staff.findUnique({ where: { id: viewer.staffId } }) : null,
     ]);
-    return { approvalsWhere: where, waitingForMe, types, rules, me };
+    // The form starts on the next school day, not on a Sunday or holiday (layman loop 2).
+    const campusId = me?.campusId ?? viewer.campusId ?? null;
+    const firstDay = (await isSchoolDay(tx, current.ctx, today, { campusId })).on ? today : (await nextSchoolDay(tx, current.ctx, today, campusId)) ?? today;
+    return { approvalsWhere: where, waitingForMe, types, rules, me, firstDay };
   });
 
   const views = [
@@ -99,7 +104,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   });
   const canApply = (Boolean(viewer.staffId) || canHr) && !shut;
   const apply = canApply && base.types.length > 0 ? (
-    <ApplyLeaveForm action={applyLeaveAction} preview={previewLeave} types={typeOptions} today={isoDay(today)}
+    <ApplyLeaveForm action={applyLeaveAction} preview={previewLeave} types={typeOptions} today={isoDay(base.firstDay)}
       staff={canHr ? staffOptions.filter((s) => s.id !== viewer.staffId).map((s) => ({ value: s.id, label: `${s.fullName} (${s.staffCode})` })) : null}
       fixedStaff={fixed ? { value: fixed.id, label: fixed.fullName } : undefined} defaultOpen={Boolean(applyFor)} />
   ) : null;

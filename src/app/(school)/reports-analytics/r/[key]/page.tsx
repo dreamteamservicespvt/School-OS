@@ -207,7 +207,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
                 body={table.empty ?? "Try another class or dates."}
                 action={<Link href={qs(href, entry.dated ? { period: entry.money ? "finyear" : "acyear" } : {})} scroll={false} className={buttonClass("secondary")}>{p.a.own ? "Show my classes, whole year" : "Show all classes, whole year"}</Link>} />
             ) : (
-              <SimpleTable minWidth={Math.max(520, table.columns.length * 120)} caption={entry.name} rows={shown}
+              <SimpleTable minWidth={Math.max(520, table.columns.length * 96)} caption={entry.name} rows={shown}
                 cols={table.columns.map((c, i) => ({ label: c.label, right: c.kind === "money" || c.kind === "number" || c.kind === "percent", nowrap: i !== table.columns.length - 1 || (c.kind !== undefined && c.kind !== "text"), render: (r: Row) => cellText(r[c.key], c.kind) }))}
                 foot={table.totals ? table.columns.map((c) => cellText(table.totals?.[c.key] ?? null, c.kind)) : undefined} />
             )}

@@ -85,7 +85,8 @@ export async function CommonSheets({ sp, href, keepKeys }: { sp: SP; href: strin
         <CallSheet closeHref={close} purposes={p.settings.callPurposes} classes={classOpts} today={p.todayStr} follow={followUpStart(p.todayStr, p.minute)} admissions={p.current.permissions["admission-management"].see !== "none"}
           staff={data.logins.map((s) => ({ value: s.loginId, label: `${s.name} · ${s.role}` }))} defaultWho={data.logins.find((s) => s.loginId === p.current.user.id)?.loginId ?? data.logins[0]?.loginId ?? ""} />
       )}
-      {walkOpen && data.nextNo && <WalkInSheet closeHref={close} departments={p.settings.requestDepartments} nextNo={data.nextNo} />}
+      {walkOpen && data.nextNo && <WalkInSheet closeHref={close} departments={p.settings.requestDepartments} nextNo={data.nextNo}
+        preset={{ department: p.settings.requestDepartments.includes(one(sp.dept)) ? one(sp.dept) : undefined, request: one(sp.ask).slice(0, 300) || undefined, from: one(sp.from).slice(0, 120) || undefined }} />}
       {settingsOpen && <SettingsSheet closeHref={close} s={p.settings} features={[...p.features]} dayEnd={p.passEndWords} />}
       {listsOpen && <ListsSheet closeHref={close} lists={p.settings} />}
       {data.pass && <PassSheet close={close} v={data.pass} met={data.met} canCheckOut={p.can.checkOut} canSend={p.can.register} masked={!p.can.visitorPhones} tz={p.tz} schoolName={p.current.school.name} now={now} />}

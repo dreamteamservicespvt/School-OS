@@ -107,7 +107,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
         <TextField name="guardianPhone" label="Parent's phone" required type="tel" inputMode="numeric" autoComplete="off" placeholder="10-digit mobile"
           defaultValue={v("guardianPhone")} error={err("guardianPhone")} onBlur={(e) => lookPhone(e.target.value)}
           onChange={(e) => { if (e.target.value.replace(/\D/g, "").length >= 10) void lookPhone(e.target.value); }}
-          help="+91. Links a known parent (brother or sister)." />
+          help="If a brother or sister is already here, we find the parent." />
         {parents.length > 0 && (
           <div className="rounded-xl border border-brand/40 bg-brand/8 p-3 sm:col-span-2" role="status">
             <p className="font-medium"><Words k="This phone belongs to a parent already on record." /></p>

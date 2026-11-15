@@ -46,6 +46,7 @@ export type DefaulterItem = {
 };
 
 type Option = { value: string; label: string };
+const PAGE = 50;
 
 export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, empty, openAll, templates, gateway, csvHref, whoHref }: {
   rows: DefaulterItem[];
@@ -66,8 +67,11 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [send, setSend] = useState<DefaulterItem[] | null>(openAll ? rows : null);
   const [seen, setSeen] = useState({ openAll, rows });
+  // 50 a page (layman loop 2: 321 rows made one 21,000 px page). Sending to all still means every row.
+  const [page, setPage] = useState(1);
   if (seen.openAll !== openAll || seen.rows !== rows) {
     setSeen({ openAll, rows });
+    if (seen.rows !== rows) setPage(1);
     if (openAll) setSend(rows);
   }
   const closeSend = () => {
@@ -79,7 +83,10 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
     }
   };
   if (!rows.length) return <>{empty}</>;
-  const allOn = rows.every((r) => sel.has(r.id));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  const at = Math.min(page, pages);
+  const shown = rows.slice((at - 1) * PAGE, at * PAGE);
+  const allOn = shown.every((r) => sel.has(r.id));
   const toggle = (k: string) => setSel((x) => { const n = new Set(x); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const chosen = rows.filter((r) => sel.has(r.id));
   const callList = `${csvHref}${csvHref.includes("?") ? "&" : "?"}format=csv&calls=1&${chosen.map((r) => `id=${r.id}`).join("&")}`;
@@ -99,14 +106,14 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
           <caption className="sr-only"><Words k="Students with overdue fees" /></caption>
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
-              {canEdit && <th className="pl-4 pr-2 py-3 w-10"><Checkbox label="Select all" checked={allOn} indeterminate={!allOn && rows.some((r) => sel.has(r.id))} onChange={() => setSel(allOn ? new Set() : new Set(rows.map((r) => r.id)))} /></th>}
+              {canEdit && <th className="pl-4 pr-2 py-3 w-10"><Checkbox label="Select all" checked={allOn} indeterminate={!allOn && shown.some((r) => sel.has(r.id))} onChange={() => setSel((x) => { const n = new Set(x); for (const r of shown) { if (allOn) n.delete(r.id); else n.add(r.id); } return n; })} /></th>}
               {["Student", "Class", "Parent", "Overdue", "Oldest due", "Last reminder", ""].map((l, i) => (
                 <th key={i} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !canEdit && "pl-5", l === "Overdue" && "text-right")}>{l}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((d) => (
+            {shown.map((d) => (
               <tr key={d.id} className={cx("border-b border-line/70 last:border-0 transition group relative", sel.has(d.id) ? "bg-brand/5" : "hover:bg-sunken/60")}>
                 {canEdit && <td className="pl-4 pr-2 py-3 relative z-10"><Checkbox label={`Select ${d.name}`} checked={sel.has(d.id)} onChange={() => toggle(d.id)} /></td>}
                 <td className={cx("px-3 py-2.5", !canEdit && "pl-5")}>
@@ -129,7 +136,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
         </table>
       </div>
       <ul className="lg:hidden divide-y divide-line/70">
-        {rows.map((d) => (
+        {shown.map((d) => (
           <li key={d.id} className="flex items-center gap-3 px-4 py-3">
             {canEdit && <Checkbox label={`Select ${d.name}`} checked={sel.has(d.id)} onChange={() => toggle(d.id)} />}
             <Link href={whoHref[d.id]} scroll={false} className="flex items-center gap-3 min-w-0 flex-1 active:bg-sunken">
@@ -145,7 +152,15 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3"><span className="tnum">{footer}</span></div>
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap"><span className="tnum">{footer}</span>
+        {pages > 1 && (
+          <span className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" disabled={at <= 1} onClick={() => setPage(at - 1)}><Words k="Previous" /></Button>
+            <span className="tnum">{at} / {pages}</span>
+            <Button size="sm" variant="secondary" disabled={at >= pages} onClick={() => setPage(at + 1)}><Words k="Next" /></Button>
+          </span>
+        )}
+      </div>
       {send && send.length > 0 && canEdit && <ReminderSheet list={send} onClose={closeSend} onSent={() => { setSel(new Set()); closeSend(); }} templates={templates} gateway={gateway} />}
     </>
   );

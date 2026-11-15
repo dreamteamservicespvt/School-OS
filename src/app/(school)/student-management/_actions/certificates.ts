@@ -56,7 +56,7 @@ export async function requestCertificateAction(_prev: FormState, fd: FormData): 
   const waiting = await withSchool(current.ctx, (tx) => tx.certificate.count({ where: { id: { in: ids }, status: "REQUESTED" } }));
   const label = CERTIFICATE_LABEL[type];
   if (ids.length === 1) {
-    await flash({ message: waiting ? `${label} sent for approval. It gets its number when approved.` : `${label} issued. Print it below.` });
+    await flash({ message: waiting ? `${label} sent for approval. It gets its number when approved.` : `${label} issued. Press Print / download PDF to print it.` });
     redirect(`${C}/${ids[0]}`);
   }
   await flash({ message: waiting ? `${ids.length} certificates sent for approval.` : `${ids.length} certificates issued.`, link: waiting ? undefined : { href: `${C}/print?ids=${ids.join(",")}`, label: "Print all" } });

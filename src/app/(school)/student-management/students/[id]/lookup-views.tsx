@@ -5,7 +5,7 @@
 // - Librarian: name, photo and class, to issue a book.
 // Nothing else about the student is read for these pages (loadProfile).
 
-import { BookOpen, DoorOpen, Eye, ShieldCheck, ShieldX } from "lucide-react";
+import { BookOpen, DoorOpen, Eye, IndianRupee, ShieldCheck, ShieldX } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -36,7 +36,7 @@ function Head({ p, size, extra, action }: { p: Profile; size: number; extra?: Re
   );
 }
 
-export function PickupView({ p, back, showPhones, pickupHref }: { p: Profile; back: React.ReactNode; showPhones: boolean; pickupHref: string | null }) {
+export function PickupView({ p, back, showPhones, pickupHref, accountsHref }: { p: Profile; back: React.ReactNode; showPhones: boolean; pickupHref: string | null; accountsHref?: string | null }) {
   const first = p.student.firstName || p.student.fullName.split(" ")[0];
   return (
     <>
@@ -64,6 +64,14 @@ export function PickupView({ p, back, showPhones, pickupHref }: { p: Profile; ba
             </ul>
           )}
         </Card>
+        {accountsHref && (
+          // Layman loop 2: a parent at the desk asks about fees; the front desk sends it to Accounts.
+          <Card className="flex flex-wrap items-center gap-3 p-4">
+            <IndianRupee size={18} className="text-ink3" aria-hidden="true" />
+            <p className="min-w-0 flex-1 text-[14px] text-ink2"><Words k="Fee balance: ask Accounts." /></p>
+            <ButtonLink href={accountsHref} variant="secondary" size="sm"><Words k="Send to Accounts" /></ButtonLink>
+          </Card>
+        )}
       </div>
     </>
   );

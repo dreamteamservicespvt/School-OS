@@ -171,7 +171,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
   const mainBank = f?.accounts.find((a) => a.kind === "BANK" && a.isMain)?.id ?? banks[0]?.value ?? "";
   const cashId = cash[0]?.value;
   const cashInHand = f && cashId ? rupees(f.balances.get(cashId) ?? ZERO) : 0;
-  const userHeads = data.heads.filter((h) => !h.systemKey).map((h) => ({ value: h.id, label: `${h.name} · ${h.code}` }));
+  // Names only on the forms: account codes mean nothing to the office (they stay in Finance Settings).
+  const userHeads = data.heads.filter((h) => !h.systemKey).map((h) => ({ value: h.id, label: h.name }));
   const centreOptions = centresOn ? data.centres.map((c) => ({ value: c.id, label: c.name })) : null;
   const today = p.today.toISOString().slice(0, 10);
   const o = data.focus;
@@ -210,7 +211,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
 
           {tab === "all" && data.list && <>
             <Toolbar className="md:!flex-col">
-              <UrlSearch id="ex-q" placeholder="What, vendor or number" label="Search expenses" />
+              <UrlSearch id="ex-q" placeholder="Name or number" label="Search expenses" />
               <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
                 <PeriodFilter {...p.dates} fallback="finyear" />
                 <UrlSelect id="ex-status" param="status" label="Status" className="md:w-48" options={STATUS_OPTIONS} />

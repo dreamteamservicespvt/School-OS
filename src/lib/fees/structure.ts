@@ -826,7 +826,7 @@ export async function removeDueWithLimit(tx: Tx, ctx: SchoolContext, dueId: stri
     type: "concession",
     recordType: "Fee Adjustment",
     recordId: adj.id,
-    summary: `Fee row removed: ${formatRupees(going)} for ${student?.fullName ?? "a student"} (${d.label})`,
+    summary: `Remove ${d.label} (${formatRupees(going)}) for ${student?.fullName ?? "a student"}`,
     amountPaise: going,
     reason: reason.trim(),
   });

@@ -277,7 +277,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
 
       {data.preview && (
         <CloseDaySheet closeHref={here({ do: null, day: null })} date={dayKey(data.preview.date)} dateWords={formatDate(data.preview.date)}
-          expectedPaise={Number(data.preview.expected)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.entries}
+          expectedPaise={Number(data.preview.expected)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.incomeEntries}
           isToday={data.preview.date.getTime() === p.today.getTime()} timeNow={formatTime(new Date(), p.tz)} problem={data.preview.problem} />
       )}
       {doing === "reopen" && shownClose && reopener && shownClose.id === data.latestCloseId && shownClose.closedById !== p.current.user.id && (

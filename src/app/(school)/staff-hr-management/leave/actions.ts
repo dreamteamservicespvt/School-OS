@@ -11,6 +11,7 @@ import { offCampus } from "@/lib/staff/list";
 import { campusAllows } from "@/lib/campus";
 import { adjustBalance, applyLeave, cancelLeave, carryForward, checkLeave, daysText, LeaveProblem, leaveProblems, type ApplyInput } from "@/lib/staff/leave";
 import { todayIn } from "@/lib/staff/dates";
+import { schoolRoles } from "@/lib/school-roles";
 
 async function asker(action: "view" | "create" | "edit") {
   const { current } = await requireAction("staff-hr-management", action);
@@ -55,15 +56,23 @@ export async function applyLeaveAction(_: FormState<unknown>, fd: FormData) {
     const doc = file(fd, "document");
     return withSchool(current.ctx, async (tx) => {
       const documentFileId = doc ? (await saveFile(tx, current.ctx, { file: doc, purpose: "leave-document", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id : null;
-      return applyLeave(tx, current.ctx, { ...input, documentFileId });
+      const r = await applyLeave(tx, current.ctx, { ...input, documentFileId });
+      // Name who decides, so the teacher knows where it went (layman loop 2).
+      const a = r.approval;
+      const who = (a.currentApproverId && (await tx.userLogin.findUnique({ where: { id: a.currentApproverId }, select: { displayName: true } }))?.displayName)
+        || (a.currentApproverRole && (await schoolRoles(tx, current.ctx, { where: { key: a.currentApproverRole }, select: { key: true, name: true } }))[0]?.name)
+        || null;
+      return { ...r, who };
     }, { timeout: 30_000 });
-  }, (r) => `Leave applied for ${daysText(r.days)}${r.lopDays ? ` (${daysText(r.lopDays)} loss of pay)` : ""}. It is waiting for approval.`);
+  }, (r) => `Leave applied for ${daysText(r.days)}${r.lopDays ? ` (${daysText(r.lopDays)} loss of pay)` : ""}. ${r.who ? `Sent to ${r.who} for approval.` : "It is waiting for approval."}`);
 }
 
 /** The check before applying: days, balance and periods affected, shown under the form. */
 export async function previewLeave(_: FormState<{ text: string }>, fd: FormData): Promise<FormState<{ text: string }>> {
   try {
     const { current, viewer } = await asker("create");
+    // The check runs as soon as the dates are picked, before the reason is typed: no "Reason is needed" yet.
+    if (str(fd, "reason").length < 3) fd.set("reason", "(checking)");
     const input = applyInput(fd, viewer);
     const c = await withSchool(current.ctx, (tx) => checkLeave(tx, current.ctx, { ...input, documentFileId: file(fd, "document") ? "pending" : null }));
     const parts = [`${daysText(c.days)} of ${c.type.name}`];

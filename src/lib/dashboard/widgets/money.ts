@@ -69,7 +69,8 @@ const collectedToday: Widget<"band"> = {
     const t = (await tiles(c)).today;
     const upi = await c.tx.payment.count({ where: { status: "POSTED", broughtIn: false, paymentDate: c.today, mode: "UPI", ...(await onCampus(c)) } });
     return {
-      id: "fees.collected-today", label: "Fees collected today", big: formatRupeesShort(t.amount),
+      // Layman loop 2 (15 Nov): an accountant wants exact rupees for one day ("₹5,000", not "₹5k").
+      id: "fees.collected-today", label: "Fees collected today", big: formatRupees(t.amount),
       foot: t.count ? `${plural(t.count, "payment")}${upi ? ` · ${n(upi)} by UPI` : ""}` : "No payments yet today",
       href: COLLECTED_TODAY,
     };

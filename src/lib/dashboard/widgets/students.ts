@@ -71,14 +71,17 @@ const consentAttention: Widget<"attention"> = {
   homes: ["leader", "class-teacher", "office"],
   allowed: worksWithStudents,
   async load(c) {
+    // Layman loop 2 (15 Nov): a teacher cannot send the request, so the item only pushed real work down. It shows
+    // to those who send it (blueprint 01 §2: "with a button to send the consent request").
+    const can = await canOf(c);
+    if (!can.manage) return null;
     const g = await guardiansWithoutConsent(c);
     if (!g.without) return null;
-    const can = await canOf(c);
     return {
       id: "students.no-consent", tone: "warn", icon: "BadgeCheck",
       // "7 of 25" (live test 17): the reader sees the rest gave consent, not "unknown".
       title: `${n(g.without)} of ${plural(g.total, "guardian")} ${g.without === 1 ? "has" : "have"} not given data consent`,
-      detail: can.manage ? "Send the consent request through Parent Link from the list" : "Of the students you teach · the office sends the request through Parent Link",
+      detail: "Send the consent request through Parent Link from the list",
       action: "See list", href: `${BASE}/guardians?consent=not-given`, value: String(g.without),
     };
   },

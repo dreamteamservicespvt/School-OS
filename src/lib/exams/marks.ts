@@ -380,7 +380,7 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
   const counts = f.counts !== false;
   const [papers, marks, roster, waiting, allocs] = await Promise.all([
     tx.marksPaper.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } } }),
-    counts ? tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true } }) : [],
+    counts ? tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true, parts: true } }) : [],
     counts ? sectionStudents(tx, [...new Set(pairs.map((p) => p.section.id))], yearId) : [],
     counts ? tx.marksModeration.groupBy({ by: ["entryId"], where: { status: "waiting", entryId: { in: pairs.map((p) => p.entry.id) } }, _count: true }) : [],
     counts ? tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }) : [],
@@ -416,8 +416,11 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     const mine = first(marksByEntry.get(entry.id) ?? [], (m) => m.studentId);
     const done = students.filter((s: RosterStudent) => isDone(mine.get(s.studentId), subject.gradeOnly)).length;
     const saved = paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED";
-    // "In progress" only once a mark is in: a paper opened (or every mark cleared) with nothing entered is still Not started (QA LC8).
-    const status = counts && saved === "IN_PROGRESS" && !students.some((s: RosterStudent) => mine.has(s.studentId)) ? "NOT_STARTED" : saved;
+    // "In progress" only once a mark is in: a paper opened (or every mark cleared, or only remarks typed) with
+    // no mark, AB, ML or grade is still Not started (QA LC8; layman loop 2: "In progress" with 0 of 16 entered).
+    const hasMark = (m: (typeof marks)[number] | undefined) => Boolean(m && (m.absent || m.total !== null || m.grade
+      || Object.values((m.parts ?? {}) as Record<string, unknown>).some((x) => x !== null && x !== undefined)));
+    const status = counts && saved === "IN_PROGRESS" && !students.some((s: RosterStudent) => hasMark(mine.get(s.studentId))) ? "NOT_STARTED" : saved;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
       date: entry.date, due: entry.marksDueDate, status, done, of: students.length, gradeOnly: subject.gradeOnly,

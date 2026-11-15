@@ -122,8 +122,30 @@ function Sheet({ open, onClose, title, sub, children, wide }: { open: boolean; o
 }
 
 /* ---------- Sidebar (computer and tablet) ---------- */
-function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, onQuick, onSwitch, onAsk }: Pick<ShellProps, "school" | "schools" | "menu" | "mine" | "landing" | "quick" | "ai"> & { onQuick: () => void; onSwitch: () => void; onAsk: () => void }) {
+/**
+ * Layman loop 2 (15 Nov): on a 1440x900 laptop the menu stopped at "Campus" and nothing showed it scrolls, so a
+ * clerk never found Front Office. The rows are tighter, the Search card (the top bar has Search) is gone, and while
+ * more of the menu is below, a fade and a "More below" button show it.
+ */
+function useMoreBelow(ref: React.RefObject<HTMLElement | null>) {
+  const [below, setBelow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => setBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+    read();
+    el.addEventListener("scroll", read, { passive: true });
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", read); ro.disconnect(); };
+  }, [ref]);
+  return below;
+}
+
+function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuick, onSwitch }: Pick<ShellProps, "school" | "schools" | "menu" | "mine" | "landing" | "quick"> & { onQuick: () => void; onSwitch: () => void }) {
   const t = useT();
+  const navRef = useRef<HTMLElement>(null);
+  const below = useMoreBelow(navRef);
   const isOn = useActive();
   const visible = new Set(menu);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
@@ -148,9 +170,10 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
           </button>
         </div>
       )}
-      <nav className="flex-1 overflow-y-auto scroll-thin px-3 pb-4" aria-label={t("Main menu")}>
+      <div className="relative flex-1 min-h-0 flex flex-col">
+      <nav ref={navRef} className="flex-1 overflow-y-auto scroll-thin px-3 pb-4" aria-label={t("Main menu")}>
         {groups.map((g, gi) => (
-          <div key={gi} className="pt-3">
+          <div key={gi} className="pt-2">
             {g.group && <p className="eyebrow text-ink3 px-3 pb-1.5 hidden lg:block">{t.any(g.group)}</p>}
             {g.group && <div className="mx-3 mb-2 border-t border-line lg:hidden" aria-hidden="true" />}
             <ul className="flex flex-col gap-0.5">
@@ -161,7 +184,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
                 return (
                   <li key={it.key}>
                     <Link href={landing[it.key] ?? href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full h-10 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full h-9 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
@@ -175,7 +198,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
           </div>
         ))}
         {mine.length > 0 && (
-          <div className="pt-3">
+          <div className="pt-2">
             <p className="eyebrow text-ink3 px-3 pb-1.5 hidden lg:block">{t("Me")}</p>
             <div className="mx-3 mb-2 border-t border-line lg:hidden" aria-hidden="true" />
             <ul className="flex flex-col gap-0.5">
@@ -185,7 +208,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
                 return (
                   <li key={it.href}>
                     <Link href={it.href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full h-10 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full h-9 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
@@ -199,12 +222,16 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
           </div>
         )}
       </nav>
-      <button type="button" onClick={onAsk} className="m-3 p-3.5 rounded-2xl bg-sunken text-left hidden lg:block hover:bg-line/60 transition">
-        {ai
-          ? <span className="text-[13px] font-semibold flex items-center gap-2"><I.Sparkles size={15} className="text-brand" aria-hidden="true" />{t("Ask School OS")}</span>
-          : <span className="text-[13px] font-semibold flex items-center gap-2"><I.Search size={15} className="text-brand" aria-hidden="true" />{t("Search")}</span>}
-        <span className="block text-xs text-ink3 mt-1 leading-relaxed">{t("A name, admission number or page.")}</span>
-      </button>
+      {below && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface via-surface/90 to-transparent flex items-end justify-center pb-1.5">
+          <button type="button" onClick={() => navRef.current?.scrollBy({ top: navRef.current.clientHeight * 0.7, behavior: "smooth" })}
+            className="pointer-events-auto inline-flex items-center gap-1 h-8 px-3 rounded-full bg-surface border border-line shadow-card text-[12.5px] font-semibold text-ink2 hover:text-brand"
+            title={t("More below")}>
+            <I.ChevronDown size={15} aria-hidden="true" /><span className="hidden lg:inline">{t("More below")}</span><span className="sr-only lg:hidden">{t("More below")}</span>
+          </button>
+        </div>
+      )}
+      </div>
     </aside>
   );
 }
@@ -277,6 +304,17 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
   const pathname = usePathname();
   const exact = (href: string) => pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`) && !items.some((o) => o.href !== href && o.href.startsWith(href) && pathname.startsWith(o.href)));
   const moreOn = !items.some((it) => exact(it.href));
+  // While the phone keyboard is open the bar would sit on top of it and cover the keys
+  // (layman loop 2: the marks number pad), so it steps aside until the keyboard closes.
+  const [keyboard, setKeyboard] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const check = () => setKeyboard(window.innerHeight - vv.height > 150);
+    vv.addEventListener("resize", check);
+    return () => vv.removeEventListener("resize", check);
+  }, []);
+  if (keyboard) return null;
   return (
     <nav className="md:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label={t("Quick menu")}>
       {/* As many columns as there are items, so a short bar has no gaps. */}
@@ -318,9 +356,28 @@ function MoreSheet({ open, onClose, menu, mine = [], landing = {} }: { open: boo
   const t = useT();
   const visible = new Set(menu);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
+  // Layman loop 2 (15 Nov): a teacher's My leave and My salary slips sat below the fold, after every module. With
+  // them, "You" comes first.
+  const you = (
+    <div>
+      <p className="eyebrow text-ink3 mb-2">{t("You")}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {[...mine.map((l) => [l.href, l.label, l.icon]), ["/approvals", "Approvals", "ListChecks"], ["/messages", "Messages", "MessageCircle"], ["/profile", "My profile", "UserCog"]].map(([href, label, ic]) => {
+          const Ic = icon(ic);
+          return (
+            <Link key={href} href={href} onClick={onClose} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken hover:bg-line/60 px-2 py-3.5 text-center">
+              <span className="w-10 h-10 rounded-xl bg-surface text-brand grid place-items-center shadow-card"><Ic size={20} aria-hidden="true" /></span>
+              <span className="text-[12px] font-semibold leading-tight">{t.any(label)}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
   return (
     <Sheet open={open} onClose={onClose} title={t("Everything")} sub={t("Tap to open")}>
       <div className="flex flex-col gap-5">
+        {mine.length > 0 && you}
         {groups.map((g) => (
           <div key={g.group ?? "home"}>
             {g.group && <p className="eyebrow text-ink3 mb-2">{t.any(g.group)}</p>}
@@ -338,20 +395,7 @@ function MoreSheet({ open, onClose, menu, mine = [], landing = {} }: { open: boo
             </div>
           </div>
         ))}
-        <div>
-          <p className="eyebrow text-ink3 mb-2">{t("You")}</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[...mine.map((l) => [l.href, l.label, l.icon]), ["/approvals", "Approvals", "ListChecks"], ["/messages", "Messages", "MessageCircle"], ["/profile", "My profile", "UserCog"]].map(([href, label, ic]) => {
-              const Ic = icon(ic);
-              return (
-                <Link key={href} href={href} onClick={onClose} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken hover:bg-line/60 px-2 py-3.5 text-center">
-                  <span className="w-10 h-10 rounded-xl bg-surface text-brand grid place-items-center shadow-card"><Ic size={20} aria-hidden="true" /></span>
-                  <span className="text-[12px] font-semibold leading-tight">{t.any(label)}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        {mine.length === 0 && you}
       </div>
     </Sheet>
   );
@@ -517,8 +561,15 @@ function SwitchSheet({ open, onClose, school, schools }: { open: boolean; onClos
 }
 
 /** The page title shown on a phone's top bar: the module or page the person is on. */
-function phoneTitle(pathname: string, pages: PageLink[]) {
-  const match = [...pages].sort((a, b) => b.href.length - a.href.length).find((p) => pathname === p.href || pathname.startsWith(`${p.href}/`));
+// The page's own name on the phone top bar. "My leave" and similar links carry a ?view=, so the
+// path alone is compared (layman loop 2: My leave showed the school name instead).
+const OWN_PAGES: { href: string; label: string }[] = [
+  { href: "/profile", label: "My profile" }, { href: "/messages", label: "Messages" },
+  { href: "/approvals", label: "Approvals" }, { href: "/notifications", label: "Notifications" },
+];
+function phoneTitle(pathname: string, pages: { href: string; label: string }[]) {
+  const path = (h: string) => h.split("?")[0];
+  const match = [...pages, ...OWN_PAGES].sort((a, b) => path(b.href).length - path(a.href).length).find((p) => pathname === path(p.href) || pathname.startsWith(`${path(p.href)}/`));
   return match?.label ?? "";
 }
 
@@ -558,11 +609,11 @@ export function AppShell(props: ShellProps) {
   return (
     <div className="flex min-h-dvh">
       <a href="#main" className="skip-link">{t("Skip to the page")}</a>
-      <Sidebar school={school} schools={schools} menu={menu} mine={mine} landing={landing} quick={quick} ai={ai} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
+      <Sidebar school={school} schools={schools} menu={menu} mine={mine} landing={landing} quick={quick} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme} ai={ai}
           phoneApprovals={!bottom.some((b) => b.href === "/approvals")}
-          title={t.any(phoneTitle(pathname, pages))} onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} />
+          title={t.any(phoneTitle(pathname, [...pages, ...(mine ?? [])]))} onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} />
         {children}
       </div>
       <BottomNav items={bottom} onMore={() => setMore(true)} />

@@ -217,7 +217,7 @@ export function TakeSheet(p: Props) {
         <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
           {!p.saved
-            ? "Nothing was saved for this day. To add marks, request a correction; the principal approves it."
+            ? "Nothing was saved for this day. To mark attendance now, request a correction; the principal approves it."
             : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the old marks are kept.`}
         </Banner>
       ) : savedNow ? (

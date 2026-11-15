@@ -13,7 +13,7 @@ import { keypadValue } from "@/lib/exams/keypad";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MarksPaperStatus } from "@prisma/client";
 import {
-  BadgeCheck, Calculator, ChevronLeft, ChevronRight, Circle, CircleAlert, CircleCheck, Delete, FileSpreadsheet, History, Hourglass, Info,
+  BadgeCheck, Calculator, ChevronDown, ChevronLeft, ChevronRight, Circle, CircleAlert, CircleCheck, Delete, FileSpreadsheet, History, Hourglass, Info,
   ListChecks, Lock, Save, Send, Smartphone, Stethoscope, Table, TriangleAlert, UserPen, UserX,
 } from "lucide-react";
 import { Button, Spinner } from "@/components/ui/button";
@@ -439,7 +439,8 @@ export function MarksGrid(props: Props) {
       </div>
 
       {canEdit && students.length > 0 && (
-        <div className="sticky bottom-16 md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20">
+        <div className={cx("md:sticky md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20", view === "grid" && "sticky bottom-16")}>
+          {/* One at a time on a phone: the bar sits after the card, not over the number keys and Next (layman loop 2). */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-surface border border-line rounded-2xl shadow-pop p-2 pl-4" aria-live="polite">
             {/* Shown on a phone too, so "Save now" visibly says it saved (self-test B4). */}
             <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 flex items-center gap-1.5 leading-snug", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
@@ -506,8 +507,14 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   totals: Record<string, { total: number | null; grade: string; done: boolean }>; max: number; bands: Band[];
   problemOf: (r: Row) => string | null; setCell: (id: string, cat: string, text: string) => void; setGrade: (id: string, g: string) => void; onAsk: (s: GridStudent) => void;
 }) {
+  // Each student opens on the first EMPTY box, so a key never replaces a mark already in (layman loop 2).
+  const firstEmpty = (n: number) => {
+    const row = rows[students[n]?.id];
+    const at = row && !row.absent ? cats.findIndex((x) => (row.parts[x.name] ?? "") === "") : -1;
+    return at < 0 ? 0 : at;
+  };
   const [i, setI] = useState(() => Math.max(0, students.findIndex((s) => !totals[s.id]?.done)));
-  const [k, setK] = useState(0);
+  const [k, setK] = useState(() => firstEmpty(Math.max(0, students.findIndex((s) => !totals[s.id]?.done))));
   const s = students[Math.min(i, students.length - 1)];
   const canRequest = canAsk && (!s.late || lateMarks === "approval");
   const r = rows[s.id];
@@ -518,7 +525,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   // A box just chosen (or a new student) is "fresh": the first number key replaces the mark in it, like
   // selecting the text, so correcting 11 to 18 does not give 1118 (self-test B4).
   const [fresh, setFresh] = useState(true);
-  const go = (n: number) => { setI(n); setK(0); setFresh(true); };
+  const go = (n: number) => { setI(n); setK(firstEmpty(n)); setFresh(true); };
   const pick = (n: number) => { setK(n); setFresh(true); };
   const press = (key: string) => {
     if (!canEdit || !c) return;
@@ -536,11 +543,15 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
           <span className="shrink-0 [@media(max-height:720px)]:hidden"><Avatar name={s.name} size={48} /></span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-[16px] truncate">{s.name}</p>
-            <p className="text-[13px] text-ink3 truncate">{s.rollNo ? `Roll ${s.rollNo} · ` : ""}{i + 1} <Words k="of" /> {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
+            <p className="text-[13px] text-ink3 truncate">{i + 1} <Words k="of" /> {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
           </div>
-          <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className={cx(inputCls(), "!h-10 !w-auto max-w-[40%] text-[13px]")}>
-            {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
-          </select>
+          {/* A short "Roll 3" chip, so the name and the line under it are not cut off on a phone (layman loop 2). */}
+          <span className={cx(inputCls(), "!h-10 !w-auto relative shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold")}>
+            {s.rollNo ? `Roll ${s.rollNo}` : `${i + 1} / ${students.length}`}<ChevronDown size={15} className="text-ink3" aria-hidden="true" />
+            <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+              {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
+            </select>
+          </span>
         </div>
         {gradeOnly ? (
           <div className="rounded-2xl border-2 border-brand bg-brand/5 p-3 mt-4 [@media(max-height:720px)]:mt-3 [@media(max-height:720px)]:p-2">
@@ -570,7 +581,8 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
                 );
               })}
             </div>
-            {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2"><Words k="Total" /> <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : "—"}</b>{t.grade && <> <Words k="· Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
+            {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2"><Words k="Total" /> <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : !r.absent && !e && cats.some((x) => r.parts[x.name]) ? cats.map((x) => r.parts[x.name] || "—").join(" + ") : "—"}</b>{t.grade && <> <Words k="· Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
+            {canEdit && !e && !r.absent && fresh && c && r.parts[c.name] && <p className="mt-1 text-[12.5px] text-ink3"><Words k="The next key replaces this mark." /></p>}
             {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
           </>
         )}
@@ -600,7 +612,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
       <div className="flex gap-2 mt-4 [@media(max-height:720px)]:mt-2">
         <Button variant="secondary" icon={ChevronLeft} className="flex-1" disabled={i === 0} onClick={() => go(i - 1)}><Words k="Previous" /></Button>
         <Button variant="primary" iconRight={ChevronRight} className="flex-1" disabled={i === students.length - 1 || Boolean(e)}
-          onClick={() => (!gradeOnly && k < cats.length - 1 && canEdit ? setK(k + 1) : go(i + 1))}><Words k="Next" /></Button>
+          onClick={() => (!gradeOnly && k < cats.length - 1 && canEdit ? pick(k + 1) : go(i + 1))}><Words k="Next" /></Button>
       </div>
     </Card>
   );

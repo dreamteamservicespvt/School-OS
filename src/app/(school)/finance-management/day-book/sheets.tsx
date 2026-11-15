@@ -41,7 +41,7 @@ export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, incom
         <Line k={<Words k="Difference" />} v={diff === null ? "—" : diff === 0 ? t("None") : signedInr(diff)} tone={diff === null ? undefined : diff === 0 ? "ok" : "bad"} />
       </ul>
       <p className="text-[12.5px] text-ink3 -mt-2"><Words k="UPI, card and bank money is not in the box, so it is not counted here." /></p>
-      <SMoney name="counted" label="Cash counted" required big placeholder={t("Count the notes and coins, then type")} onValue={setTyped}
+      <SMoney name="counted" label="Cash counted" required big placeholder="0" onValue={setTyped}
         help="Notes and coins in the office cash box, in rupees" />
       {diff !== null && diff !== 0 && (
         <SArea name="reason" label="Why is it different?" required rows={2} placeholder="Example: ₹100 short, change given twice to a parent"

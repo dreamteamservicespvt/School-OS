@@ -154,7 +154,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
         </Col>
         <Col>
           <Card>
-            <CardHeader title={isToday ? "Today’s early pickups" : "Early pickups"} description={`${data.list.length} student${data.list.length === 1 ? "" : "s"} · gate pass kind Pickup`} icon={DoorOpen} />
+            <CardHeader title={isToday ? "Today’s early pickups" : "Early pickups"} description={`${data.list.length} student${data.list.length === 1 ? "" : "s"}`} icon={DoorOpen} />
             <div className="px-5 pb-3"><PeriodFilter {...p.dates} fallback="today" size="sm" /></div>
             {data.list.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">{isToday ? "No early pickups today." : "No early pickups on these dates."}</p> : (
               <ul className="px-2 pb-2">
@@ -215,13 +215,13 @@ async function GatePassSheet({ close, pass, student, studentPhoto, guardianPhoto
   const qr = await qrSvg(`${await appOrigin()}${HREF}?check=${pass.passNo}`, 130);
   const left = pass.status === "LEFT";
   return (
-    <UrlSheet title={`Gate pass ${pass.passNo}`} sub={left ? `Used at the gate at ${pass.leftAt ? clockAt(pass.leftAt, tz) : "an earlier time"}.` : "Kind: Pickup. Gate Security scans it before the child leaves."} closeHref={close}>
+    <UrlSheet title={`Gate pass ${pass.passNo}`} sub={left ? `Used at the gate at ${pass.leftAt ? clockAt(pass.leftAt, tz) : "an earlier time"}.` : "Show this pass at the gate."} closeHref={close}>
       <div className="flex flex-col items-center gap-4 pb-1">
         <div className="w-full rounded-2xl border-2 border-line overflow-hidden">
           <div className="px-4 py-2.5 bg-brand/10 flex justify-between items-center"><span className="eyebrow text-brand"><Words k="Pickup gate pass" /></span><span className="font-mono text-[12.5px] font-semibold">{pass.passNo}</span></div>
           <div className="grid grid-cols-2 gap-3 p-4">
-            {([[student, `${pass.sectionLabel ?? ""} · student`.replace(/^ · /, ""), studentPhoto], [pass.collectorName ?? "", `${pass.collectorRelation ?? "Guardian"} · collecting`, guardianPhoto]] as const).map(([n, sub, ph]) => (
-              <div key={`${n}${sub}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={46} src={ph} /><div className="min-w-0"><p className="font-semibold text-[14px] truncate">{n}</p><p className="text-[12px] text-ink3 truncate">{sub}</p></div></div>
+            {([[student, `${pass.sectionLabel ?? ""} · student`.replace(/^ · /, ""), studentPhoto], [pass.collectorName ?? "", pass.collectorRelation ?? "Guardian", guardianPhoto]] as const).map(([n, sub, ph]) => (
+              <div key={`${n}${sub}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={46} src={ph} /><div className="min-w-0"><p className="font-semibold text-[14px] break-words">{n}</p><p className="text-[12px] text-ink3 break-words">{sub}</p></div></div>
             ))}
           </div>
           <div className="px-4 pb-3 text-[13px] text-ink2 grid grid-cols-2 gap-x-3 gap-y-1">

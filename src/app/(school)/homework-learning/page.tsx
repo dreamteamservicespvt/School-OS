@@ -85,12 +85,14 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     const editing = doing === "edit" && target ? await tx.homework.findFirst({ where: { id: target, archivedAt: null }, include: { attachments: { where: { archivedAt: null } } } }) : null;
     const archiving = doing === "archive" && target ? all.find((r) => r.id === target) ?? null : null;
     let checkIds: Map<string, number> | null = null;
+    // The "to check" tile counts work from every month, as the Dashboard does (layman loop 2: home said 72, the tile 0).
+    const work = await workToCheck(tx, s);
+    const toCheckAll = work.reduce((a, h) => a + h.pieces, 0);
     if (check) {
-      const work = await workToCheck(tx, s);
       const piling = check === "piling" ? new Set(pilingUp(work).map(([id]) => id)) : null;
       checkIds = new Map(work.filter((h) => !piling || (h.teacherId && piling.has(h.teacherId))).map((h) => [h.id, h.pieces]));
     }
-    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving, checkIds };
+    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving, checkIds, toCheckAll };
   });
 
   const { inP } = data;
@@ -136,8 +138,8 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "piece")} of work for ${plural(t.classes, "class", "classes")}` },
           { label: "Handed in", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
           subsOpen
-            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Open Submissions & Grading", href: `${BASE}/submissions` }
-            : { label: "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Teachers check these in their classes" },
+            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : data.toCheckAll), foot: "From every month", href: `${BASE}?check=1` }
+            : { label: "Waiting to be checked", big: String(checkIds ? pieces : data.toCheckAll), foot: "Teachers check these in their classes" },
           { label: "Seen by parents", big: t.messaged ? `${pct(t.seen, t.seenOf)}%` : "—", foot: t.messaged ? "From WhatsApp read receipts" : "No homework messages yet" },
         ]} />
 

@@ -112,7 +112,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           { label: "Handed in", value: `${counted.filter((r) => !notIn(r.sub.status)).length} of ${counted.length}`, icon: Upload, href: here({ f: null }) },
           { label: "To check", value: String(count(toCheck)), tone: count(toCheck) ? "warn" : undefined, icon: ListChecks, href: here({ f: "check" }), active: f === "check" },
           { label: "Checked", value: String(count((x) => x === "GRADED")), tone: "ok", icon: CircleCheck, href: here({ f: "graded" }), active: f === "graded" },
-          { label: pastDue ? "Missing" : "Not handed in yet", value: String(count(notIn)), tone: pastDue && count(notIn) ? "bad" : undefined, icon: Hourglass, href: here({ f: "not" }), active: f === "not" },
+          { label: "Not handed in", value: String(count(notIn)), tone: pastDue && count(notIn) ? "bad" : undefined, icon: Hourglass, href: here({ f: "not" }), active: f === "not" },
         ]} />
         <Card className="overflow-hidden">
           <Toolbar>
@@ -137,6 +137,14 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               { value: "not", label: "Not handed in", count: count(notIn), href: here({ f: "not" }) },
             ]} />
           </div>
+          {/* "Not handed in" shown: one tap reminds their parents, no ticking first (layman loop 2). */}
+          {canEdit && f === "not" && shown.length > 0 && (
+            <div className="px-4 pt-3">
+              <ButtonLink href={here({ do: "remind", ids: shown.map((r) => r.st.id).join(",") })} scroll={false} variant="primary" icon={Send}>
+                <Words k="Remind parents" /> ({shown.length})
+              </ButtonLink>
+            </div>
+          )}
           {canEdit && <InlineBulkBar form="subs-bulk" actions={[
             { label: "Mark Complete", href: here({ do: "complete" }), icon: <CheckCheck size={15} aria-hidden="true" /> },
             { label: "Remind parents", href: here({ do: "remind" }), icon: <Send size={15} aria-hidden="true" /> },
@@ -149,11 +157,11 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               columns={[
                 { key: "n", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.st.rollNo ?? ""}</span><Avatar name={r.st.name} size={32} /><span className="font-semibold">{r.st.name}</span></div> },
                 { key: "a", label: "Admission no.", render: (r) => <span className="font-mono text-[12.5px]">{r.st.admissionNo}</span> },
-                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3"><Words k="Not submitted" /></span>) },
+                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3"><Words k="Not handed in" /></span>) },
                 { key: "s", label: "Status", render: (r) => <Pill tone={SUB_TONE[word(r.sub.status)]}>{word(r.sub.status)}</Pill> },
                 { key: "sc", label: `Score / ${hw.maxMarks}`, align: "right", render: scoreCell },
               ]}
-              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : "Not submitted", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
+              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : "Not handed in", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
           </div>
         </Card>
       </Stack>

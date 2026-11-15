@@ -64,6 +64,9 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
           <CardHeader title={t.any(panel.title)} description={sub} icon={dashIcon(panel.icon)} action={panel.href ? <OpenLink href={panel.href}>{panel.linkLabel ? t.any(panel.linkLabel) : t("Open")}</OpenLink> : undefined} />
           <div className="px-5 pb-5">
             {panel.rows.length ? <HBars rows={panel.rows.map((r) => ({ key: r.key, label: t.any(r.label), value: r.value, href: r.href }))} goal={panel.goal} lowBelow={panel.lowBelow} /> : <p className="text-[13.5px] text-ink3">{t.any(panel.empty)}</p>}
+            {panel.rows.length > 0 && panel.notMarked && panel.notMarked.length > 0 && (
+              <p className="mt-3 text-[13px] text-ink3"><span className="font-semibold text-ink2">{t("Not marked this week")}:</span> {panel.notMarked.map((x) => t.any(x)).join(", ")}</p>
+            )}
           </div>
         </Card>
       );

@@ -19,8 +19,8 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * A module page's head in the approved design (design/ui-prototype/src/kit.jsx ModuleHead): the module's
- * name as the title with "View only" or "Only yours" when the person's access is limited, one line of
+ * A module page's head in the approved design (design/ui-prototype/src/kit.jsx ModuleHead): the page's
+ * name as the title (the module's name small above it when they differ) with "View only" or "Only yours" when the person's access is limited, one line of
  * context, the page's actions, then the module's pages as tabs. The pin adds this page (by its own
  * name) to Search's pinned pages (00-global.md §1.1).
  */
@@ -31,6 +31,7 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
 }) {
   const t = useT();
   const page = pageIn ?? pageName ?? title;
+  const ownPage = page.trim().toLowerCase() !== title.trim().toLowerCase();
   const access = accessIn ?? (reach === "all" ? "full" : reach) ?? "full";
   const pinned = useSyncExternalStore(subscribe, () => isPinned(userId, href), () => false);
   const toggle = useCallback(() => {
@@ -41,10 +42,13 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
     <>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
         <div className="min-w-0">
+          {/* Layman loop 2 (15 Nov): the top bar said "Enquiries", the heading "Admissions". The page's own name is the
+              heading, as in the top bar and Search; the module's name sits small above it. */}
+          {ownPage && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(title)}</p>}
           {/* The pin stays beside the title; a long title wraps under itself, not the pin onto a line of its own (layman test LD12, 390 px). */}
           <div className="flex items-start gap-1.5">
             <h1 className="min-w-0 font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
-              {t.any(title)}
+              {t.any(ownPage ? page : title)}
               {access === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
               {access === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}
             </h1>

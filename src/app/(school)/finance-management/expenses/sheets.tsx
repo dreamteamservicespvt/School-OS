@@ -14,7 +14,8 @@ import { Words } from "@/lib/i18n/client";
 import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
-const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+// To the paisa when there are paise, as the Day Book shows cash (layman loop 2: ₹24,357 here, ₹23,907.50 there).
+const inr = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: Math.round(n * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
 
 /** Who approves above the at-once limit: the first step whose limit covers the amount. */

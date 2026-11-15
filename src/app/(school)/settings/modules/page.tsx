@@ -47,6 +47,8 @@ export default async function ModulesPage() {
       <nav aria-label="Sections of this page" className="-mt-2 mb-5 flex flex-wrap gap-2 text-sm">
         {SECTIONS.map(([id, label]) => <a key={id} href={`#${id}`} className="min-h-9 rounded-full border border-line bg-surface px-3 py-1.5 hover:border-brand">{label}</a>)}
       </nav>
+      {/* Read-only roles (the Principal) see why nothing here can be pressed (layman loop 2). */}
+      {!mayEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="View only. The School Admin switches these on or off." /></p>}
       <div className="space-y-5">
         <Card>
           <CardHeader id="modules" title="Modules" description="Switching a module off hides it everywhere but keeps all its records." />

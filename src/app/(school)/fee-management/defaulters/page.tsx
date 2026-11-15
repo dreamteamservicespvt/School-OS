@@ -114,15 +114,14 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
       <FeeHead pageName="Defaulters" href={HREF}
         sub={all.rows.length ? `${all.rows.length} ${all.rows.length === 1 ? "student owes" : "students owe"} ${formatRupees(all.total)} past the due date · ${over30} more than 30 days late` : "Nobody owes fees past the due date"}
         viewActions={<ExportButton href={qs(`${HREF}/export`, keep)} />}
-        actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="primary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
+        actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="secondary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
       <ViewYearStrip year={view} back={backToThisYear(HREF, sp)} />
       <Stack>
         <Stats items={all.ageingTotals.map((g, i) => ({
-          label: g.label, value: formatRupees(g.amount), sub: `${g.students} ${g.students === 1 ? "student" : "students"}${filter.ageing === g.index ? " · showing" : ""}`,
+          // Amounts only: each installment counts by its own due date, so student counts overlapped and did not add up (layman loop 2).
+          label: g.label, value: formatRupees(g.amount), sub: filter.ageing === g.index ? "Showing these students" : "Tap to see who owes it",
           tone: STAT_TONES[Math.min(i, STAT_TONES.length - 1)], icon: Hourglass, href: here({ age: filter.ageing === g.index ? null : String(g.index), who: null }), active: filter.ageing === g.index,
         }))} />
-        {/* The same rule as the Outstanding report (layman test LB3), said so the counts add up for the reader. */}
-        {all.rows.length > 0 && <p className="text-[12.5px] text-ink3 -mt-2"><Words k="Each installment counts by its own due date, so a student can be in more than one group." /></p>}
 
         {all.classTotals.length > 0 && (
           <Card>
@@ -136,7 +135,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
 
         <Card className="overflow-hidden">
           <Toolbar className="md:flex-wrap">
-            <UrlSearch id="def-q" placeholder="Student, parent or admission no." label="Search defaulters" />
+            <UrlSearch id="def-q" placeholder="Name or number" label="Search defaulters" />
             <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
               <UrlSelect id="def-cls" param="class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...all.classTotals.filter((c) => c.classId).map((c) => ({ value: c.classId!, label: c.className }))]} />
               <UrlSelect id="def-age" param="age" label="Days late" className="md:w-40" options={[{ value: "", label: "Any days late" }, ...all.ageingTotals.map((g) => ({ value: String(g.index), label: g.label }))]} />

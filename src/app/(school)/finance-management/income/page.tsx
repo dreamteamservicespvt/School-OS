@@ -149,7 +149,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
 
       {adding && (
         <RecordIncomeSheet closeHref={here()} today={p.today.toISOString().slice(0, 10)} payers={data.payers.map((x) => x.receivedFrom)}
-          heads={data.heads.map((h) => ({ value: h.id, label: `${h.name} · ${h.code}` }))}
+          heads={data.heads.map((h) => ({ value: h.id, label: h.name }))}
           cash={data.accounts.filter((a) => a.kind === "CASH").map((a) => ({ value: a.id, label: acctLabel(a) }))}
           banks={data.accounts.filter((a) => a.kind === "BANK").map((a) => ({ value: a.id, label: acctLabel(a) }))}
           mainBank={data.accounts.find((a) => a.kind === "BANK" && a.isMain)?.id ?? data.accounts.find((a) => a.kind === "BANK")?.id ?? ""} />

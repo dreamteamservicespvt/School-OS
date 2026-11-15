@@ -102,7 +102,8 @@ export type ListRow = { id: string; title: string; sub: string; avatar?: string;
 /** A bigger card in the main or side column. */
 export type Panel =
   | { kind: "classes-today"; title: string; sub: string; rows: ClassToday[]; timetableHref: string; off: string | null }
-  | { kind: "bars"; title: string; sub: string; icon: DashIcon; rows: BarRow[]; goal?: number; lowBelow?: number; href?: string; linkLabel?: string; empty: string }
+  /** notMarked: classes with no attendance marked in the period, named under the bars. */
+  | { kind: "bars"; title: string; sub: string; icon: DashIcon; rows: BarRow[]; notMarked?: string[]; goal?: number; lowBelow?: number; href?: string; linkLabel?: string; empty: string }
   /** unplaced: studying students not yet in a section this year, so the classes add up to the Students number. */
   | { kind: "classes-overview"; title: string; sub: string; total: number; classes: { id: string; name: string; total: number; href: string; sections: { id: string; name: string; count: number; href: string }[] }[]; href: string; unplaced?: { count: number; href: string } }
   | { kind: "list"; title: string; sub: string; icon: DashIcon; rows: ListRow[]; href?: string; linkLabel?: string; empty: string }

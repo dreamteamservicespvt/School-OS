@@ -162,6 +162,13 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       <CommHead access={access} page="Send Message" href="/communication"
         sub={access.full ? "Count and cost shown before anything goes." : `Only the people you may message: ${scope.label}.`}
         actions={<SendHeadActions full={access.full} groups={data.groups} canEmergency={access.canEmergency} />} />
+      {access.canChange && (
+        <p className="mb-5 text-[13.5px] text-ink2">
+          <Words k="Holidays and announcements: use" />{" "}
+          <Link className="font-semibold text-brand underline" href="/communication/notices/new"><Words k="Notice Board" /></Link>
+          <Words k=". It stays on the board. This page sends a quick message now." />
+        </p>
+      )}
       {!data.year && (
         <Banner tone="warn" className="mb-5" title="No academic year is open.">
           <Words k="To send to classes, open the year in" />{" "}

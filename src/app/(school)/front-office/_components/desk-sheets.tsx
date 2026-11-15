@@ -159,17 +159,19 @@ export function FollowUpSheet({ closeHref, call, staff, start }: { closeHref: st
 type FromHit = { guardianId: string; studentId: string; label: string; student: string; admissionNo: string };
 
 /** Walk-in request: routed to a department with a request number. */
-export function WalkInSheet({ closeHref, departments, nextNo }: { closeHref: string; departments: string[]; nextNo: string }) {
+type WalkInPreset = { department?: string; request?: string; from?: string };
+
+export function WalkInSheet({ closeHref, departments, nextNo, preset }: { closeHref: string; departments: string[]; nextNo: string; preset?: WalkInPreset }) {
   return (
     <SheetForm title="Walk-in request" sub="The person gets a request number." closeHref={closeHref} action={walkInAction}
       submitLabel="Send to department" pendingText="Sending…">
-      <WalkInFields departments={departments} nextNo={nextNo} />
+      <WalkInFields departments={departments} nextNo={nextNo} preset={preset} />
     </SheetForm>
   );
 }
 
-function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: string }) {
-  const from = useTyped("fromName", "");
+function WalkInFields({ departments, nextNo, preset }: { departments: string[]; nextNo: string; preset?: WalkInPreset }) {
+  const from = useTyped("fromName", preset?.from ?? "");
   const [q, setQ] = useState(from.value);
   const [hits, setHits] = useState<FromHit[]>([]);
   const [chosen, setChosen] = useState<FromHit | null>(null);
@@ -204,8 +206,8 @@ function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: 
         </ul>
       )}
       {!chosen && <PhoneBox id="wi-phone" name="fromPhone" label="Phone" help="To send the request number on WhatsApp" />}
-      <SArea name="request" label="Request" required rows={2} maxLength={300} placeholder="For example: bonafide certificate for passport" />
-      <SSelect name="department" label="Department" required options={departments.map((d) => ({ value: d, label: d }))} placeholder="Choose" />
+      <SArea name="request" label="Request" required rows={2} maxLength={300} placeholder="For example: bonafide certificate for passport" start={preset?.request} />
+      <SSelect name="department" label="Department" required options={departments.map((d) => ({ value: d, label: d }))} placeholder="Choose" start={preset?.department} />
       <div className="grid grid-cols-2 gap-3">
         <FieldShell label="Request number" id="wi-no" help="Made automatically">
           <input id="wi-no" value={nextNo} readOnly className={cx(inputCls(false), "h-11 font-mono bg-sunken/60")} />

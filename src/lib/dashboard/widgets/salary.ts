@@ -8,6 +8,7 @@ import "server-only";
 
 import { salaryLevel } from "../../salary/access";
 import { addMonths, firstOfMonth, monthName } from "../../salary/words";
+import { payrollCoverage } from "../../salary/payroll";
 import { myStaff, n, plural } from "../common";
 import type { Viewer, Widget } from "../types";
 
@@ -76,11 +77,13 @@ const noStructure: Widget<"attention"> = {
   homes: ["accountant"],
   allowed: full,
   async load(c) {
-    const staff = await c.tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...campus(c.viewer) }, select: { id: true, fullName: true } });
-    const have = new Set((await c.tx.salaryStructure.findMany({ where: { archivedAt: null }, select: { staffId: true }, distinct: ["staffId"] })).map((s) => s.staffId));
-    const missing = staff.filter((s) => !have.has(s.id));
+    // Layman loop 2 (15 Nov): the Dashboard said 10, Generate Salary said 6. Now the one rule of Generate Salary and
+    // Salary Structures (payrollCoverage): this month's payroll of each campus in reach, a structure for this month.
+    const month = firstOfMonth(c.today);
+    const campusIds = c.viewer.campusId ? [c.viewer.campusId] : (await c.tx.campus.findMany({ where: { archivedAt: null }, select: { id: true } })).map((x) => x.id);
+    const missing = (await Promise.all(campusIds.map((id) => payrollCoverage(c.tx, id, month)))).flatMap((x) => x.missing);
     if (!missing.length) return null;
-    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of the salary until one is added.`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
+    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of ${MONTH(month)} salary until one is added.`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
   },
 };
 

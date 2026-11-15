@@ -65,7 +65,8 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
   // No approver and no approver job: say who can fix that, not "waiting for nobody" (layman audit).
   const noApprover = !a.currentApproverId && !a.currentApproverRole;
-  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? `the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : "no one yet";
+  // The reader who must decide reads "You", whether it waits for them by name or by their role (layman loop 2).
+  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? (mayDecide && roleKeys.includes(a.currentApproverRole) ? "You" : `the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole}`) : "no one yet";
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const record = approvalRecordLink(a);
   const mine = a.askedById === current.user.id;
@@ -134,7 +135,7 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
           </CardBody>
         </Card>
 
-        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} startReject={startReject} />
+        <DecisionBar id={a.id} summary={a.summary} amount={a.amountPaise !== null && a.amountPaise > BigInt(0) ? formatRupees(a.amountPaise) : null} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} startReject={startReject} />
       </div>
     </div>
   );

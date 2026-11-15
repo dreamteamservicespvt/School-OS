@@ -1,9 +1,12 @@
 import { Skel } from "@/components/ui/skeleton";
+import { Words } from "@/lib/i18n/client";
 
 /** Take Attendance while it loads: head, tabs, banner, count tiles and the class list. */
 export default function Loading() {
   return (
     <div aria-busy="true" aria-label="Loading" className="animate-fade">
+      {/* Words, not only grey boxes, so a teacher does not tap again (layman loop 2). */}
+      <p className="text-[14px] text-ink2 mb-3" role="status"><Words k="Loading attendance…" /></p>
       <Skel className="h-9 w-48 mb-2" />
       <Skel className="h-4 w-80 max-w-full mb-6" />
       <div className="flex gap-2 mb-5 border-b border-line pb-3">{Array.from({ length: 6 }, (_, i) => <Skel key={i} className="h-6 w-28" />)}</div>

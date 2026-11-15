@@ -154,7 +154,7 @@ describe("refunds (rule 9)", () => {
     const r = await collect(f.ctx, { studentId: s, dueIds: [open[0].id], amountPaise: R(6000) });
     await expect(withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(6001), reason: "Leaving school", mode: "CASH" }))).rejects.toThrow("Maximum refund ₹6,000");
     const refund = await withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(4000), reason: "Leaving school", mode: "CASH" }));
-    await expect(withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(2500), reason: "Second refund", mode: "CASH" }))).rejects.toThrow("Maximum refund ₹2,000");
+    await expect(withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(2500), reason: "Second refund", mode: "CASH" }))).rejects.toThrow("already waiting in Approvals");
     await expect(withSchool(f.ctx, (tx) => markRefunded(tx, f.ctx, refund.id, { date: r.payment.paymentDate, reference: null, accountId: null }))).rejects.toThrow("only after it is approved");
     const waiting = await withSchool(f.ctx, (tx) => tx.refund.findUniqueOrThrow({ where: { id: refund.id } }));
     await withSchool(f.pctx, (tx) => decide(tx, f.pctx, waiting.approvalId!, "approve", null));

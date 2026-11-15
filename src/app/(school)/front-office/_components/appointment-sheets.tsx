@@ -18,7 +18,8 @@ import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 
-export type Slots = { leave: string | null; free: number[]; taken: { start: number; label: string; kind: string }[] } | null;
+type Slot = { start: number; label: string; kind: string };
+export type Slots = { leave: string | null; free: number[]; taken: Slot[] } | null;
 type Opt = { value: string; label: string };
 
 export function BookSheet({ closeHref, staff, days, start, slots: first, reschedule }: {
@@ -82,14 +83,16 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
               : slots.leave ? <p className="text-[13.5px] text-bad">{who} <Words k="is not available on this day (" />{slots.leave.toLowerCase()}<Words k="). Pick another day or person." /></p>
                 : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} <Words k="has no free" /> {length}<Words k="-minute slot on this day. Pick another day or person." /></p>
                   : <>
-                    {slots.free.map((m) => (
-                      <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}
-                        className={cx("h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border transition", at === m ? "bg-brand text-brandink border-brand" : "border-line text-ink2 hover:border-brand hover:text-brand")}>{clockOf(m)}</button>
-                    ))}
-                    {slots.taken.slice(0, 8).map((x) => (
-                      <button type="button" key={`${x.start}${x.label}`} title={x.label} onClick={() => { setAt(null); setClash(`${who} already has ${x.kind === "teach" ? "a class" : "a meeting"} at ${clockOf(x.start)}. Pick another slot.`); }}
-                        className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> <Words k="taken" /></span></button>
-                    ))}
+                    {/* Free and taken times in time order, so a taken time sits in its place (layman loop 2). */}
+                    {[...slots.free.map((m) => ({ start: m, taken: null as Slot | null })), ...slots.taken.filter((x) => !slots.free.includes(x.start)).map((x) => ({ start: x.start, taken: x as Slot | null }))]
+                      .sort((p, q) => p.start - q.start)
+                      .map(({ start: m, taken: x }) => (x ? (
+                        <button type="button" key={`t${x.start}${x.label}`} title={x.label} onClick={() => { setAt(null); setClash(`${who} already has ${x.kind === "teach" ? "a class" : "a meeting"} at ${clockOf(x.start)}. Pick another slot.`); }}
+                          className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> <Words k="taken" /></span></button>
+                      ) : (
+                        <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}
+                          className={cx("h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border transition", at === m ? "bg-brand text-brandink border-brand" : "border-line text-ink2 hover:border-brand hover:text-brand")}>{clockOf(m)}</button>
+                      )))}
                   </>}
         </div>
       </FieldShell>

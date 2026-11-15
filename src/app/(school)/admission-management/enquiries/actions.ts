@@ -68,7 +68,7 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
         customFields,
       }, { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
     });
-    await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}/${e.id}`, label: "Open enquiry" } });
+    await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}?do=add`, label: "Add another" } });
     revalidatePath("/", "layout");
     return { ok: true, message: "Enquiry added.", data: { id: e.id } };
   } catch (err) {

@@ -21,7 +21,7 @@ import { cancelPaymentAction, newLinkForFailed, rejectPayment, verifyPayment } f
 import { resendReceipt } from "../collect/[studentId]/actions";
 import { Words } from "@/lib/i18n/client";
 
-export function PaymentSheet({ p, closeHref, cancelHref, canEdit, ledgerHref }: { p: PaySheetData; closeHref: string; cancelHref: string; canEdit: boolean; ledgerHref: string | null }) {
+export function PaymentSheet({ p, closeHref, cancelHref, canEdit, ledgerHref, stillDue }: { p: PaySheetData; closeHref: string; cancelHref: string; canEdit: boolean; ledgerHref: string | null; /** What the family owes now, when known (layman loop 2). */ stillDue?: string | null }) {
   const [rejecting, setRejecting] = useState(false);
   const [why, setWhy] = useState("");
   const [vState, verify, verifying] = useActionState<FormState<unknown>, FormData>(verifyPayment as never, null);
@@ -64,6 +64,7 @@ export function PaymentSheet({ p, closeHref, cancelHref, canEdit, ledgerHref }: 
           <Mini k="Goes to" v={p.goesTo} />
           {p.parent && <Mini k="Parent" v={<span className="tnum">{p.parent}{p.phone ? ` · ${p.phone}` : ""}</span>} />}
           <Mini k="Day Book" v={p.dayBook} />
+          {stillDue && <Mini k="Still to pay now" v={<span className="tnum">{stillDue}</span>} />}
           {p.note && <Mini k="Note" v={p.note} />}
         </div>
 

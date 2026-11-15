@@ -24,6 +24,7 @@ import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, MODULE, one, qs, salaryPage, salaryPeriod, type SearchParams } from "../_lib/page";
 import { sendSlipsAction } from "./actions";
 import { SlipView, type SlipPerson } from "./slip-view";
+import { slipLines } from "@/lib/salary/slips";
 import { salaryBroughtIn, sumBroughtIn } from "@/lib/salary/to-date-totals";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -82,6 +83,9 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
   const lineOf = new Map(data.lines.map((l) => [l.id, l]));
   const latest = data.slips[0];
   const ll = latest ? lineOf.get(latest.lineId) : null;
+  // The card shows the slip's own totals (earnings in full, loss of pay as a deduction), so card and slip agree (layman loop 2).
+  const llSlip = latest && ll ? slipLines(ll, data.adjustments.filter((a) => a.runId === latest.runId)) : [];
+  const slipTotal = (kind: "earning" | "deduction") => llSlip.filter((x) => x.kind === kind).reduce((s, x) => s + x.amountPaise, ZERO);
   const ytd = data.slips.reduce((a, s) => { const l = lineOf.get(s.lineId)!; return { pay: a.pay + l.grossPaise, pf: a.pf + l.pfPaise, pt: a.pt + l.ptPaise, tds: a.tds + l.tdsPaise }; }, { pay: data.before.gross, pf: data.before.pf, pt: data.before.pt, tds: data.before.tds });
   const fyEnd = per.to ? new Date(Date.UTC(per.to.getUTCFullYear(), per.to.getUTCMonth() + 1, 0)) : null;
   const monthsLeft = latest && fyEnd ? Math.max(0, (fyEnd.getUTCFullYear() - latest.month.getUTCFullYear()) * 12 + fyEnd.getUTCMonth() - latest.month.getUTCMonth()) : 0;
@@ -108,7 +112,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
                 <div className="flex-1 min-w-0">
                   <p className="text-[12.5px] text-ink3 font-semibold">{latest.run.paidOn ? "Last paid" : "Latest"} · {monthName(latest.month)}</p>
                   <p className="font-display text-[32px] font-semibold tnum leading-tight mt-0.5">{formatRupees(ll.netPaise)}</p>
-                  <p className="text-[13px] text-ink3 mt-0.5">{latest.run.paidOn ? `Paid ${dayShort(latest.run.paidOn)}${person.bank ? ` to ${person.bank}` : ""}` : "Approved, not paid yet"} <Words k="· gross" /> {formatRupees(ll.grossPaise)}<Words k=", deductions" /> {formatRupees(ll.deductionsPaise)}</p>
+                  <p className="text-[13px] text-ink3 mt-0.5">{latest.run.paidOn ? `Paid ${dayShort(latest.run.paidOn)}${person.bank ? ` to ${person.bank}` : ""}` : "Approved, not paid yet"} <Words k="· total earnings" /> {formatRupees(slipTotal("earning"))}<Words k=", deductions" /> {formatRupees(slipTotal("deduction"))}</p>
                 </div>
                 <div className="flex gap-2">
                   <ButtonLink href={here({ slip: latest.id })} scroll={false} variant="primary" icon={Eye}><Words k="View slip" /></ButtonLink>
@@ -165,10 +169,10 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
       {view && (
         <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(view.month)}`} sub="Only you can see this slip"
           footer={<div className="flex gap-2 justify-end flex-wrap">
-            <a href={`${pdf(view.id)}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
+            <a href={`${pdf(view.id)}&print=1`} target="_blank" rel="noopener" className={`${buttonClass("ghost")} max-md:hidden`}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
             <a href={pdf(view.id)} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" /><Words k="Download PDF" /></a>
           </div>}>
-          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} adjustments={data.adjustments.filter((a) => a.runId === view.runId)} />
+          <SlipView school={p.school.name} place={[data.campus?.name, data.campus?.address].filter(Boolean).join(", ")} month={view.month} paidOn={view.run.paidOn} line={lineOf.get(view.lineId)!} person={person} showEmployer={data.settings.slipShowEmployer} adjustments={data.adjustments.filter((a) => a.runId === view.runId)} leaveHref={can(p.current.permissions, "staff-hr-management", "view") ? "/staff-hr-management/leave?view=mine" : undefined} />
         </UrlSheet>
       )}
     </div>
@@ -268,7 +272,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
         return (
           <UrlSheet wide closeHref={here({ slip: null })} title={`Salary slip · ${monthName(run.month)}`} sub={`${x.fullName} · ${x.staffCode}`}
             footer={<div className="flex gap-2 justify-end flex-wrap">
-              <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={buttonClass("ghost")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
+              <a href={`${HREF}/pdf?ids=${data.view.id}&print=1`} target="_blank" rel="noopener" className={`${buttonClass("ghost")} max-md:hidden`}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
               {p.change && singleHow && <ButtonLink href={here({ slip: null, do: "send", how: singleHow, ids: data.view.id })} scroll={false} variant="secondary" icon={Send}><Words k="Send" /></ButtonLink>}
               <a href={`${HREF}/pdf?ids=${data.view.id}`} download className={buttonClass("primary")}><Download size={17} aria-hidden="true" /><Words k="Download PDF" /></a>
             </div>}>

@@ -91,7 +91,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   };
   const ruleOwner = c.ownerRule === "class" && classId ? c.ownerByClass[classId] ?? c.defaultOwner : c.ownerRule === "turn" ? "" : c.defaultOwner;
   const ownerValue = owner || ruleOwner;
-  const ownerHint = owner ? "Changed by hand. The history keeps it." : c.ownerRule === "class" ? "Set by “Who gets new enquiries”: by class wanted" : c.ownerRule === "turn" ? `Set by “Who gets new enquiries”: in turn${c.turnNext ? `, next is ${c.turnNext}` : ""}` : "Set by “Who gets new enquiries”: one default owner";
+  const ownerHint = owner ? "Changed by hand. The history keeps it." : c.ownerRule === "turn" ? `Set by “Who gets new enquiries”: in turn${c.turnNext ? `, next is ${c.turnNext}` : ""}` : "Follow-up calls go to this person. Usually leave as is.";
   const live = c.sources.map((s) => s.value);
   const segSources = PRIMARY_SOURCES.filter((s) => live.includes(s));
   const others = c.sources.filter((s) => !segSources.includes(s.value));

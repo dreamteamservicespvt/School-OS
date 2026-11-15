@@ -44,13 +44,15 @@ const homeRank = (w: Widget, homes: readonly HomeKind[]) => (w.homes === "any" ?
 
 export type TaskCardRow = { id: string; title: string; due: string | null; overdue: boolean; done: boolean; status: TaskStatus; by: string | null; to: string | null };
 /** One request on the home card: who asks (their job), what, and the reason they gave (owner's changes of 13 Oct 2026). */
-export type ApprovalCardRow = { id: string; who: string; as: string | null; what: string; why: string | null; amount: string | null };
+export type ApprovalCardRow = { id: string; who: string; as: string | null; kind: string; what: string; why: string | null; amount: string | null };
 
 export type Home = {
   homes: HomeKind[];
   leader: boolean;
   first: string;
   dayLine: string;
+  /** No school today (a weekly day off or a holiday): "Take attendance" is not offered. */
+  dayOff: boolean;
   band: BandItem[];
   attention: AttentionItem[];
   hiddenSeen: number;
@@ -389,15 +391,25 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
     homes, leader,
     first: viewer.user.displayName.split(" ")[0],
     dayLine: [longDay(today), dayJob.value].filter(Boolean).join(" · "),
+    dayOff: /no school today$/i.test(dayJob.value ?? ""),
     band: carryAll(band, filters), attention: carryAll(attention, filters), hiddenSeen: attentionAll.length - attention.length,
     panels: carryAll(panels, filters), agenda: carryAll(agenda, filters), birthdays, filters,
     approvals: mayApprove ? {
       count: ap.count,
-      rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, what: `${requestLabel(a.type)} · ${a.summary}`, why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
+      rows: ap.rows.filter((a) => ap.decidable.has(a.id)).map((a) => ({ id: a.id, who: ap.askers.get(a.askedById) ?? "Someone", as: ap.jobs.get(a.askedById) ?? null, kind: requestLabel(a.type), what: shortSummary(requestLabel(a.type), a.summary), why: a.reason, amount: a.amountPaise !== null ? formatRupees(a.amountPaise) : null })),
     } : null,
     tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
     failed,
   };
+}
+
+/** The request's summary without its type in front ("Attendance correction: Class 5 A" under the tag "Attendance correction"). */
+function shortSummary(kind: string, summary: string) {
+  const k = kind.toLowerCase();
+  const s = summary.trim();
+  if (!s.toLowerCase().startsWith(k)) return s;
+  const rest = s.slice(k.length).replace(/^\s*[:·\-–]\s*/, "").trim();
+  return rest || s;
 }
 
 /**

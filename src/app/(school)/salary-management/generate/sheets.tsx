@@ -28,7 +28,7 @@ function SegField({ name, label, options, start, onValue }: { name: string; labe
 export function OpenMonthSheet({ closeHref, months, campuses, campusId, start }: { closeHref: string; months: Option[]; campuses: Option[]; campusId: string; start: string }) {
   return (
     <SheetForm title="Open a month" sub="One salary month for each campus." closeHref={closeHref} action={openMonthAction} submitLabel="Open month" pendingText="Opening…">
-      <SSelect name="month" label="Month" required options={months} start={start} help="It also opens by itself on the 1st of the month." />
+      <SSelect name="month" label="Month" required options={months} start={start} help="Opening works out the pay so far. Nothing is paid yet." />
       <ProblemLink />
       {campuses.length > 1 ? <SSelect name="campusId" label="Campus" options={campuses} start={campusId} /> : <input type="hidden" name="campusId" value={campusId} />}
     </SheetForm>

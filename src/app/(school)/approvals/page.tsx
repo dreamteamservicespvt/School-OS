@@ -128,8 +128,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       link: approvalRecordLink(a),
     };
   });
+  // The same request asked again (a refund sent three times): the oldest is the one to decide, the later ones are marked.
+  const firstOf = new Map<string, string>();
+  for (const a of [...data.rows].sort((x, y) => x.createdAt.getTime() - y.createdAt.getTime())) {
+    if (!OPEN_STATUSES.includes(a.status)) continue;
+    const k = `${a.type}|${a.summary}|${a.amountPaise ?? ""}`;
+    if (!firstOf.has(k)) firstOf.set(k, a.id);
+  }
+  const myRoles = new Set(roleKeys);
   const rows: ApprovalRow[] = data.rows.map((a) => {
     const open = OPEN_STATUSES.includes(a.status);
+    const decidable = data.decidable.has(a.id);
     const last = [...((a.history as HistoryLine[]) ?? [])].reverse()[0];
     const days = data.rules.find((r) => r.type === a.type)?.escalateAfterDays ?? 2;
     return {
@@ -142,12 +151,15 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       askedByName: data.people.get(a.askedById) ?? current.user.displayName,
       asked: formatDateTime(a.createdAt, tz),
       status: statusWords(a.status, a.history),
-      waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : null) : null,
-      decidable: data.decidable.has(a.id),
-      rejectable: data.decidable.has(a.id) && data.rejectable.has(a.type),
+      // The reader who must decide is "you", whether it waits for them by name or by their role.
+      waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? (decidable && myRoles.has(a.currentApproverRole) ? "you" : `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}`) : null) : null,
+      decidable,
+      rejectable: decidable && data.rejectable.has(a.type),
+      repeat: open && firstOf.get(`${a.type}|${a.summary}|${a.amountPaise ?? ""}`) !== a.id,
       job: a.askedById === current.user.id ? null : data.jobs.get(a.askedById) ?? null,
       reason: a.reason,
-      facts: data.facts.get(a.id),
+      // Moved on after nobody decided in time: say why it reached this person.
+      facts: a.status === "ESCALATED" && decidable ? [...(data.facts.get(a.id) ?? []), { label: "Came to you", value: `the step before did not decide in ${days} working day${days === 1 ? "" : "s"}` }] : data.facts.get(a.id),
       overdue: open && workingDaysBetween(new Date(last?.at ?? a.createdAt), now) >= days,
     };
   });
@@ -196,7 +208,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           )
       ) : (
         <>
-          <ApprovalList rows={rows} />
+          <ApprovalList rows={rows} paged={pages > 1} />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[13.5px] text-ink3">
             <span className="tnum">{data.total} <Words k="request" />{data.total === 1 ? "" : "s"}{pages > 1 ? ` · page ${params.page} of ${pages}` : ""}</span>
             {pages > 1 && (

@@ -237,14 +237,15 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const students = made.reduce((a, m) => a + m.students, 0);
   const notified = made.reduce((a, m) => a + m.notified, 0);
   const parents = made.map((m) => m.parents);
-  const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
+  // "Also" and after the parents line, so "15 students" and "1 student" do not read as 14 missing (layman loop 2).
+  const told = notified ? ` ${plural(notified, "student")} also got it in the app.` : "";
   const toParents = parents.includes("failed") ? " The homework is saved, but students and parents could not be told just now because of a problem on our side. Open the homework and use Resend to parents."
     : parents.includes("sent") ? " Parents were messaged."
     : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: the school has not set up WhatsApp or SMS yet. Tell the School Admin. Students can still see the homework in the app."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
         : parents.includes("held") ? " Parents were not messaged: automatic messages to parents start when the school goes live on School OS."
           : "";
-  return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${told}${toParents}`;
+  return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${toParents}${told}`;
 }
 
 export type EditInput = { title: string; instructions: string | null; startDate: Date; dueDate: Date; maxMarks: number; onlineSubmission: boolean; attachments: NewAttachment[]; removeAttachmentIds: string[] };

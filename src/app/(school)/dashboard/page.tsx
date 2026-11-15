@@ -17,7 +17,6 @@ import { formatDate, formatTime } from "@/lib/format";
 import { DashFilterBar } from "./filter-bar";
 import { Band } from "@/components/ui/band";
 import { Card, CardHeader } from "@/components/ui/card";
-import { ButtonLink } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { PanelCard, TodayCard } from "./panels";
 import { ApprovalsCard, AttentionCard, RefreshControl, TasksCard } from "./dashboard-client";
@@ -67,8 +66,12 @@ export default async function DashboardPage({ searchParams }: Search) {
     if (!p.complete && p.done * 2 < p.total) redirect("/dashboard/setup");
   }
   const [home, people] = await page;
-  const quick = quickActionsFor(current, home.approvals !== null);
-  const primary = home.leader ? null : quick[0] ?? null;
+  // Layman loop 2 (15 Nov): no "Take attendance" on a day with no school. The big button that repeated the first
+  // shortcut is gone: the shortcuts (or the Quick actions card) already carry it.
+  const quick = quickActionsFor(current, home.approvals !== null).filter((q) => !(home.dayOff && q.href === "/attendance-management"));
+  // A teacher's home: the work comes first on the phone; no refresh picker and no filters (they mean nothing there).
+  const teacherHome = !home.leader && (home.homes[0] === "teacher" || home.homes[0] === "class-teacher");
+  const attentionUp = teacherHome && home.attention.length > 0;
   const updated = formatTime(now, tz);
   const today = todayFor(tz, now).toISOString().slice(0, 10);
   const first = home.panels.first;
@@ -76,7 +79,23 @@ export default async function DashboardPage({ searchParams }: Search) {
 
   const tasks = (
     <TasksCard mine={home.tasks.mine} given={home.tasks.given} left={home.tasks.left} access={home.tasks.access}
-      people={people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today} />
+      people={people.map((p) => ({ id: p.id, name: p.name, role: p.designation }))} meId={current.user.id} today={today} />
+  );
+  const attention = <AttentionCard items={home.attention} hiddenSeen={home.hiddenSeen} />;
+  // The shortcuts wrap onto a second line on a phone instead of scrolling sideways out of sight (layman loop 2).
+  const chips = quick.length > 0 && (
+    <nav aria-label={t("Quick actions")} className="xl:hidden">
+      <div className="flex flex-wrap gap-2">
+        {quick.map((q) => {
+          const Ic = iconOf(q.icon);
+          return (
+            <Link key={q.label} href={q.href} className="flex items-center gap-2 h-11 pl-2 pr-4 rounded-full bg-surface border border-line text-[14px] font-semibold shadow-card hover:text-brand">
+              <span className="w-8 h-8 rounded-full bg-brand/10 text-brand grid place-items-center"><Ic size={16} aria-hidden="true" /></span>{t.any(q.label)}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
   const approvals = home.approvals && <ApprovalsCard count={home.approvals.count} rows={home.approvals.rows} />;
   const todayCard = <TodayCard items={home.agenda} birthdays={home.birthdays} t={t} />;
@@ -104,13 +123,13 @@ export default async function DashboardPage({ searchParams }: Search) {
           <p className="text-[13px] font-semibold text-ink3">{dayWords(t, home.dayLine)}</p>
           <h1 className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight mt-0.5">{greeting(tz, now, t)}, {home.first}</h1>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <RefreshControl updated={updated} />
-          {primary && <ButtonLink href={primary.href} variant="primary" icon={iconOf(primary.icon)}>{t.any(primary.label)}</ButtonLink>}
-        </div>
+        <RefreshControl updated={updated} quiet={teacherHome} />
       </div>
 
-      {(campuses.length > 1 || home.leader) && (
+      {!home.leader && chips}
+      {attentionUp && <div className="md:hidden">{attention}</div>}
+
+      {(home.leader || (campuses.length > 1 && !teacherHome)) && (
         <DashFilterBar campuses={campuses.length > 1 ? campuses : []} today={today}
           dates={home.leader ? { from: home.filters.from?.toISOString().slice(0, 10) ?? "", to: home.filters.date?.toISOString().slice(0, 10) ?? "" } : null}
           years={home.leader ? years : []} classes={home.leader ? classes : []}
@@ -133,25 +152,12 @@ export default async function DashboardPage({ searchParams }: Search) {
 
       {band.length >= 2 && <Band items={band} label={home.leader ? t("School today") : t("Your day")} />}
 
-      {quick.length > 0 && (
-        <nav aria-label={t("Quick actions")} className="xl:hidden -mx-4 px-4 md:-mx-6 md:px-6 overflow-x-auto no-scrollbar">
-          <div className="flex gap-2 w-max">
-            {quick.map((q) => {
-              const Ic = iconOf(q.icon);
-              return (
-                <Link key={q.label} href={q.href} className="flex items-center gap-2 h-11 pl-2 pr-4 rounded-full bg-surface border border-line text-[14px] font-semibold shadow-card hover:text-brand">
-                  <span className="w-8 h-8 rounded-full bg-brand/10 text-brand grid place-items-center"><Ic size={16} aria-hidden="true" /></span>{t.any(q.label)}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      )}
+      {home.leader && chips}
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-5 lg:gap-6 items-start">
         <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
           {first.length > 0 && <div className="hidden md:flex flex-col gap-5 lg:gap-6">{first.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}</div>}
-          <AttentionCard items={home.attention} hiddenSeen={home.hiddenSeen} />
+          {attentionUp ? <div className="hidden md:block">{attention}</div> : attention}
           {home.panels.main.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}
           {tasks}
         </div>

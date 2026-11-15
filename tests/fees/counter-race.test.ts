@@ -79,7 +79,7 @@ describe("cancels and refunds sent twice at once", () => {
     const r = await collect(f.ctx, { studentId: s, dueIds: [open[0].id], amountPaise: R(6000) });
     const tries = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(4000), reason: "Leaving school", mode: "CASH" }))));
     expect(tries.filter((x) => x.status === "fulfilled")).toHaveLength(1);
-    expect(String((tries.find((x) => x.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/Maximum refund ₹2,000/);
+    expect(String((tries.find((x) => x.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/already waiting in Approvals/);
   });
 
   it("\"Mark refunded\" twice at once takes the refund off the dues once", async () => {

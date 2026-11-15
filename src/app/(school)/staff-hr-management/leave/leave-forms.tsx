@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
 import { CalendarPlus } from "lucide-react";
@@ -11,20 +10,31 @@ import { Words } from "@/lib/i18n/client";
 type Option = { value: string; label: string };
 type LeaveTypeOption = Option & { halfDay: boolean; note: string };
 
-/** Checks days, balance and periods without submitting (a submitted form is reset, losing what was typed). */
+/**
+ * Days, balance and periods, checked by itself as soon as a leave type and dates are chosen (layman loop 2:
+ * a separate "Check" tap was missed), without submitting (a submitted form is reset, losing what was typed).
+ */
 function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: FormData) => Promise<FormState<{ text: string }>> }) {
   const [state, setState] = useState<FormState<{ text: string }>>(null);
   const [pending, start] = useTransition();
-  const run = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const form = e.currentTarget.form;
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const form = box.current?.closest("form");
     if (!form) return;
-    const fd = new FormData(form);
-    start(async () => setState(await action(null, fd)));
-  };
+    const run = (e?: Event) => {
+      const name = (e?.target as HTMLInputElement | null)?.name;
+      if (name && !["leaveTypeId", "from", "to", "halfDay", "staffId", "document"].includes(name)) return;
+      const fd = new FormData(form);
+      if (!fd.get("leaveTypeId") || !fd.get("from")) return;
+      start(async () => setState(await action(null, fd)));
+    };
+    form.addEventListener("change", run);
+    return () => form.removeEventListener("change", run);
+  }, [action]);
   return (
-    <div className="sm:col-span-2" aria-live="polite">
-      <Button variant="secondary" size="sm" onClick={run} loading={pending} loadingText="Checking…"><Words k="Check days and balance" /></Button>
-      {state && <p className={`mt-1 text-sm ${state.ok ? "text-ink" : "text-danger"}`}>{state.ok ? state.data?.text : state.message}</p>}
+    <div ref={box} className="sm:col-span-2 min-h-5 text-sm" aria-live="polite">
+      {pending ? <p className="text-ink-2"><Words k="Checking…" /></p>
+        : state ? <p className={state.ok ? "text-ink font-medium" : "text-danger"}>{state.ok ? state.data?.text : state.message}</p> : null}
     </div>
   );
 }
@@ -56,7 +66,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
             <label htmlFor="leave-doc" className="mb-1 block text-sm font-medium"><Words k="Document" /></label>
-            <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="leave-doc-help" />
+            <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full text-sm text-ink-2 file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line-strong file:bg-surface file:px-4 file:font-medium file:text-ink hover:file:bg-sunken" aria-describedby="leave-doc-help" />
             <p id="leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Such as a doctor's note. Needed for some leave types and for long leave."}</p>
           </div>
           <Preview action={preview} />

@@ -55,7 +55,8 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     // Who read it and who saw it: only their campus's people for a person limited to one campus.
     const shown = await loginsOnCampus(tx, current.ctx, logins, campusId);
     const people = manager && shown.length ? await tx.userLogin.findMany({ where: { id: { in: shown } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
-    const guardianIds = manager && n.status !== "DRAFT" ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
+    // "Seen by parents" only once it has gone out: a notice waiting for approval or its time reached nobody yet.
+    const guardianIds = manager && n.publishedAt ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
     const views = manager ? await tx.noticeGuardianView.findMany({ where: { noticeId: n.id } }) : [];
     const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds.slice(0, 2000) } }, select: { id: true, name: true, relationship: true, students: { where: { archivedAt: null }, select: { student: { select: { fullName: true } } } } }, orderBy: { name: "asc" } }) : [];
     const files = n.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: n.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];

@@ -64,7 +64,7 @@ function CheckResult({ res, tz, gateWork, today, schoolId }: { res: NonNullable<
       <p className="eyebrow text-ink3"><Words k="Gate pass · Pickup ·" /> {res.passNo}</p>
       <div className="grid grid-cols-2 gap-3">
         {([[res.student, `${res.section ?? ""} · student`.replace(/^ · /, ""), res.studentPhotoFileId], [res.collector, `${res.relation ?? "Guardian"} · on the pickup list`, res.guardianPhotoFileId]] as const).map(([n, s, ph]) => (
-          <div key={`${n}-${s}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={44} src={photo(ph)} /><div className="min-w-0"><p className="font-semibold text-[14px] truncate">{n}</p><p className="text-[12px] text-ink3 truncate">{s}</p></div></div>
+          <div key={`${n}-${s}`} className="flex items-center gap-2.5 min-w-0"><Avatar name={n} size={44} src={photo(ph)} /><div className="min-w-0"><p className="font-semibold text-[14px] break-words">{n}</p><p className="text-[12px] text-ink3 break-words">{s}</p></div></div>
         ))}
       </div>
       <p className={cx("text-[14px] font-semibold flex items-center gap-2", left ? "text-bad" : "text-ok")}>

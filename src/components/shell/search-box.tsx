@@ -53,6 +53,21 @@ function matchesOwn(label: string, query: string) {
   return query.toLocaleLowerCase().split(/\s+/).filter(Boolean).every((t) => words.some((w) => w.startsWith(t)));
 }
 
+/**
+ * The job words people type for a page whose name says something else (layman loop 2, 15 Nov: "bonafide",
+ * "change phone" and "holiday" found nothing). Matched like the page's own name; never shown.
+ */
+const TASK_WORDS: Record<string, string> = {
+  "/student-management/certificates/new": "bonafide tc transfer study conduct character certificate",
+  "/student-management/certificates": "bonafide tc transfer study conduct character certificate",
+  "/student-management/guardians": "change phone parent phone mobile number father mother guardian",
+  "/communication/notices/new": "holiday notice circular announcement",
+};
+const withWords = (label: string, href: string) => {
+  const w = TASK_WORDS[href.split(/[?#]/)[0]];
+  return w ? `${label} ${w}` : label;
+};
+
 type Person = { id: string; name: string; sub: string; href: string };
 type Row = { sec: string; label: string; sub?: string; href: string; icon?: LucideIcon; avatar?: string; run?: () => void };
 
@@ -162,14 +177,14 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     asked.forEach((m) => out.push({ sec: t("Questions"), label: questionTitleIn(t, m.key, m.params), href: m.href, icon: I.CircleHelp }));
     // "fee Ravi": Collect Fee for each Ravi, first.
     // A label is found by its English words or by its words in the person's language.
-    const found = (label: string) => matches(label, typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
+    const found = (label: string, href = "") => matches(withWords(label, href), typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
     people.collect.forEach((s) => out.push({ sec: t("Collect fee"), label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
     people.students.forEach((s) => out.push({ sec: t("Students"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.staff.forEach((s) => out.push({ sec: t("Staff"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.parents.forEach((s) => out.push({ sec: t("Parents"), label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
     people.receipts.forEach((s) => out.push({ sec: t("Receipts"), label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
-    quick.filter((x) => found(x.label)).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
-    pages.filter((p) => found(p.label)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
+    quick.filter((x) => found(x.label, x.href)).forEach((x) => out.push({ sec: t("Quick actions"), label: t.any(x.label), sub: t.any(x.sub), href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
+    pages.filter((p) => found(p.label, p.href)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
     // A question no ready-made one matches: the closest ones the person may ask.
     if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
       if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("Answers come from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });

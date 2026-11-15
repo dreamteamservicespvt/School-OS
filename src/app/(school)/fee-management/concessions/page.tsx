@@ -191,6 +191,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     return <span className="text-[12.5px] text-ink3"><Words k="Waiting for" /> {d?.waitingFor ?? "approval"}</span>;
   };
 
+  const partApplied = (c: ConcessionRow) => c.status === "APPLIED" && c.askedPaise !== null && c.askedPaise !== c.amountPaise;
   const conColumns = (rows: ConcessionRow[]) => ({
     rows,
     rowKey: (c: ConcessionRow) => c.id,
@@ -199,7 +200,10 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     columns: [
       { key: "name", label: "Student", render: (c: ConcessionRow) => <><p className="font-semibold leading-tight">{c.name}</p><p className="text-[12.5px] text-ink3">{[c.classLabel, formatDate(c.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },
       { key: "type", label: "Type", nowrap: true, render: (c: ConcessionRow) => c.scholarshipType ?? c.typeLabel },
-      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3"><Words k="about" /> {formatRupees(c.amountPaise)}</span>}</> },
+      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => partApplied(c)
+        // Applied for less than asked: the amount given first, so the rows add up to the card (layman loop 2).
+        ? <><b className="font-semibold">{formatRupees(c.amountPaise)}</b><span className="block text-[12px] text-ink3"><Words k="asked" /> {c.value}</span></>
+        : <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3">{c.status !== "APPLIED" && <><Words k="about" /> </>}{formatRupees(c.amountPaise)}</span>}</> },
       { key: "heads", label: "Fee heads", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2">{c.heads}</span> },
       { key: "reason", label: "Reason", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2 block max-w-[220px]">{shownReason(c.reason)}{c.note && <span className="block text-ink3">{c.note}</span>}</span> },
       { key: "by", label: "Asked by", nowrap: true, render: (c: ConcessionRow) => <span className="text-[13px]">{c.askedBy}</span> },
@@ -207,7 +211,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       { key: "status", label: "Status", render: (c: ConcessionRow) => <div className="flex flex-col items-start gap-1.5"><Pill tone={status(c.status)[1]}>{status(c.status)[0]}</Pill>{decideCell(c, "concession")}</div> },
     ],
     phone: (c: ConcessionRow) => ({
-      title: c.name, sub: `${c.scholarshipType ?? c.typeLabel} · ${c.value} · ${c.heads}`, icon: BadgePercent, iconTone: status(c.status)[2],
+      title: c.name, sub: `${c.scholarshipType ?? c.typeLabel} · ${partApplied(c) ? `${formatRupees(c.amountPaise)} of ${c.value}` : c.value} · ${c.heads}`, icon: BadgePercent, iconTone: status(c.status)[2],
       pills: <><Pill tone={status(c.status)[1]} className="!h-[22px] !text-[11.5px]">{status(c.status)[0]}</Pill>{c.status === "WAITING" && decideCell(c, "concession")}</>,
     }),
   });

@@ -60,7 +60,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   const data = await withSchool(ctx, async (tx) => {
     const search = await visitorSearch(tx, q, !masked);
     const dr = dateWhere(range);
-    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, withOpenExpired: isToday, status: st, search, now });
+    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, withOpenExpired: isToday && st === "Expired", status: st, search, now });
     const where = countWhere(status);
     const [rows, counts, inside, oldest, todayCount, todayPeople, gateToday, expired, week, check] = await Promise.all([
       tx.visitorEntry.findMany({ where, orderBy: { timeIn: "desc" }, take: 300 }),
@@ -156,12 +156,12 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
               </Toolbar>
               <div className="px-3 pt-3 pb-1"><Chips value={status} options={statusChips} label="Visitor status" /></div>
               <DataList rows={rows} rowKey={(v) => v.id} minWidth={740} rowHref={(v) => addQ(sheetHref, { pass: v.id })} caption="Visitor log"
-                footer={`Showing ${rows.length} visitor${rows.length === 1 ? "" : "s"} · ${vp.label.toLowerCase()}${isToday && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? ", with passes not closed" : ""}`}
+                footer={`Showing ${rows.length} visitor${rows.length === 1 ? "" : "s"} · ${vp.label.toLowerCase()}${isToday && status === "Expired" && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? ", and older passes not closed" : ""}`}
                 columns={[
                   { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${v.peopleCount} people` : ""}</p>{v.vehicleNo && <p className="text-[12px] text-ink3 font-mono whitespace-nowrap">{v.vehicleNo}</p>}</div></div> },
-                  { key: "purpose", label: "Purpose", render: (v) => <div><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
+                  { key: "purpose", label: "Purpose", render: (v) => <div className="min-w-[200px]"><p className="text-[13.5px]">{v.purpose}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },
                   { key: "meet", label: "To meet", render: (v) => { const r = replyOf(v.staffReply); const st = visitorStatus(v, now); return <div><p className="text-[13.5px]">{staffName(v.meetStaffId) || <span className="text-ink3">—</span>}</p>{r && st === "In" && <p className={cx("text-[12px] font-semibold", { ok: "text-ok", warn: "text-warn", bad: "text-bad" }[r.tone])}><Words k="Replied:" /> {r.label}</p>}</div>; } },
-                  { key: "time", label: "In / out", nowrap: true, render: (v) => { const st = visitorStatus(v, now); return <span className="tnum text-[13px]">{v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}{clockAt(v.timeIn, p.tz)} – {v.timeOut ? clockAt(v.timeOut, p.tz) : st === "Expired" ? "?" : "now"}</span>; } },
+                  { key: "time", label: "In / out", nowrap: true, render: (v) => { const st = visitorStatus(v, now); return <span className="tnum text-[13px]">{v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}{clockAt(v.timeIn, p.tz)} – {v.timeOut ? clockAt(v.timeOut, p.tz) : st === "Expired" ? "not checked out" : "now"}</span>; } },
                   { key: "st", label: "Status", render: (v) => { const st = visitorStatus(v, now); return <div><Pill tone={VISITOR_TONE[st]} dot={st === "In"}>{st}</Pill><p className="text-[11.5px] text-ink3 font-mono mt-0.5">{v.passNo}</p></div>; } },
                   { key: "act", label: "", render: (v) => (p.can.checkOut && visitorStatus(v, now) !== "Out" ? <ButtonLink href={addQ(sheetHref, { out: v.id })} scroll={false} size="sm" variant="secondary" icon={LogOut} className="relative z-[1]"><Words k="Check out" /></ButtonLink> : null) },
                 ]}
@@ -171,7 +171,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
                   const met = staffName(v.meetStaffId);
                   return {
                     title: v.name, avatar: v.name,
-                    sub: [v.purpose, met, `in ${clockAt(v.timeIn, p.tz)}${v.timeOut ? `, out ${clockAt(v.timeOut, p.tz)}` : ""}`].filter(Boolean).join(" · "),
+                    sub: [v.purpose, met, `${v.visitDate.getTime() !== p.today.getTime() ? `${dayMonth(v.visitDate)}, ` : ""}in ${clockAt(v.timeIn, p.tz)}${v.timeOut ? `, out ${clockAt(v.timeOut, p.tz)}` : ""}`].filter(Boolean).join(" · "),
                     pills: <>
                       <Pill tone={VISITOR_TONE[st]} className="!h-[22px] !text-[11.5px]">{st}</Pill>
                       {r && st === "In" && <Pill tone={r.tone} className="!h-[22px] !text-[11.5px]">{r.label}</Pill>}

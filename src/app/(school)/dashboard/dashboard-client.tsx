@@ -15,6 +15,7 @@ import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/controls";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmButton } from "@/components/ui/confirm";
 import { TextField, SelectField, TextArea, CheckboxField } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -48,7 +49,8 @@ function readRefresh() {
   return memoryRefresh;
 }
 
-export function RefreshControl({ updated }: { updated: string }) {
+/** quiet: refreshes by itself as chosen, with nothing on screen (a teacher's home, layman loop 2). */
+export function RefreshControl({ updated, quiet = false }: { updated: string; quiet?: boolean }) {
   const t = useT();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -63,6 +65,7 @@ export function RefreshControl({ updated }: { updated: string }) {
     memoryRefresh = v;
     refreshListeners.forEach((l) => l());
   };
+  if (quiet) return null;
   return (
     <div className="flex items-center gap-1">
       <button type="button" onClick={() => start(() => router.refresh())}
@@ -148,7 +151,8 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
 }
 
 /* ---------- My tasks ---------- */
-export type Person = { id: string; name: string };
+/** role: the job shown next to the name, so two staff with one name can be told apart. */
+export type Person = { id: string; name: string; role?: string | null };
 
 export function TasksCard({ mine, given, left, access, people, meId, today }: { mine: TaskCardRow[]; given: TaskCardRow[]; left: number; access: "full" | "own"; people: Person[]; meId: string; today: string }) {
   const t = useT();
@@ -240,10 +244,10 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
         <SelectField label={t("Assign to")} name="assignedToId" defaultValue={v("assignedToId", task?.assignedToId ?? meId)}
           help={access === "full" ? t("Only staff who can sign in are listed.") : t("You can give tasks only to yourself.")}
           error={screenMessage(t, state?.errors?.assignedToId)}
-          options={(access === "full" ? people : me ? [me] : [{ id: meId, name: t("Me") }]).map((p) => ({ value: p.id, label: p.id === meId ? t("Me ({name})", { name: p.name }) : p.name }))} />
+          options={(access === "full" ? people : me ? [me] : [{ id: meId, name: t("Me") }]).map((p) => ({ value: p.id, label: p.id === meId ? t("Me ({name})", { name: p.name }) : p.role ? `${p.name} · ${p.role}` : p.name }))} />
         <div className="grid grid-cols-2 gap-4">
           <TextField label={t("Due date")} name="dueDate" type="date" min={askPast ? undefined : today} defaultValue={v("dueDate", task?.dueDate)} error={screenMessage(t, state?.errors?.dueDate ?? state?.errors?.dueAt)} />
-          <TextField label={t("Time")} name="dueTime" type="time" defaultValue={v("dueTime", task?.dueTime ?? "17:00")} />
+          <TextField label={t("Time")} name="dueTime" type="time" defaultValue={v("dueTime", task?.dueTime)} />
         </div>
         {askPast && (
           <Alert tone="warning" title={t("Due date is before today. Save anyway?")}>{t("It will show as overdue.")}</Alert>
@@ -295,13 +299,29 @@ export function ApprovalsCard({ count, rows }: { count: number; rows: ApprovalCa
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-semibold leading-snug">{a.who}</p>
                     {a.as && <p className="text-[12px] text-ink2">{a.as}</p>}
-                    <p className="text-[12.5px] text-ink3">{a.what}{a.amount ? ` · ${a.amount}` : ""}</p>
+                    <p className="text-[12.5px] text-ink3">
+                      <span className="inline-block align-middle mr-1.5 rounded-md bg-sunken px-1.5 py-px text-[11px] font-semibold text-ink2">{t.any(a.kind)}</span>
+                      {a.what}{a.amount && !a.what.includes(a.amount) ? ` · ${a.amount}` : ""}
+                    </p>
                     {a.why && <p className="text-[12.5px] text-ink2 line-clamp-2">“{a.why}”</p>}
                     <span className="inline-flex items-center gap-0.5 text-brand font-semibold text-[12px] mt-0.5">{t("See details")}<I.ChevronRight size={14} aria-hidden="true" /></span>
                   </div>
                 </Link>
                 <div className="flex gap-2 mt-2 pl-[46px]">
-                  <Button size="sm" variant="soft" icon={I.Check} onClick={() => approve(a)} disabled={pending}>{t("Approve")}</Button>
+                  {/* Money is approved only after a second look (layman loop 2: one click moved money). */}
+                  {a.amount
+                    ? (
+                      <ConfirmButton trigger={<span className="inline-flex items-center gap-1.5"><I.Check size={16} aria-hidden="true" />{t("Approve")}</span>} triggerVariant="soft"
+                        title={t("Approve {amount}?", { amount: a.amount })} confirmLabel={t("Approve {amount}", { amount: a.amount })}
+                        onConfirm={async () => {
+                          const p = await decideAction(a.id, "approve", null);
+                          if (p) return screenMessage(t, p);
+                          setGone((s) => new Set(s).add(a.id));
+                        }}>
+                        {a.what}. {t("This cannot be undone.")}
+                      </ConfirmButton>
+                    )
+                    : <Button size="sm" variant="soft" icon={I.Check} onClick={() => approve(a)} disabled={pending}>{t("Approve")}</Button>}
                   <ButtonLink href={`/approvals/${a.id}?reject=1`} size="sm" variant="ghost">{t("Reject")}</ButtonLink>
                 </div>
               </li>

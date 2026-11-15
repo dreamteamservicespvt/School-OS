@@ -61,7 +61,8 @@ export async function expectedCash(tx: Tx, ctx: SchoolContext, date: Date) {
 async function dayTotals(tx: Tx, ctx: SchoolContext, date: Date) {
   const entries = await tx.dayBookEntry.findMany({ where: { schoolId: ctx.schoolId, date, section: { notIn: ["opening", "transfer"] } }, select: { direction: true, section: true, amountPaise: true } });
   const t = dayBookTotals(entries);
-  return { income: t.income, expense: t.expense, net: t.net, entries: entries.length };
+  // incomeEntries: counted as the Day Book's "Total income" counts them (layman loop 2: "2 entries" against "1 transaction").
+  return { income: t.income, expense: t.expense, net: t.net, entries: entries.length, incomeEntries: t.incomeCount };
 }
 
 /** Days after the Day Book is closed through, up to today, that have entries: they wait to be counted and closed, oldest first. */

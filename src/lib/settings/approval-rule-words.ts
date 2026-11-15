@@ -35,8 +35,16 @@ export function ruleSummary(requestLabel: string, steps: StepDraft[], escalateAf
     });
     parts.push(`above that, ${approver(rest[0] ?? limited[limited.length - 1], names)}`);
   }
-  const later = limited.length === 0 ? rest.slice(1) : rest.slice(1);
-  if (later.length) parts.push(`if not decided in time, it moves to ${later.map((s) => approver(s, names)).join(", then ")}`);
+  // Who it moves to when nobody decides in time: each later step, and last the Principal
+  // (escalateOverdue in src/lib/approvals.ts). Named, so the school knows where a late request lands.
+  const chain: string[] = [];
+  for (const s of steps.slice(1)) {
+    const who = approver(s, names);
+    if (chain[chain.length - 1] !== who) chain.push(who);
+  }
+  const principal = `the ${names.role("principal")}`;
+  if (steps[steps.length - 1].approverRole !== "principal" && chain[chain.length - 1] !== principal) chain.push(principal);
   const days = `${escalateAfterDays} day${escalateAfterDays === 1 ? "" : "s"}`;
-  return `${heading}: ${parts.join("; ")}. Moves on if nobody decides in ${days}.`;
+  const moves = chain.length ? ` If nobody decides in ${days}, it moves to ${chain.join(", then ")}.` : "";
+  return `${heading}: ${parts.join("; ")}.${moves}`;
 }

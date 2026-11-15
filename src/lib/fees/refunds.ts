@@ -38,6 +38,10 @@ export async function requestRefund(tx: Tx, ctx: SchoolContext, input: { payment
   if (p.status !== "POSTED") throw new MoneyProblem("Only a posted payment can be refunded.", "paymentId");
   if (p.cancelApprovalId) throw new MoneyProblem("This payment is waiting to be cancelled.", "paymentId");
   if (input.amountPaise <= ZERO) throw new MoneyProblem("Amount must be more than ₹0.", "amount");
+  // One waiting refund per receipt (layman loop 2: a double tap sent the same refund to Approvals three
+  // times). After it is decided, another part refund can be asked for.
+  const waiting = await tx.refund.findFirst({ where: { paymentId: p.id, status: "WAITING" }, select: { amountPaise: true } });
+  if (waiting) throw new MoneyProblem(`A refund of ${formatRupees(waiting.amountPaise)} from this receipt is already waiting in Approvals. Wait for it to be decided, or withdraw it first.`, "paymentId");
   const max = await refundable(tx, p.id);
   if (input.amountPaise > max) throw new MoneyProblem(`Maximum refund ${formatRupees(max)}`, "amount");
   if (input.reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");

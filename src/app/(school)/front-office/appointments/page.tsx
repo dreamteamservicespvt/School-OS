@@ -108,7 +108,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           <Card className="overflow-hidden">
             <div className="p-3 flex flex-col gap-3 border-b border-line">
               <div>
-                <Chips value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: s.fullName, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
+                <Chips value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: `${s.designation} · ${s.fullName}`, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <SegLinks size="sm" value={dayIso} label="Day" options={[...nextDays.map((d) => ({ value: d, label: dayLabel(d), href: qs(HREF, { staff: keep.staff, day: d === p.todayStr ? null : d }) })),
@@ -130,7 +130,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
               <CardHeader title={isToday ? "Today’s appointments" : `Appointments on ${shortDay(new Date(`${dayIso}T00:00:00Z`))}`} description={`${live} booked · next one first`} icon={CalendarClock}
                 action={p.can.export ? <ExportButton href={qs(`${HREF}/export`, { day: dayIso })} size="sm" /> : undefined} />
               {sorted.length === 0 ? (
-                <Empty icon={CalendarX2} title="No appointments on this day" body="Free slots show on the left. Booked times cannot be booked twice."
+                <Empty icon={CalendarX2} title="No appointments on this day" body="Tap a free time to book it."
                   action={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="px-2 pb-2">

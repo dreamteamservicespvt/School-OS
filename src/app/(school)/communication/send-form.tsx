@@ -85,6 +85,7 @@ const CH: Record<Channel, { icon: LucideIcon; label: string }> = {
   email: { icon: Mail, label: "Email" },
   app: { icon: Bell, label: "App notice" },
 };
+const TPL_HELP: Record<Channel, string> = { whatsapp: "Optional. Used for WhatsApp.", sms: "", email: "Optional. Used for email.", app: "Optional. Used for the app notice." };
 const TYPES = [
   { value: "general", label: "General", category: null },
   { value: "fee", label: "Fees", category: "Fees" },
@@ -283,7 +284,9 @@ export function SendForm({ data }: { data: SendFormData }) {
   const skippedTotal = (live?.skipped ?? []).reduce((a, g) => a + g.count, 0);
   const blocked = !live || n === 0 || Boolean(live.creditProblem) || live.problems.length > 0;
   const sample = live?.samples.length ? live.samples[Math.min(pi, live.samples.length - 1)] : null;
-  const sendLabel = n === 0 ? "Nobody to send to" : emergency ? `Send emergency broadcast to ${fmt(n)}` : when === "now" ? `Send to ${fmt(n)} ${noun}` : `Schedule for ${fmt(n)} ${noun}`;
+  // Every chosen channel in test mode: the button itself says nobody receives it.
+  const allTest = testMode.length > 0 && channels.every((c) => testMode.includes(CH[c].label));
+  const sendLabel = n === 0 ? "Nobody to send to" : allTest && when === "now" ? `Test send to ${fmt(n)} ${noun} (nobody receives)` : emergency ? `Send emergency broadcast to ${fmt(n)}` : when === "now" ? `Send to ${fmt(n)} ${noun}` : `Schedule for ${fmt(n)} ${noun}`;
   // A send that cannot go (nobody reached, a blank that cannot be filled, credits short) cannot be pressed; the reason shows below it.
   const cannotSend = Boolean(live) && whoReady && blocked;
   const serverMessage = state && !state.ok ? state.message : null;
@@ -521,7 +524,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 {channels.map((c) => (
                   <FieldShell key={c} label={channels.length > 1 ? `${CH[c].label} template` : "Template"} id={c === "sms" ? "send-sms" : `send-tpl-${c}`} required={c === "sms"}
                     error={tried && c === "sms" ? err.sms : undefined}
-                    help={c === "sms" ? (templatesFor("sms").length ? "Only templates with a DLT template ID are offered for SMS" : undefined) : "Optional for WhatsApp, email and app"}>
+                    help={c === "sms" ? (templatesFor("sms").length ? "Only templates with a DLT template ID are offered for SMS" : undefined) : TPL_HELP[c]}>
                     <select id={c === "sms" ? "send-sms" : `send-tpl-${c}`} value={tpl[c] ?? ""} className={cx(inputCls(tried && c === "sms" && err.sms), "h-11 pr-9")}
                       onChange={(e) => { const v = e.target.value; setTpl({ ...tpl, [c]: v }); const t = data.templates.find((x) => x.id === v); if (t?.subject && !title) setTitle(t.subject); touch(); }}>
                       <option value="">{c === "sms" ? "Choose an SMS template" : "None, type my own message"}</option>

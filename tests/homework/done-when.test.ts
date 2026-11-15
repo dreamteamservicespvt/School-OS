@@ -84,7 +84,7 @@ describe("setting homework", () => {
     expect(words).toMatch(/^Homework sent to .+ \(30 students\)\./);
     expect(words).not.toMatch(/WhatsApp\.$|get it on WhatsApp/);
     expect(words).toMatch(/Parents were not messaged/);
-    expect(givenWords([{ sectionLabel: "5 A", students: 2, notified: 1, parents: "sent" }])).toBe("Homework sent to 5 A (2 students). 1 student notified in the app. Parents were messaged.");
+    expect(givenWords([{ sectionLabel: "5 A", students: 2, notified: 1, parents: "sent" }])).toBe("Homework sent to 5 A (2 students). Parents were messaged. 1 student also got it in the app.");
     expect(givenWords([{ sectionLabel: "5 A", students: 2, notified: 0, parents: "failed" }])).toMatch(/homework is saved, but students and parents could not be told/);
   });
 

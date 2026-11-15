@@ -18,6 +18,8 @@ import { CONSENT_TYPES, LANGUAGES, RELATIONS } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
 import { studentScope } from "@/lib/students/access";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
+import { visibleChildNames } from "../guardians/load";
+import { phoneShow } from "@/lib/students/show";
 
 const profile = (id: string) => `${BASE}/students/${id}`;
 const MERGE_OTHER_CAMPUS = "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.";
@@ -167,11 +169,16 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
   if (restricted && !can.seeRestricted) return { ok: false, message: "Only the School Admin or Principal can set a custody or access restriction.", errors: { restricted: "Only the School Admin or Principal can set this." }, values };
   if (restricted && !restriction) return { ok: false, message: "Write the restriction note.", errors: { restriction: "Write the restriction note." }, values };
   let savedId = guardianId;
+  let saved = "Parent details saved.";
   try {
     await withSchool(current.ctx, async (tx) => {
       if (guardianId) {
         await visibleGuardian(tx, current, guardianId);
-        await updateGuardian(tx, current.ctx, guardianId, input, { sendLinkToNewPhone: sendLink });
+        const before = await tx.guardian.findFirst({ where: { id: guardianId }, select: { phone: true } });
+        const after = await updateGuardian(tx, current.ctx, guardianId, input, { sendLinkToNewPhone: sendLink });
+        // Layman loop 2: say the new phone and that it is for every child of this parent.
+        const kids = (await visibleChildNames(tx, current, guardianId)).length;
+        if (before && before.phone !== after.phone) saved = `Phone changed to ${phoneShow(after.phone)}${kids > 1 ? ` for ${kids === 2 ? "both" : `all ${kids}`} children` : ""}.`;
         return;
       }
       if (studentId) await loadVisibleStudent(tx, current, studentId);
@@ -188,7 +195,7 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
     }
     return attemptForm(values, async () => { throw e; });
   }
-  await flash({ message: guardianId ? "Parent details saved." : studentId ? `${input.name} added and linked.` : `${input.name} added.` });
+  await flash({ message: guardianId ? saved : studentId ? `${input.name} added and linked.` : `${input.name} added.` });
   revalidatePath(`${BASE}/guardians`);
   redirect(studentId ? profile(studentId) : `${BASE}/guardians/${savedId}`);
 }

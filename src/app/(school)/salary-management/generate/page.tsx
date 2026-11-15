@@ -12,6 +12,7 @@ import { runsOnCampus } from "@/lib/salary/campus";
 import { staffWithoutStructure, addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
+import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { Banner, DL, Empty, Split, Col, Stack, Stats, Toolbar } from "@/components/money/kit";
 import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/money/url-filters";
@@ -125,6 +126,9 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const name = (id: string) => staffOf.get(id)?.fullName ?? "Staff";
   const waiting = data.allRuns.filter((r) => r.status === "WAITING");
   const yearRuns = data.runs.length;
+  // A month still running: the days after today are not in yet, so the pay is an estimate (layman loop 2).
+  const partMonth = Boolean(run && (status === "OPEN" || status === "CALCULATED") && lastOfMonth(run.month) > p.today);
+  const thisMonthOpen = data.allRuns.some((r) => r.month.getTime() === thisMonth.getTime());
 
   const rows = data.lines
     .filter((l) => !q || [staffOf.get(l.staffId)?.fullName, staffOf.get(l.staffId)?.staffCode, staffOf.get(l.staffId)?.designation].some((x) => x?.toLowerCase().includes(q)))
@@ -145,12 +149,18 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       <SalaryHead pageName="Generate Salary" href={HREF} sub={sub}
         actions={<ButtonLink href={here({ do: "open-month" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink>} />
       <Stack>
+        {/* This month is not open yet: say so at the top, with the way to open it (layman loop 2). */}
+        {run && !thisMonthOpen && p.change && (
+          <Banner tone="info" icon={CalendarPlus} title={`${monthName(thisMonth)}:`} action={<ButtonLink href={here({ do: "open-month" })} scroll={false} size="sm" variant="primary" icon={CalendarPlus}><Words k="Open" /></ButtonLink>}>
+            <Words k="not opened yet." />
+          </Banner>
+        )}
         <Stats items={[
           { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: `${p.campuses.length > 1 && campus ? `${campus.name} · ` : ""}${data.run && data.run.month.getTime() !== thisMonth.getTime() ? `${monthName(data.run.month)} · ` : ""}${data.missing.length ? `${data.missing.length} missing · ${someNames(data.missing.map((s) => s.fullName), 2)}` : "Everyone has one"}`, tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
           { label: "Runs this year", value: String(yearRuns), sub: data.runs.length ? `${monthName(data.runs[data.runs.length - 1].month).split(" ")[0]} to ${monthName(data.runs[0].month)}` : per.label, icon: CalendarRange },
           { label: "Waiting for approval", value: String(waiting.length), sub: waiting.length ? waiting.map((r) => monthName(r.month)).join(", ") : "Nothing waiting", tone: waiting.length ? "warn" : undefined, icon: Hourglass },
           money
-            ? { label: `${run ? monthName(run.month).split(" ")[0] : "This month"} net pay`, value: run ? formatRupeesShort(run.netPaise) : "—", sub: run ? `${amt(run.netPaise)} · ${run.staffCount} staff` : "No month open yet", icon: Wallet }
+            ? { label: `${run ? monthName(run.month).split(" ")[0] : "This month"} net pay`, value: run ? formatRupeesShort(run.netPaise) : "—", sub: run ? (partMonth ? `Estimate · attendance up to ${dayShort(p.today)}` : `${amt(run.netPaise)} · ${run.staffCount} staff`) : "No month open yet", icon: Wallet }
             : { label: "Loss of pay", value: `${dayNum(lopTotal)} ${lopTotal === 1 ? "day" : "days"}`, sub: `${lopLines.length} staff · ${run ? monthName(run.month) : "this month"}`, tone: lopTotal ? "bad" : undefined, icon: CalendarX2 },
         ]} />
 
@@ -171,7 +181,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                 </div>
                 <RunSteps status={status} />
                 <div className="px-5 pb-4 flex flex-col gap-3">
-                  {(status === "OPEN" || status === "CALCULATED") && run.calculatedAt && <Banner tone="info"><Words k="Attendance and approved leave up to" /> <b className="font-semibold">{formatDateTime(run.calculatedAt, p.tz)}</b> <Words k="are in. They keep coming in by themselves until the month is sent for approval." /></Banner>}
+                  {(status === "OPEN" || status === "CALCULATED") && run.calculatedAt && <Banner tone="info"><Words k="Attendance and approved leave up to" /> <b className="font-semibold">{formatDateTime(run.calculatedAt, p.tz)}</b> <Words k="are in. They keep coming in by themselves until the month is sent for approval." />{partMonth && <> <b className="font-semibold"><Words k="Until the month ends, the pay is an estimate." /></b></>}</Banner>}
                   {status === "OPEN" && !run.calculatedAt && <Banner tone="info"><Words k="Not worked out yet. Calculate to bring in attendance, leave and structures." /></Banner>}
                   {status === "CALCULATED" && run.sentBackReason && <Banner tone="bad" title="Sent back:">{run.sentBackReason}</Banner>}
                   {status === "WAITING" && data.approval && <Banner tone="warn" title={`Sent by ${data.approval.sentBy}${run.sentAt ? ` · ${formatDateTime(run.sentAt, p.tz)}` : ""}.`}>{data.approval.can ? "Check the totals and approve, or send it back with a reason." : `Waiting for ${data.approval.approver}. Amounts cannot change now unless it is sent back.`}</Banner>}
@@ -211,7 +221,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
 
               {(status === "OPEN" || status === "CALCULATED") && (negative.length + noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
                 <Card>
-                  <CardHeader title="Check before sending" description="They do not stop sending." icon={ListChecks} />
+                  <CardHeader title="Check before sending" description={negative.length ? "Fix the red one first. The rest are only warnings." : "Warnings only. You can still send it."} icon={ListChecks} />
                   <ul className="divide-y divide-line/70 border-t border-line/70">
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
@@ -291,8 +301,16 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                             <b className="font-semibold">{d.label}</b> <span className="text-ink3">· {d.payee}</span>
                             <span className="block text-[12.5px] text-ink3 tnum">
                               {d.schoolShare > ZERO ? `Staff ${amt(d.staffShare)} + school ${amt(d.schoolShare)}` : STATUTORY_WORDS[d.kind].parts}
-                              {d.paid > ZERO ? ` · paid ${amt(d.paid)}` : ""}{d.balance > ZERO && d.dueDate ? ` · due by ${formatDate(d.dueDate)}` : ""}
+                              {d.paid > ZERO ? ` · paid ${amt(d.paid)}` : ""}
                             </span>
+                            {/* The due date on its own line, never broken, with Overdue or Due today (layman loop 2). */}
+                            {d.balance > ZERO && d.dueDate && (
+                              <span className="flex items-center gap-1.5 flex-wrap text-[12.5px] text-ink3 mt-0.5">
+                                <span className="whitespace-nowrap tnum"><Words k="Due by" /> {formatDate(d.dueDate)}</span>
+                                {d.overdue ? <Pill tone="bad" className="!h-[20px] !text-[11px]"><Words k="Overdue" /></Pill>
+                                  : d.dueDate.getTime() === p.today.getTime() ? <Pill tone="warn" className="!h-[20px] !text-[11px]"><Words k="Due today" /></Pill> : null}
+                              </span>
+                            )}
                           </span>
                           {d.balance > ZERO ? (
                             <span className="flex items-center gap-2 shrink-0">

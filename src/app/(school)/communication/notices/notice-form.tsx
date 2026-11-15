@@ -7,7 +7,8 @@ import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { saveNoticeAction, type NoticeState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { Words } from "@/lib/i18n/client";
+import { Dialog } from "@/components/ui/dialog";
+import { useT, Words } from "@/lib/i18n/client";
 import { DateInput, DateTimeInput } from "@/components/ui/date-input";
 
 export type NoticeFormData = {
@@ -52,6 +53,15 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const approval = (parents && data.needsApproval.parents) || data.needsApproval.all;
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, "Notice");
+  const t = useT();
+  const [wa, setWa] = useState(v.channels.includes("whatsapp"));
+  // Publishing goes to everyone chosen at once, so it asks first (P4); a draft or "Send for approval" does not.
+  const [confirm, setConfirm] = useState<{ fd: FormData; to: string; by: string } | null>(null);
+
+  function send(f: FormData) {
+    draft.done();
+    startTransition(() => action(f));
+  }
 
   function check(e: React.FormEvent<HTMLFormElement>) {
     const f = new FormData(e.currentTarget);
@@ -71,8 +81,16 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
     }
     // Sent by hand, so what was typed stays on screen if the server finds a problem (P7).
     f.set("intent", intent.current);
-    draft.done();
-    startTransition(() => action(f));
+    if (intent.current === "publish" && !approval) {
+      const kinds = [parents && t("Parents"), students && t("Students"), staff && t("Staff")].filter(Boolean).join(", ");
+      const picked = f.getAll("classIds").length + f.getAll("sectionIds").length > 0;
+      const where = !(parents || students) ? "" : picked ? t("Chosen classes") : data.wholeSchool ? t("Whole school") : t("Your sections");
+      const chosen = new Set(f.getAll("channels").map(String));
+      const by = CHANNELS.filter((c) => c.fixed || chosen.has(c.key) || (c.key === "parent-link" && parents)).map((c) => t.any(c.label)).join(", ");
+      setConfirm({ fd: f, to: where ? `${kinds} · ${where}` : kinds, by });
+      return;
+    }
+    send(f);
   }
 
   return (
@@ -120,7 +138,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} /><Words k="Staff" /></label>}
           </div>
           {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
-          {parents && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
+          {parents && wa && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
@@ -177,11 +195,13 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <div className="flex flex-wrap gap-x-5">
             {CHANNELS.map((c) => (
               <label key={c.key} className="flex min-h-11 items-center gap-2">
-                <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box} />
+                <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box}
+                  onChange={c.key === "whatsapp" ? (e) => setWa(e.target.checked) : undefined} />
                 {c.label}{c.fixed ? " (always)" : c.key === "parent-link" && parents ? " (always for parents)" : ""}
               </label>
             ))}
           </div>
+          {parents && !wa && <p className="text-sm font-medium text-warn"><Words k="Parents without Parent Link will not get this. Tick WhatsApp to reach everyone." /></p>}
           <p className="text-sm text-ink3"><Words k="Messages use the notice template and your credits." /></p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -219,6 +239,20 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <Words k="Save draft" />
         </Button>
       </div>
+
+      <Dialog open={Boolean(confirm)} onClose={() => setConfirm(null)} title={t("Publish this notice?")}
+        sub={t("Messages cannot be unsent. Archive takes it off the board and Parent Link.")}
+        footer={<>
+          <Button variant="secondary" onClick={() => setConfirm(null)}><Words k="Go back" /></Button>
+          <Button loading={pending} loadingText="Saving" onClick={() => { if (confirm) send(confirm.fd); setConfirm(null); }}><Words k="Publish" /></Button>
+        </>}>
+        {confirm && (
+          <ul className="flex flex-col gap-2 text-[14px]">
+            <li><b className="font-semibold"><Words k="Audience" />:</b> {confirm.to}</li>
+            <li><b className="font-semibold"><Words k="Channels" />:</b> {confirm.by}</li>
+          </ul>
+        )}
+      </Dialog>
     </form>
   );
 }

@@ -53,7 +53,12 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
 
   const f = params.filters;
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;
-  const studying = data.tiles.reduce((n, t) => n + t.total, 0);
+  const anyFilterIn = (x: typeof params) => Boolean(x.q || Object.keys(x.filters).some((k) => k !== "campus") || x.archived);
+  const inClasses = data.tiles.reduce((n, t) => n + t.total, 0);
+  // Layman loop 2: the head count, the chips and the list footer count the same students;
+  // studying students with no class this year get their own chip (the list's "section=none").
+  const noClass = !anyFilterIn(params) ? Math.max(0, data.total - inClasses) : f.section === "none" ? data.total : 0;
+  const studying = !anyFilterIn(params) ? data.total : inClasses;
   const show = new Set((settings.listColumns.length ? settings.listColumns : LIST_COLUMNS.map((c) => c.key)).filter((k) => fieldAllowed(k, ab)));
   const feeCol = data.shows.fees;
   // The Result column once the year's final results are published (for people who see them).
@@ -110,12 +115,14 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   if (params.archived) filtersInUrl.set("archived", "1");
   const anyFilter = Boolean(params.q || Object.keys(f).length || params.archived);
   const ownNote = ab.reach === "own" ? `Your classes: ${data.tiles.flatMap((t) => t.sections.map((s) => classShort(t.name, s.name))).join(", ") || "none yet"}` : null;
+  // A search by phone shows the parent's phone on the phone cards, so the match is visible (layman loop 2).
+  const byPhone = show.has("phone") && (params.q ?? "").replace(/\D/g, "").length >= 4;
   const moreHref = data.rows.length < data.total ? listHref(BASE, params, { n: shownCount + STEP, page: null }) : null;
 
   return (
     <>
       <StudentsHead page="Student List" href={BASE}
-        sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}` : "No academic year is open"}
+        sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}${noClass && f.section !== "none" ? ` · ${noClass} not in a class` : ""}` : "No academic year is open"}
         actions={<>
           {ab.manage && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden"><Words k="Import" /></ButtonLink>}
           {ab.exportList && (
@@ -158,10 +165,11 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       {!year && <Banner tone="warn" className="mb-4" title="No academic year is open."><Words k="Students have no class until the year is opened in" /> <Link className="font-semibold underline" href="/academic-management"><Words k="Academic Management" /></Link>.</Banner>}
 
       {data.tiles.length > 0 && (
-        <Chips label="Students by class" value={f.class ?? "all"} options={[
+        <Chips label="Students by class" value={f.section === "none" ? "none" : f.class ?? "all"} options={[
           // One class with students: "All" would be the same list under a second name, so only the class chip shows.
-          ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: studying, href: href({ class: null, section: null }) }]),
+          ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: inClasses, href: href({ class: null, section: null }) }]),
           ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
+          ...(noClass ? [{ value: "none", label: "Not in a class", count: noClass, href: href({ class: null, section: "none" }) }] : []),
         ]} />
       )}
       {curClass && curClass.sections.length > 0 && (
@@ -197,7 +205,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
             const g = mainGuardian(s);
             return {
               title: s.fullName, avatar: s.fullName, avatarSrc: show.has("photo") ? s.photo : null,
-              sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name].filter(Boolean).join(" · "),
+              sub: [s.sectionLabel || "No class", s.enrolments[0]?.rollNo ? `Roll ${s.enrolments[0].rollNo}` : null, g?.guardian.name, byPhone && g ? phoneShow(g.guardian.phone) : null].filter(Boolean).join(" · "),
               pills: [
                 feePill(s, cardPill),
                 resultCol ? resultPill(s, cardPill) : null,

@@ -21,7 +21,7 @@ import { BASE, certificatesPage, todayIso, NO_ACCESS } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { requestCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
-import { ForTypes, IssueLabel } from "./type-aware";
+import { ForTypes, IssueLabel, PurposeField } from "./type-aware";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -78,9 +78,9 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
               <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
             </>}>
             <StudentPicker name="studentIds" label={data.students.length > 1 ? "Students" : "Student"} multiple={data.students.length > 1 || !sp.student} initial={data.students.map((s) => ({ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: "" }))}
-              anyStatus sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} help="One certificate each. Not for a TC." />
+              anyStatus sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} help="Each ticked student gets their own certificate. A TC is one student at a time." />
             <FormSelect name="type" label="Certificate type" required defaultValue={type} options={types.map((t) => ({ value: t, label: CERTIFICATE_LABEL[t] }))} />
-            <FormText name="purpose" label="Purpose" maxLength={200} help="Needed for a bonafide certificate" />
+            <PurposeField first={type} />
             <FormText name="issueDate" label="Date of issue" type="date" required defaultValue={todayIso(tz)} />
             {data.signatories.length > 0 && <FormSelect name="signatoryId" label="Signatory" required defaultValue={defaultSig} options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />}
             <ForTypes types={["TC", "CHARACTER"]} first={type}>

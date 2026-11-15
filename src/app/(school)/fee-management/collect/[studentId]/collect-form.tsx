@@ -101,6 +101,12 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   // The fee a part payment leaves unpaid: rows are paid oldest first, so it is the last ticked one when the rest fits on it.
   const lastTicked = [...rows].reverse().find((r) => ticked.has(r.id) && !waive.has(r.id));
   const leftOn = partial && lastTicked && owed - amt + discountPaise <= lastTicked.balance ? `${lastTicked.head} · ${lastTicked.label}` : null;
+  // A part payment's split on the rows before saving, oldest first (layman loop 2). Only without a discount or waiver, where the split is plain.
+  const split = new Map<string, number>();
+  if (partial && discountPaise === 0 && waiveTotal === 0) {
+    let left = amt;
+    for (const r of rows) if (ticked.has(r.id)) { const take = Math.min(left, r.balance); split.set(r.id, take); left -= take; }
+  }
 
   // A refusal stops showing once the discount it was about changes (QA issue 30).
   const [hideFor, setHideFor] = useState<unknown>(null);
@@ -164,7 +170,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       <div className="flex flex-col gap-5 min-w-0">
         {studentCard}
         <Card className="overflow-hidden">
-          <CardHeader title="What is being paid" description="Due rows are ticked for you"
+          <CardHeader title="What is being paid" description={ticked.size ? "Due rows are ticked for you" : "Tick the rows being paid"}
             action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} <Words k="paid" /></button> : null} />
           {open.length === 0 ? (
             <Empty icon={PartyPopper} title="All fees paid for this year" body={`${firstName} has nothing due. ${nextDueText}`} />
@@ -184,7 +190,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                         <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>
                       </div>
                       <Pill tone={DUE_WORD[r.status].tone} className="hidden sm:inline-flex">{DUE_WORD[r.status].label}</Pill>
-                      <span className="w-24 text-right font-semibold tnum text-[15px]">{inr(isPaid ? r.net : r.balance)}</span>
+                      <span className="w-24 text-right tnum">
+                        <span className="block font-semibold text-[15px]">{inr(isPaid ? r.net : r.balance)}</span>
+                        {on && split.has(r.id) && <span className={cx("block text-[12px]", split.get(r.id)! >= r.balance ? "text-ok" : "text-warn")}>{split.get(r.id)! >= r.balance ? <Words k="paid in full" /> : split.get(r.id)! > 0 ? <>{inr(split.get(r.id)!)} <Words k="now" /></> : <Words k="stays due" />}</span>}
+                      </span>
                     </div>
                   </li>
                 );

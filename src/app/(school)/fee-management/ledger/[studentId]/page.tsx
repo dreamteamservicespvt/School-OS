@@ -130,6 +130,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const close = here();
   const first = card.name.split(" ")[0];
   const balance = L.balanceNow;
+  const notYet = L.comingUp.reduce((s, r) => s + r.amount, ZERO);
   const inRange = (d: Date) => !per.from || !per.to || (d >= per.from && d <= per.to);
   const entries = L.entries.filter((e) => inRange(e.date));
   const forward = per.from ? L.entries.filter((e) => e.date < per.from!).at(-1)?.balance ?? ZERO : null;
@@ -201,9 +202,10 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               </div>
             ) : <div key={`x${i}`} className="bg-surface" />)}
             <div className="bg-surface px-4 md:px-5 py-3 min-w-0 col-span-3 lg:col-span-1">
-              <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · balance now" /></p>
+              <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · due now" /></p>
               <p className="text-[15px] font-semibold tnum mt-0.5">{formatRupees(L.yearTotal)} · <span className="text-ok">{formatRupees(L.paidTotal)}</span> · <span className={balance > ZERO ? "text-bad" : "text-ok"}>{formatRupees(balance)}</span></p>
-              <p className="text-[12px] text-ink3"><Words k="Balance includes late fees and dues raised so far" /></p>
+              {/* The gap between year total, paid and due now, spelled out (layman loop 2). */}
+              <p className="text-[12px] text-ink3 tnum">{notYet > ZERO ? <><Words k="Not due yet" /> {formatRupees(notYet)}</> : <Words k="Balance includes late fees and dues raised so far" />}</p>
             </div>
           </div>
         </Card>
@@ -449,7 +451,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           }))} />
       )}
 
-      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} />}
+      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} stillDue={formatRupees(balance)} />}
       {data.cancel && data.cancel.status === "POSTED" && canEdit && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={here({ pay: data.cancel.id })} doneHref={close}
           needsOk={p.settings.cancelPastApproval && data.cancel.date < today} approver="the principal" />
@@ -478,7 +480,8 @@ function StatementRow({ e, href, tz }: { e: LedgerEntry; href: string | null; tz
         </p>
         <p className="text-[12.5px] text-ink3">{isCx ? `${e.cancelled!.reason} · cancelled ${formatDate(e.cancelled!.when, tz)} · stays on record` : e.sub}</p>
       </td>
-      <td className="px-3 py-2.5 font-mono text-[12px] text-ink2 whitespace-nowrap">{e.ref || "—"}</td>
+      {/* The receipt number opens the receipt (layman loop 2: it looked like plain text). */}
+      <td className="px-3 py-2.5 font-mono text-[12px] text-ink2 whitespace-nowrap">{href && e.ref ? <Link href={href} scroll={false} className="relative z-10 text-brand underline-offset-2 hover:underline">{e.ref}</Link> : e.ref || "—"}</td>
       <td className="px-3 py-2.5 text-right tnum">{e.debit > ZERO ? formatRupees(e.debit) : ""}</td>
       <td className={cx("px-3 py-2.5 text-right tnum", e.credit > ZERO && "text-ok", off && "line-through !text-ink3")}>{e.credit > ZERO ? formatRupees(e.credit) : ""}</td>
       <td className="pl-3 pr-5 py-2.5 text-right tnum font-semibold">{formatRupees(e.balance)}</td>

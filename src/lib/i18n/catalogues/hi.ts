@@ -15657,4 +15657,9 @@ export const hi: Catalogue = {
   "Each gets its number now. Parents are told by message.": "हर एक को अभी उसका नंबर मिलता है। अभिभावकों को संदेश से बताया जाता है।",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar.": "हर पंक्ति में एक चीज़। इकाई के लिए कोई डैश नहीं, अध्याय के लिए एक डैश, पाठ के लिए दो, विषय के लिए तीन। योजना की अंतिम तारीख़ एक बार (|) के बाद लिखें।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Not brought in from your file:": "आपकी फ़ाइल से नहीं लिया गया:",
+  "To bring one in, choose it for a column above.": "किसी को लाने के लिए, ऊपर किसी कॉलम के लिए उसे चुनें।",
+  "Salaries go in Salary Management, Salary Structures, which has its own import.": "वेतन Salary Management, Salary Structures में जाता है, जिसका अपना इंपोर्ट है।",
+  "Your old employee code. Leave empty for the next free ID": "आपका पुराना कर्मचारी कोड। अगली खाली ID के लिए खाली छोड़ें",
 };

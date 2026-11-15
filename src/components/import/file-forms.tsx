@@ -198,6 +198,7 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
     return { ...old, [key]: list.filter((x) => x !== undefined) };
   });
   const missing = rows.filter((r) => r.required && !(chosen[r.key] ?? []).length);
+  const unused = headers.map((h, i) => (h.trim() && !used.has(i) ? h.trim() : null)).filter((h): h is string => Boolean(h));
   const options = headers.map((h, i) => ({ value: String(i), label: h }));
   // Only what needs a choice is open (live test 9): needed columns not found yet. Matched columns
   // fold into "Matched" (open it to check the examples); columns not found and not needed wait in "More columns".
@@ -226,6 +227,15 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
           <ul className="divide-y divide-line border-t border-line">{group.map(renderRow)}</ul>
         </details>
       ))}
+      {/* Layman loop 15 Nov (moving in): an old register's "Emp Code" and "Salary" were silently left out; a clerk
+          thought they came in. Name every column of the file that is not brought in. */}
+      {unused.length > 0 && (
+        <p role="status" className="rounded-xl border border-line bg-sunken/60 px-4 py-3 text-sm text-ink-2">
+          <Words k="Not brought in from your file:" /> <b className="text-ink">{unused.join(", ")}</b>.{" "}
+          <Words k="To bring one in, choose it for a column above." />
+          {unused.some((h) => /salary|pay|ctc|wage|basic/i.test(h)) && <> <Words k="Salaries go in Salary Management, Salary Structures, which has its own import." /></>}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <SubmitButton pendingText="Saving…" name="next" value="values"><Words k="Save and continue" /></SubmitButton>
       </div>

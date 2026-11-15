@@ -16213,6 +16213,11 @@ export const EN = [
   "Each gets its number now. Parents are told by message.",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Not brought in from your file:",
+  "To bring one in, choose it for a column above.",
+  "Salaries go in Salary Management, Salary Structures, which has its own import.",
+  "Your old employee code. Leave empty for the next free ID",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

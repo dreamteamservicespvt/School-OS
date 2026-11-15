@@ -55,6 +55,8 @@ defineImport<Row>({
   label: "Staff",
   columns: [
     { key: "fullName", label: "Full name", required: true, example: "Meena Rao", aliases: ["name", "staff name"] },
+    // Layman loop 15 Nov (moving in): an old register's "Emp Code" had nowhere to go, so old codes were lost.
+    { key: "staffCode", label: "Staff ID", example: "T01", help: "Your old employee code. Leave empty for the next free ID", aliases: ["staff id", "staff code", "emp code", "employee code", "emp id", "employee id", "emp no", "employee no"] },
     { key: "phone", label: "Phone", required: true, example: "9876543210", aliases: ["mobile", "phone number"] },
     { key: "designation", label: "Designation", required: true, example: "Teacher", aliases: ["post"] },
     { key: "department", label: "Department", example: "Science" },
@@ -120,7 +122,17 @@ defineImport<Row>({
       const role = await tx.role.findFirst({ where: { schoolId: ctx.schoolId, key: designation.defaultRoleKey, isEnabled: true, archivedAt: null }, select: { id: true } });
       if (!role) problems.push(`The role for ${designation.name} is switched off in Users & Permissions, so a login cannot be made. Switch it on or put No.`);
     }
+    const code = (row.staffCode ?? "").trim();
+    if (code) {
+      if (!/^[A-Za-z0-9/_-]{1,30}$/.test(code)) problems.push("Staff ID can have letters, numbers, - and / only, up to 30 characters.");
+      else if (seen.has(`s:${code.toLowerCase()}`)) problems.push(`Staff ID ${code} is on another row of the file.`);
+      else {
+        const used = await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, staffCode: { equals: code, mode: "insensitive" } }, select: { fullName: true } });
+        if (used) problems.push(`Staff ID ${code} is used by ${used.fullName}. Change it, or leave it empty for the next free ID.`);
+      }
+    }
     if (problems.length) return { ok: false, problems };
+    if (code) seen.add(`s:${code.toLowerCase()}`);
     seen.add(`p:${phone}`);
     if (email) seen.add(`e:${email}`);
     return {
@@ -131,7 +143,7 @@ defineImport<Row>({
         roleKey: designation!.defaultRoleKey,
         details: {
           fullName: row.fullName.trim(), phone, designation: designation!.name, departmentId, joiningDate: joiningDate!, gender, email,
-          staffCode: null, dateOfBirth, bloodGroup, aadhaar, address: row.address.trim() || null, permanentAddress: null,
+          staffCode: code || null, dateOfBirth, bloodGroup, aadhaar, address: row.address.trim() || null, permanentAddress: null,
           qualification: row.qualification.trim() || null, experienceYears, employmentType: employmentType!, reportingToId: null, campusId: null,
           phoneVerified: false, emailVerified: false, photoFileId: null,
         },

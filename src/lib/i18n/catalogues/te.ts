@@ -15657,4 +15657,9 @@ export const te: Catalogue = {
   "Each gets its number now. Parents are told by message.": "ప్రతిదానికి ఇప్పుడే నంబర్ వస్తుంది. తల్లిదండ్రులకు మెసేజ్ ద్వారా తెలియజేస్తారు.",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar.": "ప్రతి లైన్‌లో ఒకటి. యూనిట్‌కు డాష్ వద్దు, అధ్యాయానికి ఒక డాష్, పాఠానికి రెండు, అంశానికి మూడు. అనుకున్న ముగింపు తేదీని ఒక బార్ (|) తర్వాత రాయండి.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Not brought in from your file:": "మీ ఫైల్ నుంచి తీసుకోనివి:",
+  "To bring one in, choose it for a column above.": "దేన్నైనా తీసుకురావాలంటే, పైన ఒక కాలమ్‌కు దాన్ని ఎంచుకోండి.",
+  "Salaries go in Salary Management, Salary Structures, which has its own import.": "జీతాలు Salary Management, Salary Structures లో వెళ్తాయి; దానికి సొంత ఇంపోర్ట్ ఉంది.",
+  "Your old employee code. Leave empty for the next free ID": "మీ పాత ఉద్యోగి కోడ్. తదుపరి ఖాళీ ID కోసం ఖాళీగా వదలండి",
 };

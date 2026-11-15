@@ -46,6 +46,9 @@ Progress page: see docs/HANDOFF.md (link).
 9. Assistant face: the owner rejected the 3 flat looks and the code-built 3D helper ("worst"); now building a lifelike 3D person with the free TalkingHead engine (loaded from a public CDN, no running cost).
 10. Day-one school data: the test school's 4 students already have fee rows 'Due 14-11-2026' made before the due-date fix; correcting old rows is a one-off data change (owner OK needed). Also: archive the duplicate 'Naresh Kumar' staff record; Hindi/Telugu legal consent texts need owner-approved wording; 'cancel a pass made by mistake' is not in the blueprint.
 11. Setup checklist can now un-tick for live schools (fees for every class, Parent Link for every parent, WhatsApp live): 'I already did this' still works.
+12. Demo data: test names (QA-, L1-L4, LD-, NA-, NC-, Test..., emoji) are on most pages of the test copy, and tests on the live site used real logins, so check the live pages before a demo or keep a clean demo school. In the test copy every child owes fees (re-seed for demos).
+13. Side menu names: a demo visitor asked for shorter names (Fees, Students, Attendance) and a Time Table entry; the blueprint says module names must match exactly, so not changed.
+14. Telugu fee-reminder template says 'pay by {due_date}' even when overdue; changing a WhatsApp template's words means Meta approval again (do with the deploy's template step). Notifications are stored in English; showing each reader's language needs a schema change.
 
 ## Mindsets (one per round, then start over)
 
@@ -93,6 +96,7 @@ Progress page: see docs/HANDOFF.md (link).
 
 | 122-212 | Loop 2: 5 people (clerk, teacher on a phone, accountant, receptionist, principal) used the rebuilt app; 91 findings (docs/qa/layman-loop2-findings.json). 87 fixed by area; plus dashboard money approval confirm, one waiting refund per receipt (triple refund), phone bar steps aside for the keyboard, My leave title, plainer approval titles | All | All | Full suite 2,891 pass (2 load timeouts re-run clean) | c54c1b52 |
 | 213-308 | Loop 3: Telugu-first clerk/teacher, parent on Parent Link, wrong clicks, new school day one, re-check of loop 2; 96 findings (docs/qa/layman-loop3-findings.json). 99 fixes: Parent Link {school} consent text, 2.1 MB page cut to its own words, Due now/Not due yet, class teacher + school WhatsApp; Cancel drops drafts; no blank form on Back; fees not overdue on publish day; setup list honest about test mode; fixed bars stay on screen; 227 Telugu words | All | All | Full suite pass (6 load timeouts re-run clean) | 481ed699 |
+| 309-402 | Loop 4: demo visitor, principal on a phone, month-end accountant, Hindi receptionist, careless user; 94 findings (docs/qa/layman-loop4-findings.json). Marks above the maximum never saved; test mode never priced as credits; bank below zero explained; closed day shown; absent list with staff; approvals Next request; notice quick audiences; one student count; dark band; names must start with a letter; 259 Hindi words | All | All | Full suite 2,892 pass first run | 87d57b54 |
 ### Noted for the next batches
 - Concession form stays open after Apply (loop 2, money): reproduce in the browser; may be shared SheetForm.
 - Shared pieces asked for by loop 2: student picker (parent phone, father's name, close after pick), staff type-to-search picker, action-form error clears when fixed, School holiday WhatsApp template.

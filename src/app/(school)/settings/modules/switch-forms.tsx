@@ -190,7 +190,7 @@ function CharacterChoice({ character, mayEdit, error }: { character: MascotChara
               <span className={cx(mascotStyles.stage, "flex justify-center pt-2 pb-3")}><Mascot character={c} feeling="idle" still className="w-24" /></span>
             </span>
             <span className="flex items-center gap-2 text-sm font-medium">
-              <input type="radio" name="assistantCharacter" value={c} checked={picked === c} disabled={!mayEdit} onChange={() => setPicked(c)} className="size-4 accent-brand" />
+              <KeepCheck type="radio" name="assistantCharacter" value={c} checked={picked === c} disabled={!mayEdit} onChange={() => setPicked(c)} className="size-4 accent-brand" />
               {c === "robot" ? <Words k="Robot" /> : <Words k="Cat" />}
             </span>
           </label>

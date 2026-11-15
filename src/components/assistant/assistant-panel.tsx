@@ -89,6 +89,17 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [lines, busy]);
   useEffect(() => () => { rec.current?.abort(); if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
   useEffect(() => { if (open) panel.current?.focus(); }, [open]);
+  // On a phone the panel fills the screen, so the page behind it stays still (page-lock.tsx);
+  // on a wider screen it sits beside the page, which keeps scrolling.
+  const [covers, setCovers] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const wide = window.matchMedia("(min-width: 768px)");
+    const update = () => setCovers(!wide.matches);
+    update();
+    wide.addEventListener("change", update);
+    return () => wide.removeEventListener("change", update);
+  }, [open]);
 
   /** Stops whatever the reply is doing (speech, mouth, the beat after it). */
   const hush = useCallback(() => {
@@ -227,7 +238,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
         </button>
       )}
       {open && (
-        <section ref={panel} tabIndex={-1} role="dialog" aria-modal="false" aria-label={title} onKeyDown={(e) => { if (e.key === "Escape") closePanel(); }} data-assistant-panel="" data-feeling={feeling}
+        <section ref={panel} tabIndex={-1} role="dialog" aria-modal={covers ? "true" : "false"} data-scroll-lock={covers ? "" : undefined} aria-label={title} onKeyDown={(e) => { if (e.key === "Escape") closePanel(); }} data-assistant-panel="" data-feeling={feeling}
           className={cx(s.panel, "fixed z-50 inset-0 md:inset-auto md:right-4 md:bottom-4 md:top-20 md:w-[440px] lg:w-[min(900px,calc(100vw-2rem))] bg-surface md:border md:border-line md:rounded-[28px] shadow-pop overflow-hidden no-print outline-none")}>
           <header className={cx(s.head, "flex items-center gap-2.5 px-4 h-14 border-b border-line")}>
             {school.logoUrl ? (

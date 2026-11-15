@@ -10,10 +10,13 @@ import { Ellipsis } from "lucide-react";
 import { cx } from "./cx";
 import { buttonClass, type ButtonSize } from "./button";
 import { Floating } from "./floating";
+import { useT } from "@/lib/i18n/client";
 
 export type MenuItem = { label: string; href?: string; /** Runs instead of opening a page; only from a browser component. */ onClick?: () => void; icon?: React.ReactNode; /** A file (PDF): opened directly. */ file?: boolean; tone?: "bad" };
 
-export function MoreMenu({ items, label = "More actions", size = "md", className }: { items: MenuItem[]; label?: string; size?: ButtonSize; className?: string }) {
+export function MoreMenu({ items, label: said = "More actions", size = "md", className }: { items: MenuItem[]; label?: string; size?: ButtonSize; className?: string }) {
+  const t = useT();
+  const label = t.any(said);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -44,10 +47,10 @@ export function MoreMenu({ items, label = "More actions", size = "md", className
       {open && (
         <Floating anchor={ref} panel={panel} focusFirst="[role=menuitem]" id={id} role="menu" aria-label={label} className="w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map((it) => !it.href
-            ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{it.label}</button>
+            ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{t.any(it.label)}</button>
             : it.file
-              ? <a key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</a>
-              : <Link key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</Link>)}
+              ? <a key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{t.any(it.label)}</a>
+              : <Link key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{t.any(it.label)}</Link>)}
         </Floating>
       )}
     </div>

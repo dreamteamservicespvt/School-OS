@@ -22,6 +22,12 @@ import { CLOSING, clock, dayOf, isoOf, longDay, timeSpan } from "./words";
 import { makeT } from "../i18n/server";
 import { dayWords } from "../i18n/dates";
 
+/** "Class teacher, 5 A" / "Mathematics, 6 A–7 B" with the words in the page's language; class names stay. */
+function teacherLabel(t: ReturnType<typeof makeT>, label: string) {
+  const at = label.lastIndexOf(", ");
+  return at < 0 ? t.any(label) : `${label.slice(0, at).split(" and ").map((x) => t.any(x)).join(t.lang === "en" ? " and " : ", ")}, ${label.slice(at + 2)}`;
+}
+
 type Data = {
   consents: EventConsentCardData[];
   ptmCards: PtmCardData[];
@@ -51,7 +57,7 @@ function EventsSection({ data, view }: { data: Data; view: GuardianView }) {
         {data.ptm.map((p) => (
           <li key={p.id} className={row}>
             <Users size={18} className="text-brand mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0"><b className="font-semibold block">{t("PTM: {when}", { when: p.when })}</b><span className="text-[13px] text-ink2">{t("With {teacher} ({label})", { teacher: p.teacher, label: t.any(p.label) })}{p.venue ? `, ${p.venue}` : ""}</span></span>
+            <span className="min-w-0"><b className="font-semibold block">{t("PTM: {when}", { when: p.when })}</b><span className="text-[13px] text-ink2">{t("With {teacher} ({label})", { teacher: p.teacher, label: teacherLabel(t, p.label) })}{p.venue ? `, ${p.venue}` : ""}</span></span>
           </li>
         ))}
         {data.events.map((e) => (
@@ -98,7 +104,12 @@ registerSection<Data>({
 
     // PTMs for the child's class: the booked meeting and, when the school allows it, booking a free time (ptm-parent.ts).
     const cards = (await parentPtms(tx, ctx, { studentId: childId, today: todayIso })).filter((p) => p.parentBooking || p.booked.length);
-    const ptmCards: PtmCardData[] = cards.map((p) => ({ ...p, studentId: childId, child: view.child.firstName }));
+    // Days and teachers' roles in the parent's language here, so the browser needs no word list for them.
+    const ptmCards: PtmCardData[] = cards.map((p) => ({
+      ...p, studentId: childId, child: view.child.firstName, when: dayWords(t, p.when), closesOn: dayWords(t, p.closesOn),
+      teachers: p.teachers.map((x) => ({ ...x, label: teacherLabel(t, x.label) })),
+      booked: p.booked.map((b) => ({ ...b, label: teacherLabel(t, b.label) })),
+    }));
     const carded = new Set(cards.map((p) => p.ptmId));
     const slots = (await tx.ptmSlot.findMany({ where: { studentId: childId, ptm: { archivedAt: null, date: { gte: today } } }, include: { ptm: true }, orderBy: { startMin: "asc" } })).filter((s) => !carded.has(s.ptmId));
     const staff = slots.length ? await tx.staff.findMany({ where: { id: { in: slots.map((s) => s.staffId) } }, select: { id: true, fullName: true } }) : [];

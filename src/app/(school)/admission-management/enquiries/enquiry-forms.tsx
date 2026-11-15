@@ -3,7 +3,7 @@
 // Add and edit an enquiry (02 §2; design: mod-admissions.jsx AddEnquirySheet).
 // The required things now (02 §2 Form fields), the rest folded under More details. The phone is checked
 // for a matching family when the person leaves it (02 Done when 2): Open
-// existing, Add as sibling enquiry, or Cancel.
+// existing, Add as sibling enquiry, or Not now (hides the warning only).
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -52,7 +52,7 @@ function DuplicateBox({ matches, pick, onSibling, onNewFamily, onCancel, sibling
           <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open existing" /></Link>
           <Button size="sm" variant="soft" icon={Users} onClick={onSibling}>{siblingLabel}</Button>
           {onNewFamily && <Button size="sm" variant="secondary" onClick={onNewFamily}><Words k="Different family" /></Button>}
-          <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Cancel" /></Button>
+          <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Not now" /></Button>
         </div>
       )}
     </div>
@@ -106,7 +106,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
       <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We look for a matching family" />
-      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
+      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
         {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}
@@ -148,7 +148,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
         )}
       </MoreDetails>
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="ghost" onClick={onCancel} disabled={pending}><Words k="Cancel" /></Button>
+        <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}><Words k="Cancel" /></Button>
         <Submit busyLabel={mode === "add" ? "Adding…" : "Saving…"} disabled={blockedByMatch}>{mode === "add" ? "Add enquiry" : "Save changes"}</Submit>
       </div>
     </form>
@@ -164,7 +164,12 @@ export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry"
     <>
       <Button variant={variant} size={size} icon={Plus} className={className} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>{label}</Button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. The rest later.">
-        <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => { setOpen(false); router.push(`/admission-management/enquiries?id=${id}`); }} />
+        <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => {
+          setOpen(false);
+          // Opened by its address (?do=add): replace it, so Back never shows an empty form after the save (layman loop 3).
+          const to = `/admission-management/enquiries?id=${id}`;
+          if (startOpen) router.replace(to); else router.push(to);
+        }} />
       </Dialog>
     </>
   );

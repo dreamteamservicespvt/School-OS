@@ -73,7 +73,7 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
 
   return (
     // A long title with no spaces wraps instead of running off the screen (QA LC16).
-    <div className="pb-32 sm:pb-0 min-w-0 [&_h1]:[overflow-wrap:anywhere]">
+    <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
       <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
         crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline"><Words k="Approvals" /></Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>

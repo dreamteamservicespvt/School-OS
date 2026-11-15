@@ -197,7 +197,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
                 })}
               </ul>
             )}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length ? 1 : 0} <Words k="to" /> {rows.length} <Words k="of" /> {rows.length}</div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {from} to {to} of {total}" vars={{ from: rows.length ? 1 : 0, to: rows.length, total: rows.length }} /></div>
           </Card>
         )}
       </div>

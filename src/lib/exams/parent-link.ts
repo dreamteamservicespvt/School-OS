@@ -51,7 +51,8 @@ export async function parentDatesheets(tx: Tx, ctx: SchoolContext, studentIds: s
   return out;
 }
 
-export type ParentReportCard = { studentId: string; yearId: string; year: string; period: string; label: string; publishedOn: string | null };
+/** score: "75.2% · B1" when the report card is for one exam (or the final result), shown on the page without the PDF. */
+export type ParentReportCard = { studentId: string; yearId: string; year: string; period: string; label: string; publishedOn: string | null; score?: string | null };
 
 /** Report cards a guardian can download: only those whose results are all published. */
 export async function parentReportCards(tx: Tx, ctx: SchoolContext, studentIds: string[]): Promise<ParentReportCard[]> {
@@ -65,8 +66,10 @@ export async function parentReportCards(tx: Tx, ctx: SchoolContext, studentIds: 
     if (!year) continue;
     for (const o of await periodsForClass(tx, e.academicYearId, e.classId)) {
       if (!(await periodPublished(tx, e.studentId, o))) continue;
-      const last = await tx.result.findFirst({ where: { studentId: e.studentId, key: { in: o.resultKeys }, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, select: { publishedAt: true } });
-      out.push({ studentId: e.studentId, yearId: e.academicYearId, year: year.name, period: o.key, label: o.label, publishedOn: last?.publishedAt ? formatDate(last.publishedAt) : null });
+      const last = await tx.result.findFirst({ where: { studentId: e.studentId, key: { in: o.resultKeys }, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, select: { publishedAt: true, percent: true, grade: true } });
+      // Only published results reach here (periodPublished); a report card over several exams has no one score.
+      const score = o.resultKeys.length === 1 && last ? [last.percent !== null ? `${Math.round(last.percent * 10) / 10}%` : null, last.grade].filter(Boolean).join(" · ") || null : null;
+      out.push({ studentId: e.studentId, yearId: e.academicYearId, year: year.name, period: o.key, label: o.label, publishedOn: last?.publishedAt ? formatDate(last.publishedAt) : null, score });
     }
   }
   return out.sort((a, b) => b.year.localeCompare(a.year));

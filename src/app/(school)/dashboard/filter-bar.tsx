@@ -35,7 +35,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
       {dates !== null && (
         <div className="flex items-center gap-2">
           <UrlDate param="from" label="From" value={dates.from || dates.to || today} max={dates.to || today} className="sm:w-44" />
-          <span className="text-[13px] text-ink3"><Words k="to" /></span>
+          <span className="text-[13px] text-ink3" aria-hidden="true">–</span>
           <UrlDate param="to" label="To" value={dates.to || today} max={today} className="sm:w-44" />
         </div>
       )}

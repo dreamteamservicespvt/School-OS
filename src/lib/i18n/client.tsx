@@ -4,7 +4,7 @@
 // The page's layout puts <I18nProvider> around the screen with one language's words.
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Lang } from "./languages";
-import { screenMessage } from "./messages";
+import { screenLine } from "./messages";
 import { dayWords } from "./dates";
 import { englishT, translator, type MessageKey, type T, type Vars } from "./t";
 
@@ -42,7 +42,12 @@ export function Words({ k, vars }: { k: MessageKey; vars?: Vars }) {
  * screen's language when the catalogue has them; anything else (a name, a number) as it is.
  */
 export function Any({ text }: { text: string }) {
-  return <>{screenMessage(useT(), text)}</>;
+  return <>{screenLine(useT(), text)}</>;
+}
+
+/** A line of " · " parts or short sentences (a tile's foot, a card's detail), each part in the screen's language. */
+export function Line({ text }: { text: string }) {
+  return <>{screenLine(useT(), text)}</>;
 }
 
 /** A date written in words ("Sat 17 Oct 2026", "Thursday, 22 October") with the day and month names in the screen's language. */

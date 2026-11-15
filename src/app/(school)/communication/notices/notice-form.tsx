@@ -55,6 +55,8 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const draft = useFormDraft(formRef, "Notice");
   const t = useT();
   const [wa, setWa] = useState(v.channels.includes("whatsapp"));
+  // The browser's own file button says "Choose Files / No file chosen" in English: a button in the screen's language instead.
+  const [picked, setPicked] = useState(0);
   // Publishing goes to everyone chosen at once, so it asks first (P4); a draft or "Send for approval" does not.
   const [confirm, setConfirm] = useState<{ fd: FormData; to: string; by: string } | null>(null);
 
@@ -119,12 +121,19 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             <ul className="mb-2 flex flex-wrap gap-2">
               {keep.map((f) => (
                 <li key={f.id} className="inline-flex items-center gap-1 rounded-full bg-sunken/70 py-1 pl-3 pr-1 text-sm">{f.name}
-                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-sunken">×</button>
+                  <button type="button" aria-label={t("Remove {name}", { name: f.name })} onClick={() => setKeep(keep.filter((x) => x.id !== f.id))} className="grid size-8 place-items-center rounded-full hover:bg-sunken">×</button>
                 </li>
               ))}
             </ul>
           )}
-          <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none file:bg-surface file:px-4" />
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="n-files" className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:border-ink3/50 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-brand/15">
+              {t("Choose files")}
+              <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only"
+                onChange={(e) => setPicked(e.target.files?.length ?? 0)} />
+            </label>
+            <span className="text-sm text-ink3" aria-live="polite">{picked ? t("{n} files chosen", { n: picked }) : t("No file chosen")}</span>
+          </div>
           {err("files") ? <p className="mt-1.5 text-[12.5px] text-bad">{err("files")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="PDF or photos, up to 5 files of 10 MB each." /></p>}
         </div>
       </section>
@@ -143,7 +152,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
             <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Classes and sections" /></legend>
-            <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? "Nothing ticked: the whole school." : "Choose your own sections."}</p>
+            <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? t("Nothing ticked: the whole school.") : t("Choose your own sections.")}</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {data.classes.map((c) => (
                 <div key={c.id} className="rounded-xl border border-line p-3">
@@ -184,7 +193,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <div className="flex flex-wrap gap-2">
             {[["NORMAL", "Normal"], ["HIGH", "High"], ...(data.criticalAllowed ? [["CRITICAL", "Critical"]] : [])].map(([k, l]) => (
               <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-bad ring-4 ring-bad/10 bg-bad/10 font-medium text-bad" : k === "HIGH" ? "border-warn bg-warn/10 font-medium text-warn" : "border-brand bg-brand/10 font-medium text-brand") : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`}>
-                <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{l}
+                <input type="radio" name="priority" value={k} checked={priority === k} onChange={() => setPriority(k)} className="sr-only" />{k === "HIGH" ? t("High@@priority") : t.any(l)}
               </label>
             ))}
           </div>
@@ -197,7 +206,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               <label key={c.key} className="flex min-h-11 items-center gap-2">
                 <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box}
                   onChange={c.key === "whatsapp" ? (e) => setWa(e.target.checked) : undefined} />
-                {c.label}{c.fixed ? " (always)" : c.key === "parent-link" && parents ? " (always for parents)" : ""}
+                {t.any(c.label)}{c.fixed ? ` ${t("(always)")}` : c.key === "parent-link" && parents ? ` ${t("(always for parents)")}` : ""}
               </label>
             ))}
           </div>
@@ -250,6 +259,8 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <ul className="flex flex-col gap-2 text-[14px]">
             <li><b className="font-semibold"><Words k="Audience" />:</b> {confirm.to}</li>
             <li><b className="font-semibold"><Words k="Channels" />:</b> {confirm.by}</li>
+            {/* Repeated here, so the clerk sees it at the moment of pressing Publish (layman loop 3). */}
+            {parents && !wa && <li className="font-medium text-warn"><Words k="Parents without Parent Link will not get this. Tick WhatsApp to reach everyone." /></li>}
           </ul>
         )}
       </Dialog>

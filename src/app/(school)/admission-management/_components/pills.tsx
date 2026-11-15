@@ -17,7 +17,7 @@ export function DocPill({ verified, required, className }: { verified: number; r
   return (
     <span className={cx("flex items-center gap-2 w-32", className)}>
       <Progress value={(verified / required) * 100} tone={done ? "ok" : "warn"} className="flex-1" />
-      <span className={cx("text-[12.5px] font-semibold tnum whitespace-nowrap", !done && "text-warn")}>{verified} <Words k="of" /> {required}</span>
+      <span className={cx("text-[12.5px] font-semibold tnum whitespace-nowrap", !done && "text-warn")}><Words k="{n} of {n2}" vars={{ n: verified, n2: required }} /></span>
     </span>
   );
 }

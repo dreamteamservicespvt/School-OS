@@ -18,6 +18,9 @@ const DAY_WORDS: Record<string, string> = { leave: "On leave", absent: "Absent",
 
 export const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
 
+/** Titles a visitor does not come to the desk to meet. */
+const NOT_MET = /\b(driver|conductor|attendant|cleaner|sweeper|gardener|mali|watchman|security guard)\b/i;
+
 type StaffLike = { id: string; fullName: string; designation: string; userLoginId: string | null };
 
 /**
@@ -54,6 +57,8 @@ export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minut
     select: { id: true, fullName: true, designation: true, campusId: true, userLoginId: true, status: true, staffCode: true },
     orderBy: { fullName: "asc" },
   });
+  // Roles a visitor never comes to meet are left out of the list (layman loop 3: drivers and attendants in a list of 42).
+  staff.splice(0, staff.length, ...staff.filter((s) => !NOT_MET.test(s.designation)));
   if (!staff.length) return [];
   // Two staff with the same name and title are told apart by their staff code.
   const seen = new Map<string, number>();

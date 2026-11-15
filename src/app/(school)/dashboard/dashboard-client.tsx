@@ -26,7 +26,7 @@ import type { ApprovalCardRow, TaskCardRow } from "@/lib/dashboard/compose";
 import { decideAction } from "../approvals/actions";
 import { markSeenAction, saveTaskAction, setTaskStatusAction, showSeenAction } from "./actions";
 import { useT } from "@/lib/i18n/client";
-import { screenMessage } from "@/lib/i18n/messages";
+import { screenLine, screenMessage } from "@/lib/i18n/messages";
 
 const icon = (name: string): LucideIcon => ((I as unknown as Record<string, LucideIcon>)[name] ?? I.Circle);
 
@@ -117,11 +117,11 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
                 <div className="flex items-center gap-3.5 px-3 py-3 rounded-xl hover:bg-sunken/70 transition group">
                   <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_BG[n.tone])}><Ic size={19} aria-hidden="true" /></span>
                   <Link href={n.href} className="min-w-0 flex-1">
-                    <p className="font-semibold text-[14.5px] leading-snug">{t.any(n.title)}</p>
-                    <p className="text-[13px] text-ink3 truncate">{t.any(n.detail)}</p>
+                    <p className="font-semibold text-[14.5px] leading-snug">{screenLine(t, n.title)}</p>
+                    <p className="text-[13px] text-ink3 truncate">{screenLine(t, n.detail)}</p>
                   </Link>
                   <button type="button" onClick={() => seen(n)} disabled={pending}
-                    className="grid w-11 h-11 md:w-8 md:h-8 shrink-0 place-items-center rounded-lg text-ink3 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:bg-line/60 transition" aria-label={t("Mark as seen: {title}", { title: t.any(n.title) })} title={t("Mark as seen")}>
+                    className="grid w-11 h-11 md:w-8 md:h-8 shrink-0 place-items-center rounded-lg text-ink3 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:bg-line/60 transition" aria-label={t("Mark as seen: {title}", { title: screenLine(t, n.title) })} title={t("Mark as seen")}>
                     <I.EyeOff size={16} aria-hidden="true" />
                   </button>
                   <ButtonLink href={n.href} size="sm" variant="secondary" className="hidden sm:inline-flex shrink-0">{t.any(n.action)}</ButtonLink>
@@ -244,7 +244,7 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
         <SelectField label={t("Assign to")} name="assignedToId" defaultValue={v("assignedToId", task?.assignedToId ?? meId)}
           help={access === "full" ? t("Only staff who can sign in are listed.") : t("You can give tasks only to yourself.")}
           error={screenMessage(t, state?.errors?.assignedToId)}
-          options={(access === "full" ? people : me ? [me] : [{ id: meId, name: t("Me") }]).map((p) => ({ value: p.id, label: p.id === meId ? t("Me ({name})", { name: p.name }) : p.role ? `${p.name} · ${p.role}` : p.name }))} />
+          options={(access === "full" ? [...(me ? [me] : []), ...people.filter((p) => p.id !== meId)] : me ? [me] : [{ id: meId, name: t("Me") }]).map((p) => ({ value: p.id, label: p.id === meId ? t("Me ({name})", { name: p.name }) : p.role ? `${p.name} · ${p.role}` : p.name }))} />
         <div className="grid grid-cols-2 gap-4">
           <TextField label={t("Due date")} name="dueDate" type="date" min={askPast ? undefined : today} defaultValue={v("dueDate", task?.dueDate)} error={screenMessage(t, state?.errors?.dueDate ?? state?.errors?.dueAt)} />
           <TextField label={t("Time")} name="dueTime" type="time" defaultValue={v("dueTime", task?.dueTime)} />

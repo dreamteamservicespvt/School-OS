@@ -179,7 +179,8 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold"><Words k="Period master" /></h2>
-            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} pageYearId={pageYearId} />
+            <SlotButton workingDays={data.settings.workingDays} nextNumber={Math.max(0, ...teaching.map((s) => s.number)) + 1} pageYearId={pageYearId}
+              nextStart={data.slots.reduce((end, s) => (s.endTime > end ? s.endTime : end), "") || undefined} />
           </div>
           <p className="mb-3 text-sm text-ink-2"><Words k="Periods, breaks and lunch for every Time Table." /></p>
           {data.slots.length === 0 ? <EmptyState title="No periods yet"><Words k="Add Period 1, the breaks and lunch with their times." /></EmptyState> : (

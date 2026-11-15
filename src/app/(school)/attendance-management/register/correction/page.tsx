@@ -71,7 +71,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="The principal approves it. Old marks are kept."
-        actions={<ButtonLink href={back} icon={ArrowLeft}><Words k="Back to the" /> {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
+        actions={<ButtonLink href={back} icon={ArrowLeft}>{forWhom === "staff" ? <Words k="Back to staff attendance" /> : <Words k="Back to the register" />}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
         <Banner tone="bad" title="Not for your role."><Words k="Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong." /></Banner>

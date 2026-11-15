@@ -132,7 +132,7 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
                 <SimpleTable caption={t.any(r.report.name)} minWidth={Math.max(560, tbl.columns.length * 120)} rows={[...tbl.rows.slice(0, SHOW)]}
                   cols={tbl.columns.map((c) => ({ label: t.any(c.label), right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
                   foot={tbl.totals && tbl.rows.length <= SHOW ? tbl.columns.map((c) => t.any(cellText(tbl.totals![c.key], c.kind))) : undefined} />
-                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {tbl.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
+                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first {n} of {total}" vars={{ n: SHOW, total: tbl.rows.length.toLocaleString("en-IN") }} /> <Words k="rows. Export the report for all of them." /></p>}
               </>
             ) : <Empty icon={FileBarChart} title={t.any(tbl.empty ?? "Nothing matches")} />}
             {tbl.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.any(tbl.note)}</p>}

@@ -261,8 +261,8 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
               <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a>
               {can.manage && (
                 <span className="flex gap-0.5">
-                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="up" /></span></ActionButton>}
-                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="down" /></span></ActionButton>}
+                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move {name} up" vars={{ name: e.name }} /></span></ActionButton>}
+                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move {name} down" vars={{ name: e.name }} /></span></ActionButton>}
                   <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost"><Words k="Remove" /></ActionButton>
                 </span>
               )}

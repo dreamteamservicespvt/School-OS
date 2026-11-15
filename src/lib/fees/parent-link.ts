@@ -8,7 +8,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { MoneyProblem } from "./problem";
-import { allDues, dueStatus, totalsOf, advanceHeld } from "./dues";
+import { allDues, dueStatus, totalsOf, advanceHeld, netAmount } from "./dues";
 import { gatewayFor } from "./settings";
 import { createPaymentLink, payPath } from "./online";
 import { renderReceipt, renderTaxInvoice } from "./documents";
@@ -55,6 +55,9 @@ export async function parentLinkFees(tx: Tx, ctx: SchoolContext, guardianId: str
         label: d.label,
         dueDate: d.dueDate,
         balancePaise: d.balancePaise,
+        /** Paid towards this row so far, for "₹7,500 paid of ₹8,000" on a part-paid row. */
+        paidPaise: d.paidPaise,
+        netPaise: netAmount(d),
         status: dueStatus(d, today),
       })),
       receipts: payments

@@ -441,7 +441,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     return <li key={l.id}>{l.included ? <Link href={here({ open: l.staffId })} scroll={false} className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link> : <div className="flex items-center gap-3 px-4 py-3">{body}</div>}</li>;
                   })}
                 </ul>
-                <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {data.lines.length} <Words k="staff · totals above are for all" /> {run.staffCount} <Words k="paid" /></div>
+                <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: data.lines.length }} /> <Words k="staff · totals above are for all" /> {run.staffCount} <Words k="paid" /></div>
               </>
             )}
           </Card>

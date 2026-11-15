@@ -129,7 +129,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
       <Stack>
         <Stats items={[
           { label: "In the building now", value: String(data.inside), sub: data.oldest ? `Oldest since ${clockAt(data.oldest.timeIn, p.tz)}` : "Nobody inside", tone: "ok", icon: Users, href: qs(HREF, { status: "In", view: gate ? "log" : null }), active: view === "log" && status === "In" },
-          { label: "Visitors today", value: String(data.todayCount), sub: data.todayPeople > data.todayCount ? `${data.todayPeople} people with companions` : data.todayCount ? "No companions" : "None yet", icon: IdCard, href: qs(HREF, { view: gate ? "log" : null }), active: view === "log" && status === "all" && isToday },
+          { label: "Visitors today", value: String(data.todayCount), sub: data.todayPeople > data.todayCount ? `${data.todayPeople} people in total` : data.todayCount ? undefined : "None yet", icon: IdCard, href: qs(HREF, { view: gate ? "log" : null }), active: view === "log" && status === "all" && isToday },
           ...(gateLogOn ? [{ label: "Gate entries today", value: String(data.gateToday.length), sub: data.gateToday.length ? [buses && `${buses} school bus${buses === 1 ? "" : "es"}`, vans && `${vans} vehicle${vans === 1 ? "" : "s"}`].filter(Boolean).join(", ") || "People on foot" : "None yet", icon: Car, href: qs(HREF, { view: gate ? null : "gate" }), active: view === "gate" }] : []),
           { label: "Not checked out", value: String(data.expired.length), sub: "Pass expired", tone: data.expired.length ? ("bad" as const) : undefined, icon: TimerOff, href: qs(HREF, { status: "Expired", view: gate ? "log" : null }), active: view === "log" && status === "Expired" },
         ]} />

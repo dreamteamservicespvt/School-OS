@@ -365,6 +365,8 @@ export type Impact = {
   lateFeesMoved: number;
   lateFeesRemoved: number;
   from: Date;
+  /** Nobody follows the structure yet (its first publish for the class). */
+  first: boolean;
   /** The headline (06 §5: "This updates 120 students' unpaid installments from Nov 2026. Paid rows are not changed."). */
   message: string;
   /** What else changes, one plain sentence each. */
@@ -489,7 +491,7 @@ function impactOf(plan: Plan, from: Date, today?: Date): Impact {
   const out: Impact = {
     students: 0, rows: 0, added: 0, removed: 0, kept: 0, adjusted: 0, addedPaise: ZERO, takenOffPaise: ZERO,
     paidBelowPaise: ZERO, paidBelowRows: 0, paidAbovePaise: ZERO, paidAboveRows: 0, lateFeesMoved: 0, lateFeesRemoved: 0,
-    from, message: "", details: [],
+    from, first: plan.followers === 0, message: "", details: [],
   };
   const money = (p: bigint) => { if (p > ZERO) out.addedPaise += p; else out.takenOffPaise -= p; };
   for (const st of plan.students) {
@@ -675,12 +677,17 @@ export async function copyStructure(tx: Tx, ctx: SchoolContext, fromId: string, 
 type InstallmentRow = { id: string; feeHeadId: string; label: string; amountPaise: bigint; dueDate: Date; structureId: string };
 
 /**
- * When a student's row falls due: the installment's date, or the day they join
- * when that is later. A child admitted in November still owes the June term,
- * but it is due on the day they join, never "147 days late" (live test 12, 16).
+ * When a student's row falls due: the latest of the installment's date, the day
+ * they join, and the date the fee version applies from. A child admitted in
+ * November still owes the June term, but it is due on the day they join, never
+ * "147 days late" (live test 12, 16). And a school's first fee, published in
+ * November to apply from 1 December, makes nothing overdue on publish day: the
+ * past quarters fall due on 1 December (layman loop 3).
  */
-export function dueDateForStudent(installmentDue: Date, joiningDate: Date | null | undefined): Date {
-  return joiningDate && joiningDate.getTime() > installmentDue.getTime() ? joiningDate : installmentDue;
+export function dueDateForStudent(installmentDue: Date, joiningDate: Date | null | undefined, appliesFrom?: Date | null): Date {
+  let due = installmentDue;
+  for (const d of [joiningDate, appliesFrom]) if (d && d.getTime() > due.getTime()) due = d;
+  return due;
 }
 
 /** Makes a student's due rows for installments they do not have yet. */
@@ -689,9 +696,10 @@ async function createDues(tx: Tx, ctx: SchoolContext, studentId: string, yearId:
   const existing = await tx.studentFeeDue.findMany({ where: { studentId, installmentId: { in: installments.map((i) => i.id) } }, select: { installmentId: true } });
   const have = new Set(existing.map((e) => e.installmentId));
   const joined = (await tx.student.findUnique({ where: { id: studentId }, select: { joiningDate: true } }))?.joiningDate ?? null;
+  const from = (await tx.feeStructure.findUnique({ where: { id: structureId }, select: { effectiveFrom: true } }))?.effectiveFrom ?? null;
   const data: Prisma.StudentFeeDueCreateManyInput[] = installments.filter((i) => !have.has(i.id)).map((i) => ({
     schoolId: ctx.schoolId, studentId, academicYearId: yearId, installmentId: i.id, structureId, feeHeadId: i.feeHeadId, kind: "FEE",
-    label: i.label, dueDate: dueDateForStudent(i.dueDate, joined), amountPaise: i.amountPaise, balancePaise: i.amountPaise, exceptionReason, createdById: ctx.userId,
+    label: i.label, dueDate: dueDateForStudent(i.dueDate, joined, from), amountPaise: i.amountPaise, balancePaise: i.amountPaise, exceptionReason, createdById: ctx.userId,
   }));
   if (data.length) await tx.studentFeeDue.createMany({ data });
   return data.length;
@@ -714,7 +722,7 @@ export async function hasFeePlan(tx: Tx, studentId: string, yearId: string) {
 /**
  * Assigns a published structure to every student of its class this year who
  * has no fee plan yet (all installments, including past ones; a past one is due on
- * the day the student joined, see dueDateForStudent). Students who
+ * the day the student joined or the date the version applies from, see dueDateForStudent). Students who
  * follow another structure of the year are left as they are.
  */
 export async function assignToClass(tx: Tx, ctx: SchoolContext, structureId: string, categoryFeesOn: boolean) {

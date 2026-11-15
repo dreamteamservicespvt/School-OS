@@ -312,7 +312,10 @@ export function MarksGrid(props: Props) {
           <Alert><Words k="No students sit this paper." /> {gradeOnly ? "" : "If students chose this optional subject, record their choices in Student Management."}</Alert>
         ) : (
           <>
-            <Stats items={[
+            {/* One at a time on a phone: the four cards fold into one line, so the student, the boxes, every key and
+                Next fit on the first screen (layman loop 3). */}
+            {view === "one" && <p className="md:hidden px-1 text-[13px] text-ink3 tnum">{gradeOnly ? <Words k="Graded {n} of {n2}" vars={{ n: done, n2: students.length }} /> : <Words k="Entered {n} of {n2}" vars={{ n: done, n2: students.length }} />} · AB {ab} · ML {ml}</p>}
+            <Stats className={view === "one" ? "hidden md:block" : undefined} items={[
               { label: gradeOnly ? "Graded" : "Entered", value: `${done} of ${students.length}`, tone: done === students.length ? "ok" : undefined, icon: ListChecks },
               { label: "Absent (AB)", value: ab, sub: props.absentRule === "leave-out" ? "Left out of the total" : "Counted as 0 marks", icon: UserX },
               { label: "Medical (ML)", value: ml, sub: "Left out of the total", icon: Stethoscope },
@@ -447,7 +450,7 @@ export function MarksGrid(props: Props) {
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
                 : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
                 : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Not sent to the school yet. Keep this page open, or tap Save now." /></>
-                : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? `All marks saved at ${formatTime(save.at)}` : "Marks save as you type"}</>}
+                : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? <Words k="All marks saved at {time}" vars={{ time: formatTime(save.at) }} /> : <Words k="Marks save as you type" />}</>}
             </p>
             <Button variant="secondary" icon={Save} className="flex-1 sm:flex-none" onClick={() => void flush()} disabled={!dirty.size}><Words k="Save now" /></Button>
             <Button variant="primary" icon={Send} className="flex-1 sm:flex-none" onClick={trySubmit}><Words k="Submit marks" /></Button>
@@ -535,7 +538,8 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   };
   const shown = r.absent ? code(r) : r.grade;
   return (
-    <Card className="p-4 md:p-6 max-w-xl w-full mx-auto">
+    // data-keypad: the phone's bottom menu steps aside while these keys are on screen (src/components/shell/app-shell.tsx).
+    <Card className="p-4 md:p-6 max-w-xl w-full mx-auto" data-keypad={canEdit ? "" : undefined}>
       {/* On a phone the student and the mark box stay in view while the number keys and Next
           are on screen, even on a small phone (TEACHING-14); short screens get smaller keys. */}
       <div className="sticky top-16 z-10 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-2xl bg-surface md:static md:m-0 md:p-0 md:rounded-none">
@@ -543,7 +547,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
           <span className="shrink-0 [@media(max-height:720px)]:hidden"><Avatar name={s.name} size={48} /></span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-[16px] truncate">{s.name}</p>
-            <p className="text-[13px] text-ink3 truncate">{i + 1} <Words k="of" /> {students.length} · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? " · Joined late" : ""}</p>
+            <p className="text-[13px] text-ink3 truncate"><Words k="{n} of {n2}" vars={{ n: i + 1, n2: students.length }} /> · <span className="font-mono text-[12px]">{s.admissionNo}</span>{s.late ? <> · <Words k="Joined late" /></> : ""}</p>
           </div>
           {/* A short "Roll 3" chip, so the name and the line under it are not cut off on a phone (layman loop 2). */}
           <span className={cx(inputCls(), "!h-10 !w-auto relative shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold")}>

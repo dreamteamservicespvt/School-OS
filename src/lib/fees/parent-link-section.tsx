@@ -10,6 +10,8 @@ import { DUE_STATUS_WORDS, modeLabel } from "./words";
 import { Badge } from "@/components/ui/badge";
 import { FeesPayForm, type PayRow } from "@/components/parent-link/fees-pay-form";
 import { makeT } from "../i18n/server";
+import { dayWords } from "../i18n/dates";
+import type { T } from "../i18n/t";
 
 type ChildFees = ParentLinkFees[number];
 const ZERO = BigInt(0);
@@ -40,32 +42,57 @@ registerSection<ChildFees>({
   Render: Receipts,
 });
 
+/**
+ * A fee row's period in the page's language: "Quarter 1 (Apr to Jun)", "Half 2 (Oct to Mar)",
+ * "Year 2026-27", "Apr 2026" and "Term 1" are the words src/lib/fees/schedule.ts writes; a school's
+ * own names stay as they are unless the word list has them.
+ */
+export function feePeriodWords(t: T, label: string): string {
+  if (t.lang === "en" || !label) return label;
+  const part = /^(Quarter|Half) (\d+) \((\w+) to (\w+)\)$/.exec(label);
+  if (part) {
+    const v = { n: part[2], from: dayWords(t, part[3]), to: dayWords(t, part[4]) };
+    return part[1] === "Quarter" ? t("Quarter {n} ({from} to {to})", v) : t("Half {n} ({from} to {to})", v);
+  }
+  const year = /^Year (\d{4}-\d{2})$/.exec(label);
+  if (year) return t("Year {name}", { name: year[1] });
+  const term = /^Term (\d+)$/.exec(label);
+  if (term) return t("Term {n}", { n: term[1] });
+  return dayWords(t, t.any(label));
+}
+
 function FeesDue({ data, view }: { data: ChildFees; view: GuardianView }) {
   const t = makeT(view.lang);
+  // Words in the page's language here, so the browser part needs no word list for them.
   const rows: PayRow[] = data.dues.map((d) => ({
     id: d.id,
-    head: d.head,
-    label: d.label,
+    head: t.any(d.head),
+    label: feePeriodWords(t, d.label),
     dueDate: formatDate(d.dueDate),
     balance: formatRupees(d.balancePaise),
     balancePaise: d.balancePaise.toString(),
-    status: { label: DUE_STATUS_WORDS[d.status]?.label ?? d.status, tone: DUE_STATUS_WORDS[d.status]?.tone ?? "neutral" },
+    paid: d.paidPaise > ZERO ? t("{paid} paid of {total}", { paid: formatRupees(d.paidPaise), total: formatRupees(d.netPaise) }) : null,
+    status: { label: t.any(DUE_STATUS_WORDS[d.status]?.label ?? d.status), tone: DUE_STATUS_WORDS[d.status]?.tone ?? "neutral" },
     ticked: d.status === "OVERDUE" || d.status === "DUE",
   }));
+  // What to pay now (overdue and due soon) apart from what comes later, so the parent and the
+  // office quote the same "fees due" (layman test loop 3).
+  const now = data.dues.filter((d) => d.status === "OVERDUE" || d.status === "DUE").reduce((a, d) => a + d.balancePaise, ZERO);
+  const later = data.totals.balance - now;
   return (
     <div className="space-y-3">
       <dl className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-surface-2 p-2">
-          <dt className="text-xs text-ink-2">{t("Total fees")}</dt>
-          <dd className="font-semibold tabular-nums">{formatRupees(data.totals.total)}</dd>
+          <dt className="text-xs text-ink-2">{t("Due now")}</dt>
+          <dd className={`font-semibold tabular-nums text-[17px] ${now > ZERO ? "text-danger" : ""}`}>{formatRupees(now)}</dd>
+        </div>
+        <div className="rounded-xl bg-surface-2 p-2">
+          <dt className="text-xs text-ink-2">{t("Not due yet")}</dt>
+          <dd className="font-semibold tabular-nums">{formatRupees(later > ZERO ? later : ZERO)}</dd>
         </div>
         <div className="rounded-xl bg-surface-2 p-2">
           <dt className="text-xs text-ink-2">{t("Paid")}</dt>
           <dd className="font-semibold tabular-nums text-success">{formatRupees(data.totals.paid)}</dd>
-        </div>
-        <div className="rounded-xl bg-surface-2 p-2">
-          <dt className="text-xs text-ink-2">{t("Balance")}</dt>
-          <dd className="font-semibold tabular-nums">{formatRupees(data.totals.balance)}</dd>
         </div>
       </dl>
       {data.advance > ZERO && <p className="text-sm text-ink-2">{t("{amount} paid in advance is kept for the next fees.", { amount: formatRupees(data.advance) })}</p>}

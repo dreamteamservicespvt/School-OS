@@ -18,6 +18,7 @@ import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { LinkPanel } from "./link-panel";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -64,7 +65,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   const TONES: Record<string, TimelineItem["tone"]> = { Opened: "ok", Revoked: "bad", "Phone confirmed with a one-time code": "ok", "Wrong one-time code typed": "warn", "Consent given": "ok", Created: "brand" };
   const history: TimelineItem[] = data.history.map((h) => ({
     icon: ICONS[h.what] ?? HistoryIcon, tone: TONES[h.what] ?? "neutral",
-    what: <>{h.what}{h.detail && <span className="text-ink3"> · {h.detail}</span>}{h.messageId && <> · <Link href={`/communication/history/${h.messageId}`} className="text-brand font-semibold hover:underline"><Words k="Delivery" /></Link></>}</>,
+    what: <>{tx(h.what)}{h.detail && <span className="text-ink3"> · {tx(h.detail)}</span>}{h.messageId && <> · <Link href={`/communication/history/${h.messageId}`} className="text-brand font-semibold hover:underline"><Words k="Delivery" /></Link></>}</>,
     when: `${formatDateTime(h.at, tz)} · ${h.by}${h.ip ? ` · ${h.ip}` : ""}`,
   }));
   const details: [string, React.ReactNode][] = [
@@ -82,7 +83,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
       <RecordHead title={guardian.name}
         sub={<>
           <Pill tone={active ? "ok" : "bad"} dot>{active ? "Active" : "Revoked"}</Pill>
-          <Pill tone="neutral">{liveDevices} {liveDevices === 1 ? "phone" : "phones"} <Words k="verified" /></Pill>
+          <Pill tone="neutral">{liveDevices === 1 ? <Words k="1 phone verified" /> : <Words k="{n} phones verified" vars={{ n: liveDevices }} />}</Pill>
           {!link.lastOpenedAt && active && <Pill tone="warn"><Words k="Never opened" /></Pill>}
         </>}
         actions={<>

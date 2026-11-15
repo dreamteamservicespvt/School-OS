@@ -294,7 +294,7 @@ export async function admissionStaff(tx: Tx, ctx: SchoolContext, opts: { allStaf
   const staff = await tx.staff.findMany({
     where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.allStaff ? {} : { userLoginId: { not: null } }), ...(opts.campusId ? { campusId: opts.campusId } : {}) },
     orderBy: { fullName: "asc" },
-    select: { id: true, fullName: true, designation: true, userLoginId: true },
+    select: { id: true, fullName: true, designation: true, userLoginId: true, staffCode: true },
   });
   if (opts.allStaff) return staff.map((s) => ({ ...s, canWork: true }));
   const accesses = await tx.schoolAccess.findMany({

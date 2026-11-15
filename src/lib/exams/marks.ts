@@ -326,6 +326,8 @@ export async function decideModeration(tx: Tx, ctx: SchoolContext, moderationId:
 export type PaperRow = {
   entryId: string; sectionId: string; examId: string; examTitle: string; sectionLabel: string; subjectName: string; date: Date; due: Date | null;
   status: MarksPaperStatus; done: number; of: number; gradeOnly: boolean; waiting: number;
+  /** Students with some marks in but not every part yet (layman loop 3: "0 of 16 entered" yet In progress). */
+  partly: number;
   /** Subject teachers from Teacher Allocation. */
   teachers: { name: string; userId: string | null }[];
 };
@@ -420,10 +422,11 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     // no mark, AB, ML or grade is still Not started (QA LC8; layman loop 2: "In progress" with 0 of 16 entered).
     const hasMark = (m: (typeof marks)[number] | undefined) => Boolean(m && (m.absent || m.total !== null || m.grade
       || Object.values((m.parts ?? {}) as Record<string, unknown>).some((x) => x !== null && x !== undefined)));
-    const status = counts && saved === "IN_PROGRESS" && !students.some((s: RosterStudent) => hasMark(mine.get(s.studentId))) ? "NOT_STARTED" : saved;
+    const started = students.filter((s: RosterStudent) => hasMark(mine.get(s.studentId))).length;
+    const status = counts && saved === "IN_PROGRESS" && started === 0 ? "NOT_STARTED" : saved;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
-      date: entry.date, due: entry.marksDueDate, status, done, of: students.length, gradeOnly: subject.gradeOnly,
+      date: entry.date, due: entry.marksDueDate, status, done, partly: Math.max(0, started - done), of: students.length, gradeOnly: subject.gradeOnly,
       waiting: waitingByEntry.get(entry.id)?._count ?? 0,
       teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };

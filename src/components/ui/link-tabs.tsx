@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 export type LinkTab = { href: string; label: string; count?: number | null; on: boolean };
 
@@ -10,7 +11,7 @@ export function LinkTabs({ tabs, label, className }: { tabs: LinkTab[]; label: s
       {tabs.map((t) => (
         <Link key={t.href} href={t.href} scroll={false} aria-current={t.on ? "page" : undefined}
           className={cx("relative inline-flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition shrink-0", t.on ? "text-brand" : "text-ink2 hover:text-ink")}>
-          {t.label}
+          {tx(t.label)}
           {t.count != null && <span className="ml-1.5 text-xs text-ink3 tnum">{t.count}</span>}
           {t.on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
         </Link>

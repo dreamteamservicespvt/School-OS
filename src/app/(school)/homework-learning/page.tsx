@@ -23,7 +23,8 @@ import { HomeworkHead } from "./_components/homework-head";
 import { FileRow, Ring, SubIcon, subjectIcon, subjectTone } from "./_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type HomeworkPage, type SearchParams } from "./_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, GiveSheet, RemindButton, SubmitSheet, type GiveSection } from "./sheets";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -183,16 +184,16 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                           <p className="font-semibold text-[14.5px] leading-snug hover:underline">{r.title}</p>
                           <p className="text-[12.5px] text-ink3 mt-0.5">{r.subject} <Words k="· Class" /> {r.sectionLabel}{(!mine || !mayWork(s, r)) && r.teacher && ` · ${r.teacher}`}</p>
                         </Link>
-                        {r.archived ? <Pill tone="neutral"><Words k="Archived" /></Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{r.status}</Pill> : dueToday ? <Pill tone="warn"><Words k="Due today" /></Pill> : null}
+                        {r.archived ? <Pill tone="neutral"><Words k="Archived" /></Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{tx(r.status)}</Pill> : dueToday ? <Pill tone="warn"><Words k="Due today" /></Pill> : null}
                       </div>
                       <div>
                         <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> <Words k="assigned," /> <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> <Words k="submitted" /></span><span className="text-ink3 tnum">{r.counts.graded} <Words k="checked" /></span></div>
                         <Progress value={pct(r.counts.submitted, n)} tone={r.status === "Past due" && r.counts.submitted < n ? "warn" : "brand"} />
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-ink3">
-                        <span className="tnum"><Words k="Given" /> {dayDate(r.startDate)} <Words k="· due" /> <b className={cx("font-semibold", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? "today" : dayDate(r.dueDate)}</b></span>
-                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" /><Words k="Seen by" /> {r.seen} <Words k="of" /> {n}</span>}
-                        {p.settings.cardShowsFiles && r.files > 0 && <span className="shrink-0">{plural(r.files, "file")}</span>}
+                        <span className="tnum"><Words k="Given" /> <DayText text={dayDate(r.startDate)} /> <Words k="· due" /> <b className={cx("font-semibold", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? <Words k="today" /> : <DayText text={dayDate(r.dueDate)} />}</b></span>
+                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" /><Words k="Seen by {n} of {total}" vars={{ n: r.seen, total: n }} /></span>}
+                        {p.settings.cardShowsFiles && r.files > 0 && <span className="shrink-0">{tx(plural(r.files, "file"))}</span>}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         {subsOpen
@@ -212,7 +213,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                 columns={[
                   { key: "t", label: "Homework", render: (r) => <div className="flex items-center gap-3"><SubIcon subject={r.subject} size={34} /><div><p className="font-semibold leading-tight">{r.title}</p><p className="text-[12.5px] text-ink3">{r.subject} · {r.sectionLabel}{!mine && r.teacher ? ` · ${r.teacher}` : ""}</p></div></div> },
                   { key: "d", label: "Due", nowrap: true, render: (r) => <span className="tnum">{dayDate(r.dueDate)}</span> },
-                  { key: "c", label: "Handed in", render: (r) => <span className="tnum">{r.counts.submitted} <Words k="of" /> {r.counts.assigned}</span> },
+                  { key: "c", label: "Handed in", render: (r) => <span className="tnum"><Words k="{n} of {n2}" vars={{ n: r.counts.submitted, n2: r.counts.assigned }} /></span> },
                   { key: "p", label: "Seen by parent", render: (r) => <span className="tnum">{r.seen === null ? "—" : `${r.seen} of ${r.counts.assigned}`}</span> },
                   { key: "s", label: "Status", render: (r) => <Pill tone={r.archived ? "neutral" : HW_TONE[r.status]}>{r.archived ? "Archived" : r.status}</Pill> },
                 ]}
@@ -403,7 +404,7 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             footer={can.can ? <div className="flex justify-end gap-2"><ButtonLink href={here({ open: null, submit: h.id })} scroll={false} variant={can.again ? "secondary" : "primary"} icon={can.again ? Repeat : Upload}>{can.again ? "Hand in again" : "Submit"}</ButtonLink></div> : null}>
             <div className="flex flex-col gap-4">
               {h.instructions && <p className="text-[14.5px] text-ink2 leading-relaxed whitespace-pre-line">{h.instructions}</p>}
-              {h.attachments.length > 0 && <ul>{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
+              {h.attachments.length > 0 && <ul>{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Web link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
               {(open.fileIds.length > 0 || open.note) && (
                 <div>
                   <p className="text-[13px] font-semibold text-ink2 mb-1"><Words k="What you handed in" /></p>

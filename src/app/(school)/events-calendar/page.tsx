@@ -67,6 +67,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
 
   // The academic year of the month on screen (for the holiday list).
   const mid = `${month}-15`;
+  // A school in its first year has no last year to copy holidays from.
+  const hasLastYear = Boolean(p.year && data.years.some((y) => y.startDate < p.year!.startDate));
   const yearOnScreen = data.years.find((y) => isoOf(y.startDate) <= mid && isoOf(y.endDate) >= mid) ?? data.years.find((y) => y.id === p.year?.id) ?? null;
 
   const out = await withSchool(ctx, async (tx) => {
@@ -260,7 +262,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         )}
 
         <Card className="overflow-hidden">
-          <CardHeader icon={Sun} title={`Holiday list ${yearLabel}`} description={`${out.holidays.length} holidays and vacations`}
+          <CardHeader icon={Sun} title={`Holiday list ${yearLabel}`} description={`${out.holidays.length} ${out.holidays.length === 1 ? "holiday or vacation" : "holidays and vacations"}`}
             action={p.can.export && yearOnScreen ? <ExportButton href={qs(`${BASE}/export`, { kind: "holidays", year: yearOnScreen.id, campus: campusId || null })} size="sm" /> : undefined} />
           {out.holidays.length ? (
             <div className="overflow-x-auto scroll-thin border-t border-line">
@@ -279,8 +281,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                 </tbody>
               </table>
             </div>
-          ) : <Empty icon={Sun} title="No holidays yet" body={full ? "Add them one by one, import a spreadsheet, or copy last year’s list." : "The school has not added holidays for this year yet."}
-            action={full ? <ButtonLink variant="secondary" icon={History} href={here({ do: "copy" })} scroll={false}><Words k="Copy last year’s holidays" /></ButtonLink> : undefined} />}
+          ) : <Empty icon={Sun} title="No holidays yet" body={full ? (hasLastYear ? "Add them one by one, import a spreadsheet, or copy last year’s list." : "Add them one by one, or import a spreadsheet.") : "The school has not added holidays for this year yet."}
+            action={full && hasLastYear ? <ButtonLink variant="secondary" icon={History} href={here({ do: "copy" })} scroll={false}><Words k="Copy last year’s holidays" /></ButtonLink> : undefined} />}
         </Card>
       </Stack>
 
@@ -288,9 +290,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       {doing === "remove" && removing && <RemoveEntrySheet closeHref={closeHref} entry={removing} />}
       {doing === "copy" && <CopyHolidaysSheet closeHref={closeHref} rows={out.copyRows.map((r) => ({ id: r.id, title: r.title, type: r.type, from: r.from, to: r.to, lastWhen: spanWords(r.lastFrom, r.lastFrom) }))} />}
       {doing === "import" && (
-        <UrlSheet title="Import the holiday list" sub="Copy last year's list with dates to check, or pick a spreadsheet." closeHref={closeHref}>
+        <UrlSheet title="Import the holiday list" sub={hasLastYear ? "Copy last year's list with dates to check, or pick a spreadsheet." : "Pick a spreadsheet."} closeHref={closeHref}>
           <div className="flex flex-col gap-2">
-            <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={History} className="justify-start"><Words k="Copy last year's holidays" /></ButtonLink>
+            {hasLastYear && <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={History} className="justify-start"><Words k="Copy last year's holidays" /></ButtonLink>}
             <ButtonLink href={`${BASE}/import`} variant="secondary" icon={FileSpreadsheet} className="justify-start"><Words k="From a spreadsheet (Excel or CSV)" /></ButtonLink>
           </div>
         </UrlSheet>

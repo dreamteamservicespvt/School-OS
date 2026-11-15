@@ -103,7 +103,7 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
                   <p className="font-semibold">{k + 1}. {q.text}</p>
                   <p className="text-ink2">{yours !== null ? `You: ${yours}` : "Not answered"}
                     {showAnswers && !ok && q.kind !== "SHORT" && q.correctIndex !== null && <span className="text-ok"> <Words k="· Answer:" /> {q.options[q.correctIndex]}</span>}
-                    {q.kind === "SHORT" && typeof manual[q.id] === "number" && <span className="text-ink3"> · {manual[q.id]} <Words k="of" /> {q.marks}</span>}
+                    {q.kind === "SHORT" && typeof manual[q.id] === "number" && <span className="text-ink3"> · <Words k="{n} of {n2}" vars={{ n: manual[q.id], n2: q.marks }} /></span>}
                   </p>
                 </div>
               </li>

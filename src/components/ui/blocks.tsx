@@ -188,7 +188,7 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
           <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
-          <dd className="text-[14.5px] mt-0.5 break-words">{v ?? <span className="text-ink3">Not added</span>}</dd>
+          <dd className="text-[14.5px] mt-0.5 break-words">{v == null ? <span className="text-ink3">{tx("Not added")}</span> : tx(v)}</dd>
         </div>
       ))}
     </dl>

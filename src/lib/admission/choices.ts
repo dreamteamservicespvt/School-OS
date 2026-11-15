@@ -49,6 +49,22 @@ export async function applicationChoices(tx: Tx, current: Who, s: Settings, year
   };
 }
 
+/**
+ * Owners: name (title). Two staff with the same name and title are told apart, the signed-in
+ * person as "you" and listed first, the other by staff code (layman loop 3: "Naresh Kumar
+ * (Receptionist)" twice, and a receptionist does not know their own staff code).
+ */
+function ownerChoices(staff: { id: string; fullName: string; designation: string; userLoginId: string | null; staffCode: string }[], me: string | null) {
+  const key = (x: (typeof staff)[number]) => `${x.fullName}|${x.designation}`;
+  const count = new Map<string, number>();
+  for (const x of staff) count.set(key(x), (count.get(key(x)) ?? 0) + 1);
+  const mine = (x: (typeof staff)[number]) => Number(Boolean(x.userLoginId) && x.userLoginId === me);
+  return [...staff].sort((a, b) => mine(b) - mine(a)).map((x) => ({
+    value: x.id,
+    label: (count.get(key(x)) ?? 0) > 1 ? `${x.fullName} (${x.designation}, ${mine(x) ? "you" : x.staffCode})` : `${x.fullName} (${x.designation})`,
+  }));
+}
+
 export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Who, s: Settings, tz: string) {
   const limit = current.campusId ?? null;
   const [classes, staff, fields, follow, years, rules, admitting, own, campus] = await Promise.all([
@@ -64,7 +80,7 @@ export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Who, s
   return {
     classes: classes.map((c) => ({ value: c.id, label: withCampus(campus, c.name, c.campusId) })),
     sources: sources.map((x) => ({ value: x.key, label: x.label })),
-    owners: staff.map((x) => ({ value: x.id, label: `${x.fullName} (${x.designation})` })),
+    owners: ownerChoices(staff, ctx.userId),
     defaultSource: sources.some((x) => x.key === "walk-in") ? "walk-in" : sources[0]?.key ?? "",
     defaultFollowUp: instantToLocal(follow, tz),
     customFields: visibleFields(fields, current.roles),

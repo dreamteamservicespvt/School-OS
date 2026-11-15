@@ -15,7 +15,7 @@ export type VersionRow = { id: string; name: string; status: "DRAFT" | "PUBLISHE
 
 const fmt = (iso: string) => iso.split("-").reverse().join("-");
 
-export function VersionBar({ versions, shown, yearId, canArrange, writable, classes, years, today, hardClashes }: {
+export function VersionBar({ versions, shown, yearId, canArrange, writable, classes, years, today, hardClashes, notReady = false }: {
   versions: VersionRow[];
   shown: VersionRow | null;
   yearId: string;
@@ -25,6 +25,8 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
   years: { id: string; name: string }[];
   today: string;
   hardClashes: number;
+  /** No periods or no subjects yet: a Time Table cannot be filled, so it is not started (the page lists what is missing). */
+  notReady?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -64,7 +66,7 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
         {canArrange && writable && (
           <div className="flex flex-wrap gap-2">
             {draft && shown?.id !== draft.id && <Link href={href(draft.id)} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover"><Words k="Open the draft" /></Link>}
-            {!draft && <Button onClick={startDraft} loading={pending} loadingText="Starting…">{shown ? "Start a draft to edit" : "Start the Time Table"}</Button>}
+            {!draft && <Button onClick={startDraft} loading={pending} loadingText="Starting…" disabled={notReady && !shown}>{shown ? "Start a draft to edit" : "Start the Time Table"}</Button>}
             {draft && shown?.id === draft.id && (
               <>
                 <FormDialog trigger="Make automatically" title="Make automatically" action={autoFillAction} submitLabel="Make the draft" pendingText="Making… this can take a minute" hidden={{ versionId: draft.id }}>

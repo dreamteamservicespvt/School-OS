@@ -18,6 +18,12 @@ import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
 import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 import { guardianFor as accessFor } from "./guardian";
+import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
+
+/** An answer in the page's language (the browser no longer gets every word to match it there). */
+async function inPageLanguage(token: string, s: GuardianState): Promise<GuardianState> {
+  return s?.message ? { ...s, message: parentMessage(await parentLinkWords(token), s.message) } : s;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,6 +54,10 @@ function codeStep(w: { ok: boolean; message: string; notSent?: boolean }): Guard
 }
 
 export async function askEventConsent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await askEventConsentEn(token, form));
+}
+
+async function askEventConsentEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token);
   if (!g.ok) return { ok: false, message: g.message };
@@ -70,6 +80,10 @@ export async function askEventConsent(token: string, _prev: GuardianState, form:
 
 /** Step 2: the code confirms the "yes". */
 export async function confirmEventConsentCode(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await confirmEventConsentCodeEn(token, form));
+}
+
+async function confirmEventConsentCodeEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const typed = String(form.get("code") ?? "").replace(/\D/g, "");
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
@@ -79,11 +93,16 @@ export async function confirmEventConsentCode(token: string, _prev: GuardianStat
   if (limited) return { ok: false, step: "code", message: limited };
   const r = await withSchool(g.ctx, (tx) => confirmEventConsent(tx, g.ctx, g.linkId, g.guardianId, typed, g.today));
   if (!r.ok) return { ok: false, step: "code", message: r.message };
-  return { ok: true, step: "done", message: `Thank you. Your consent for ${r.event.name} is recorded.` };
+  const t = await parentLinkWords(token);
+  return { ok: true, step: "done", message: t("Thank you. Your consent for “{title}” is recorded.", { title: r.event.name }) };
 }
 
 /** "Not this time": recorded without a code; nothing is charged. */
 export async function declineEvent(token: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await declineEventEn(token, form));
+}
+
+async function declineEventEn(token: string, form: FormData): Promise<GuardianState> {
   const device = await deviceInfo();
   const g = await guardianFor(token);
   if (!g.ok) return { ok: false, message: g.message };
@@ -93,7 +112,8 @@ export async function declineEvent(token: string, _prev: GuardianState, form: Fo
   if (limited) return { ok: false, message: limited };
   try {
     const r = await withSchool(g.ctx, (tx) => declineOnParentLink(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
-    return { ok: true, step: "done", message: `Saved. Your child is not going to ${r.event.name}. Nothing is charged.` };
+    const t = await parentLinkWords(token);
+    return { ok: true, step: "done", message: t("Saved. Your child is not going to {event}. Nothing is charged.", { event: r.event.name }) };
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     throw e;

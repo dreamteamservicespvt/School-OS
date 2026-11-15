@@ -21,7 +21,7 @@ import { Alert } from "@/components/ui/alert";
 import { PanelCard, TodayCard } from "./panels";
 import { ApprovalsCard, AttentionCard, RefreshControl, TasksCard } from "./dashboard-client";
 import { getT, pageTitle } from "@/lib/i18n/server";
-import { dayWords } from "@/lib/i18n/dates";
+import { screenLine } from "@/lib/i18n/messages";
 import type { T } from "@/lib/i18n/t";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -77,7 +77,7 @@ export default async function DashboardPage({ searchParams }: Search) {
   const updated = formatTime(now, tz);
   const today = todayFor(tz, now).toISOString().slice(0, 10);
   const first = home.panels.first;
-  const band = home.band.map((b) => ({ key: b.id, label: t.any(b.label), big: b.big, of: b.of, foot: b.foot ? t.any(b.foot) : b.foot, href: b.href, ring: home.leader ? b.ring : undefined }));
+  const band = home.band.map((b) => ({ key: b.id, label: screenLine(t, b.label), big: t.any(b.big), of: b.of, foot: screenLine(t, b.foot), href: b.href, ring: home.leader ? b.ring : undefined }));
 
   const tasks = (
     <TasksCard mine={home.tasks.mine} given={home.tasks.given} left={home.tasks.left} access={home.tasks.access}
@@ -122,7 +122,7 @@ export default async function DashboardPage({ searchParams }: Search) {
     <div className="flex flex-col gap-5 lg:gap-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-          <p className="text-[13px] font-semibold text-ink3">{dayWords(t, home.dayLine)}</p>
+          <p className="text-[13px] font-semibold text-ink3">{screenLine(t, home.dayLine)}</p>
           <h1 className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight mt-0.5">{greeting(tz, now, t)}, {home.first}</h1>
         </div>
         <RefreshControl updated={updated} quiet={teacherHome} />

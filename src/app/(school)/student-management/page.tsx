@@ -23,6 +23,7 @@ import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -66,7 +67,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null });
 
   const feePill = (s: Row, cls = "") => s.due === null ? null
-    : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{formatRupees(s.due)} {s.overdue ? "overdue" : "due"}</Pill>
+    : s.due > 0n ? <Pill tone={s.overdue ? "bad" : "warn"} className={cls}>{s.overdue ? <Words k="{amount} overdue" vars={{ amount: formatRupees(s.due) }} /> : <Words k="{amount} due" vars={{ amount: formatRupees(s.due) }} />}</Pill>
       : <Pill tone="ok" dot={!cls} className={cls}>{cls ? "Fees paid" : "Paid"}</Pill>;
   const resultPill = (s: Row, cls = "") => s.resultText === null && s.result === null ? null
     : <Pill tone={s.result === "pass" ? "ok" : s.result === "fail" ? "bad" : "warn"} className={cls}>{s.resultText ?? RESULT_LABEL[s.result!]}</Pill>;
@@ -76,7 +77,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       <div className="flex items-center gap-3">
         {show.has("photo") && <Avatar name={s.fullName} src={s.photo} size={38} />}
         <div className="min-w-0">
-          <p className="font-semibold leading-tight flex items-center gap-2">{s.fullName}{s.status !== "ACTIVE" && <Pill tone={s.status === "ADMITTED" ? "info" : "neutral"} className="!h-5 !text-[11px]">{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill>}</p>
+          <p className="font-semibold leading-tight flex items-center gap-2">{s.fullName}{s.status !== "ACTIVE" && <Pill tone={s.status === "ADMITTED" ? "info" : "neutral"} className="!h-5 !text-[11px]">{tx(s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey])}</Pill>}</p>
           {show.has("admissionNo") && <p className="text-[12.5px] text-ink3 font-mono">{s.admissionNo}</p>}
         </div>
       </div>
@@ -210,14 +211,17 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
                 feePill(s, cardPill),
                 resultCol ? resultPill(s, cardPill) : null,
                 s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}<Words k="% present" /></Pill> : null,
-                s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill> : null,
+                s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{tx(s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey])}</Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             };
           }}
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
           empty={anyFilter ? (
             <Empty icon={SearchX} title="No students match"
-              body={params.q ? <><Words k="Nobody called “" />{params.q}<Words k="” in" /> {curClass ? curClass.name : "any class"}<Words k=". Try the admission number or the parent's phone." /></> : "Try a different class or filter."}
+              body={params.q ? (/[^\u0000-\u024F]/.test(params.q)
+                ? <Words k="Names are saved in English letters. Type “{q}” in English, like Pooja." vars={{ q: params.q }} />
+                : curClass ? <Words k="Nobody called “{q}” in {class}. Try the admission number or the parent's phone." vars={{ q: params.q, class: curClass.name }} />
+                  : <Words k="Nobody called “{q}” in any class. Try the admission number or the parent's phone." vars={{ q: params.q }} />) : "Try a different class or filter."}
               action={<ButtonLink href={BASE}><Words k="Clear filters" /></ButtonLink>} />
           ) : ab.reach === "own" ? (
             <Empty icon={Users} title="No students in your classes yet" body="You see the students of the sections you teach. Your sections are set in Academic Management, Teacher Allocation." />

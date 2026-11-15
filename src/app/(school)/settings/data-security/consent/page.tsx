@@ -84,7 +84,7 @@ export default async function ConsentPage({ searchParams }: Search) {
               <p className="tnum"><strong>{n(data.goLive.asked)}</strong> {data.goLive.asked === 1 ? "parent" : "parents"} <Words k="asked ·" /> <strong>{n(data.goLive.answered)}</strong> <Words k="answered ·" /> <strong>{n(data.goLive.waiting)}</strong> <Words k="waiting" /></p>
               <ul className="space-y-1 text-[13.5px] text-ink-2 tnum">
                 {data.goLive.byType.map((t) => (
-                  <li key={t.consentType}>{data.types.find((x) => x.key === t.consentType)?.label ?? t.consentType}: {n(t.given)} <Words k="of" /> {n(t.asked)} <Words k="given ·" /> {n(t.waiting)} <Words k="waiting" />{t.refused ? ` · ${n(t.refused)} refused` : ""}{t.withdrawn ? ` · ${n(t.withdrawn)} withdrawn` : ""}</li>
+                  <li key={t.consentType}>{data.types.find((x) => x.key === t.consentType)?.label ?? t.consentType}: <Words k="{n} of {n2}" vars={{ n: n(t.given), n2: n(t.asked) }} /> <Words k="given ·" /> {n(t.waiting)} <Words k="waiting" />{t.refused ? ` · ${n(t.refused)} refused` : ""}{t.withdrawn ? ` · ${n(t.withdrawn)} withdrawn` : ""}</li>
                 ))}
               </ul>
               <p className="text-[13.5px] text-ink-2"><Words k="Remind those waiting from Communication, Parent Link, Consent forms." /></p>
@@ -106,7 +106,7 @@ export default async function ConsentPage({ searchParams }: Search) {
                       <thead><tr className="text-left text-ink-2"><th scope="col" className="py-1 pr-2 font-medium"><Words k="Class" /></th><th scope="col" className="px-2 font-medium"><Words k="Given" /></th><th scope="col" className="px-2 font-medium"><Words k="From paper" /></th><th scope="col" className="px-2 font-medium"><Words k="Waiting" /></th><th scope="col" className="px-2 font-medium"><Words k="Refused" /></th><th scope="col" className="px-2 font-medium"><Words k="Withdrawn" /></th><th scope="col" className="px-2 font-medium"><Words k="Not asked" /></th></tr></thead>
                       <tbody>
                         {t.classes.map((c) => (
-                          <tr key={c.classId} className="border-t border-line/70"><th scope="row" className="py-1 pr-2 text-left font-medium">{c.className}</th><td className="px-2">{c.given} <Words k="of" /> {c.total}</td><td className="px-2">{c.fromPaper}</td><td className="px-2">{c.waiting}</td><td className="px-2">{c.refused}</td><td className="px-2">{c.withdrawn}</td><td className="px-2">{c.notAsked}</td></tr>
+                          <tr key={c.classId} className="border-t border-line/70"><th scope="row" className="py-1 pr-2 text-left font-medium">{c.className}</th><td className="px-2"><Words k="{n} of {n2}" vars={{ n: c.given, n2: c.total }} /></td><td className="px-2">{c.fromPaper}</td><td className="px-2">{c.waiting}</td><td className="px-2">{c.refused}</td><td className="px-2">{c.withdrawn}</td><td className="px-2">{c.notAsked}</td></tr>
                         ))}
                       </tbody>
                     </table>

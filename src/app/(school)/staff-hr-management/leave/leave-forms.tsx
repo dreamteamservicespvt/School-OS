@@ -6,6 +6,7 @@ import type { FormState } from "@/lib/forms";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
 import { CalendarPlus } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 type Option = { value: string; label: string };
 type LeaveTypeOption = Option & { halfDay: boolean; note: string };
@@ -47,7 +48,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
   const [half, setHalf] = useState("");
   const type = types.find((t) => t.value === typeId);
   return (
-    <FormDialog trigger={<><CalendarPlus size={17} aria-hidden="true" />{label}</>} triggerVariant="primary" title={fixedStaff ? `Apply leave for ${fixedStaff.label}` : "Apply for leave"} action={action} submitLabel="Apply"
+    <FormDialog trigger={<><CalendarPlus size={17} aria-hidden="true" />{tx(label)}</>} triggerVariant="primary" title={fixedStaff ? `Apply leave for ${fixedStaff.label}` : "Apply for leave"} action={action} submitLabel="Apply"
       pendingText="Applying…" defaultOpen={defaultOpen} multipart wide hidden={fixedStaff ? { staffId: fixedStaff.value } : undefined}>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">

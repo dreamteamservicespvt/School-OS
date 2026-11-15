@@ -20,6 +20,8 @@ import { studentScope } from "@/lib/students/access";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
 import { visibleChildNames } from "../guardians/load";
 import { phoneShow } from "@/lib/students/show";
+import { channelSetups } from "@/lib/messaging/channels";
+import { inTestMode } from "@/lib/messaging/providers";
 
 const profile = (id: string) => `${BASE}/students/${id}`;
 const MERGE_OTHER_CAMPUS = "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.";
@@ -299,12 +301,17 @@ export async function parentLinkAction(fd: FormData) {
   const guardianId = String(fd.get("guardianId") ?? "");
   const op = fd.get("op") === "revoke" ? "revoke" : "resend";
   let to = "";
+  let testMode = false;
   const r = await attempt(() => withSchool(current.ctx, async (tx) => {
     await visibleGuardian(tx, current, guardianId);
     to = op === "revoke" ? await provider.revoke(tx, current.ctx, guardianId) : await provider.resend(tx, current.ctx, guardianId);
+    testMode = inTestMode((await channelSetups(tx, current.ctx)).whatsapp);
   }));
   if (r) return r;
   // Messages are queued here and delivered by the worker: say so, never "sent" (QA PEOPLE-15).
-  await flash({ message: op === "revoke" ? `Parent Link revoked. A new link is on its way to ${to}.` : `Parent Link is on its way to ${to}.` });
+  // In test mode nothing leaves School OS, so never "on its way" (layman loop 3, day one).
+  await flash({ message: testMode
+    ? (op === "revoke" ? "Parent Link revoked. New link ready. Test mode: nothing was sent." : "Link ready. Test mode: nothing was sent.")
+    : op === "revoke" ? `Parent Link revoked. A new link is on its way to ${to}.` : `Parent Link is on its way to ${to}.` });
   revalidatePath(`${BASE}/guardians/${guardianId}`);
 }

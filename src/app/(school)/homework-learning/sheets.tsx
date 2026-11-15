@@ -94,7 +94,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
 
   return (
     <SheetForm title="Give homework" closeHref={closeHref} action={giveHomeworkAction}
-      submitLabel={<><Send size={16} aria-hidden="true" />{`Send to ${to === "CLASS" && sameClass.length > 1 ? `all of ${section.className}` : section.label}`}</>} pendingText="Sending…"
+      submitLabel={<><Send size={16} aria-hidden="true" />{to === "CLASS" && sameClass.length > 1 ? <Words k="Send to all of {class}" vars={{ class: section.className }} /> : <Words k="Send to {class}" vars={{ class: section.label }} />}</>} pendingText="Sending…"
       hidden={{ sectionId: section.id, subjectId: subject.id, dueDate, due, givenTo: to, fromSuggestion: fromSuggestion ? "1" : "" }}>
       <FieldShell label="1 · Class" id="gh-class" required help="Only your classes that have students are shown" error={classError}>
         {own ? (

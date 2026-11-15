@@ -135,7 +135,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                             <p className="font-semibold text-[14.5px] truncate">{r.subjectName} · {r.sectionLabel}</p>
                             {/* Wraps, so "Overdue" is never cut off on a phone (layman test, 390 px). */}
                             <p className={cx("text-[12.5px] leading-snug", overdue(r) ? "text-bad font-medium" : "text-ink3")}>
-                              {overdue(r) && <b className="font-semibold"><Words k="Overdue" />: </b>}{r.status === "LOCKED" ? `${r.of} of ${r.of} · locked` : `${r.done} of ${r.of} entered`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${overdue(r) ? "was due" : "due"} ${formatDate(r.due, tz)}` : ""}{r.waiting ? ` · ${plural(r.waiting, "change")} waiting` : ""}
+                              {overdue(r) && <b className="font-semibold"><Words k="Overdue" />: </b>}{r.status === "LOCKED" ? `${r.of} of ${r.of} · locked` : `${r.done} of ${r.of} entered${r.partly ? ` · ${r.partly} started` : ""}`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${overdue(r) ? "was due" : "due"} ${formatDate(r.due, tz)}` : ""}{r.waiting ? ` · ${plural(r.waiting, "change")} waiting` : ""}
                             </p>
                             {open(r) && <Progress value={r.of ? (r.done / r.of) * 100 : 0} className="mt-1.5 max-w-xs" />}
                           </div>
@@ -163,7 +163,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const stats: StatItem[] = [
     { label: "Papers", value: inRange.length, sub: examId ? exams.find((e) => e.id === examId)?.title : "All exams", icon: ClipboardCheck, href: link({ status: "" }) },
     { label: "Submitted or locked", value: count("SUBMITTED") + count("LOCKED"), sub: `${count("LOCKED")} locked`, tone: "ok", icon: Lock, href: link({ status: "SUBMITTED" }) },
-    { label: "In progress", value: count("IN_PROGRESS"), sub: "Being entered now", tone: "warn", icon: PencilLine, href: link({ status: "IN_PROGRESS" }) },
+    { label: "In progress", value: count("IN_PROGRESS"), sub: "Some marks in", tone: "warn", icon: PencilLine, href: link({ status: "IN_PROGRESS" }) },
     { label: "Not started", value: count("NOT_STARTED"), sub: plural(teachersBehind.size, "teacher"), tone: count("NOT_STARTED") ? "bad" : undefined, icon: CircleDashed, href: link({ status: "NOT_STARTED" }) },
   ];
   const exportHref = `/examination-results/export?${new URLSearchParams({ kind: "entry-status", ...(examId ? { exam: examId } : {}), ...(one(raw.year) ? { year: one(raw.year) } : {}), ...Object.fromEntries(periodQuery(raw)) })}`;
@@ -200,12 +200,12 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
             columns={[
               { key: "p", label: "Paper", render: (r) => <><p className="font-semibold">{r.subjectName} · {r.sectionLabel}</p><p className="text-[12.5px] text-ink3">{r.examTitle} · {formatDate(r.date, tz)}</p></> },
               { key: "t", label: "Teacher", render: (r) => r.teachers.length ? <div className="flex items-center gap-2"><Avatar name={r.teachers[0].name} size={28} /><span className="text-[13.5px]">{r.teachers.map((t) => t.name).join(", ")}</span></div> : <span className="text-ink3 text-[13px]"><Words k="Not given" /></span> },
-              { key: "e", label: "Entered", render: (r) => <div className="w-40"><Progress value={r.of ? (r.done / r.of) * 100 : 0} tone={open(r) ? "brand" : "ok"} /><p className="text-[12.5px] text-ink3 mt-1 tnum">{r.done} <Words k="of" /> {r.of} <Words k="entered" />{r.waiting ? <span className="text-warn"> · {r.waiting} <Words k="waiting" /></span> : null}</p></div> },
+              { key: "e", label: "Entered", render: (r) => <div className="w-40"><Progress value={r.of ? (r.done / r.of) * 100 : 0} tone={open(r) ? "brand" : "ok"} /><p className="text-[12.5px] text-ink3 mt-1 tnum"><Words k="{n} of {n2}" vars={{ n: r.done, n2: r.of }} /> <Words k="entered" />{r.partly ? <> · {r.partly} <Words k="started" /></> : null}{r.waiting ? <span className="text-warn"> · {r.waiting} <Words k="waiting" /></span> : null}</p></div> },
               { key: "d", label: "Marks due", nowrap: true, render: (r) => r.due ? <span className={cx("text-[13px]", overdue(r) ? "text-bad font-medium" : "text-ink3")}>{overdue(r) ? "Overdue " : ""}{formatDate(r.due, tz)}</span> : <span className="text-ink3 text-[13px]"><Words k="No date" /></span> },
               { key: "s", label: "Status", nowrap: true, render: (r) => <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> },
             ]}
-            mobile={(r) => ({ icon: STATUS_ICON[r.status], iconTone: PAPER_STATUS_TONE[r.status], title: `${r.subjectName} · ${r.sectionLabel}`, sub: `${r.teachers[0]?.name ?? "No teacher"} · ${r.done} of ${r.of}${overdue(r) ? " · overdue" : ""}`, pills: <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> })}
-            footer={<span><Words k="Showing" /> {shown.length ? (pageNo - 1) * PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * PAGE + shown.length} <Words k="of" /> {rows.length}{pages > 1 && <> · {pageNo > 1 && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
+            mobile={(r) => ({ icon: STATUS_ICON[r.status], iconTone: PAPER_STATUS_TONE[r.status], title: `${r.subjectName} · ${r.sectionLabel}`, sub: `${r.teachers[0]?.name ?? "No teacher"} · ${r.done} of ${r.of}${r.partly ? ` · ${r.partly} started` : ""}${overdue(r) ? " · overdue" : ""}`, pills: <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> })}
+            footer={<span><Words k="Showing {from} to {to} of {total}" vars={{ from: shown.length ? (pageNo - 1) * PAGE + 1 : 0, to: (pageNo - 1) * PAGE + shown.length, total: rows.length }} />{pages > 1 && <> · {pageNo > 1 && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
         </Card>
       </div>
     </>

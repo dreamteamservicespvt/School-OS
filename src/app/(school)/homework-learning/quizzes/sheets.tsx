@@ -233,7 +233,7 @@ export function TakeQuiz({ attemptId, questions, endsAt, attemptsLeft }: { attem
     <>
       <Card className="p-5 md:p-6">
         <div className="flex items-center justify-between gap-3 text-[13px]">
-          <span className="font-semibold text-ink2"><Words k="Question" /> {i + 1} <Words k="of" /> {total}</span>
+          <span className="font-semibold text-ink2"><Words k="Question" /> <Words k="{n} of {n2}" vars={{ n: i + 1, n2: total }} /></span>
           {left !== null && <span className={cx("inline-flex items-center gap-1.5 tnum", left < 60 ? "text-bad font-semibold" : "text-ink3")} role="timer" aria-live="off"><Timer size={15} aria-hidden="true" />{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")} <Words k="left" /></span>}
         </div>
         <div className="h-2 rounded-full bg-sunken mt-2 overflow-hidden"><div className="h-full bg-brand rounded-full transition-all" style={{ width: `${((i + 1) / total) * 100}%` }} /></div>
@@ -263,7 +263,7 @@ export function TakeQuiz({ attemptId, questions, endsAt, attemptsLeft }: { attem
       {sure && (
         <Dialog open title="Submit your answers?" onClose={() => setSure(false)}
           footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setSure(false)}><Words k="Go back" /></Button><Button variant="primary" icon={Send} loading={busy} onClick={submit}><Words k="Submit" /> {answered} <Words k="answers" /></Button></div>}>
-          <p className="text-[14px] text-ink2"><Words k="You answered" /> {answered} <Words k="of" /> {total} <Words k="questions." />{answered < total ? ` ${total - answered} are blank and count as wrong.` : ""} {attemptsLeft <= 1 ? "This is your last attempt, so you cannot change them after this." : `You have ${attemptsLeft - 1} more ${attemptsLeft - 1 === 1 ? "attempt" : "attempts"} after this.`}</p>
+          <p className="text-[14px] text-ink2"><Words k="You answered" /> <Words k="{n} of {n2}" vars={{ n: answered, n2: total }} /> <Words k="questions." />{answered < total ? ` ${total - answered} are blank and count as wrong.` : ""} {attemptsLeft <= 1 ? "This is your last attempt, so you cannot change them after this." : `You have ${attemptsLeft - 1} more ${attemptsLeft - 1 === 1 ? "attempt" : "attempts"} after this.`}</p>
         </Dialog>
       )}
     </>

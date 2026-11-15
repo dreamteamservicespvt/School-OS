@@ -5,6 +5,7 @@ import { Pill } from "@/components/ui/badge";
 import { BASE, takesAttendance, type AttendanceAccess } from "@/lib/attendance/access";
 import type { AttendanceFeature } from "@/lib/attendance/settings";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 /** The module's pages as tabs (05 §2). Each person sees only the pages their role reaches. */
 export function attendanceTabs(access: AttendanceAccess, features: Set<AttendanceFeature>): Tab[] {
@@ -39,7 +40,7 @@ export function AttHead({ access, features, userId, href, sub, actions }: {
     : access.see === "own" ? <Pill tone="brand" className="!h-6 mr-2 align-middle"><User size={13} aria-hidden="true" /><Words k="Only yours" /></Pill> : null;
   return (
     <>
-      <PageHeader title="Attendance" href={href} userId={userId} sub={scope || sub ? <>{scope}{sub}</> : undefined}>{actions}</PageHeader>
+      <PageHeader title="Attendance" href={href} userId={userId} sub={scope || sub ? <>{scope}{tx(sub)}</> : undefined}>{actions}</PageHeader>
       {tabs.length > 1 && <Tabs label="Attendance pages" tabs={tabs} />}
     </>
   );

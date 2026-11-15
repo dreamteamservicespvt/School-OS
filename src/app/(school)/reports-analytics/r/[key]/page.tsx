@@ -41,6 +41,10 @@ function whoSees(e: ReportEntry) {
   return e.own ? "Principal and School Admin see every class. Teachers see only their own classes." : "Principal, School Admin and the roles this module's reports are for.";
 }
 
+/** Numbers that must not break across lines. Other text (a parent's name, a class) may wrap, so a wide report
+ *  fits its box at 1440 px instead of cutting off the last heading (layman loop 3: "Reminders s…"). */
+const ONE_LINE = new Set(["phone", "adm", "admissionNo"]);
+
 /** One report (mod-reports.jsx ReportView): filters, the words of what is shown, the table with its total line, export. */
 export default async function ReportPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: SearchParams }) {
   const p = await repGuard("all");
@@ -208,13 +212,13 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
                 action={<Link href={qs(href, entry.dated ? { period: entry.money ? "finyear" : "acyear" } : {})} scroll={false} className={buttonClass("secondary")}>{p.a.own ? "Show my classes, whole year" : "Show all classes, whole year"}</Link>} />
             ) : (
               <SimpleTable minWidth={Math.max(520, table.columns.length * 96)} caption={entry.name} rows={shown}
-                cols={table.columns.map((c, i) => ({ label: c.label, right: c.kind === "money" || c.kind === "number" || c.kind === "percent", nowrap: i !== table.columns.length - 1 || (c.kind !== undefined && c.kind !== "text"), render: (r: Row) => cellText(r[c.key], c.kind) }))}
+                cols={table.columns.map((c, i) => ({ label: c.label, right: c.kind === "money" || c.kind === "number" || c.kind === "percent", nowrap: i === 0 || ONE_LINE.has(c.key) || (c.kind !== undefined && c.kind !== "text"), render: (r: Row) => cellText(r[c.key], c.kind) }))}
                 foot={table.totals ? table.columns.map((c) => cellText(table.totals?.[c.key] ?? null, c.kind)) : undefined} />
             )}
             {table.note && <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">{table.note}</p>}
             {rows.length > 0 && (
               <div className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 flex items-center justify-between gap-3 flex-wrap">
-                <span className="tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length.toLocaleString("en-IN")}{rows.length > shown.length ? " · the file has every row" : ""}</span>
+                <span className="tnum"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length.toLocaleString("en-IN") }} />{rows.length > shown.length ? " · the file has every row" : ""}</span>
                 {table.links?.map((l) => <Link key={l.href} href={l.href} className="text-[13px] font-semibold text-brand hover:underline">{l.label}</Link>)}
               </div>
             )}

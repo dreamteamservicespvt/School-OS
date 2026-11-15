@@ -62,10 +62,14 @@ function ReportCardsSection({ data, view }: { data: ParentReportCard[]; view: Gu
     <ul className="divide-y divide-line">
         {data.map((r) => (
           <li key={`${r.yearId}-${r.period}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <span><span className="font-medium">{r.label}</span> <span className="text-sm text-ink-2">{r.year}{r.publishedOn ? ` · ${t("published {date}", { date: r.publishedOn })}` : ""}</span></span>
+            <span className="min-w-0">
+              <span className="font-medium">{t.any(r.label)}</span>{r.score && <b className="font-semibold tabular-nums"> · {r.score}</b>}
+              <span className="block text-sm text-ink-2">{r.year}{r.publishedOn ? ` · ${t("published {date}", { date: r.publishedOn })}` : ""}</span>
+            </span>
+            {/* The score is on the page; the PDF (every subject) is the second step (layman test loop 3). */}
             {view.preview || !view.token
               ? <span className="text-sm text-ink-2">{t("Download (shown to the parent)")}</span>
-              : <a href={href(r)} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 font-medium text-brand-text hover:bg-surface-2">{t("Download PDF")}</a>}
+              : <a href={href(r)} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">{t("Download PDF")}</a>}
           </li>
       ))}
     </ul>

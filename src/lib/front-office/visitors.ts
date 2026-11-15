@@ -34,10 +34,17 @@ export function statusWhere(status: string, now = new Date()): Prisma.VisitorEnt
 /** Purposes that need a person to meet. */
 export const MEET_PURPOSES = ["Meeting", "Interview", "Fee payment"];
 
-export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent" };
+/** Someone still inside on a pass that works: the desk is told before a second pass is made. */
+export type InsideNow = { id: string; passNo: string; since: string };
+export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent"; inside?: InsideNow | null };
+
+/** The pass this phone is still inside on (not checked out, not expired), if any. */
+async function openPassFor(tx: Tx, phone: string, now: Date) {
+  return tx.visitorEntry.findFirst({ where: { phone, archivedAt: null, ...statusWhere("In", now) }, orderBy: { timeIn: "desc" }, select: { id: true, name: true, passNo: true, timeIn: true } });
+}
 
 /** Finds a returning visitor (or a parent of the school) by phone, so the form fills in. */
-export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: string): Promise<ReturningVisitor | null> {
+export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: string, now = new Date()): Promise<ReturningVisitor | null> {
   const phone = mobileDigits(rawPhone);
   if (!/^[6-9]\d{9}$/.test(phone)) return null;
   const last = await tx.visitorEntry.findFirst({ where: { phone, archivedAt: null }, orderBy: { timeIn: "desc" } });
@@ -45,7 +52,11 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
     const met = last.meetStaffId ? await tx.staff.findFirst({ where: { id: last.meetStaffId }, select: { fullName: true } }) : null;
     const d = last.timeIn;
     const day = formatDate(d, timeZone);
-    return { kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}` };
+    const open = await openPassFor(tx, phone, now);
+    return {
+      kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}`,
+      inside: open ? { id: open.id, passNo: open.passNo, since: clockAt(open.timeIn, timeZone) } : null,
+    };
   }
   const g = await tx.guardian.findFirst({
     where: { phone, archivedAt: null },
@@ -68,6 +79,8 @@ export type RegisterInput = {
   idProofNo: string | null;
   vehicleNo: string | null;
   appointmentId?: string | null;
+  /** The desk saw that this phone is inside on another pass and still wants a new one. */
+  again?: boolean;
 };
 
 /** Registers a visitor and makes the pass (16 §2, Done when 1, 2 and 9). */
@@ -77,6 +90,11 @@ export async function registerVisitor(tx: Tx, ctx: SchoolContext, input: Registe
   const pp = phoneProblem(input.phone);
   if (pp) throw new FrontOfficeProblem(pp, "phone");
   const phone = mobileDigits(input.phone);
+  // A second pass for someone still inside is nearly always the same visit typed twice (layman loop 3).
+  if (!input.again) {
+    const open = await openPassFor(tx, phone, now);
+    if (open) throw new FrontOfficeProblem(`${open.name} is inside now on pass ${open.passNo}. Open that pass, or tick “New pass anyway”.`, "phone");
+  }
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new FrontOfficeProblem("Enter the visitor’s name.", "name");
   if (name.length > 120) throw new FrontOfficeProblem("Name can be at most 120 characters.", "name");

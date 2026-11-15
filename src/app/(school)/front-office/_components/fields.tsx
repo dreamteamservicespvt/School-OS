@@ -28,7 +28,7 @@ export function PhoneBox({ name, label, required, start, help, onPhone, id }: { 
     <FieldShell label={label} id={id} help={help} error={t.error} required={required}>
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 text-[15px]" aria-hidden="true">+91</span>
-        <input key={t.key} id={id} name={name} inputMode="numeric" autoComplete="tel-national" defaultValue={t.value} placeholder="98480 12345" maxLength={14}
+        <input key={t.key} id={id} name={name} inputMode="numeric" autoComplete="tel-national" defaultValue={t.value} placeholder="10 digits" maxLength={14}
           aria-invalid={t.error ? true : undefined} aria-describedby={t.error ? `${id}-error` : help ? `${id}-help` : undefined}
           onChange={(e) => { const v = e.target.value.replace(/[^\d ]/g, ""); if (v !== e.target.value) e.target.value = v; onPhone?.(v); }}
           className={cx(inputCls(t.error), "h-11 pl-12 tnum")} />

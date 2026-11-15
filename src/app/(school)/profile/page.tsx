@@ -37,12 +37,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("My profile") };
 }
 
-function describeDevice(ua: string | null): { name: string; icon: LucideIcon } {
+function describeDevice(ua: string | null): { name: string; browser?: string; os?: string; icon: LucideIcon } {
   if (!ua) return { name: "Unknown device", icon: I.MonitorSmartphone };
   const phone = /Android|iPhone/.test(ua);
   const os = /Android/.test(ua) ? "Android phone" : /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "a computer";
   const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
-  return { name: `${browser} on ${os}`, icon: phone ? I.Smartphone : /iPad/.test(ua) ? I.Tablet : I.Monitor };
+  return { name: `${browser} on ${os}`, browser, os, icon: phone ? I.Smartphone : /iPad/.test(ua) ? I.Tablet : I.Monitor };
 }
 
 function DL({ rows }: { rows: [string, React.ReactNode][] }) {
@@ -122,9 +122,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <PhotoEditor name={u.displayName} src={photo} />
               <div className="min-w-0">
                 <p className="font-display font-semibold text-[22px] leading-tight truncate">{u.displayName}</p>
-                <p className="text-[14px] text-ink3 truncate">{roleNames.join(", ") || "No role yet"} · {current.school.name}</p>
+                <p className="text-[14px] text-ink3 truncate">{roleNames.map((r) => t.any(r)).join(", ") || t("No role yet")} · {current.school.name}</p>
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                  {roleNames[0] && <Pill tone="brand">{roleNames[0]}</Pill>}
+                  {roleNames[0] && <Pill tone="brand">{t.any(roleNames[0])}</Pill>}
                   {staff && <Pill tone="neutral"><span className="font-mono text-[11.5px]">{staff.staffCode}</span></Pill>}
                   {twoStepOn && !cannotReach && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" /><Words k="Two-step login on" /></Pill>}
                   {/* Needed but no code can reach them: never a green "on" (live test 13). */}
@@ -148,7 +148,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 [t("Email"), u.email ?? t("Not given")],
                 [t("Username"), <span key="u" className="font-mono text-[13.5px]">{u.username}</span>],
                 ...(staff ? ([[t("Staff code"), <span key="c" className="font-mono text-[13.5px]">{staff.staffCode}</span>], [t("Joined"), formatDate(staff.joiningDate)]] as [string, React.ReactNode][]) : []),
-                [t("Roles"), roleNames.join(", ") || t("None")],
+                [t("Roles"), roleNames.map((r) => t.any(r)).join(", ") || t("None")],
                 [t("Last signed in"), u.lastSignInAt ? formatDateTime(u.lastSignInAt, tz) : t("Now")],
               ]} />
             </Card>
@@ -164,7 +164,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="flex items-center gap-3 px-5 py-3.5">
                   <div className="min-w-0 flex-1 text-[14px]">
                     <b className="font-semibold block"><Words k="Password" /></b>
-                    <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? `Last changed ${formatDate(u.passwordChangedAt)}` : "Set when you accepted your invite"}</span>
+                    <span className="block text-[12.5px] text-ink3">{u.passwordChangedAt ? t("Last changed {date}", { date: formatDate(u.passwordChangedAt) }) : t("Set when you accepted your invite")}</span>
                   </div>
                   <PasswordButton withoutOld={withoutOld} minLength={passwordRules.minLength} rulesWords={passwordRuleWords(passwordRules, t)} />
                 </div>
@@ -182,8 +182,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     <li key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                       <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><d.icon size={19} aria-hidden="true" /></span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[14px] truncate">{d.name}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
-                        <p className="text-[12.5px] text-ink3 truncate">{me ? "Active now" : `Last used ${formatDateTime(s.lastUsedAt, tz)}`}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
+                        <p className="font-semibold text-[14px] truncate">{d.browser && d.os ? t("{browser} on {system}", { browser: d.browser, system: t.any(d.os) }) : t.any(d.name)}{me && <Pill tone="brand" className="!h-5 !text-[11px] ml-2 align-middle"><Words k="This device" /></Pill>}</p>
+                        <p className="text-[12.5px] text-ink3 truncate">{me ? t("Active now") : t("Last used {when}", { when: formatDateTime(s.lastUsedAt, tz) })}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</p>
                       </div>
                       {!me && (
                         <form action={signOutDevice}>

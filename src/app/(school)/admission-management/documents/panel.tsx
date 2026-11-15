@@ -82,7 +82,7 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
         </div>
       </div>
       <div className="px-5 pb-4">
-        <div className="flex items-center justify-between text-[13px] mb-1.5"><span className="font-semibold">{a.verified} <Words k="of" /> {a.required} <Words k="verified" /></span><span className="text-ink3"><Words k="List for" /> {a.className}</span></div>
+        <div className="flex items-center justify-between text-[13px] mb-1.5"><span className="font-semibold"><Words k="{n} of {n2}" vars={{ n: a.verified, n2: a.required }} /> <Words k="verified" /></span><span className="text-ink3"><Words k="List for" /> {a.className}</span></div>
         <Progress value={a.required ? (a.verified / a.required) * 100 : 100} tone={done ? "ok" : "warn"} />
       </div>
       {canWork && a.missing.length > 0 && (

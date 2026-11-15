@@ -176,6 +176,9 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
   }
   if (!lines.length && advance === ZERO) throw new MoneyProblem("Nothing is left to pay on the ticked rows.", "dueIds");
 
+  // A UTR or transaction number belongs to one payment: used again, it is refused, never only warned (layman loop 3).
+  // A warning, not a refusal: one UPI transfer often pays for two siblings (lead, loop 3).
+  if (input.reference && !input.confirmDuplicate) await referenceUsedOnce(tx, input.mode, input.reference);
   // Same payment entered twice?
   if (!input.confirmDuplicate) await checkDuplicate(tx, ctx, { studentId: input.studentId, studentName: card.name, amountPaise: input.amountPaise, mode: input.mode, reference: input.reference, tz });
 
@@ -212,7 +215,7 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
       type: "payment-verification",
       recordType: "Payment",
       recordId: payment.id,
-      summary: `${formatRupees(input.amountPaise)} ${modeLabel(input.mode).toLowerCase()} from ${card.name} (${card.classSection})`,
+      summary: `${formatRupees(input.amountPaise)} ${modeWord(input.mode)} from ${card.name} (${card.classSection})`,
       amountPaise: input.amountPaise,
       reason: input.reference ?? input.chequeNo ?? null,
     });
@@ -233,12 +236,21 @@ async function checkDuplicate(tx: Tx, ctx: SchoolContext, p: { studentId: string
   if (same) {
     const other = same.collectedById && same.collectedById !== ctx.userId ? await tx.userLogin.findUnique({ where: { id: same.collectedById }, select: { displayName: true } }) : null;
     const by = same.collectedById === ctx.userId ? "you" : other?.displayName ?? "someone";
-    throw new MoneyWarning(`${formatRupees(p.amountPaise)} ${modeLabel(p.mode).toLowerCase()} for ${p.studentName} was collected at ${formatTime(same.paidAt, p.tz)} by ${by}. Collect again?`, "amount");
+    throw new MoneyWarning(`${formatRupees(p.amountPaise)} ${modeWord(p.mode)} for ${p.studentName} was collected at ${formatTime(same.paidAt, p.tz)} by ${by}. Collect again?`, "amount");
   }
-  if (p.reference) {
-    const ref = await tx.payment.findFirst({ where: { reference: p.reference, status: { in: ["POSTED", "WAITING"] } } });
-    if (ref) throw new MoneyWarning(`Reference ${p.reference} was already used for a payment on ${formatDate(ref.paymentDate)}. Collect again?`, "reference");
-  }
+}
+
+/** "UPI", "Card" as words inside a sentence: "₹5,000 UPI", "₹5,000 cash" (never "upi"). */
+const modeWord = (m: PaymentMode) => { const l = modeLabel(m); return /^[A-Z]{2,}$/.test(l) ? l : l.toLowerCase(); };
+
+/** Warns when a reference (UTR, card slip, bank transaction) is already on a payment, naming its receipt. */
+async function referenceUsedOnce(tx: Tx, mode: PaymentMode, reference: string) {
+  const used = await tx.payment.findFirst({ where: { reference, status: { in: ["POSTED", "WAITING"] } }, select: { id: true, paymentDate: true, status: true } });
+  if (!used) return;
+  const what = mode === "UPI" ? "UTR" : "Transaction number";
+  const receipt = used.status === "POSTED" ? await tx.receipt.findFirst({ where: { paymentId: used.id }, select: { number: true } }) : null;
+  if (receipt) throw new MoneyWarning(`${what} ${reference} is already on receipt ${receipt.number}. Collect again only if the same transfer also pays for this child.`, "reference", { href: `/fee-management/payments/${used.id}/receipt`, label: "Open receipt" });
+  throw new MoneyWarning(`${what} ${reference} is already on a payment of ${formatDate(used.paymentDate)}. Collect again only if the same transfer also pays for this child.`, "reference");
 }
 
 async function createAllocations(tx: Tx, ctx: SchoolContext, paymentId: string, lines: { dueId: string; amountPaise: bigint }[], dues: Pick<StudentFeeDue, "id" | "feeHeadId">[]) {

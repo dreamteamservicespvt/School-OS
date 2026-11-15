@@ -138,7 +138,7 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
           )}
           {set && missing.length > 0 && (
             <div className="rounded-xl bg-warn/12 px-3.5 py-2.5 text-[13.5px] flex flex-col gap-2">
-              <p><b className="font-semibold">{missing.length} <Words k="of" /> {set.lines.length} <Words k="items are out of stock" /></b> <Words k="in this store:" /> {missing.map((m) => names[m.itemId] ?? m.name).join(", ")}.</p>
+              <p><b className="font-semibold"><Words k="{n} of {n2}" vars={{ n: missing.length, n2: set.lines.length }} /> <Words k="items are out of stock" /></b> <Words k="in this store:" /> {missing.map((m) => names[m.itemId] ?? m.name).join(", ")}.</p>
               {withMissing ? (
                 <label className="flex items-center gap-2 font-semibold">
                   <KeepCheck type="checkbox" name="allowMissing" checked={allow} onChange={(e) => setAllow(e.target.checked)} className="size-4 accent-[var(--brand)]" />

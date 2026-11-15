@@ -132,7 +132,7 @@ export function BulkCompleteSheet({ closeHref, hw, ids, rows }: { closeHref: str
   const n = rows.filter((r) => !r.skip).length;
   return (
     <SheetForm title={`Mark ${rows.length} students Complete?`} closeHref={closeHref} action={bulkCompleteAction} hidden={{ hw, ids }} submitDisabled={n === 0}
-      submitLabel={<><CheckCheck size={16} aria-hidden="true" />{`Mark ${n} Complete`}</>} pendingText="Saving…">
+      submitLabel={<><CheckCheck size={16} aria-hidden="true" /><Words k="Mark {n} Complete" vars={{ n }} /></>} pendingText="Saving…">
       <div className="text-[14px] text-ink2 flex flex-col gap-2">
         <p><Words k="For work checked in class. Each becomes Complete, with no score. You can undo it from the message that follows." /></p>
         <ul className="rounded-xl border border-line divide-y divide-line/70 max-h-60 overflow-y-auto scroll-thin">

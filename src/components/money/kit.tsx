@@ -151,8 +151,8 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
     <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
-          <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
-          <dd className="text-[14.5px] mt-0.5 break-words">{v}</dd>
+          <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
+          <dd className="text-[14.5px] mt-0.5 break-words">{tx(v)}</dd>
         </div>
       ))}
     </dl>

@@ -255,7 +255,7 @@ export function DatesheetForm({ data }: { data: Data }) {
           <section className="flex flex-col gap-3" aria-labelledby="ds-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p id="ds-3" className="eyebrow text-ink3"><Words k="3 · Subject schedule" /></p>
-              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite">{datedCount} <Words k="of" /> {allRows.length} {mode === "multi" ? "papers" : "subjects"} <Words k="dated" /></p>}
+              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite"><Words k="{n} of {n2}" vars={{ n: datedCount, n2: allRows.length }} /> {mode === "multi" ? "papers" : "subjects"} <Words k="dated" /></p>}
             </div>
             {state?.errors?.schedule && <p role="alert" className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{state.errors.schedule}</p>}
             {chosen.length === 0 ? (

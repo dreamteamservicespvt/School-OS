@@ -95,7 +95,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
             ]} />
           </Toolbar>
           <DataList rows={rows} rowKey={(r) => r.studentId} minWidth={720} caption={`${data.name}, students and fees`}
-            footer={rows.length > 0 ? <span className="tnum">{rows.length} <Words k="of" /> {data.students.length} <Words k="students ·" /> {data.name}</span> : false}
+            footer={rows.length > 0 ? <span className="tnum"><Words k="{n} of {n2}" vars={{ n: rows.length, n2: data.students.length }} /> <Words k="students ·" /> {data.name}</span> : false}
             columns={[
               { key: "roll", label: "Roll", render: (r) => <span className="tnum text-ink3">{r.rollNo ?? "—"}</span> },
               { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{r.parent ? `${r.parent.name}${r.parent.phone ? ` · ${r.parent.phone}` : ""}` : r.admissionNo}</p></> },

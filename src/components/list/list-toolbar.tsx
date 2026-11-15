@@ -44,11 +44,11 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
   const moreOn = more.filter((f) => sp.get(f.key)).length;
   const select = (f: FilterDef) => (
     <label key={f.key} className="relative min-w-0 md:w-auto">
-      <span className="sr-only">{f.label}</span>
+      <span className="sr-only">{tr.any(f.label)}</span>
       <select value={sp.get(f.key) ?? ""} onChange={(e) => go({ [f.key]: e.target.value || null })}
         className={cx(inputCls(), "h-11 appearance-none pr-10 cursor-pointer font-medium", sp.get(f.key) && "border-brand/40 bg-brand/5")}>
-        <option value="">{f.allLabel ?? `${f.label}: all`}</option>
-        {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <option value="">{f.allLabel ? tr.any(f.allLabel) : tr("{label}: all", { label: tr.any(f.label) })}</option>
+        {f.options.map((o) => <option key={o.value} value={o.value}>{tr.any(o.label)}</option>)}
       </select>
       <I.ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
     </label>
@@ -61,7 +61,7 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
       <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2.5">
         <div className="relative min-w-0 flex-1 md:basis-64">
           <I.Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-          <input type="search" value={q} placeholder={placeholder} aria-label={placeholder}
+          <input type="search" value={q} placeholder={tr.any(placeholder)} aria-label={tr.any(placeholder)}
             onChange={(e) => {
               const v = e.target.value;
               setQ(v);
@@ -85,13 +85,13 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
               <button type="button" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}
                 className={cx("h-11 inline-flex items-center gap-2 rounded-xl border px-3.5 text-[14.5px] font-semibold transition",
                   moreOn ? "border-brand/40 bg-brand/5 text-ink" : "border-line bg-surface text-ink2 hover:border-ink3/50")}>
-                <I.SlidersHorizontal size={16} aria-hidden="true" />More filters{moreOn ? <span className="tnum text-brand">{moreOn}</span> : null}
+                <I.SlidersHorizontal size={16} aria-hidden="true" />{tr("More filters")}{moreOn ? <span className="tnum text-brand">{moreOn}</span> : null}
               </button>
             )}
             {showArchived && (
               <label className="h-11 inline-flex items-center gap-2 rounded-xl px-2 text-[14px] font-medium text-ink2 cursor-pointer">
                 <input type="checkbox" className="size-[18px] accent-brand" checked={sp.get("archived") === "1"} onChange={(e) => go({ archived: e.target.checked ? "1" : null })} />
-                Show removed
+                {tr("Show removed")}
               </label>
             )}
             {children}
@@ -107,9 +107,9 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
           {sp.get("q") && <Chip label={`“${sp.get("q")}”`} onRemove={() => { setQ(""); go({ q: null }); }} />}
           {active.map((f) => (
-            <Chip key={f.key} label={`${f.label}: ${f.options.find((o) => o.value === sp.get(f.key))?.label ?? sp.get(f.key)}`} onRemove={() => go({ [f.key]: null })} />
+            <Chip key={f.key} label={`${tr.any(f.label)}: ${tr.any(f.options.find((o) => o.value === sp.get(f.key))?.label ?? sp.get(f.key) ?? "")}`} onRemove={() => go({ [f.key]: null })} />
           ))}
-          {sp.get("archived") && <Chip label="Showing archived" onRemove={() => go({ archived: null })} />}
+          {sp.get("archived") && <Chip label={tr("Showing archived")} onRemove={() => go({ archived: null })} />}
           <button type="button" className="h-8 rounded-lg px-2 font-semibold text-brand hover:underline"
             onClick={() => { setQ(""); start(() => router.replace(pathname, { scroll: false })); }}>Reset all</button>
         </div>

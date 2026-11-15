@@ -198,7 +198,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
                     <SimpleTable minWidth={Math.max(480, data.preview.columns.length * 130)} caption="Preview" rows={data.preview.rows.slice(0, PREVIEW_ROWS)}
                       cols={data.preview.columns.map((c) => ({ label: c.label, right: c.kind !== undefined && c.kind !== "text" && c.kind !== "date", render: (r: Row) => cellText(r[c.key], c.kind) }))}
                       foot={data.preview.totals ? data.preview.columns.map((c) => cellText(data.preview?.totals?.[c.key] ?? null, c.kind)) : undefined} />
-                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum"><Words k="Showing" /> {Math.min(PREVIEW_ROWS, data.preview.rows.length)} <Words k="of" /> {data.preview.rows.length.toLocaleString("en-IN")} <Words k="rows · the saved report has every row" />{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
+                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: Math.min(PREVIEW_ROWS, data.preview.rows.length), total: data.preview.rows.length.toLocaleString("en-IN") }} /> <Words k="rows · the saved report has every row" />{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
                   </>
                 )}
               </Card>

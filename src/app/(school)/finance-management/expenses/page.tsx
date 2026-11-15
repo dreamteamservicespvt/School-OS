@@ -170,7 +170,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
   const banks = f?.accounts.filter((a) => a.kind === "BANK").map((a) => ({ value: a.id, label: acctLabel(a) })) ?? [];
   const mainBank = f?.accounts.find((a) => a.kind === "BANK" && a.isMain)?.id ?? banks[0]?.value ?? "";
   const cashId = cash[0]?.value;
-  const cashInHand = f && cashId ? rupees(f.balances.get(cashId) ?? ZERO) : 0;
+  // To the paisa, as the Day Book and the home page show it (layman loop 3: ₹22,407 here, ₹22,407.50 there).
+  const cashInHand = f && cashId ? Number(f.balances.get(cashId) ?? ZERO) / 100 : 0;
   // Names only on the forms: account codes mean nothing to the office (they stay in Finance Settings).
   const userHeads = data.heads.filter((h) => !h.systemKey).map((h) => ({ value: h.id, label: h.name }));
   const centreOptions = centresOn ? data.centres.map((c) => ({ value: c.id, label: c.name })) : null;

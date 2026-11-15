@@ -192,7 +192,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                   icon: Ic, iconTone: c?.failed ? "bad" : "ok",
                   pills: m.status === "SCHEDULED"
                     ? [<Pill key="s" tone="info" className="!h-[22px] !text-[11.5px]"><Words k="Scheduled ·" /> {m.recipientCount}</Pill>]
-                    : [c?.testMode && !c.delivered ? <Pill key="d" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Test mode · not sent" /></Pill> : <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]">{c?.delivered ?? 0} <Words k="of" /> {m.recipientCount} <Words k="delivered" /></Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} <Words k="failed" /></Pill> : null],
+                    : [c?.testMode && !c.delivered ? <Pill key="d" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Test mode · not sent" /></Pill> : <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="{n} of {n2}" vars={{ n: c?.delivered ?? 0, n2: m.recipientCount }} /> <Words k="delivered" /></Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} <Words k="failed" /></Pill> : null],
                 };
               }}
             />

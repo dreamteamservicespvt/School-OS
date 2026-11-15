@@ -16,3 +16,13 @@ export function dayWords(t: T, text: string): string {
   if (t.lang === "en") return text;
   return text.replace(WORD, (name) => t.any(name)).replace(SHORT_WORD, (s) => t.any(SHORT.get(s) ?? s));
 }
+
+/**
+ * A blank's value that is only a date in words ("Monday, 16 November", "Sun 15 Nov", "2 Nov"), in the
+ * screen's language; anything else (a name, a title) stays exactly as it is.
+ */
+export function dateBlank(t: T, value: string): string {
+  if (t.lang === "en" || !/[A-Za-z]/.test(value)) return value;
+  const rest = value.replace(WORD, "").replace(SHORT_WORD, "").replace(/\b[AP]M\b/g, "");
+  return /^[\d\s,.:–-]*$/.test(rest) ? dayWords(t, value) : value;
+}

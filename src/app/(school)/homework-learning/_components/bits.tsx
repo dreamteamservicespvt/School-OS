@@ -1,5 +1,6 @@
 // Small pieces shared by the Homework & Learning pages (mod-homework.jsx SubIcon, BackLink, FileRow).
 import Link from "next/link";
+import { tx } from "@/lib/i18n/tx";
 import { ArrowLeft, BookOpen, Calculator, Download, Dumbbell, ExternalLink, FileImage, FileText, FlaskConical, Globe, Languages, Link2, Monitor, Music, Palette, type LucideIcon } from "lucide-react";
 import { cx } from "@/components/ui/cx";
 import { TONE_SOFT } from "@/components/money/kit";
@@ -53,7 +54,7 @@ export function FileRow({ name, meta, href, kind, remove }: { name: string; meta
       <span className="w-9 h-9 rounded-lg bg-sunken grid place-items-center text-ink2 shrink-0"><Icon size={17} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-semibold truncate">{name}</p>
-        {meta && <p className="text-[12px] text-ink3 truncate">{meta}</p>}
+        {meta && <p className="text-[12px] text-ink3 truncate">{tx(meta)}</p>}
       </div>
       {href && (
         <a href={href} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}

@@ -108,7 +108,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
           { label: "Families with no link", value: s.withoutLink.toLocaleString("en-IN"), icon: Users, tone: s.withoutLink ? "info" : undefined, sub: "Send them theirs", href: "/communication/parent-link/send" },
         ]} />
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6 items-start">
-          <ShowsCard settings={pl} switches={sectionSwitches()} previewHref={data.previewId ? `/communication/parent-link/${data.previewId}/preview` : null} />
+          <ShowsCard settings={pl} switches={sectionSwitches().filter((sw) => sw.key !== "transport" || current.modulesOn.has("transport-management"))} previewHref={data.previewId ? `/communication/parent-link/${data.previewId}/preview` : null} />
           <Card className="min-w-0">
             <CardHeader title="Links sent and opened" description="Guardians opening their link each week" icon={ChartColumn} />
             <div className="px-5"><Bars data={bars} height={150} ariaLabel="Guardians opening Parent Link per week" /></div>

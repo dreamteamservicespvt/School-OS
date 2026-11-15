@@ -83,7 +83,8 @@ export default async function TasksPage({ searchParams }: Search) {
   const page = sorted.slice((params.page - 1) * PAGE_SIZE, params.page * PAGE_SIZE);
   const name = (id: string) => data.names.get(id) ?? "Someone";
   const due = (d: Date | null) => (d ? formatDateTime(d, tz) : "No due date");
-  const peopleOptions = data.people.map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.designation ? `${p.name} · ${p.designation}` : p.name }));
+  // "Me" first, not in the middle of the A to Z list (layman loop 3).
+  const peopleOptions = [...data.people].sort((a, b) => Number(b.id === current.user.id) - Number(a.id === current.user.id)).map((p) => ({ value: p.id, label: p.id === current.user.id ? `Me (${p.name})` : p.designation ? `${p.name} · ${p.designation}` : p.name }));
 
   type Row = (typeof sorted)[number];
   const columns: Column<Row>[] = [

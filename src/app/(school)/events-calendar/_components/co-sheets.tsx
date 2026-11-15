@@ -254,7 +254,7 @@ export function SessionSheet({ closeHref, kind, groupId, name, members, today, v
         </div>
       )}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] font-semibold text-ink2">{on.size} <Words k="of" /> {members.length} <Words k="present" /></p>
+        <p className="text-[13px] font-semibold text-ink2"><Words k="{n} of {n2}" vars={{ n: on.size, n2: members.length }} /> <Words k="present" /></p>
         <button type="button" className="text-[12.5px] font-semibold text-brand h-8" onClick={() => setOn(on.size === members.length ? new Set() : new Set(members.map((m) => m.id)))}>{on.size === members.length ? "Untick all" : "Tick all"}</button>
       </div>
       <ul className="flex flex-col max-h-[36vh] overflow-y-auto scroll-thin rounded-xl border border-line divide-y divide-line/60">

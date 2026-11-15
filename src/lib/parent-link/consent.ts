@@ -30,8 +30,14 @@ export async function currentConsentTexts(tx: Tx, ctx: SchoolContext): Promise<C
   return rows.filter((r) => (seen.has(r.consentType) ? false : (seen.add(r.consentType), true))).map((r) => ({ id: r.id, consentType: r.consentType, title: r.title, version: r.version, text: (r.text ?? {}) as Record<string, string> }));
 }
 
-export function consentWording(t: ConsentTextRow, language: string) {
-  return t.text[language] ?? t.text.en ?? Object.values(t.text)[0] ?? "";
+/**
+ * The words of a consent form in the first of these languages that the school wrote it in, with
+ * {school} filled in (as on the admission form). own: false when it is shown in another language.
+ */
+export function consentWording(t: ConsentTextRow, languages: string[], schoolName: string): { text: string; own: boolean } {
+  const lang = languages.find((l) => t.text[l]?.trim());
+  const text = (lang ? t.text[lang] : t.text.en ?? Object.values(t.text)[0]) ?? "";
+  return { text: text.replace(/\{school\}/g, schoolName), own: lang === languages[0] };
 }
 
 /** The standing consent (latest record not withdrawn) per guardian, student and type. */

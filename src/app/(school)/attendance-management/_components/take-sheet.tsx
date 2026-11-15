@@ -61,6 +61,7 @@ const NOTE_CHIPS = ["Came at 9:20", "Doctor visit", "Left early, parent picked u
 
 export function TakeSheet(p: Props) {
   const router = useRouter();
+  const tr = useT();
   const byKey = useMemo(() => new Map(p.statuses.map((s) => [s.key, s])), [p.statuses]);
   const quick = useMemo(() => QUICK.filter((k) => byKey.has(k)), [byKey]);
   const fixed = useCallback((s: SheetRow) => Boolean(s.leave && !s.leave.halfDay), []);
@@ -183,7 +184,10 @@ export function TakeSheet(p: Props) {
   const savedNow = p.saved && !dirty;
   const lateCount = counts.c.late ?? 0;
   const leaveCount = counts.c.leave ?? 0;
-  const saveLabel = pending ? "Saving…" : savedNow ? "Saved" : `Save attendance: ${counts.c.present ?? 0} present, ${counts.c.absent ?? 0} absent${lateCount ? `, ${lateCount} late` : ""}${leaveCount ? `, ${leaveCount} on leave` : ""}${counts.notMarked ? `, ${counts.notMarked} not marked` : ""}`;
+  const saveLabel = pending ? tr("Saving…") : savedNow ? tr("Saved") : tr("Save attendance: {list}", {
+    list: [tr("{n} present", { n: counts.c.present ?? 0 }), tr("{n} absent", { n: counts.c.absent ?? 0 }), lateCount ? tr("{n} late", { n: lateCount }) : null,
+      leaveCount ? tr("{n} on leave", { n: leaveCount }) : null, counts.notMarked ? tr("{n} not marked", { n: counts.notMarked }) : null].filter(Boolean).join(", "),
+  });
 
   return (
     <div className="pb-4 relative">
@@ -245,16 +249,16 @@ export function TakeSheet(p: Props) {
           {tiles.map((t) => (
             <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
               <p className={cx("font-display text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
-              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{t.label}</p>
+              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{tr.any(t.label)}</p>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
           <div className="relative flex-1 xl:w-56">
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or roll no." aria-label="Find a student by name or roll number"
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Name or roll no.")} aria-label={tr("Find a student by name or roll number")}
               className="h-11 w-full rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
-            {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1.5 top-1/2 -translate-y-1/2 size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
+            {q && <button type="button" onClick={() => setQ("")} aria-label={tr("Clear search")} className="absolute right-1.5 top-1/2 -translate-y-1/2 size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
           </div>
           {!readOnly && <Button variant="secondary" icon={CheckCheck} className="h-11" disabled={!changed} onClick={() => setConfirmAll(true)}><Words k="All present" /></Button>}
         </div>

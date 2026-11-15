@@ -104,7 +104,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
     <div>
       {head}
       <Stack>
-        {cur && !DONE.includes(cur.status as (typeof DONE)[number]) && <Banner tone="info" title={`${monthName(cur.month)} slip:`}><Words k="ready after the Principal approves" /> {monthName(cur.month).split(" ")[0]}<Words k="’s salary. You get a message when it is." /></Banner>}
+        {cur && !DONE.includes(cur.status as (typeof DONE)[number]) && <Banner tone="info"><Words k="{month} slip: ready once the Principal approves the salary. You get a message when it is." vars={{ month: monthName(cur.month) }} /></Banner>}
         <Split side={340}>
           <Col className="[&>*]:min-w-0">
             {latest && ll ? (

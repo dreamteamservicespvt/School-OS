@@ -41,13 +41,20 @@ export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, childre
         <Body id={framed ? undefined : "main"} className="px-4 -mt-12 relative flex flex-col gap-4">
           {children}
           <div className="text-center text-[12.5px] text-ink3 px-6 pt-2">
-            {schoolPhone && <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{schoolPhone}</a></>}
+            {schoolPhone && <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{schoolPhone}</a>
+              {whatsApp(schoolPhone) && <> · <a href={whatsApp(schoolPhone)!} target="_blank" rel="noreferrer" className="font-semibold text-brand">{t("WhatsApp")}</a></>}</>}
             <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />{t("Only you can see this page")}</p>
           </div>
         </Body>
       </div>
     </div>
   );
+}
+
+/** A chat link when the school's phone is an Indian mobile number (a landline has no WhatsApp). */
+function whatsApp(phone: string): string | null {
+  const d = phone.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  return /^[6-9]\d{9}$/.test(d) ? `https://wa.me/91${d}` : null;
 }
 
 /** A white card on the phone page. */

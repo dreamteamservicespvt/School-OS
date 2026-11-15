@@ -194,7 +194,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
                 values={Object.fromEntries(data.levels.filter((l) => rows.some((r) => r.studentId === l.studentId)).map((l) => [`${l.studentId}:${l.competencyId}`, l.level]))} />
             )}
           </div>
-          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
+          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length }} /></p>}
         </Card>
       </div>
     </>

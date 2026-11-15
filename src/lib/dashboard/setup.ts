@@ -3,7 +3,9 @@
 // also be marked done (or an optional one skipped) by hand. Steps of modules
 // that are not built or are switched off are hidden.
 import "server-only";
-import { offeredChannels } from "../messaging/sms-offered";
+import { offeredChannels, SMS_OFFERED } from "../messaging/sms-offered";
+import { channelSetups } from "../messaging/channels";
+import { inTestMode } from "../messaging/providers";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
@@ -33,7 +35,8 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Every row is checked first.", time: "15 minutes", button: "Import students" },
   { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management/structure", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
   { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "For online fees. Ask DREAM TEAM support to connect it.", time: "1 minute", button: "See status", optional: true },
-  { key: "messaging", label: "SMS and WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
+  // SMS is not used for now (owner 15 Nov 2026), so the step names WhatsApp only.
+  { key: "messaging", label: SMS_OFFERED ? "SMS and WhatsApp" : "WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
   { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "Attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
   { key: "parent-link", label: "Parent Link", module: "communication", href: "/communication/parent-link", sub: "Choose what parents see, then send each guardian their own link.", time: "5 minutes", button: "Set up" },
 ];
@@ -60,13 +63,26 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.student.count({ where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }),
     tx.guardian.count({ where: { archivedAt: null } }),
     tx.paymentGatewayAccount.count({ where: { archivedAt: null, isActive: true } }),
-    tx.messagingChannel.findMany({ where: { channel: { in: offeredChannels(["sms", "whatsapp"]) }, isOn: true }, select: { channel: true } }),
-    tx.parentLink.count({ where: { status: "ACTIVE" } }),
+    channelSetups(tx, ctx),
+    tx.parentLink.findMany({ where: { status: "ACTIVE", lastSentAt: { not: null } }, select: { guardianId: true }, distinct: ["guardianId"] }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
     ids.length ? tx.feeStructure.findMany({ where: { academicYearId: { in: ids }, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
     // Holidays and vacations typed in Events & Calendar (Calendar Entry) for this year.
     ids.length ? tx.calendarEntry.count({ where: { academicYearId: { in: ids }, type: { in: ["holiday", "vacation"] }, archivedAt: null } }) : 0,
   ]);
+  // Parents (not archived) whose link was sent.
+  // campus: the setup checklist is for the whole school (School Admin and Principal), like the counts above.
+  const linked = links.length ? await tx.guardian.count({ where: { archivedAt: null, id: { in: links.map((l) => l.guardianId) } } }) : 0;
+  // Fees count against the classes that have students this year (or, before any student, every class with a section).
+  // campus: the whole school's setup, every campus's current year.
+  const studying = ids.length ? await tx.enrolment.findMany({ where: { academicYearId: { in: ids }, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { classId: true }, distinct: ["classId"] }) : [];
+  const feeNeeded = studying.length ? studying.length : classes;
+  const feeSet = new Set(feeClasses.map((f) => f.classId));
+  const feeDone = studying.length ? studying.filter((e) => feeSet.has(e.classId)).length : feeSet.size;
+  // A channel switched on in test mode sends nothing, so the step is not done until it sends for real (layman loop 3).
+  const on = offeredChannels(["sms", "whatsapp"] as const).filter((c) => channels[c].isOn);
+  const live = on.filter((c) => !inTestMode(channels[c]));
+  const label = (c: string) => (c === "sms" ? "SMS" : "WhatsApp");
   const signedIn = staffWithLogin.length
     ? await tx.userLogin.count({ where: { id: { in: staffWithLogin.map((s) => s.userLoginId!) }, lastSignInAt: { not: null } } })
     : 0;
@@ -78,17 +94,23 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     subjects: subjects > 0 ? plural(subjects, "subject") : null,
     staff: staffWithLogin.length > 0 ? `${plural(staff, "staff member")}, ${n(signedIn)} ${signedIn === 1 ? "has" : "have"} signed in` : null,
     students: students > 0 ? `${plural(students, "student")}, ${plural(guardians, "parent")}` : null,
-    fees: feeClasses.length ? `${plural(feeClasses.length, "class", "classes")} with a published fee structure` : null,
+    fees: feeNeeded > 0 && feeDone >= feeNeeded ? `${plural(feeDone, "class", "classes")} with published fees` : null,
     gateway: gateways > 0 ? plural(gateways, "gateway") + " connected" : null,
-    messaging: channels.length ? channels.map((c) => (c.channel === "sms" ? "SMS" : "WhatsApp")).join(" and ") + " connected" : null,
+    messaging: live.length ? live.map(label).join(" and ") + " sending for real" : null,
     holidays: holidays > 0 ? `${plural(holidays, "holiday or vacation", "holidays and vacations")} in ${year!.name}` : null,
-    "parent-link": links > 0 ? `${plural(links, "parent")} have their link` : null,
+    "parent-link": guardians > 0 && linked >= guardians ? `${plural(linked, "parent")} ${linked === 1 ? "has" : "have"} a link` : null,
+  };
+  // How far a step is while it is not done: real counts, never "done" on the first record.
+  const progress: Record<string, string | null> = {
+    fees: feeDone > 0 && feeNeeded > 0 ? `${n(feeDone)} of ${plural(feeNeeded, "class", "classes")} have published fees.` : null,
+    messaging: on.length && !live.length ? "Test mode: nothing is sent yet. Ask DREAM TEAM to go live." : null,
+    "parent-link": linked > 0 && guardians > 0 ? `${n(linked)} of ${plural(guardians, "parent")} have a link.` : null,
   };
   return shown.map((s) => {
     const mark = marks.find((m) => m.stepKey === s.key);
     const note = auto[s.key];
     const doneByHand = mark?.status === "DONE";
-    return { ...s, done: Boolean(note) || doneByHand, doneNote: note ?? (doneByHand ? "Marked done" : null), skipped: !note && mark?.status === "SKIPPED" && Boolean(s.optional), marked: Boolean(mark) };
+    return { ...s, sub: progress[s.key] ?? s.sub, done: Boolean(note) || doneByHand, doneNote: note ?? (doneByHand ? "Marked done" : null), skipped: !note && mark?.status === "SKIPPED" && Boolean(s.optional), marked: Boolean(mark) };
   });
 }
 

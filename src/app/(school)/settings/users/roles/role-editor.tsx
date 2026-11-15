@@ -78,7 +78,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
 
         <fieldset>
           <legend className="mb-1 font-medium"><Words k="What this role can do" /></legend>
-          <p className="mb-2 text-sm text-ink-2">{LEVELS.map((l) => `${l.label}: ${l.words}`).join(". ")}<Words k=". Opens" /> {reached} <Words k="of" /> {modules.length} <Words k="modules." /></p>
+          <p className="mb-2 text-sm text-ink-2">{LEVELS.map((l) => `${l.label}: ${l.words}`).join(". ")}<Words k=". Opens" /> <Words k="{n} of {n2}" vars={{ n: reached, n2: modules.length }} /> <Words k="modules." /></p>
           {!readOnly && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-ink-2"><Words k="Set every module to" /></span>

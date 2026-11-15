@@ -162,5 +162,6 @@ async function confirmConsentCodeEn(token: string, form: FormData): Promise<Guar
   if (!result.ok) return { ok: false, step: "code", message: result.message };
   const t = await parentLinkWords(token);
   // Already in the page's language: parentMessage leaves words it does not know as they are.
-  return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title: result.title }) : t("Your consent for “{title}” is withdrawn.", { title: result.title }) };
+  const title = t.any(result.title);
+  return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title }) : t("Your consent for “{title}” is removed.", { title }) };
 }

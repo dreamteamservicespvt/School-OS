@@ -78,7 +78,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-sm">
-              <span className="text-ink-2"><Words k="Page" /> {params.page} <Words k="of" /> {pages}</span>
+              <span className="text-ink-2"><Words k="Page {page} of {pages}" vars={{ page: params.page, pages: pages }} /></span>
               <span className="flex gap-2">
                 {params.page > 1 && <ButtonLink href={listHref("/messages", params, { page: params.page - 1 })} size="sm"><Words k="Previous" /></ButtonLink>}
                 {params.page < pages && <ButtonLink href={listHref("/messages", params, { page: params.page + 1 })} size="sm"><Words k="Next" /></ButtonLink>}

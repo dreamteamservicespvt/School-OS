@@ -27,7 +27,7 @@ export function SignInChoice({ error }: { error?: string }) {
       </div>
       {how === "password" && (
         <TextField label="Temporary password" name="temporaryPassword" type="password" autoComplete="new-password" error={error}
-          help="At least 8 characters with a letter and a number. Never shown again." />
+          help="At least 8 characters with a letter and a number, not a common word. Never shown again." />
       )}
     </fieldset>
   );

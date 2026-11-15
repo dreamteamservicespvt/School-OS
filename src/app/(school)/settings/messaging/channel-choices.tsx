@@ -53,7 +53,7 @@ export function ChannelChoices({ data, readOnly }: { data: ChannelStatus; readOn
       </div>
       <p className="mb-4 text-sm text-ink-2">
         {data.connected
-          ? <Words k="Connected by DREAM TEAM. To change it, tell DREAM TEAM support." />
+          ? (readOnly ? <Words k="Connected by DREAM TEAM. To change it, tell DREAM TEAM support." /> : <Words k="DREAM TEAM connected it. Switch it on here when you are ready." />)
           : <Words k="Not connected yet. DREAM TEAM connects it; until then nothing is sent." />}
       </p>
       {state?.errors?.isOn && <p role="alert" className="mb-3 text-sm text-danger">{state.errors.isOn}</p>}

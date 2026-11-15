@@ -152,7 +152,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <div className="mt-3 border-t border-line">
             <DataList rows={shown} rowKey={(r) => r.st.id} rowHref={(r) => here({ open: r.sub.id })} scroll={false} minWidth={780} caption={`Submissions for ${hw.title}`}
               select={canEdit ? { form: "subs-bulk", label: (r) => `Select ${r.st.name}`, allLabel: "Select every student shown" } : undefined} pickMode={canEdit && picking}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: shown.length, total: rows.length }} /></p>}
               empty={<Empty icon={ListChecks} title="Nobody here" body="Try another filter or search." />}
               columns={[
                 { key: "n", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.st.rollNo ?? ""}</span><Avatar name={r.st.name} size={32} /><span className="font-semibold">{r.st.name}</span></div> },

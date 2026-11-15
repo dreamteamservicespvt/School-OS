@@ -35,7 +35,8 @@ export function Tabs({ tabs, label, className }: { tabs: Tab[]; label: string; c
   const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
   return (
     <nav aria-label={t.any(label)} className={cx("relative -mx-4 px-4 md:mx-0 md:px-0 mb-5", className)}>
-      <ul ref={row} className="peer flex gap-1 overflow-x-auto no-scrollbar border-b border-line">
+      {/* On a phone the right edge fades, so a tab cut at the edge reads as "more this way" (layman loop 3). */}
+      <ul ref={row} className="peer flex gap-1 overflow-x-auto no-scrollbar border-b border-line max-md:[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)]">
         {tabs.map((tab) => {
           const on = (tab.exact ? pathname === tab.href : pathname === tab.href || pathname.startsWith(`${tab.href}/`)) || Boolean(tab.also?.some((p) => pathname === p || pathname.startsWith(`${p}/`)));
           return (

@@ -129,7 +129,7 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
               { key: "q", label: "Questions", align: "right", render: (z) => <span className="tnum">{z.questions}</span> },
               { key: "l", label: "Time limit", nowrap: true, render: (z) => limitWords(z.timeLimitMin) },
               { key: "a", label: "Attempts", align: "right", render: (z) => <span className="tnum">{z.attemptsAllowed}</span> },
-              { key: "k", label: "Taken", render: (z) => <span className="tnum">{z.taken} <Words k="of" /> {z.students}{z.toMark ? <span className="block text-[12px] text-warn">{z.toMark} <Words k="to mark" /></span> : null}</span> },
+              { key: "k", label: "Taken", render: (z) => <span className="tnum"><Words k="{n} of {n2}" vars={{ n: z.taken, n2: z.students }} />{z.toMark ? <span className="block text-[12px] text-warn">{z.toMark} <Words k="to mark" /></span> : null}</span> },
               { key: "v", label: "Average", align: "right", render: (z) => <span className="tnum">{z.avg !== null ? `${z.avg} / ${z.maxScore}` : "—"}</span> },
               { key: "s", label: "Status", render: (z) => <><Pill tone={QUIZ_TONE[z.word]}>{z.word}</Pill><span className="block text-[12px] text-ink3 mt-0.5 whitespace-nowrap">{closesWords(z, p.tz)}</span></> },
             ]}
@@ -164,7 +164,7 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                 <p className="text-[12.5px] text-ink3 mt-2"><Words k="Questions below 50% show in amber." /></p>
               </div>
               <div>
-                <p className="text-[13px] font-semibold text-ink2 mb-2">{plural(r.best.size, "student")} <Words k="· average" /> {row.avg ?? "—"} <Words k="of" /> {maxScore}</p>
+                <p className="text-[13px] font-semibold text-ink2 mb-2">{plural(r.best.size, "student")} <Words k="· average" /> <Words k="{n} of {n2}" vars={{ n: row.avg ?? "—", n2: maxScore }} /></p>
                 <ul className="max-h-[320px] overflow-y-auto scroll-thin divide-y divide-line/70">
                   {r.students.filter((st) => r.best.has(st.id)).map((st) => {
                     const a = r.best.get(st.id)!;

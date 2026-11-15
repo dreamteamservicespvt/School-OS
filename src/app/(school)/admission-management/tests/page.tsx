@@ -111,7 +111,7 @@ export default async function TestsPage({ searchParams }: Search) {
         <span key="v" className="text-[13.5px]">{t.venue ?? "Venue not set"}</span>,
         <div key="c"><p className="font-medium">{t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"}</p><p className="text-[12px] text-ink3">{yl(t.academicYearId)} <Words k="· out of" /> {t.maxMarks}</p></div>,
         <span key="b" className="font-semibold tnum">{all}</span>,
-        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{scored} <Words k="of" /> {all}</span></span>,
+        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum"><Words k="{n} of {n2}" vars={{ n: scored, n2: all }} /></span></span>,
       ],
       mobile: {
         title: `${formatDate(t.startsAt, tz)} · ${formatTime(t.startsAt, tz)}`, sub: `${t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"} · ${t.venue ?? t.title}`,

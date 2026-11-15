@@ -319,7 +319,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             </Toolbar>
             <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="fee payments" className="mx-4 mb-3" />
             <DataList rows={list.rows} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={760} caption="Recent payments"
-              footer={<><span className="tnum"><Words k="Showing" /> {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} <Words k="of" /> {list.total} {whenWord} · {formatRupees(list.sum)} {status === "all" || status === "POSTED" ? "posted" : STATUS.find((x) => x.value === status)?.label.toLowerCase()}</span>
+              footer={<><span className="tnum"><Words k="Showing" /> {list.rows.length ? (page - 1) * take + 1 : 0}–<Words k="{n} of {n2}" vars={{ n: (page - 1) * take + list.rows.length, n2: list.total }} /> {whenWord} · {formatRupees(list.sum)} {status === "all" || status === "POSTED" ? "posted" : STATUS.find((x) => x.value === status)?.label.toLowerCase()}</span>
                 <span className="flex gap-2">
                   {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}><Words k="Newer" /></Link>}
                   {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}><Words k="Older" /></Link>}

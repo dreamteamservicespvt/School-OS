@@ -121,7 +121,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
             columns={columns}
             phone={(m) => ({
               title: m.name, sub: `${groupWords(t, m.group)} · ${m.cardNo}`, avatar: m.name,
-              right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum">{m.out} <Words k="of" /> {m.limit}</span>,
+              right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum"><Words k="{n} of {n2}" vars={{ n: m.out, n2: m.limit }} /></span>,
               pills: <>
                 {m.overdue > 0 && <Pill tone="bad">{m.overdue} <Words k="late" /></Pill>}
                 {m.finesPaise > BigInt(0) && <Pill tone="warn">{formatRupees(m.finesPaise)} <Words k="due" /></Pill>}

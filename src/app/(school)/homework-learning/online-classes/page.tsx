@@ -96,7 +96,7 @@ async function StaffOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           columns={[
             { key: "t", label: "Class", render: (r) => <div className="flex items-center gap-3"><SubIcon subject={r.subject} size={34} /><div><p className="font-semibold leading-tight">{r.title}</p><p className="text-[12.5px] text-ink3">{r.subject} · {r.sectionLabel}{!p.own && r.teacher ? ` · ${r.teacher}` : ""}</p></div></div> },
             { key: "w", label: "Date and time", nowrap: true, render: (r) => <span className="tnum">{momentWords(r.startsAt, p.tz)}<span className="block text-[12.5px] text-ink3">{r.lengthMin} <Words k="min" />{repeatWords(r)}</span></span> },
-            { key: "a", label: "Joined", render: (r) => (r.joined !== null ? <span className="tnum">{r.joined} <Words k="of" /> {r.of}</span> : <span className="text-ink3">—</span>) },
+            { key: "a", label: "Joined", render: (r) => (r.joined !== null ? <span className="tnum"><Words k="{n} of {n2}" vars={{ n: r.joined, n2: r.of }} /></span> : <span className="text-ink3">—</span>) },
             { key: "s", label: "Status", render: (r) => <Pill tone={OC_TONE[r.word]}>{r.word}</Pill> },
           ]}
           phone={(r) => ({ icon: Video, iconTone: OC_TONE[r.word], title: r.title, sub: `${r.sectionLabel} · ${momentWords(r.startsAt, p.tz)}`, pills: <Pill tone={OC_TONE[r.word]} className="!h-[22px] !text-[11.5px]">{r.word}</Pill> })} />

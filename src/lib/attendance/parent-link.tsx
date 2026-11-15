@@ -16,9 +16,18 @@ type Data = CalendarData & { todayFinal: boolean; lockText: string; todayIso: st
 
 function AttendanceSection({ data, view }: { data: Data; view: GuardianView }) {
   const t = makeT(view.lang);
+  const s = data.view.summary;
+  // A % over 1 marked day of 11 read as "100% present" (layman test loop 3): with most school days
+  // not marked, no % is shown, and the dashed boxes are explained.
+  const few = s.workingDays > 0 && s.markedDays * 2 < s.workingDays;
+  const month = few ? { ...data.view, summary: { ...s, percent: null } } : data.view;
+  const unmarked = data.view.cells.some((c) => !c.off && !c.future && !c.statusKey);
   return (
-    <MonthCalendar t={t} view={data.view} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
-      note={!data.todayFinal ? <p className="text-[13px] text-ink2">{t("Today’s attendance can still change until {time}.", { time: data.lockText })}</p> : undefined} />
+    <MonthCalendar t={t} view={month} statuses={data.statuses} min={data.bounds.min} max={data.bounds.max} threshold={data.threshold} todayIso={data.todayIso}
+      note={<>
+        {unmarked && <p className="text-[13px] text-ink2 flex items-center gap-2"><span aria-hidden="true" className="w-4 h-4 shrink-0 rounded border border-dashed border-line" />{t("Dashed box: not marked yet")}</p>}
+        {!data.todayFinal && <p className="text-[13px] text-ink2">{t("Today’s attendance can still change until {time}.", { time: data.lockText })}</p>}
+      </>} />
   );
 }
 

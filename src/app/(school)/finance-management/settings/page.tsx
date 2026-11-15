@@ -227,7 +227,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
             {featureOn("finance-tally") ? (
               <div className="px-5 pb-5 flex flex-col gap-3">
                 <ul>{tallyHeads.filter((h) => h.tallyLedger).slice(0, 6).map((h) => <Line key={h.id} k={h.name} v={<span className="font-mono text-[12.5px]">{h.tallyLedger}</span>} />)}</ul>
-                <p className="text-[12.5px] text-ink3">{matched} <Words k="of" /> {tallyHeads.length} <Words k="heads have a Tally ledger name · the others use their own name" /></p>
+                <p className="text-[12.5px] text-ink3"><Words k="{n} of {n2}" vars={{ n: matched, n2: tallyHeads.length }} /> <Words k="heads have a Tally ledger name · the others use their own name" /></p>
                 <div className="flex gap-2 flex-wrap">
                   <Link href={here({ edit: "tally" })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Ledger names" /></Link>
                   <Link href={`${BASE}/reports`} className={buttonClass("ghost", "sm")}><ArrowRight size={15} aria-hidden="true" /><Words k="Download vouchers" /></Link>

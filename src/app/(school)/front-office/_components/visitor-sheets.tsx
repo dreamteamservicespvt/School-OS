@@ -5,20 +5,21 @@
 // out with the right time, record a gate entry, and check a pass.
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, CircleAlert, LogIn, LogOut, ScanLine, UserCheck } from "lucide-react";
-import { SheetForm, useTyped } from "@/components/ui/url-sheet";
+import { ChevronDown, CircleAlert, IdCard, LogIn, LogOut, ScanLine, UserCheck } from "lucide-react";
+import { SheetForm, useDiscardDraft, useTyped } from "@/components/ui/url-sheet";
 import { SSelect, SText } from "@/components/ui/sheet-fields";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { Banner } from "@/components/money/kit";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { ID_PROOF_TYPES, PEOPLE_COUNTS, mobileDigits, vehicleProblem } from "@/lib/front-office/words";
 import type { ReturningVisitor } from "@/lib/front-office/visitors";
 import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction } from "../actions";
 import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 import { TimeInput } from "@/components/ui/date-input";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
@@ -30,14 +31,17 @@ export function VisitorSheet({ closeHref, back, purposes, staff, photoRequired, 
   preset?: { appointmentId: string; name: string; phone: string; meetStaffId: string; note: string } | null;
 }) {
   return (
-    <SheetForm title="New visitor" sub="Type the phone first." closeHref={closeHref} action={registerVisitorAction}
+    // A draft older than 10 minutes is someone else by now: the next visitor starts clean (layman loop 3).
+    <SheetForm title="New visitor" sub="Type the phone first." closeHref={closeHref} action={registerVisitorAction} draftMinutes={10}
       submitLabel="Register and make pass" pendingText="Registering…" wide hidden={{ back, ...(preset ? { appointmentId: preset.appointmentId } : {}) }}>
-      <VisitorFields purposes={purposes} staff={staff} photoRequired={photoRequired} idRequired={idRequired} preset={preset ?? null} />
+      <VisitorFields purposes={purposes} staff={staff} photoRequired={photoRequired} idRequired={idRequired} preset={preset ?? null} passHref={(id) => `${closeHref}${closeHref.includes("?") ? "&" : "?"}pass=${id}`} />
     </SheetForm>
   );
 }
 
-function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: { purposes: string[]; staff: MeetChoice[]; photoRequired: boolean; idRequired: boolean; preset: { name: string; phone: string; meetStaffId: string; note: string } | null }) {
+function VisitorFields({ purposes, staff, photoRequired, idRequired, preset, passHref }: { purposes: string[]; staff: MeetChoice[]; photoRequired: boolean; idRequired: boolean; preset: { name: string; phone: string; meetStaffId: string; note: string } | null; passHref: (id: string) => string }) {
+  const discard = useDiscardDraft();
+  const phoneErr = useTyped("phone", null).error;
   const name = useTyped("name", preset?.name ?? "");
   const purpose = useTyped("purpose", purposes.includes("Meeting") ? "Meeting" : purposes[0]);
   const meet = useTyped("meetStaffId", preset?.meetStaffId ?? "");
@@ -67,6 +71,10 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
       }
     });
   };
+  const t = useT();
+  const [find, setFind] = useState("");
+  const matching = (q: string) => { const w = q.trim().toLowerCase(); return w ? staff.filter((s) => `${s.name} ${s.role}`.toLowerCase().includes(w)) : staff; };
+  const shownStaff = find.trim() ? staff.filter((s) => s.id === meetId || matching(find).includes(s)) : staff;
   const m = staff.find((s) => s.id === meetId);
   const needMeet = MEET_PURPOSES.includes(why);
   const vErr = vehicle.error || vehicleProblem(veh);
@@ -76,7 +84,17 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
       <div className="grid md:grid-cols-[1fr_240px] gap-4 md:gap-5">
         <div className="flex flex-col gap-4 min-w-0">
           <PhoneBox id="vs-phone" name="phone" label="Phone" required start={preset?.phone} onPhone={onPhone} />
-          {found && (
+          {found?.inside ? (
+            // Still inside on a pass that works: a second pass would be the same visit twice (layman loop 3).
+            <div className="rounded-xl border border-warn/40 bg-warn/12 px-3.5 py-3 text-[13.5px] flex flex-col gap-2.5 -mt-2 animate-fade" role="alert">
+              <p className="flex items-start gap-2 text-ink2"><CircleAlert size={16} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />
+                <b className="text-ink font-semibold"><Words k="{name} is inside now on pass {pass} (since {time})." vars={{ name: found.name, pass: found.inside.passNo, time: found.inside.since }} /></b></p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link href={passHref(found.inside.id)} replace scroll={false} onClick={discard} className={buttonClass("secondary", "sm")}><IdCard size={15} aria-hidden="true" /><Words k="Open that pass" /></Link>
+                <NewPassAnyway />
+              </div>
+            </div>
+          ) : phoneErr?.includes("New pass anyway") ? <NewPassAnyway /> : found && (
             <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 -mt-2 animate-fade" role="status">
               <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" />
               <span className="text-ink2"><b className="text-ink font-semibold">{found.kind === "parent" ? "Parent of the school." : "Returning visitor."}</b> {found.kind === "parent" ? found.last : `Last visit ${found.last}.`}</span>
@@ -94,10 +112,18 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
           {why === "Admission enquiry" && <Banner tone="info" title="The enquiry form opens next,"><Words k="so the details reach Admissions with an owner and a follow-up." /></Banner>}
           <FieldShell label="Person to meet" id="vs-meet" required={needMeet} error={meet.error}
             help={m ? <span className={cx("font-semibold", TONE[m.tone])}>{m.now}</span> : "Shows if they are on leave or teaching now"}>
-            <KeepSelect id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
-              <option value="">Choose staff member</option>
-              {staff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
-            </KeepSelect>
+            <div className="flex flex-col gap-2">
+              {/* A long list is found by typing (layman loop 3: 42 names, no search on a phone). One match is chosen at once. */}
+              {staff.length > 12 && (
+                <input type="search" value={find} aria-label={t("Search staff")} placeholder={t("Search staff")} autoComplete="off" className={cx(inputCls(false), "h-11")}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                  onChange={(e) => { setFind(e.target.value); const hits = matching(e.target.value); if (hits.length === 1) setMeetId(hits[0].id); }} />
+              )}
+              <KeepSelect id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
+                <option value="">Choose staff member</option>
+                {shownStaff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
+              </KeepSelect>
+            </div>
           </FieldShell>
           {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{m.name} <Words k="is not in today (" />{m.now.toLowerCase()}<Words k="). Book an appointment instead, or choose someone else." /></p>}
           {preset?.note && <input type="hidden" name="note" value={preset.note} />}
@@ -114,16 +140,25 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
         <div className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-[140px_1fr] gap-3">
             <SSelect name="idProofType" label="ID proof" required={idRequired} start="Aadhaar" options={ID_PROOF_TYPES.map((t) => ({ value: t, label: t }))} />
-            <SText name="idProofNo" label="Number" required={idRequired} className="[&_input]:font-mono" placeholder="XXXX XXXX 4821" maxLength={30} autoComplete="off"
+            <SText name="idProofNo" label="Number" required={idRequired} className="[&_input]:font-mono" maxLength={30} autoComplete="off"
               help={idRequired ? "Required by school policy. Later, staff see only its last 4 digits." : "Optional. Later, staff see only its last 4 digits."} />
           </div>
           <FieldShell label="Vehicle number" id="vs-veh" error={vErr || undefined} help="Also goes into the gate log">
             <input key={vehicle.key} id="vs-veh" name="vehicleNo" defaultValue={veh} onChange={(e) => { e.target.value = e.target.value.toUpperCase(); setVeh(e.target.value); }}
-              className={cx(inputCls(vErr), "h-11 font-mono")} placeholder="TS 08 EZ 4410" maxLength={16} autoComplete="off" aria-invalid={vErr ? true : undefined} />
+              className={cx(inputCls(vErr), "h-11 font-mono")} maxLength={16} autoComplete="off" aria-invalid={vErr ? true : undefined} />
           </FieldShell>
         </div>
       </details>
     </>
+  );
+}
+
+/** "New pass anyway": kept out of the draft, so it is never ticked by itself next time. */
+function NewPassAnyway() {
+  return (
+    <label data-no-draft className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-ink2 cursor-pointer">
+      <input type="checkbox" name="again" className="size-4 accent-brand" /><Words k="New pass anyway" />
+    </label>
   );
 }
 
@@ -178,7 +213,7 @@ function GateFields() {
       <SegField name="kind" label="What" start="vehicle" options={GATE_OPTIONS} size="sm" onChange={setK} />
       <SegField name="direction" label="In or out" start="IN" options={[{ value: "IN", label: "In", icon: LogIn }, { value: "OUT", label: "Out", icon: LogOut }]} />
       <SText name="who" label={k === "person" ? "Name" : "Driver or company"} required maxLength={120} placeholder={k === "school-bus" ? "Bus 4, Route 4 Miyapur" : "For example: Blue Dart van"} />
-      {k !== "person" && <SText name="vehicleNo" label="Vehicle number" required className="[&_input]:font-mono [&_input]:uppercase" placeholder="TS 07 UB 2236" maxLength={16} autoComplete="off" />}
+      {k !== "person" && <SText name="vehicleNo" label="Vehicle number" required className="[&_input]:font-mono [&_input]:uppercase" maxLength={16} autoComplete="off" />}
       <SText name="purpose" label="Purpose" placeholder="Optional" maxLength={120} />
     </>
   );

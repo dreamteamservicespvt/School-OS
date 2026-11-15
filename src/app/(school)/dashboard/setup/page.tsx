@@ -60,7 +60,7 @@ export default async function SetupPage() {
             <Ring value={pct} size={68} stroke={7}><span className="font-display font-semibold text-[17px] tnum">{p.done}/{p.total}</span></Ring>
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-[16px]"><Words k="Setup checklist" /></h2>
-              <p className="text-[13px] text-ink3">{p.done} <Words k="of" /> {p.total} <Words k="done." /></p>
+              <p className="text-[13px] text-ink3"><Words k="{n} of {n2}" vars={{ n: p.done, n2: p.total }} /> <Words k="done." /></p>
               <Meter value={pct} tone="brand" className="mt-2.5" />
             </div>
           </div>

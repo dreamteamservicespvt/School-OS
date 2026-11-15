@@ -131,7 +131,7 @@ export default async function AuditLogPage({ searchParams }: Search) {
 
       {pages > 1 && (
         <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-ink-2"><Words k="Page" /> {params.page} <Words k="of" /> {pages}</p>
+          <p className="text-sm text-ink-2"><Words k="Page {page} of {pages}" vars={{ page: params.page, pages: pages }} /></p>
           <div className="flex gap-2">
             {params.page > 1 && <Link href={listHref("/settings/data-security/audit-log", params, { page: params.page - 1 })} className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 font-medium hover:bg-surface-2"><Words k="Previous" /></Link>}
             {params.page < pages && <Link href={listHref("/settings/data-security/audit-log", params, { page: params.page + 1 })} className="inline-flex min-h-11 items-center rounded-lg border border-line px-4 font-medium hover:bg-surface-2"><Words k="Next" /></Link>}

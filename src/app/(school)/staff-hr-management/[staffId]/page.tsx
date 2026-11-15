@@ -597,7 +597,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <CardHeader title="Workload" description={data.year?.name} />
         <CardBody className="space-y-4">
           <div>
-            <p className="font-medium">{data.periods} <Words k="of" /> {periodLimit} <Words k="periods a week" /></p>
+            <p className="font-medium"><Words k="{n} of {n2}" vars={{ n: data.periods, n2: periodLimit }} /> <Words k="periods a week" /></p>
             <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-3" role="meter" aria-valuemin={0} aria-valuemax={periodLimit} aria-valuenow={data.periods} aria-label="Periods a week">
               <div className={`h-full ${data.periods > periodLimit ? "bg-danger" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>

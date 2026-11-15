@@ -306,7 +306,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
               description={only ? `Only the subject${tableCols.length === 1 ? "" : "s"} you teach in ${section.label}: ${tableCols.map((c) => c.name).join(", ") || "none"}` : `${data.sheet!.columns.filter((c) => !c.gradeOnly).length ? `Total out of ${showMarks(Math.max(0, ...allRows.map((r) => r.maxTotal)))}` : "Graded subjects"}${ranks ? ` · ${data.settings.tieRule === "dense" ? "same rank for a tie, next rank follows" : "same rank for a tie, next rank skipped"}` : ""}`}
               action={<Pill tone={status.tone} dot>{status.words}</Pill>} />
             {rows.length ? <ResultTable columns={tableCols} rows={tableRows} ranks={ranks} subjectOnly={Boolean(only)} examTitle={exam!.title} section={section.label} passMark={data.settings.passPercentSubject} /> : <ListEmpty />}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4"><Words k="Showing" /> {rows.length} <Words k="of" /> {allRows.length}<span><Words k="AB = absent · ML = medical leave · red = below the pass mark" />{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: allRows.length }} /><span><Words k="AB = absent · ML = medical leave · red = below the pass mark" />{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
           </Card>
         ) : (
           <Card className="overflow-hidden">

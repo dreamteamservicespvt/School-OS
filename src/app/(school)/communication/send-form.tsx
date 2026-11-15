@@ -27,7 +27,7 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { Dialog } from "@/components/ui/dialog";
 import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 import { DateTimeInput } from "@/components/ui/date-input";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
@@ -98,14 +98,15 @@ const fmt = (n: number) => n.toLocaleString("en-IN");
 
 /** Several-at-once buttons, the same look as the class picker on Students. */
 function Toggles({ options, value, onToggle, label }: { options: { value: string; label: string; count?: number }[]; value: string[]; onToggle: (v: string) => void; label: string }) {
+  const tr = useT();
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+    <div className="flex flex-wrap gap-2" role="group" aria-label={tr.any(label)}>
       {options.map((o) => {
         const on = value.includes(o.value);
         return (
           <button key={o.value} type="button" aria-pressed={on} onClick={() => onToggle(o.value)}
             className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2", on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
-            {on && <Check size={14} strokeWidth={3} aria-hidden="true" />}{o.label}
+            {on && <Check size={14} strokeWidth={3} aria-hidden="true" />}{tr.any(o.label)}
             {o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
           </button>
         );
@@ -125,6 +126,7 @@ function toggleIn<T>(list: T[], v: T) {
 const SEND_KEYS = ["sendKey", "fingerprint"];
 
 export function SendForm({ data }: { data: SendFormData }) {
+  const tr = useT();
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, dispatch, pending] = useActionState<SendState, FormData>(checkOrSend, null);
@@ -359,7 +361,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   return (
                     <button key={a} type="button" role="radio" aria-checked={aud === a} onClick={() => { setAud(a); touch(); }}
                       className={cx("h-14 rounded-xl border flex items-center gap-2.5 px-3 text-left text-[13.5px] font-semibold transition", aud === a ? "border-brand bg-brand/8 text-brand ring-1 ring-brand" : "border-line text-ink2 hover:border-ink3/50")}>
-                      <Ic size={18} className="shrink-0" aria-hidden="true" />{AUD[a].label}
+                      <Ic size={18} className="shrink-0" aria-hidden="true" />{tr.any(AUD[a].label)}
                     </button>
                   );
                 })}
@@ -388,7 +390,7 @@ export function SendForm({ data }: { data: SendFormData }) {
               )}
               {aud === "sections" && (
                 <div>
-                  <p className="text-[13px] font-semibold text-ink2 mb-2">{data.wholeSchool ? "Sections" : "Your sections"} <span className="text-ink3 font-normal"><Words k="· students in each" /></span></p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-2">{data.wholeSchool ? tr("Sections") : tr("Your sections")} <span className="text-ink3 font-normal"><Words k="· students in each" /></span></p>
                   <Toggles label="Sections" options={data.sections.map((s) => ({ value: s.id, label: s.label, count: s.count }))} value={sections} onToggle={(v) => { setSections(toggleIn(sections, v)); touch(); }} />
                   {!data.wholeSchool && <p className="text-[12.5px] text-ink3 mt-2"><Words k="Other classes are not offered. To reach them, ask the office." /></p>}
                 </div>
@@ -413,7 +415,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <div className="flex flex-col gap-2">
                   <div className="relative">
                     <label htmlFor="send-people" className="sr-only"><Words k="Find a parent, student or staff member" /></label>
-                    <input id="send-people" type="search" value={search} onChange={(e) => lookFor(e.target.value)} placeholder="Student or parent name, admission number or phone"
+                    <input id="send-people" type="search" value={search} onChange={(e) => lookFor(e.target.value)} placeholder={tr("Student or parent name, admission number or phone")}
                       className={cx(inputCls(), "h-11")} autoComplete="off" aria-controls="send-people-results" />
                     {search.trim().length >= 2 && (
                       <ul id="send-people-results" className="mt-1 flex flex-col rounded-xl border border-line bg-surface p-1">
@@ -483,7 +485,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                       <button key={c} type="button" aria-pressed={on} disabled={off} onClick={() => { setChannels(toggleIn(channels, c)); touch(); }}
                         title={off ? "Switched on in Settings, SMS, WhatsApp & Email" : undefined}
                         className={cx("rounded-xl border p-3 text-left transition flex flex-col gap-1 disabled:opacity-55 disabled:cursor-not-allowed", on ? "border-brand bg-brand/8 ring-1 ring-brand" : "border-line hover:border-ink3/50")}>
-                        <span className={cx("flex items-center gap-2 text-[14px] font-semibold", on ? "text-brand" : "text-ink")}><Ic size={17} aria-hidden="true" />{CH[c].label}{on && <Check size={15} strokeWidth={3} className="ml-auto" aria-hidden="true" />}</span>
+                        <span className={cx("flex items-center gap-2 text-[14px] font-semibold", on ? "text-brand" : "text-ink")}><Ic size={17} aria-hidden="true" />{tr.any(CH[c].label)}{on && <Check size={15} strokeWidth={3} className="ml-auto" aria-hidden="true" />}</span>
                         <span className="text-[11.5px] text-ink3 leading-snug">{data.channelNotes[c]}</span>
                       </button>
                     );
@@ -518,7 +520,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <FieldShell label="Message type" id="send-type" help={backupOk && data.backupDefaults[type] ? "SMS backup is on for this type in Message Settings" : "Sets which templates are offered"}>
                   <select id="send-type" name="messageType" value={type} className={cx(inputCls(), "h-11 pr-9")}
                     onChange={(e) => { setType(e.target.value); setBackup(Boolean(data.backupDefaults[e.target.value])); setTpl({}); touch(); }}>
-                    {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {TYPES.map((t) => <option key={t.value} value={t.value}>{tr.any(t.label)}</option>)}
                   </select>
                 </FieldShell>
                 {channels.map((c) => (
@@ -527,7 +529,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                     help={c === "sms" ? (templatesFor("sms").length ? "Only templates with a DLT template ID are offered for SMS" : undefined) : TPL_HELP[c]}>
                     <select id={c === "sms" ? "send-sms" : `send-tpl-${c}`} value={tpl[c] ?? ""} className={cx(inputCls(tried && c === "sms" && err.sms), "h-11 pr-9")}
                       onChange={(e) => { const v = e.target.value; setTpl({ ...tpl, [c]: v }); const t = data.templates.find((x) => x.id === v); if (t?.subject && !title) setTitle(t.subject); touch(); }}>
-                      <option value="">{c === "sms" ? "Choose an SMS template" : "None, type my own message"}</option>
+                      <option value="">{c === "sms" ? tr("Choose an SMS template") : tr("None, type my own message")}</option>
                       {templatesFor(c).map((t) => <option key={t.id} value={t.id}>{t.name}{t.dlt ? ` · DLT ${t.dlt.slice(-6)}` : ""}</option>)}
                     </select>
                     {c === "sms" && templatesFor("sms").length === 0 && (
@@ -539,7 +541,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
               <FieldShell label="Title" id="send-title" required={needsTitle} error={titleBlankError ?? (tried ? err.title : undefined)}>
                 <input id="send-title" name="title" value={title} maxLength={120} onChange={(e) => { setTitle(e.target.value); touch(); }}
-                  aria-invalid={tried && err.title ? true : undefined} className={cx(inputCls(tried && err.title), "h-11")} placeholder="Shown at the top of an email or app notice" />
+                  aria-invalid={tried && err.title ? true : undefined} className={cx(inputCls(tried && err.title), "h-11")} placeholder={tr("Heading of an email or app notice")} />
               </FieldShell>
 
               {chosen.map((t) => (
@@ -616,7 +618,7 @@ export function SendForm({ data }: { data: SendFormData }) {
             <div className="px-5 pb-4">
               <p className="eyebrow text-ink3"><Words k="Who will get it" /></p>
               <p className={cx("font-display text-[34px] font-semibold tnum leading-tight transition-opacity", checking && "opacity-50")}>
-                {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{noun}</span>
+                {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{tr.any(noun)}</span>
               </p>
               <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-ink2">
                 {!whoReady && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{err.who}</span></li>}
@@ -655,7 +657,7 @@ export function SendForm({ data }: { data: SendFormData }) {
             <div className="border-t border-line px-5 py-4 bg-sunken/40">
               <div className="flex items-center gap-2 mb-3">
                 <p className="eyebrow text-ink3 flex-1"><Words k="Preview" /></p>
-                {live && live.samples.length > 0 && <span className="text-[12px] text-ink3 tnum">{Math.min(pi, live.samples.length - 1) + 1} <Words k="of" /> {live.samples.length}</span>}
+                {live && live.samples.length > 0 && <span className="text-[12px] text-ink3 tnum"><Words k="{n} of {n2}" vars={{ n: Math.min(pi, live.samples.length - 1) + 1, n2: live.samples.length }} /></span>}
                 <button type="button" aria-label="Previous recipient" disabled={!live || pi === 0} onClick={() => setPi(pi - 1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink2 hover:bg-sunken disabled:opacity-40"><ChevronLeft size={17} aria-hidden="true" /></button>
                 <button type="button" aria-label="Next recipient" disabled={!live || pi >= live.samples.length - 1} onClick={() => setPi(pi + 1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink2 hover:bg-sunken disabled:opacity-40"><ChevronRight size={17} aria-hidden="true" /></button>
               </div>
@@ -691,7 +693,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <Button variant="ghost" className="flex-1" icon={Bookmark} disabled={!whoReady || aud === "group"} onClick={() => { setGroupName(whoLabel.slice(0, 60)); setGroupOpen(true); }}><Words k="Save as group" /></Button>
                 <Button variant="ghost" className="flex-1" icon={Eye} disabled={!live || live.samples.length < 2} onClick={() => setPi(live ? (pi + 1) % live.samples.length : 0)}><Words k="Next person" /></Button>
               </div>
-              <p className="text-[12px] text-ink3 text-center">{when === "later" ? "It can be cancelled until it goes." : "A message cannot be unsent once delivered."}</p>
+              <p className="text-[12px] text-ink3 text-center">{when === "later" ? tr("It can be cancelled until it goes.") : tr("A message cannot be unsent once delivered.")}</p>
             </div>
           </Card>
         </Col>

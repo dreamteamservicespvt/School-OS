@@ -140,7 +140,7 @@ export default async function DevicesPage({ searchParams }: Props) {
                     { key: "st", label: "Status", render: (d) => { const st = deviceStatus(d, now); const h = data.health.get(d.id); return <div><Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill><p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap"><Words k="Last punch" /> {d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}{h ? ` · ${h.received} today` : ""}</p></div>; } },
                   ]}
                   mobile={(d) => { const st = deviceStatus(d, now); return { icon: TYPE_ICON[d.deviceType] ?? ScanFace, iconTone: d.archivedAt ? "neutral" : TONE[st.tone], title: d.name, sub: `${d.location ?? "No location"} · last punch ${d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}`, right: <Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill> }; }}
-                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {data.devices.length} <Words k="devices" /></p>}
+                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: data.devices.length }} /> <Words k="devices" /></p>}
                   empty={<EmptyState bare Icon={ScanFace} title={q ? "No devices match" : "No devices yet"}>{q ? "Try another name, place or serial number." : "Add a device, then follow the Setup guide."}</EmptyState>} />
               </Card>
             </>

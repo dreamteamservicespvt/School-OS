@@ -150,7 +150,10 @@ export default async function StaffListPage({ searchParams }: Search) {
           {data.wrongPost.length > 8 && <p className="mt-1.5 text-ink-2">{`And ${data.wrongPost.length - 8} more. Filter the list by designation to find them.`}</p>}
         </Alert>
       )}
-      {data.noRecord.length > 0 && (
+      {/* A new school's first visit: the only login without a record is the person reading. A small offer, not a warning. */}
+      {data.roll === 0 && data.noRecord.length > 0 && data.noRecord.every((u) => u.id === current.user.id) ? (
+        <p className="mb-4 text-sm text-ink-2"><Words k="Add yourself as staff too?" /> <a href={`${BASE}/add?login=${current.user.id}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Add staff record" /></a></p>
+      ) : data.noRecord.length > 0 && (
         <Alert tone="info" className="mb-4"
           title={data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}>
           <p><Words k="They are not on this list or in the staff counts. Add their staff record; their login stays as it is." /></p>

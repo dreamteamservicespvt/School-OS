@@ -64,7 +64,7 @@ export async function registerVisitorAction(_: S, fd: FormData): Promise<S> {
       phone: str(fd, "phone"), name: str(fd, "name"), purpose: str(fd, "purpose"), meetStaffId: optionalId(fd, "meetStaffId"),
       note: maybe(fd, "note", "Note", 200), peopleCount: people(fd), photo: file(fd, "photo"),
       idProofType: str(fd, "idProofType") || null, idProofNo: str(fd, "idProofNo") || null, vehicleNo: str(fd, "vehicleNo") || null,
-      appointmentId: optionalId(fd, "appointmentId"),
+      appointmentId: optionalId(fd, "appointmentId"), again: str(fd, "again") === "on",
     }, { timeZone: w.tz });
     return { ...res, enquiry: res.visitor.purpose === "Admission enquiry" && w.can.desk };
   }, (r) => (r.meetName && r.told ? `${r.visitor.name} registered · pass ${r.visitor.passNo}. ${r.meetName} told on the app.` : `${r.visitor.name} registered · pass ${r.visitor.passNo}`));
@@ -72,7 +72,9 @@ export async function registerVisitorAction(_: S, fd: FormData): Promise<S> {
   const d = r.data as { visitor: { id: string }; enquiry: boolean };
   const from = back(fd, `${BASE}/visitors`);
   const sep = from.includes("?") ? "&" : "?";
-  redirect(d.enquiry ? `${BASE}/enquiries?do=enquiry&visitor=${d.visitor.id}` : `${from}${sep}pass=${d.visitor.id}`);
+  // Replace, not push: Back from the pass goes to the list, never to an empty "New visitor" form
+  // that looks as if the visitor was not saved (layman loop 3: Hari registered twice).
+  redirect(d.enquiry ? `${BASE}/enquiries?do=enquiry&visitor=${d.visitor.id}` : `${from}${sep}pass=${d.visitor.id}`, "replace" as Parameters<typeof redirect>[1]);
 }
 
 export async function checkOutAction(_: S, fd: FormData): Promise<S> {
@@ -148,7 +150,7 @@ export async function releaseAction(_: S, fd: FormData): Promise<S> {
   }, (r) => `${r.student.first} released to ${r.person.name}${r.classTeacher ? `. ${r.classTeacher} told.` : "."}`);
   if (!r?.ok || !r.data) return r as S;
   const d = r.data as { pass: { id: string }; student: { id: string } };
-  redirect(`${BASE}/pickup?student=${d.student.id}&gp=${d.pass.id}`);
+  redirect(`${BASE}/pickup?student=${d.student.id}&gp=${d.pass.id}`, "replace" as Parameters<typeof redirect>[1]);
 }
 
 export async function letOutAction(_: S, fd: FormData): Promise<S> {

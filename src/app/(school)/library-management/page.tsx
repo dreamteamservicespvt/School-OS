@@ -574,7 +574,7 @@ async function TodayList({ list, rows, counts, hrefFor, today, desk }: { list: L
         <SegLinks label="Today's list" value={list} size="sm" options={LISTS.map((l) => ({ value: l.value, label: <>{t(l.label)} <span className="tnum text-ink3">{n[l.value]}</span></>, href: hrefFor(l.value) }))} />
       </div>
       <IssueRows rows={rows} today={today} desk={desk} empty={t(list === "issued" ? "No books issued yet today." : list === "returned" ? "No books returned yet today." : list === "due" ? "No books due today." : "No overdue books.")} />
-      {n[list] > rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing" /> {rows.length} <Words k="of" /> {n[list].toLocaleString("en-IN")}<Words k=". The history below has them all." /></p>}
+      {n[list] > rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: n[list].toLocaleString("en-IN") }} /><Words k=". The history below has them all." /></p>}
     </Card>
   );
 }

@@ -224,7 +224,7 @@ export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: 
   );
 }
 
-export function SlotButton({ slot, workingDays, nextNumber, pageYearId }: { slot?: { id: string; label: string; number: number; startTime: string; endTime: string; isBreak: boolean; days: number[] }; workingDays: number[]; nextNumber: number; pageYearId: string }) {
+export function SlotButton({ slot, workingDays, nextNumber, pageYearId, nextStart }: { slot?: { id: string; label: string; number: number; startTime: string; endTime: string; isBreak: boolean; days: number[] }; workingDays: number[]; nextNumber: number; pageYearId: string; /** A new period starts when the last one ends. */ nextStart?: string }) {
   const [isBreak, setIsBreak] = useState(slot?.isBreak ?? false);
   return (
     <FormDialog trigger={slot ? "Edit" : "Add period or break"} triggerVariant={slot ? "ghost" : "primary"} triggerSize={slot ? "sm" : "md"} title={slot ? `Edit ${slot.label}` : "Add a period or break"} action={saveSlotAction} submitLabel="Save" hidden={{ id: slot?.id ?? "", pageYearId }}>
@@ -232,11 +232,12 @@ export function SlotButton({ slot, workingDays, nextNumber, pageYearId }: { slot
         <>
           <CheckboxField label="Lunch or break" name="isBreak" checked={isBreak} onChange={(e) => setIsBreak(e.target.checked)} />
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="Name" name="label" required defaultValue={v(state, "label", slot?.label ?? (isBreak ? "Lunch" : `Period ${nextNumber}`))} error={err(state, "label")} />
+            {/* A new slot's name follows the box: ticking "Lunch or break" never leaves it as "Period 3". */}
+            <TextField key={slot ? "label" : isBreak ? "label-break" : "label-period"} label="Name" name="label" required defaultValue={v(state, "label", slot?.label ?? (isBreak ? "Lunch" : `Period ${nextNumber}`))} error={err(state, "label")} />
             {!isBreak && <TextField label="Period number" name="number" inputMode="numeric" required defaultValue={v(state, "number", slot?.number ?? nextNumber)} error={err(state, "number")} />}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="Starts" name="startTime" type="time" required defaultValue={v(state, "startTime", slot?.startTime)} error={err(state, "startTime")} />
+            <TextField label="Starts" name="startTime" type="time" required defaultValue={v(state, "startTime", slot?.startTime ?? nextStart)} error={err(state, "startTime")} />
             <TextField label="Ends" name="endTime" type="time" required defaultValue={v(state, "endTime", slot?.endTime)} error={err(state, "endTime")} />
           </div>
           <DayChecks name="days" label="Runs on" chosen={slot?.days ?? workingDays} error={err(state, "days")} help="Untick a day when this period does not run, like periods 6 to 8 on a Saturday half day." />

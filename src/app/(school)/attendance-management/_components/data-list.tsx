@@ -91,7 +91,7 @@ export function DataList<R>({ columns, rows, rowKey, href, mobile, empty, footer
       </ul>
       {footer !== false && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3 flex-wrap">
-          {footer ?? <span className="tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {rows.length}</span>}
+          {footer ?? <span className="tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: rows.length }} /></span>}
         </div>
       )}
     </>
@@ -105,11 +105,11 @@ export function Pager({ page, pageSize, total, href }: { page: number; pageSize:
   const to = Math.min(total, page * pageSize);
   return (
     <>
-      <span className="tnum" aria-live="polite"><Words k="Showing" /> {from} <Words k="to" /> {to} <Words k="of" /> {total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite"><Words k="Showing {from} to {to} of {total}" vars={{ from: from, to: to, total: total.toLocaleString("en-IN") }} /></span>
       {pages > 1 && (
         <nav aria-label="Pages" className="flex items-center gap-2">
           {page > 1 && <Link href={href(page - 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken"><Words k="Previous" /></Link>}
-          <span className="tnum"><Words k="Page" /> {page} <Words k="of" /> {pages}</span>
+          <span className="tnum"><Words k="Page {page} of {pages}" vars={{ page: page, pages: pages }} /></span>
           {page < pages && <Link href={href(page + 1)} scroll={false} className="h-8 px-3 rounded-lg border border-line bg-surface text-ink font-semibold inline-flex items-center hover:bg-sunken"><Words k="Next" /></Link>}
         </nav>
       )}

@@ -18,6 +18,7 @@ import { SheetHead } from "@/components/ui/dialog";
 import { markAllNotificationsRead, openNotification, setAppearance, signOut, switchSchool } from "@/app/(school)/actions";
 import { Logo } from "./logo";
 import { useT } from "@/lib/i18n/client";
+import { LANGUAGE_OWN_NAME } from "@/lib/i18n/languages";
 import { BellWatch } from "./bell-watch";
 import { SoundToggle } from "./sound-toggle";
 import { NAV_GROUPS, type BarItem, type IconName, type MineLink, type Quick } from "./nav-config";
@@ -223,7 +224,8 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
         )}
       </nav>
       {below && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-surface via-surface/90 to-transparent flex items-end justify-center pb-1.5">
+        // Solid behind the pill, so no half row ("Inve… …nt") peeks out on both sides of it (layman loop 3).
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-surface from-55% to-transparent flex items-end justify-center pb-1.5">
           <button type="button" onClick={() => navRef.current?.scrollBy({ top: navRef.current.clientHeight * 0.7, behavior: "smooth" })}
             className="pointer-events-auto inline-flex items-center gap-1 h-8 px-3 rounded-full bg-surface border border-line shadow-card text-[12.5px] font-semibold text-ink2 hover:text-brand"
             title={t("More below")}>
@@ -265,7 +267,8 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
         <Logo size={34} />
         <span className="min-w-0">
           {/* Layman loop 15 Nov: "Attendance Managem…" was cut at 390 px. The bar says the short school word; the menu keeps the full name. */}
-          <span className="block font-display font-semibold text-[15px] leading-tight truncate">{title ? title.replace(/ Management$/, "") : school.name}</span>
+          {/* Telugu and Hindi page names are longer: two lines rather than "హోంవర్క్ & అభ్యా…" (layman loop 3). */}
+          <span className={cx("block font-display font-semibold text-[15px] leading-tight", t.lang === "en" ? "truncate" : "line-clamp-2 text-[14px]")}>{title ? title.replace(/ Management$/, "") : school.name}</span>
           <span className="block text-[11.5px] text-ink3 truncate">{school.name}{year ? ` · ${yearLabel(year.name)}` : ""}</span>
         </span>
       </Link>
@@ -291,7 +294,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
         <Avatar name={person.name} size={34} src={person.photo} />
         <span className="hidden lg:block text-left">
           <span className="block text-[13.5px] font-semibold leading-tight max-w-[10rem] truncate">{person.name}</span>
-          <span className="block text-xs text-ink3 max-w-[10rem] truncate">{person.role}</span>
+          <span className="block text-xs text-ink3 max-w-[10rem] truncate">{t.any(person.role)}</span>
         </span>
       </button>
     </header>
@@ -316,7 +319,9 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
   }, []);
   if (keyboard) return null;
   return (
-    <nav className="md:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label={t("Quick menu")}>
+    // A page with its own number pad on screen (data-keypad: marks One at a time) opens no phone keyboard, so the
+    // check above never fires: the bar steps aside while the pad is shown (layman loop 3: keys 7 to 9 and Next were under it).
+    <nav className="md:hidden [html:has([data-keypad])_&]:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label={t("Quick menu")}>
       {/* As many columns as there are items, so a short bar has no gaps. */}
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4) + 1}, minmax(0, 1fr))` }}>
         {items.slice(0, 4).map((it) => {
@@ -504,7 +509,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch, 
           <Avatar name={person.name} size={44} src={person.photo} />
           <div className="min-w-0">
             <p className="font-semibold truncate">{person.name}</p>
-            <p className="text-[13px] text-ink3 truncate">{person.role} · {school.name}</p>
+            <p className="text-[13px] text-ink3 truncate">{t.any(person.role)} · {school.name}</p>
           </div>
         </div>
         {support ? (
@@ -523,6 +528,8 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch, 
         </div>
         <div className="border-t border-line my-1" />
         <Link role="menuitem" href="/profile/appearance" onClick={onClose} className={row}><I.Palette size={18} className="text-ink3" aria-hidden="true" />{t("Colours and text size")}</Link>
+        {/* The language row says "Language" in English too, so a person who reads little English finds it (layman loop 3). */}
+        <Link role="menuitem" href="/profile#language" onClick={onClose} className={row}><I.Languages size={18} className="text-ink3" aria-hidden="true" />{t.lang === "en" ? "Language" : `${t("Language")} / Language`}: {LANGUAGE_OWN_NAME[t.lang]}</Link>
         <Link role="menuitem" href="/profile" onClick={onClose} className={row}><I.UserCog size={18} className="text-ink3" aria-hidden="true" />{t("My profile, password and language")}</Link>
         <Link role="menuitem" href="/profile#devices" onClick={onClose} className={row}><I.MonitorSmartphone size={18} className="text-ink3" aria-hidden="true" />{t("Signed-in devices")}</Link>
         {schools.length > 1 && <button role="menuitem" type="button" className={row} onClick={() => { onClose(); onSwitch(); }}><I.ArrowRightLeft size={18} className="text-ink3" aria-hidden="true" />{t("Switch school or campus")}</button>}
@@ -621,7 +628,8 @@ export function AppShell(props: ShellProps) {
       <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} sound={sound} />
       {sound !== null && <BellWatch unread={unread} sound={sound} />}
       <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} support={support} />
-      <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} mine={mine} landing={landing} />
+      {/* Dashboard is Home in the bar, so More leaves out its lone tile (layman loop 3). */}
+      <MoreSheet open={more} onClose={() => setMore(false)} menu={bottom.some((it) => it.href === "/dashboard") ? menu.filter((k) => k !== "dashboard") : menu} mine={mine} landing={landing} />
       <QuickSheet open={quickOpen} onClose={() => setQuickOpen(false)} quick={quick} />
       <SwitchSheet open={switchOpen} onClose={() => setSwitchOpen(false)} school={school} schools={schools} />
     </div>

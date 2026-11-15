@@ -91,7 +91,7 @@ export default async function ModulesPage() {
                   ? "Run by DREAM TEAM. Never sent: Aadhaar, bank details, salary or counselling notes. Every request is logged; nothing changes until a person accepts."
                   : "Not connected yet: DREAM TEAM connects it. Until then features use School OS's own rules."}
               </p>
-              <p className="mt-1 text-sm"><Words k="This month:" /> {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}<Words k=", about" /> {formatRupees(usage.month.costPaise)} <Words k="· Today:" /> {usage.today} <Words k="of" /> {usage.dailyLimit} <Words k="a day" /></p>
+              <p className="mt-1 text-sm"><Words k="This month:" /> {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}<Words k=", about" /> {formatRupees(usage.month.costPaise)} <Words k="· Today:" /> <Words k="{n} of {n2}" vars={{ n: usage.today, n2: usage.dailyLimit }} /> <Words k="a day" /></p>
             </div>
             <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} />
             <div>

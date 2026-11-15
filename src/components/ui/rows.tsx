@@ -63,8 +63,8 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
               {i < items.length - 1 && <span className="w-px flex-1 bg-line my-1" />}
             </span>
             <div className="pb-5 pt-1.5 min-w-0">
-              <p className="text-[14.5px] leading-snug break-words">{t.what}</p>
-              <p className="text-[12.5px] text-ink3 mt-0.5">{t.when}</p>
+              <p className="text-[14.5px] leading-snug break-words">{tx(t.what)}</p>
+              <p className="text-[12.5px] text-ink3 mt-0.5">{tx(t.when)}</p>
             </div>
           </li>
         );

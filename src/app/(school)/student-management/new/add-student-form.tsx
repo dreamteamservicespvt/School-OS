@@ -159,7 +159,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
 
       <div className="flex flex-wrap gap-2">
         {!duplicates.length && <SubmitButton pendingText="Adding…"><Words k="Add student" /></SubmitButton>}
-        <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
+        <Link href="/student-management" onClick={() => draft.discard()} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
       </div>
       </FormProblems>
     </form>

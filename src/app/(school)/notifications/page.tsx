@@ -110,7 +110,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
-              <span className="text-ink3 tnum"><Words k="Page" /> {params.page} <Words k="of" /> {pages} · {data.total} <Words k="notifications" /></span>
+              <span className="text-ink3 tnum"><Words k="Page {page} of {pages}" vars={{ page: params.page, pages: pages }} /> · {data.total} <Words k="notifications" /></span>
               <span className="flex gap-2">
                 {params.page > 1 && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page - 1 })}><I.ChevronLeft size={16} aria-hidden="true" /><Words k="Newer" /></Link>}
                 {params.page < pages && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page + 1 })}><Words k="Older" /><I.ChevronRight size={16} aria-hidden="true" /></Link>}

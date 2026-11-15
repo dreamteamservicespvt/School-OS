@@ -22,6 +22,7 @@ import { Timeline } from "@/components/ui/rows";
 import { SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { STATUS_TONE } from "@/lib/admission/tones";
+import { phoneWords } from "@/lib/admission/words";
 import { FormSheet, SegField, WhenField } from "../_components/forms";
 import { EditEnquiryButton, type EnquiryChoices, type SavedEnquiry } from "./enquiry-forms";
 import {
@@ -168,7 +169,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
         </div>
       )}
 
-      <FormSheet open={sheet === "call"} onClose={close} title="Log a call" sub={`${e.parentName} · +91 ${e.phone}`} action={callAction} hidden={hidden} submitLabel="Save call">
+      <FormSheet open={sheet === "call"} onClose={close} title="Log a call" sub={`${e.parentName} · +91 ${phoneWords(e.phone)}`} action={callAction} hidden={hidden} submitLabel="Save call">
         {(f) => <>
           <SegField name="direction" label="Call" options={[{ value: "outgoing", label: "Outgoing" }, { value: "incoming", label: "Incoming" }]} defaultValue={f.val("direction", "outgoing")!} />
           <SelectField label="What happened" name="outcome" required options={CALL_OUTCOMES.map((o) => ({ value: o, label: o }))} defaultValue={f.val("outcome", "Talked")} error={f.err("outcome")} />
@@ -179,7 +180,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       <FormSheet open={sheet === "note"} onClose={close} title="Add note" sub={`On ${e.childName}’s enquiry. Only staff can see it.`} action={noteAction} hidden={hidden} submitLabel="Add note">
         {(f) => <TextArea label="Note" name="text" required rows={4} placeholder="For example: wants hostel from Class 6. Grandfather will decide." defaultValue={f.val("text")} error={f.err("text")} />}
       </FormSheet>
-      <FormSheet open={sheet === "msg"} onClose={close} title={`Message ${e.parentName}`} sub={`+91 ${e.phone} · saved in this enquiry`} action={messageAction} hidden={{ ...hidden, template: tpl }} submitLabel={`Send to ${e.parentName}`} busyLabel="Sending…" submitIcon={Send}>
+      <FormSheet open={sheet === "msg"} onClose={close} title={`Message ${e.parentName}`} sub={`+91 ${phoneWords(e.phone)} · saved in this enquiry`} action={messageAction} hidden={{ ...hidden, template: tpl }} submitLabel={`Send to ${e.parentName}`} busyLabel="Sending…" submitIcon={Send}>
         {(f) => <>
           <SegField name="channel" label="Send by" options={offeredChannels(["whatsapp", "sms", "email"]).map((c) => ({ value: c, label: c === "sms" ? "SMS" : c === "email" ? "Email" : "WhatsApp" }))} defaultValue={channel} onChange={setChannel} />
           <SelectField label="Template" name="_template" required options={templates.map((t) => ({ value: t.key, label: t.label }))} value={tpl}

@@ -103,7 +103,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
       <AccessFields roles={roles} campuses={campuses} roleIds={v("roleIds") ? v("roleIds").split(",") : [defaultRoleId].filter(Boolean)} scope={v("scope", "WHOLE_SCHOOL")} campusId={v("campusId")} errors={state?.errors} />
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
         <SubmitButton pendingText="Inviting…"><Words k="Send invite" /></SubmitButton>
-        <Link href="/settings/users" className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>
+        <Link href="/settings/users" onClick={() => draft.discard()} className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>
       </div>
     </form>
   );

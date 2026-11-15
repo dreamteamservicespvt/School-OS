@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Camera, FileImage, Paperclip, Upload } from "lucide-react";
-import { SheetForm, useSheetResult, useTyped } from "@/components/ui/url-sheet";
+import Link from "next/link";
+import { SheetForm, useCloseSheet, useDiscardDraft, useSheetResult, useTyped } from "@/components/ui/url-sheet";
+import { Button, buttonClass } from "@/components/ui/button";
 import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { Alert } from "@/components/ui/alert";
@@ -25,12 +27,21 @@ const approverFor = (steps: ApproverStep[], atOnce: number, a: number) => (a <= 
 /** A likely mistake the server warned about: say why, or confirm, and save again. */
 function Warned() {
   const state = useSheetResult();
-  const data = state && !state.ok ? (state.data as { warning?: boolean } | undefined) : undefined;
+  const close = useCloseSheet();
+  const discard = useDiscardDraft();
+  const data = state && !state.ok ? (state.data as { warning?: boolean; link?: { href: string; label: string } } | undefined) : undefined;
   if (!data?.warning) return null;
   const dup = Boolean(state?.errors?.billNo);
   const cash = Boolean(state?.errors?.mode);
   return (
     <>
+      {/* Look at the one already saved, or leave without a second copy (layman loop 3). */}
+      {dup && (
+        <div className="flex flex-wrap gap-2">
+          {data.link && <Link href={data.link.href} target="_blank" className={buttonClass("secondary", "sm")}><Words k="Open existing" /></Link>}
+          <Button size="sm" variant="ghost" onClick={() => { discard(); close(); }}><Words k="Same one: don’t save" /></Button>
+        </div>
+      )}
       {dup && <SArea name="duplicateReason" label="Why save it again?" required placeholder="Example: a second bill with the same number, confirmed with the vendor" />}
       {cash && <WarnCheck field="mode" name="confirmLowCash" title="Pay anyway" sub="The cash or bank balance goes below zero until money comes in." />}
     </>

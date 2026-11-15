@@ -125,7 +125,7 @@ export default async function DocumentsPage({ searchParams }: Search) {
       key: r.id, href: rowHref(r.id), active: r.id === openId,
       cells: [
         <div key="c" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}</p><p className="text-[12px] text-ink3 whitespace-nowrap">{cls} · <span className="font-mono">{r.applicationNo}</span></p></div></div>,
-        <span key="p" className="flex items-center gap-2 w-32"><Progress value={p.required ? (p.requiredVerified / p.required) * 100 : 100} tone={done ? "ok" : "warn"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{p.requiredVerified} <Words k="of" /> {p.required}</span></span>,
+        <span key="p" className="flex items-center gap-2 w-32"><Progress value={p.required ? (p.requiredVerified / p.required) * 100 : 100} tone={done ? "ok" : "warn"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum"><Words k="{n} of {n2}" vars={{ n: p.requiredVerified, n2: p.required }} /></span></span>,
         missing.length ? <span key="m" className="text-[13px] text-warn">{missing.join(", ")}</span> : toVerify ? <span key="m" className="text-[13px] text-info">{toVerify} <Words k="to verify" /></span> : <span key="m" className="text-[13px] text-ok"><Words k="None" /></span>,
       ],
       mobile: {

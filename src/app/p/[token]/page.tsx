@@ -14,7 +14,8 @@ import { VerifyPhone } from "@/components/parent-link/verify-phone";
 import { PhoneNotice, PhoneShell } from "@/components/parent-link/phone-shell";
 import { Link2Off, PowerOff, UserX } from "lucide-react";
 import { parentLinkLanguage } from "@/lib/parent-link/language";
-import { browserLanguage, catalogueFor, makeT, titleIn } from "@/lib/i18n/server";
+import { browserLanguage, makeT, titleIn } from "@/lib/i18n/server";
+import { parentDict } from "@/lib/parent-link/words";
 import { I18nProvider } from "@/lib/i18n/client";
 import { LanguagePicker } from "@/components/language-picker";
 import type { Lang } from "@/lib/i18n/languages";
@@ -49,7 +50,7 @@ function Notice({ title, icon, children }: { title: string; icon?: React.ReactNo
 /** The page in the guardian's language, with a choice of the school's languages in the header. */
 function Shell({ schoolName, children, hello, name, t, choices }: { schoolName?: string; children: React.ReactNode; hello?: string; name?: string; t: T; choices: Lang[] }) {
   return (
-    <I18nProvider lang={t.lang} dict={catalogueFor(t.lang)}>
+    <I18nProvider lang={t.lang} dict={parentDict(t.lang)}>
       <div lang={t.lang}>
         <PhoneShell schoolName={schoolName} hello={hello} name={name} t={t} right={<LanguagePicker value={t.lang} choices={choices} tone="onBrand" />}>{children}</PhoneShell>
       </div>
@@ -108,7 +109,8 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
     return <Shell schoolName={state.schoolName} t={t} choices={choices}><Notice title={t("No children to show")} icon={<UserX size={24} />}>{t("None of your children is studying in the school right now. Please call the school if this is wrong.")}</Notice></Shell>;
   }
   return (
-    <I18nProvider lang={result.view.lang} dict={catalogueFor(result.view.lang)}>
+    // Only the words the page's browser parts use (src/lib/parent-link/words.ts), not the whole app's.
+    <I18nProvider lang={result.view.lang} dict={parentDict(result.view.lang)}>
       <div lang={result.view.lang}>
         <GuardianPage view={result.view} sections={result.sections} schoolPhone={result.phone} basePath={`/p/${token}`}
           right={<LanguagePicker value={result.view.lang} choices={result.view.languages} tone="onBrand" />} />

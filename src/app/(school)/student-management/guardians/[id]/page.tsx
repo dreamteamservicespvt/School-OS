@@ -60,6 +60,8 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
   const dataState = consentState(data.consents, "data-processing");
   const totalDue = kids.reduce((a, k) => a + (k.fact?.feeDuePaise ?? BigInt(0)), BigInt(0));
   const anyOverdue = kids.some((k) => k.fact?.feeOverdue);
+  // "Active" means the link was sent. Before that it is a first send, and there is nothing to revoke.
+  const linkSent = data.link?.status === "Active";
 
   const menu: MenuItem[] = manage ? [
     { label: "Merge with another record", href: `${path}/merge`, icon: <Merge size={16} aria-hidden="true" /> },
@@ -109,8 +111,8 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
             <div className="flex gap-2 flex-wrap relative">
               {message && <ButtonLink href={`/communication?for=students&ids=${kids.map((k) => k.studentId).join(",")}`} icon={MessageCircle}><Words k="Message" /></ButtonLink>}
               {manage && provider && (
-                <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<><RefreshCw size={16} aria-hidden="true" /><Words k="Resend Parent Link" /></>} title="Resend Parent Link?" confirmLabel={`Send to ${g.name}`}>
-                  {g.name}<Words k="’s personal link goes again to +91" /> {phoneShow(g.phone)} {SMS_OFFERED ? <Words k="on WhatsApp, with SMS backup." /> : <Words k="on WhatsApp." />}
+                <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<>{linkSent ? <RefreshCw size={16} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}<Words k={linkSent ? "Resend Parent Link" : "Send Parent Link"} /></>} title={linkSent ? "Resend Parent Link?" : "Send Parent Link?"} confirmLabel={`Send to ${g.name}`}>
+                  {g.name}<Words k={linkSent ? "’s personal link goes again to +91" : "’s personal link goes to +91"} /> {phoneShow(g.phone)} {SMS_OFFERED ? <Words k="on WhatsApp, with SMS backup." /> : <Words k="on WhatsApp." />}
                 </ConfirmAction>
               )}
               {manage && <ButtonLink href={`${path}/edit`} icon={Pencil}><Words k="Edit details" /></ButtonLink>}
@@ -275,7 +277,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                   ["Last opened", data.link?.lastOpenedAt ? formatDateTime(data.link.lastOpenedAt, tz) : "Never"],
                   ["Sent to", `+91 ${phoneShow(g.phone)}`],
                 ]} />
-                {manage && (
+                {manage && linkSent && (
                   <div className="px-5 pb-5 -mt-1">
                     <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "revoke" }} trigger={<><Ban size={16} aria-hidden="true" /><Words k="Revoke Parent Link" /></>} triggerVariant="danger-outline" title="Revoke Parent Link?" confirmLabel="Revoke and send a new link" confirmVariant="danger">
                       <Words k="Use this when a phone is lost. The old link stops opening at once, and a new link is sent to +91" /> {phoneShow(g.phone)}.

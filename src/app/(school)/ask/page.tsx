@@ -141,7 +141,7 @@ function Answer({ a, t }: { a: Extract<AskAnswer, { ok: true }>; t: T }) {
         </>
       )}
       <div className="px-5 py-4 flex flex-wrap items-center gap-3 border-t border-line">
-        {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW_ROWS} <Words k="of" /> {a.total.toLocaleString("en-IN")}.</p>}
+        {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3"><Words k="Showing the first {n} of {total}" vars={{ n: SHOW_ROWS, total: a.total.toLocaleString("en-IN") }} />.</p>}
         <Link href={a.link.href} prefetch={false} className={cx(buttonClass("secondary", "md"), "ml-auto")}>
           {t.any(a.link.label)}<ArrowRight size={16} aria-hidden="true" />
         </Link>

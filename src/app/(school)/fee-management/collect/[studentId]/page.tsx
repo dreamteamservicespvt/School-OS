@@ -17,6 +17,13 @@ import { CollectForm, type DueRow } from "./collect-form";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
+/** "Transport · Apr 2026" under the head "Transport" reads "Apr 2026": the head is shown once (layman loop 3). */
+function withoutHead(label: string, head: string) {
+  if (!label.toLowerCase().startsWith(`${head.toLowerCase()} `) && !label.toLowerCase().startsWith(`${head.toLowerCase()}·`)) return label;
+  const rest = label.slice(head.length).replace(/^\s*[·:-]\s*/, "").trim();
+  return rest || label;
+}
+
 export async function generateMetadata() {
   return { title: await pageTitle("Collect Fee") };
 }
@@ -50,7 +57,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
       return {
         id: d.id,
         head: d.kind === "LATE_FEE" ? "Late fee" : d.kind === "OLD_DUES" ? "Old dues" : head,
-        label: d.kind === "LATE_FEE" ? d.label.replace(/^Late fee\s*[·:-]?\s*/i, "") || "Late fee" : d.label,
+        label: d.kind === "LATE_FEE" ? d.label.replace(/^Late fee\s*[·:-]?\s*/i, "") || "Late fee" : withoutHead(d.label, head),
         due: formatDate(d.dueDate),
         net: Number(netAmount(d)),
         paid: Number(d.paidPaise),
@@ -86,6 +93,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
         gateway={data.gateway}
         verifyModes={p.features.has("fee-verification") ? p.settings.verifyModes : []}
         limit={formatRupees(p.settings.concessionLimitPaise)}
+        limitPaise={Number(p.settings.concessionLimitPaise)}
         nextDueText={nextDue ? `Next installment is due on ${formatDate(nextDue.dueDate)}.` : "Nothing more is raised for this year yet."}
         studentCard={
           <Card className="p-4 md:p-5 flex items-center gap-4">

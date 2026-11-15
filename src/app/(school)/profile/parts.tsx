@@ -17,6 +17,7 @@ import { NOTE_CHANNELS, NOTE_CHANNEL_LABEL, type NoteChannel, type NoteKind, typ
 import { PasswordForm } from "./password-form";
 import { confirmContactCode, saveMyName, saveNotePrefs, sendContactCode, setTwoStep, type CodeResult, type Result } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 // SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026); a saved SMS choice is kept.
 const SHOWN_CHANNELS = offeredChannels(NOTE_CHANNELS);
@@ -128,7 +129,7 @@ export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { requ
     : value ? `A code goes to ${sendsTo ?? "your phone or email"} after your password.` : "A code to your phone or email after your password. Safer if someone learns your password.";
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Two-step login" /></b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{sub}</span></div>
+      <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Two-step login" /></b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{tx(sub)}</span></div>
       {cannotReach ? <Pill tone="warn"><I.TriangleAlert size={12} aria-hidden="true" /><Words k="Not set up" /></Pill> : required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" /><Words k="On" /></Pill> : (
         <Switch on={value} label="Two-step login" disabled={pending} onChange={(v) => {
           setValue(v);

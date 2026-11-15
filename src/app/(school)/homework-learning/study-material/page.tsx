@@ -115,7 +115,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14.5px]">{l.title}{l.chapterTitle && l.chapterTitle !== l.title && <span className="text-ink3 font-normal text-[13px]"> · {l.chapterTitle}</span>}</p>
                         {l.visible
-                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand"><Words k="Opened by" /> {opened(l)} <Words k="of" /> {c.students}</Link>
+                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand"><Words k="Opened by" /> <Words k="{n} of {n2}" vars={{ n: opened(l), n2: c.students }} /></Link>
                           : <p className="text-[12.5px] text-ink3"><Words k="Hidden from students" /></p>}
                       </div>
                       {c.canWork && (
@@ -217,7 +217,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <Card>
           <div className="flex items-center gap-4 p-5">
             <Ring value={data.lessons.length ? (done / data.lessons.length) * 100 : 0} size={64} stroke={7}><span className="text-[13px] font-bold tnum">{done}/{data.lessons.length}</span></Ring>
-            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}{done} <Words k="of" /> {data.lessons.length} <Words k="lessons done" /></p></div>
+            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}<Words k="{n} of {n2}" vars={{ n: done, n2: data.lessons.length }} /> <Words k="lessons done" /></p></div>
           </div>
           <ol className="px-3 pb-3 flex flex-col gap-2">
             {data.lessons.map((l, i) => {

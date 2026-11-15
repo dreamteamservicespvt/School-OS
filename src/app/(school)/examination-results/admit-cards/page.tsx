@@ -187,7 +187,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
                     <div key={s.id} className="flex items-center gap-3 text-[13.5px]">
                       <span className="w-12 font-semibold">{short(s.schoolClass.name)} {s.name}</span>
                       <Progress value={n ? (done / n) * 100 : 0} tone={full ? "ok" : "warn"} className="flex-1" label={`${short(s.schoolClass.name)} ${s.name}: ${done} of ${n} printed`} />
-                      <span className={cx("w-20 text-right tnum", !full && "text-warn font-semibold")}>{done} <Words k="of" /> {n}</span>
+                      <span className={cx("w-20 text-right tnum", !full && "text-warn font-semibold")}><Words k="{n} of {n2}" vars={{ n: done, n2: n }} /></span>
                     </div>
                   );
                 })}

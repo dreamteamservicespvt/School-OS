@@ -109,10 +109,10 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
               empty={<Empty icon={Users} title="No student matches" body="Try another name or roll number." />}
               columns={[
                 { key: "n", label: "Student", render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-6">{r.rollNo ?? ""}</span><span className="font-semibold">{r.name}</span></span> },
-                { key: "h", label: "Homework done", render: (r) => <div className="w-28"><Progress value={r.given ? (r.done / r.given) * 100 : 0} tone={r.given && r.done / r.given < 0.75 ? "warn" : "brand"} /><span className="text-[12.5px] text-ink3 tnum">{r.done} <Words k="of" /> {r.given}{r.missing ? ` · ${r.missing} missing` : ""}</span></div> },
+                { key: "h", label: "Homework done", render: (r) => <div className="w-28"><Progress value={r.given ? (r.done / r.given) * 100 : 0} tone={r.given && r.done / r.given < 0.75 ? "warn" : "brand"} /><span className="text-[12.5px] text-ink3 tnum"><Words k="{n} of {n2}" vars={{ n: r.done, n2: r.given }} />{r.missing ? ` · ${r.missing} missing` : ""}</span></div> },
                 { key: "s", label: "Avg score", align: "right", render: (r) => <span className="tnum">{r.scorePct !== null ? `${r.scorePct}%` : "—"}</span> },
                 { key: "q", label: "Quizzes", align: "right", render: (r) => <span className="tnum">{r.quizzes}{r.quizPct !== null ? ` · ${r.quizPct}%` : ""}</span> },
-                { key: "l", label: "Lessons", align: "right", render: (r) => <span className="tnum">{r.lessonsDone} <Words k="of" /> {t.lessons}</span> },
+                { key: "l", label: "Lessons", align: "right", render: (r) => <span className="tnum"><Words k="{n} of {n2}" vars={{ n: r.lessonsDone, n2: t.lessons }} /></span> },
               ]}
               phone={(r) => ({ avatar: r.name, title: `${r.rollNo ?? ""}. ${r.name}`, sub: `Homework ${r.done} of ${r.given}${r.quizPct !== null ? ` · quizzes ${r.quizPct}%` : ""}`, right: <span className={cx("font-semibold tnum text-[14px]", r.given > 0 && r.done / r.given < 0.75 && "text-warn")}>{r.scorePct !== null ? `${r.scorePct}%` : "—"}</span> })} />
           </Card>

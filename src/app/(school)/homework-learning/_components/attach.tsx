@@ -58,7 +58,7 @@ export function AttachPicker({ links = true, maxMb = 10, errorName = "attachment
       <div className="flex flex-wrap gap-2">
         {!lesson && <Button size="sm" variant="secondary" icon={Camera} onClick={photos.open}><Words k="Photo of the board" /></Button>}
         <Button size="sm" variant="secondary" icon={lesson ? Upload : Paperclip} onClick={files.open}>{lesson ? "Upload files" : "File"}</Button>
-        {links && <Button size="sm" variant="secondary" icon={Link2} onClick={() => setLinkOpen(true)}>{lesson ? "Add a link" : "Link"}</Button>}
+        {links && <Button size="sm" variant="secondary" icon={Link2} onClick={() => setLinkOpen(true)}>{lesson ? "Add a link" : "Add link"}</Button>}
       </div>
       {linkOpen && (
         <div className="flex gap-2">

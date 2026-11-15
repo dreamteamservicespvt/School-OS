@@ -279,7 +279,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
                 { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Approved leave" /></p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Overtime" /> {minutesText(r.overtimeMinutes)}</p>}</div> },
               ]}
               mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${formatTime(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
-              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {dc.all}</p> : false}
+              footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: dc.all }} /></p> : false}
               empty={<EmptyState bare Icon={Users} title={filtered ? "No staff match" : "No staff yet"}>{filtered ? "Try another name, department or status." : "Staff appear here once they are added in Staff & HR Management."}</EmptyState>} />
           </Card>
           <Col>

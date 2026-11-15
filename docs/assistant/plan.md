@@ -148,3 +148,8 @@ the line our code returns; the output transcript is compared with the card in th
 2. Voice test (section 5) on two phones and one laptop; write the results here.
 3. Write the eval files for Layer 1 and the runner, then build Layer 1 behind the "assistant"
    switch, then Layers 2 to 4, each with its eval passing.
+
+
+## Avatar decision log (15 Nov)
+- Owner: the MPFB Meera/Arjun were "literally ugly and not cute and attractive". Realistic faces from free tools are dropped. The owner wants CUTE and ATTRACTIVE, live 3D, with emotions.
+- Next route (proposed): a stylised (anime / animated-film) 3D character made in VRoid Studio (free, by pixiv; models you make there may be used commercially), exported as VRM and shown live with @pixiv/three-vrm (MIT): built-in expressions (happy, sad, angry, surprised, relaxed), lip-sync mouth shapes (aa, ih, ou, ee, oh), blinking and look-at. Needs the owner's OK to install VRoid Studio.

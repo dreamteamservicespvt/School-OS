@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School OS WhatsApp messages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600&family=Noto+Sans+Telugu:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --page-bg: #f3f4f1;
+  --ink: #15201b;
+  --muted: #55615b;
+  --card-bg: #ffffff;
+  --border: #dde2dd;
+  --accent: #0b7a4b;
+  --accent-ink: #ffffff;
+  --tag-bg: #e7efe9;
+  --tag-ink: #1d4d35;
+  --mk-bg: #fbeedd;
+  --mk-ink: #7a4a0c;
+  /* WhatsApp light */
+  --wa-top: #008069;
+  --wa-top-ink: #ffffff;
+  --wa-top-sub: #d7f0e9;
+  --wa-chat: #efeae2;
+  --wa-dot: rgba(120, 100, 70, .09);
+  --wa-bubble: #ffffff;
+  --wa-text: #111b21;
+  --wa-sub: #667781;
+  --wa-link: #027eb5;
+  --wa-line: #e9edef;
+  --wa-chip: #ffffff;
+  --wa-chip-ink: #54656f;
+  --wa-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+  --wa-old: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page-bg: #0d1214;
+    --ink: #e6ece8;
+    --muted: #9fb0a8;
+    --card-bg: #151c1f;
+    --border: #263236;
+    --accent: #21c063;
+    --accent-ink: #062814;
+    --tag-bg: #1c2b25;
+    --tag-ink: #9fe0bd;
+    --mk-bg: #33260f;
+    --mk-ink: #f3c784;
+    --wa-top: #202c33;
+    --wa-top-ink: #e9edef;
+    --wa-top-sub: #8696a0;
+    --wa-chat: #0b141a;
+    --wa-dot: rgba(255, 255, 255, .035);
+    --wa-bubble: #202c33;
+    --wa-text: #e9edef;
+    --wa-sub: #8f9fa8;
+    --wa-link: #53bdeb;
+    --wa-line: #2f3d45;
+    --wa-chip: #182229;
+    --wa-chip-ink: #8696a0;
+    --wa-shadow: 0 1px .5px rgba(0, 0, 0, .3);
+    --wa-old: #202c33;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page-bg: #0d1214;
+  --ink: #e6ece8;
+  --muted: #9fb0a8;
+  --card-bg: #151c1f;
+  --border: #263236;
+  --accent: #21c063;
+  --accent-ink: #062814;
+  --tag-bg: #1c2b25;
+  --tag-ink: #9fe0bd;
+  --mk-bg: #33260f;
+  --mk-ink: #f3c784;
+  --wa-top: #202c33;
+  --wa-top-ink: #e9edef;
+  --wa-top-sub: #8696a0;
+  --wa-chat: #0b141a;
+  --wa-dot: rgba(255, 255, 255, .035);
+  --wa-bubble: #202c33;
+  --wa-text: #e9edef;
+  --wa-sub: #8f9fa8;
+  --wa-link: #53bdeb;
+  --wa-line: #2f3d45;
+  --wa-chip: #182229;
+  --wa-chip-ink: #8696a0;
+  --wa-shadow: 0 1px .5px rgba(0, 0, 0, .3);
+  --wa-old: #202c33;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page-bg);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, "Noto Sans Telugu", "Noto Sans Devanagari", sans-serif;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 16px 64px; }
+
+header.top { padding: 32px 0 8px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; }
+header.top h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.15; letter-spacing: -.01em; }
+header.top p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.theme { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 3px; background: var(--card-bg); }
+.theme button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.theme button:focus-visible, .wa-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 18px 0 8px; font-size: 14px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+h2 { font-size: 20px; margin: 40px 0 4px; }
+.sec-note { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 28px 24px; align-items: start; }
+
+.card { margin: 0; min-width: 0; }
+.card figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 8px; }
+.card figcaption b { font-size: 15px; margin-right: 2px; }
+.tag { white-space: nowrap; font-size: 12px; line-height: 1; padding: 5px 8px; border-radius: 999px; background: var(--tag-bg); color: var(--tag-ink); font-weight: 600; }
+.tag.code { font-family: ui-monospace, Consolas, monospace; font-weight: 500; }
+.tag.mk { background: var(--mk-bg); color: var(--mk-ink); }
+.card .note { margin: 8px 2px 0; font-size: 13.5px; color: var(--muted); }
+
+/* phone */
+.phone { border-radius: 18px; overflow: hidden; border: 1px solid var(--border); background: var(--wa-chat); box-shadow: 0 8px 24px -14px rgba(0,0,0,.35); }
+.wa-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--wa-top); color: var(--wa-top-ink); }
+.wa-top .back { width: 20px; height: 20px; flex: none; }
+.avatar { position: relative; width: 38px; height: 38px; flex: none; border-radius: 50%; background: linear-gradient(135deg, #f6c453, #e08a2c); display: grid; place-items: center; color: #3b2304; font-weight: 700; font-size: 17px; }
+.who { min-width: 0; flex: 1; }
+.who .name { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 16px; line-height: 1.2; }
+.who .sub { font-size: 12.5px; color: var(--wa-top-sub); line-height: 1.3; }
+.verified { width: 16px; height: 16px; flex: none; }
+.wa-icons { display: flex; gap: 16px; }
+.wa-icons svg { width: 20px; height: 20px; }
+
+.chat { padding: 12px 10px 16px; background-color: var(--wa-chat);
+  background-image: radial-gradient(var(--wa-dot) 1.2px, transparent 1.4px), radial-gradient(var(--wa-dot) 1.2px, transparent 1.4px);
+  background-size: 22px 22px; background-position: 0 0, 11px 11px; }
+.day { display: table; margin: 0 auto 10px; padding: 4px 10px; border-radius: 7px; background: var(--wa-chip); color: var(--wa-chip-ink); font-size: 12px; box-shadow: var(--wa-shadow); text-transform: uppercase; letter-spacing: .02em; }
+.biz-chip { display: block; margin: 0 auto 12px; max-width: 290px; text-align: center; padding: 6px 10px; border-radius: 7px; background: var(--wa-chip); color: var(--wa-chip-ink); font-size: 12px; box-shadow: var(--wa-shadow); }
+
+.bubble { position: relative; max-width: 92%; background: var(--wa-bubble); color: var(--wa-text); border-radius: 0 8px 8px 8px; box-shadow: var(--wa-shadow); }
+.bubble::before { content: ""; position: absolute; left: -8px; top: 0; width: 8px; height: 13px; background: var(--wa-bubble); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.msg { padding: 7px 9px 6px; overflow-wrap: anywhere; }
+.msg .h { font-weight: 700; font-size: 15.5px; line-height: 1.35; margin-bottom: 4px; }
+.msg .b { font-size: 14.4px; line-height: 1.42; white-space: pre-wrap; }
+.msg .b b { font-weight: 700; }
+.msg .f { margin-top: 5px; font-size: 13px; color: var(--wa-sub); line-height: 1.3; }
+.msg .t { float: right; margin: 6px 0 -3px 10px; font-size: 11px; color: var(--wa-sub); line-height: 15px; }
+.msg::after { content: ""; display: block; clear: both; }
+[lang="te"] .msg .b, [lang="te"] .msg .h, [lang="te"] .wa-btn { font-family: "Noto Sans Telugu", "Segoe UI", sans-serif; }
+[lang="hi"] .msg .b, [lang="hi"] .msg .h, [lang="hi"] .wa-btn { font-family: "Noto Sans Devanagari", "Segoe UI", sans-serif; }
+
+.wa-btn { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 42px; padding: 9px 10px; border: 0; border-top: 1px solid var(--wa-line); background: transparent; color: var(--wa-link); font: inherit; font-size: 14.5px; font-weight: 500; cursor: default; }
+.wa-btn svg { width: 17px; height: 17px; flex: none; }
+.wa-btn.p2 { position: relative; }
+.wa-btn.p2::after { content: "phase 2"; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 600; letter-spacing: .03em; color: var(--wa-sub); border: 1px dashed var(--wa-sub); border-radius: 4px; padding: 1px 4px; }
+
+.before .bubble { background: var(--wa-old); }
+.why { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px 24px; margin: 18px 0 0; padding: 0; list-style: none; }
+.why li { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; }
+.why li b { display: block; margin-bottom: 2px; }
+footer.end { margin-top: 48px; color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>School OS WhatsApp messages</h1>
+      <p>Each message becomes a small card: a title with one emoji, the key facts in bold, the school's name in the footer, and buttons under the card. Sample values are made up.</p>
+    </div>
+    <div class="theme" role="group" aria-label="Colour theme">
+      <button type="button" data-set="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-set="light" aria-pressed="false">Light</button>
+      <button type="button" data-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span><span class="tag">UTILITY</span> lower-cost everyday category</span>
+    <span><span class="tag mk">MARKETING</span> Meta will likely charge it as marketing</span>
+    <span><span class="tag">phase 2</span> quick-reply buttons: sent later, once replies can be received</span>
+  </div>
+
+  <ul class="why">
+    <li><b>Easy to scan</b>Child, amount and date each sit on their own line, in bold.</li>
+    <li><b>No long links</b>Links become buttons such as "Pay fee" and "Open receipt", each holding the parent's own link.</li>
+    <li><b>One-tap help</b>Absence, lateness, bus and behaviour messages have a "Call school" button.</li>
+    <li><b>Calm and respectful</b>One emoji in the title and small labels only. Fee messages state just the facts.</li>
+  </ul>
+
+  <h2>Today (before)</h2>
+  <p class="sec-note">What the owner's phone shows now.</p>
+  <div class="grid" id="before"></div>
+
+  <h2>English</h2>
+  <p class="sec-note">12 key messages, as parents will see them.</p>
+  <div class="grid" id="en"></div>
+
+  <h2>Telugu</h2>
+  <p class="sec-note">The same cards, in everyday Telugu.</p>
+  <div class="grid" id="te" lang="te"></div>
+
+  <h2>Hindi</h2>
+  <p class="sec-note">The same cards, in everyday Hindi.</p>
+  <div class="grid" id="hi" lang="hi"></div>
+
+  <footer class="end">Design proposal, 15 Nov 2026. Full texts for every template (English, Hindi, Telugu) and Meta's rules: docs/design/whatsapp-messages.md. Buttons have no emoji because Meta allows only letters and numbers in button labels.</footer>
+</div>
+
+<script>
+(function () {
+  var ICON = {
+    url: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg>',
+    reply: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>'
+  };
+  var BACK = '<svg class="back" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>';
+  var VERIFIED = '<svg class="verified" viewBox="0 0 24 24" aria-label="Verified business"><path fill="#25d366" d="M12 1.5l2.3 1.7 2.8-.3 1.1 2.6 2.6 1.1-.3 2.8L22.5 12l-1.7 2.3.3 2.8-2.6 1.1-1.1 2.6-2.8-.3L12 22.5l-2.3-1.7-2.8.3-1.1-2.6-2.6-1.1.3-2.8L1.5 12l1.7-2.3-.3-2.8 2.6-1.1L6.6 3.2l2.8.3z"/><path fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.3l3 3 6-6.3"/></svg>';
+  var TOPICONS = '<div class="wa-icons" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></svg><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></div>';
+  var FOOT = 'Chaitanya School · School OS';
+  var SUB = { en: 'Business account', te: 'Business account', hi: 'Business account' };
+
+  var BEFORE = [
+    { title: 'Bus update (today)', key: 'bus-pickup', cat: 'UTILITY', time: '7:43 am', header: '', footer: '',
+      body: 'Dear Venkatesh, here is a bus update from chaitanya:\nSchool OS test of the Picked up by the bus message. Please ignore.\nThis message was sent automatically by the school transport team.',
+      buttons: [], note: 'One block of text with no title, no bold facts and no button. The school name sits in the middle of a sentence.' }
+  ];
+
+  var EN = [
+    { title: 'Fee received', key: 'fee-paid', cat: 'UTILITY', time: '10:42 am', header: '✅ Fee received',
+      body: 'Dear Venkatesh, thank you. We have received your payment.\n\n👤 *Sri Lakshmi* of Class 1 A\n💰 Amount: *₹2,500*\n📅 Paid on: *18-11-2026*\n🧾 Receipt no.: *CHS/2026/00456*\n\nPlease keep this message for your records.',
+      buttons: [['url', 'Open receipt']], note: 'The button opens this payment’s receipt (/r/<key>), as today.' },
+    { title: 'Fee reminder', key: 'fee-due', cat: 'UTILITY', time: '9:00 am', header: '💳 Fee reminder',
+      body: 'Dear Venkatesh, this is a friendly reminder about a school fee.\n\n👤 *Sri Lakshmi* of Class 1 A\n💰 Amount due: *₹2,500*\n📅 Due by: *25-11-2026*\n\nIf you have already paid, please ignore this message. Thank you.',
+      buttons: [['url', 'Pay fee'], ['phone', 'Call school']], note: '"Pay fee" opens this parent’s own Parent Link. Schools without online payment get a version without it that says "Please pay at the school office."' },
+    { title: 'Absent today', key: 'absence', cat: 'UTILITY', time: '9:35 am', header: '🔔 Absent today',
+      body: 'Dear Venkatesh, your child is marked absent at school today.\n\n👤 *Sri Lakshmi* of Class 1 A\n📅 Date: *18-11-2026*\n\nIf you did not expect this, please call the school. We hope all is well.',
+      buttons: [['phone', 'Call school'], ['reply', 'On leave today', 1]], note: '"Call school" dials the school’s number. The quick reply comes in phase 2.' },
+    { title: 'Arrived late', key: 'late', cat: 'UTILITY', time: '9:20 am', header: '⏰ Arrived late',
+      body: 'Dear Venkatesh, your child reached school late today.\n\n👤 *Sri Lakshmi* of Class 1 A\n📅 Date: *18-11-2026*\n\nPlease help your child be on time tomorrow. Thank you.',
+      buttons: [['phone', 'Call school']], note: 'Short and kind. It never blames the parent.' },
+    { title: 'Homework set', key: 'homework-set', cat: 'UTILITY', time: '3:15 pm', header: '📚 New homework',
+      body: 'Dear Venkatesh, new homework has been set for *Class 1 A*.\n\n📖 Homework: English, write 5 sentences about your family.\n\nPlease help your child finish it on time.',
+      buttons: [['url', 'See homework']], note: 'The button opens the parent’s Parent Link.' },
+    { title: 'Results published', key: 'result', cat: 'UTILITY', time: '5:30 pm', header: '📊 Results are out',
+      body: 'Dear Venkatesh, the exam results are ready.\n\n👤 *Sri Lakshmi* of Class 1 A\n📝 Exam: *Half Yearly Exam*\n\nOpen your Parent Link to see the full report card.',
+      buttons: [['url', 'See results']], note: 'No marks in the message itself. The report card stays on the private Parent Link.' },
+    { title: 'Exam reminder', key: 'exam-reminder', cat: 'UTILITY', time: '6:00 pm', header: '✏️ Exams start soon',
+      body: 'Dear Venkatesh, exams are coming up for your child.\n\n👤 *Sri Lakshmi* of Class 1 A\n📝 Exam: *Half Yearly Exam*\n📅 Starts on: *01-12-2026*\n\nThe full timetable is on your Parent Link. All the best!',
+      buttons: [['url', 'See timetable']], note: '' },
+    { title: 'PTM reminder', key: 'ptm', cat: 'UTILITY', time: '11:00 am', header: '📅 Parent-teacher meeting',
+      body: 'Dear Venkatesh, you are warmly invited to the parent-teacher meeting of *Class 1 A*.\n\n📅 Date: *22-11-2026*\n\nCome and hear how your child is doing. We look forward to meeting you.',
+      buttons: [['url', 'Open Parent Link'], ['reply', 'I will attend', 1], ['reply', 'Cannot attend', 1]], note: 'The RSVP quick replies come in phase 2, once taps can be received.' },
+    { title: 'Parent Link', key: 'parent-link', cat: 'UTILITY', time: '12:05 pm', header: '🔑 Your Parent Link',
+      body: 'Dear Venkatesh, here is your own Parent Link from the school.\n\nSee fees, attendance, homework and notices for your children, all in one place.\n\n🔒 This link is only for you. Please do not share it.',
+      buttons: [['url', 'Open Parent Link']], note: 'The long link is gone from the text. It is inside the button.' },
+    { title: 'Consent request', key: 'consent-request', cat: 'UTILITY', time: '1:10 pm', header: '✍️ Consent needed',
+      body: 'Dear Venkatesh, the school needs your consent for the item below.\n\n📄 *School trip to the Science Centre on 28-11-2026*\n\nPlease read the details on your Parent Link and give your answer there.',
+      buttons: [['url', 'Read and answer']], note: 'No "I agree" button, on purpose. Consent is given after reading, on the Parent Link.' },
+    { title: 'Bus arriving', key: 'bus-arriving', cat: 'UTILITY', time: '7:38 am', header: '🚌 Bus arriving soon',
+      body: 'Dear Venkatesh, the school bus will reach your stop soon.\n\n🚌 Bus: *Bus 4*, route 2\n📍 Stop: *KPHB 6th Phase*\n⏰ In about *5* minutes\n\nPlease be at the stop on time.',
+      buttons: [['phone', 'Call school']], note: 'Needs separate bus, stop and minutes blanks in place of today’s one {message} sentence.' },
+    { title: 'Birthday wishes', key: 'birthday-student', cat: 'MARKETING', time: '8:00 am', header: '🎂 Happy birthday!',
+      body: 'Dear Sri Lakshmi, wishing you a very happy birthday! 🎉\n\nMay this year bring you lots of learning, fun and good health.\n\nWith love from all your teachers.',
+      buttons: [], note: 'Meta treats greetings as marketing: a higher price, and parents can turn them off.' }
+  ];
+
+  var TE = [
+    { title: 'Fee received', key: 'fee-paid', cat: 'UTILITY', time: '10:42 am', header: '✅ ఫీజు అందింది',
+      body: 'నమస్కారం Venkatesh గారు, ధన్యవాదాలు. మీ చెల్లింపు మాకు అందింది.\n\n👤 *Sri Lakshmi*, తరగతి Class 1 A\n💰 మొత్తం: *₹2,500*\n📅 చెల్లించిన తేదీ: *18-11-2026*\n🧾 రసీదు నంబర్: *CHS/2026/00456*\n\nదయచేసి ఈ సందేశాన్ని మీ రికార్డుల కోసం ఉంచుకోండి.',
+      buttons: [['url', 'రసీదు చూడండి']], note: '' },
+    { title: 'Absent today', key: 'absence', cat: 'UTILITY', time: '9:35 am', header: '🔔 ఈరోజు గైర్హాజరు',
+      body: 'నమస్కారం Venkatesh గారు, మీ బిడ్డ ఈరోజు పాఠశాలకు రాలేదు.\n\n👤 *Sri Lakshmi*, తరగతి Class 1 A\n📅 తేదీ: *18-11-2026*\n\nఇది మీకు తెలియకపోతే, దయచేసి పాఠశాలకు కాల్ చేయండి. అంతా క్షేమమేనని ఆశిస్తున్నాము.',
+      buttons: [['phone', 'పాఠశాలకు కాల్ చేయండి'], ['reply', 'ఈరోజు సెలవు', 1]], note: '' },
+    { title: 'Bus arriving', key: 'bus-arriving', cat: 'UTILITY', time: '7:38 am', header: '🚌 బస్సు దగ్గరలో ఉంది',
+      body: 'నమస్కారం Venkatesh గారు, స్కూల్ బస్సు త్వరలో మీ స్టాప్‌కు చేరుకుంటుంది.\n\n🚌 బస్సు: *Bus 4*, రూట్ 2\n📍 స్టాప్: *KPHB 6th Phase*\n⏰ సుమారు *5* నిమిషాల్లో\n\nదయచేసి సమయానికి స్టాప్ వద్ద ఉండండి.',
+      buttons: [['phone', 'పాఠశాలకు కాల్ చేయండి']], note: '' }
+  ];
+
+  var HI = [
+    { title: 'Fee reminder', key: 'fee-due', cat: 'UTILITY', time: '9:00 am', header: '💳 फ़ीस रिमाइंडर',
+      body: 'नमस्ते Venkatesh जी, स्कूल फ़ीस जमा करने की याद दिला रहे हैं।\n\n👤 *Sri Lakshmi*, कक्षा Class 1 A\n💰 बकाया राशि: *₹2,500*\n📅 अंतिम तारीख़: *25-11-2026*\n\nअगर आप भुगतान कर चुके हैं, तो कृपया इस संदेश को अनदेखा करें। धन्यवाद।',
+      buttons: [['url', 'फ़ीस भरें'], ['phone', 'स्कूल को कॉल करें']], note: '' },
+    { title: 'Results published', key: 'result', cat: 'UTILITY', time: '5:30 pm', header: '📊 परिणाम आ गए',
+      body: 'नमस्ते Venkatesh जी, परीक्षा के परिणाम तैयार हैं।\n\n👤 *Sri Lakshmi*, कक्षा Class 1 A\n📝 परीक्षा: *Half Yearly Exam*\n\nपूरा रिपोर्ट कार्ड देखने के लिए अपना Parent Link खोलें।',
+      buttons: [['url', 'परिणाम देखें']], note: '' }
+  ];
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // WhatsApp-style formatting: *bold* and _italic_ on the escaped text.
+  function fmt(s) { return esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|\s)_([^_\n]+)_/g, '$1<i>$2</i>'); }
+
+  function card(m, lang) {
+    var btns = m.buttons.map(function (b) {
+      return '<div class="wa-btn' + (b[2] ? ' p2' : '') + '" role="presentation">' + ICON[b[0]] + '<span>' + esc(b[1]) + '</span></div>';
+    }).join('');
+    var tagCls = m.cat === 'MARKETING' ? 'tag mk' : 'tag';
+    return '<figure class="card">' +
+      '<figcaption><b>' + esc(m.title) + '</b><span class="tag code">' + esc(m.key) + '</span><span class="' + tagCls + '">' + m.cat + '</span></figcaption>' +
+      '<div class="phone">' +
+        '<div class="wa-top">' + BACK + '<div class="avatar" aria-hidden="true">C</div>' +
+          '<div class="who"><div class="name">chaitanya ' + VERIFIED + '</div><div class="sub">' + SUB[lang] + '</div></div>' + TOPICONS + '</div>' +
+        '<div class="chat"><span class="day">Today</span>' +
+          '<div class="bubble"><div class="msg">' +
+            (m.header ? '<div class="h">' + esc(m.header) + '</div>' : '') +
+            '<div class="b">' + fmt(m.body) + '</div>' +
+            (m.footer === '' ? '' : '<div class="f">' + esc(m.footer || FOOT) + '</div>') +
+            '<span class="t">' + m.time + '</span>' +
+          '</div>' + btns + '</div>' +
+        '</div>' +
+      '</div>' +
+      (m.note ? '<p class="note">' + esc(m.note) + '</p>' : '') +
+    '</figure>';
+  }
+  function fill(id, list, lang) { var el = document.getElementById(id); if (el) el.innerHTML = list.map(function (m) { return card(m, lang); }).join(''); }
+  fill('before', BEFORE, 'en');
+  fill('en', EN, 'en');
+  fill('te', TE, 'te');
+  fill('hi', HI, 'hi');
+  var beforeCard = document.querySelector('#before .card'); if (beforeCard) beforeCard.classList.add('before');
+
+  // Theme switch: Auto follows the phone or computer; the choice is remembered when storage works.
+  var root = document.documentElement;
+  var buttons = document.querySelectorAll('.theme button');
+  function apply(v) {
+    if (v === 'light' || v === 'dark') root.setAttribute('data-theme', v); else root.removeAttribute('data-theme');
+    for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute('aria-pressed', String(buttons[i].getAttribute('data-set') === (v || 'auto')));
+  }
+  var saved = null;
+  try { saved = localStorage.getItem('sos-wa-theme'); } catch (e) {}
+  apply(saved);
+  for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener('click', function () {
+    var v = this.getAttribute('data-set');
+    apply(v);
+    try { localStorage.setItem('sos-wa-theme', v); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

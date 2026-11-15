@@ -44,6 +44,8 @@ Progress page: see docs/HANDOFF.md (link).
 7. Admissions: drag-and-drop removed from the pipeline (step list with buttons instead); bring back as an extra?
 8. WhatsApp (DONE in code c5747f67): after deploy, Communication > Message Templates > "Make N templates ready for WhatsApp", then "Send N templates to WhatsApp for approval"; Meta answers in minutes to a day. Root cause corrected: defaults were fixed 30 Oct, but the live school kept old words (test mode had marked them approved, then the real account reset them to Not submitted). Admission messages to families now go inside the approved General announcement template on a real account (commit e1c2697b — its message says "moving-in finding logged" but it also holds this change; tests 423/424, the 1 is the translation check during the text pass); screens now say "The parent was not messaged (…). Please tell them by phone." instead of always "told".
 9. Assistant face: the owner rejected the 3 flat looks and the code-built 3D helper ("worst"); now building a lifelike 3D person with the free TalkingHead engine (loaded from a public CDN, no running cost).
+10. Day-one school data: the test school's 4 students already have fee rows 'Due 14-11-2026' made before the due-date fix; correcting old rows is a one-off data change (owner OK needed). Also: archive the duplicate 'Naresh Kumar' staff record; Hindi/Telugu legal consent texts need owner-approved wording; 'cancel a pass made by mistake' is not in the blueprint.
+11. Setup checklist can now un-tick for live schools (fees for every class, Parent Link for every parent, WhatsApp live): 'I already did this' still works.
 
 ## Mindsets (one per round, then start over)
 
@@ -90,6 +92,7 @@ Progress page: see docs/HANDOFF.md (link).
 | 121 | Moving in: old register's "Emp Code"/"Salary" silently left out; no Staff ID column | Clerk | Staff import | Lists columns not brought in; Staff ID column from Emp Code etc. | ccb91c74 |
 
 | 122-212 | Loop 2: 5 people (clerk, teacher on a phone, accountant, receptionist, principal) used the rebuilt app; 91 findings (docs/qa/layman-loop2-findings.json). 87 fixed by area; plus dashboard money approval confirm, one waiting refund per receipt (triple refund), phone bar steps aside for the keyboard, My leave title, plainer approval titles | All | All | Full suite 2,891 pass (2 load timeouts re-run clean) | c54c1b52 |
+| 213-308 | Loop 3: Telugu-first clerk/teacher, parent on Parent Link, wrong clicks, new school day one, re-check of loop 2; 96 findings (docs/qa/layman-loop3-findings.json). 99 fixes: Parent Link {school} consent text, 2.1 MB page cut to its own words, Due now/Not due yet, class teacher + school WhatsApp; Cancel drops drafts; no blank form on Back; fees not overdue on publish day; setup list honest about test mode; fixed bars stay on screen; 227 Telugu words | All | All | Full suite pass (6 load timeouts re-run clean) | 481ed699 |
 ### Noted for the next batches
 - Concession form stays open after Apply (loop 2, money): reproduce in the browser; may be shared SheetForm.
 - Shared pieces asked for by loop 2: student picker (parent phone, father's name, close after pick), staff type-to-search picker, action-form error clears when fixed, School holiday WhatsApp template.

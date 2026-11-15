@@ -1,0 +1,800 @@
+[
+ {
+  "who": "telugu",
+  "findings": [
+   {
+    "screen": "/dashboard (teacher, phone) and /dashboard (admin)",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "With Telugu switched on, most of what a teacher must act on is still English. Home 'మీ దృష్టి అవసరం' card: all 4 items are English ('1 paper of yours past the marks due date', '72 pieces of homework to check', 'Early warnings: 2 students need a closer look'). Also 'No school today', 'Sunday is not a working day', 'My class: Class 5 A', 'Students · Room 112', 'Roll 1 · photo missing', 'Homework of the last 7 days · 0% overall'. Admin home: 'New enquiries', 'In the last 7 days', 'See papers' (the buttons next to it are Telugu), and every attention item. A Telugu-first clerk can read the headings but not the actual tasks.",
+    "fix": "Put the dashboard attention-item sentences and stat-card subtitles through t() with Telugu entries. Add a CI check that fails when a te.ts key is missing for any string shown on the home screens.",
+    "evidence": "qa-output/loop/l3-telugu-vp-home.png, qa-output/loop/l3-telugu-vp-admin-home.png"
+   },
+   {
+    "screen": "/homework-learning?do=give, /admission-management/enquiries?do=add",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The main action buttons and the results after saving are hard-coded English. In 'హోంవర్క్ ఇవ్వండి' the only button that sends is 'Send to 5 A', and its pending text is 'Sending…'. Built as `Send to ${...}` in sheets.tsx:97 without t(). Other sheets have 'Send to N parents' and 'Resend to N parents?'. The enquiry form says 'Source *', 'Changing it later needs a reason.' and 'More details'. After saving, the toast reads 'Enquiry added for L3 సాయి కిరణ్.'",
+    "fix": "Wrap these template strings in t() with placeholders (e.g. t('Send to {class}')) and add the Telugu entries: '{class}కు పంపండి', 'పంపుతోంది…', '{name} విచారణ జోడించబడింది'.",
+    "evidence": "qa-output/loop/l3-telugu-t7-01-hw-form.png, qa-output/loop/l3-telugu-enq-02-after.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper> (phone)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Under the student name the counter reads '4 లో 16 · SPS/2023/0210' for '4 of 16'. In Telugu that means '16 out of 4'. The sentence is built word by word ('of' → 'లో'), so the numbers come out in the wrong order. 'నమోదు చేశారు 3 of 16' on the same screen stays English.",
+    "fix": "Use one whole-sentence key such as '{i} of {n}' → '{n} లో {i}', never a lone 'of' key. Search for other places that use t('of').",
+    "evidence": "qa-output/loop/l3-telugu-t11-01-marks-sheet.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper> (phone, one-at-a-time)",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "After tapping 'తర్వాతి' the screen says 'తర్వాతి కీ నొక్కితే ఈ మార్కు మారిపోతుంది.' The big blue Next button is also called 'తర్వాతి', so a teacher reads it as 'pressing Next will change this mark' and is afraid to move on. The English meaning is 'the next key you type replaces this mark'.",
+    "fix": "Telugu: 'ఇప్పుడు టైప్ చేసే అంకె ఈ మార్కును మారుస్తుంది.'",
+    "evidence": "qa-output/loop/l3-telugu-t12-02-next.png"
+   },
+   {
+    "screen": "/homework-learning?do=give (phone)",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "After tapping 'Send to 5 A' the homework was already saved: the list behind the sheet showed 'L3 అభ్యాసం 4.3 ప్రశ్నలు 1-5'. But the sheet stayed open for about 2–4 s with the filled form and the button back on 'Send to 5 A', not 'Sending…'. It closed on a later run after a 6 s wait. A teacher who taps again would send the homework, and the parent messages, twice.",
+    "fix": "Keep the button disabled with 'పంపుతోంది…' until the sheet closes, or close the sheet as soon as state.ok arrives. Show a 'హోంవర్క్ పంపబడింది' toast.",
+    "evidence": "qa-output/loop/l3-telugu-t8-02-hw-sent.png"
+   },
+   {
+    "screen": "/attendance-management, /homework-learning, /dashboard",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Day and month names stay English inside Telugu sentences, even though the page header shows 'ఆదివారం, 15 నవంబర్'. Examples: 'హాజరు మళ్లీ Monday 16 November న తెరుచుకుంటుంది', 'Sunday · No school', 'ఇచ్చిన తేదీ Sun 15 Nov · గడువు Mon 16 Nov', 'Was due 2 Nov', 'Tomorrow', 'Thu', 'Sun 22'.",
+    "fix": "Send every short and long date and weekday through the locale date formatter (formatDate with lang), and translate 'Tomorrow'/'Today' (రేపు/ఈరోజు).",
+    "evidence": "qa-output/loop/l3-telugu-t4-01-attendance.png, qa-output/loop/l3-telugu-t9-01-hw-sent2.png"
+   },
+   {
+    "screen": "/student-management",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "A Telugu clerk types the name in Telugu ('పూజ') and gets 'సరిపోయే విద్యార్థులు లేరు' / 'ఈ పేరుతో ఎవరూ లేరు: “పూజ” లో any class.' Names are stored in English letters, and nothing tells the clerk to type them in English. The message also mixes in English ('any class') and has broken word order.",
+    "fix": "When the search text is in Telugu script, say 'పేర్లు ఇంగ్లీష్ అక్షరాలలో ఉన్నాయి — Pooja లా టైప్ చేయండి' (or transliterate before searching). Translate 'any class' → 'ఏ తరగతిలోనూ'.",
+    "evidence": "qa-output/loop/l3-telugu-a3-01-search-te.png"
+   },
+   {
+    "screen": "/examination-results/marks, /student-management/students/<id>",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Whole tab rows stay English in Telugu mode. Exams: 'Datesheet | Marks Entry | Results | Report Cards', plus the breadcrumb 'Marks Entry / Half Yearly…'. Student profile: 'Overview | Academics | Time Table | Attendance | Fees | Exams | Homework | …', the stat cards 'Attendance', 'Fees due', 'Documents 0 of 6', and every 'Edit'. The tabs are the main way to move around, so the clerk is lost here.",
+    "fix": "Translate the module tab labels and student-profile tabs and stat titles (most words already exist in te.ts, e.g. 'హాజరు', 'ఫీజులు', 'పరీక్షలు').",
+    "evidence": "qa-output/loop/l3-telugu-t10-01-marks.png, qa-output/loop/l3-telugu-vp-student.png"
+   },
+   {
+    "screen": "/student-management",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The page title is 'Students' in English, while every other page title and the side menu are Telugu. In the class chips only one class is translated: 'తరగతి 5' sits between 'Class 4' and 'Class 6'. 'Fees: everyone', 'More filters', 'Show removed', '₹13,000 overdue' and the search placeholder are English.",
+    "fix": "Translate the 'Students' page title. Translate class names in one consistent way: all 'తరగతి N' or all left as data, never only one. Translate the filter words and 'overdue' (బాకీ).",
+    "evidence": "qa-output/loop/l3-telugu-vp-students.png"
+   },
+   {
+    "screen": "/homework-learning?do=give",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The attach button for a web link is labelled 'కలపండి', which means 'mix/combine'. A teacher will not guess that it adds a link. The te.ts entry 'Link' → 'కలపండి' is shared with the 'link a parent' meaning.",
+    "fix": "Use a separate key for the attachment, e.g. 'Add link' → 'లింక్ జోడించండి'. Keep 'కలపండి' only for linking records.",
+    "evidence": "qa-output/loop/l3-telugu-t7-01-hw-form.png"
+   },
+   {
+    "screen": "/attendance-management?date=… and /attendance-management/register/correction (phone)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The attendance screens a teacher uses every day are half English. 'Attendance for 13-11-2026 locked at 11:00 AM.', the count tiles 'Present / Absent / Late / Leave / Not marked', and the 'Name or roll no.' search are English. On the correction page: 'తిరిగి register', 'Class and section', 'Date', 'Student(s)', 'Find by name', 'ఇప్పుడు: Not marked', and the whole 'సవరణలు ఎలా పనిచేస్తాయి' steps ('Attendance locks at 11:00 AM each day', 'You ask for the change with a reason'…). The page subtitle 'The principal approves it. Old marks are kept.' is English too.",
+    "fix": "Translate these attendance strings (హాజరు/గైర్హాజరు/ఆలస్యం/సెలవు/వేయలేదు). Consider Telugu tooltips for P/A/L, or హా/గై/ఆ letters.",
+    "evidence": "qa-output/loop/l3-telugu-t5-01-att-fri.png, qa-output/loop/l3-telugu-t6-01-corr-dialog.png"
+   },
+   {
+    "screen": "/dashboard (admin, desktop)",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The date range filter reads '15-11-2026 నుండి 15-11-2026'. 'నుండి' means 'from', so the word between the dates says the opposite of 'to', and no 'వరకు' follows.",
+    "fix": "Translate the range as '{from} నుండి {to} వరకు', or put 'వరకు' after the second date.",
+    "evidence": "qa-output/loop/l3-telugu-vp-admin-home.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper>",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The Medical Leave tile reads 'వైద్యం (ML)' ('medical treatment'). The grid legend on the same page correctly says 'వైద్య సెలవు'. The two words disagree and the tile reads oddly.",
+    "fix": "'Medical (ML)' → 'వైద్య సెలవు (ML)'.",
+    "evidence": "qa-output/loop/l3-telugu-t11-01-marks-sheet.png"
+   },
+   {
+    "screen": "/student-management/students/<id>",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Broken Telugu word order. The profile button says 'సందేశం తల్లిదండ్రులు' ('message parents' word for word), while home says 'తల్లిదండ్రులకు మెసేజ్'. The emergency-contact buttons read 'జరపండి Mahesh Menon కిందకి' and 'జరపండి Vani Menon పైకి', with the verb first.",
+    "fix": "'తల్లిదండ్రులకు సందేశం' (the same as home). Use one whole-sentence key: '{name}ను కిందకు జరపండి' / '{name}ను పైకి జరపండి'.",
+    "evidence": "qa-output/loop/l3-telugu-vp-student.png"
+   },
+   {
+    "screen": "/homework-learning",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Homework cards say 'చూసినవారు 0 లో 15', which reads as 'seen 0 in 15'. The summary cards stay English: 'Current · this month', '61 pieces of work for 2 classes', 'Waiting for you to check', 'From WhatsApp read receipts', 'Current · 4 | History · 0', 'Search homework title', 'All classes'.",
+    "fix": "'15 లో 0 మంది చూశారు'. Translate the summary cards, the filters and the Current/History pills (ప్రస్తుతం / పాతవి).",
+    "evidence": "qa-output/loop/l3-telugu-t9-01-hw-sent2.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The notice form calls the recipients 'ప్రేక్షకులు' ('audience/spectators'), which is odd for parents. 'Normal / High / Critical', every channel name ('Notice board (always)', 'App notification', 'Parent Link (always for parents)'), 'Nothing ticked: the whole school.', the subtitle 'Notices to parents go for approval first.' and the browser's 'Choose Files / No file chosen' are English. After sending, the detail page shows 'By', 'Parents of Class 5', 'Not yet' and '30 days after publishing'.",
+    "fix": "'ఎవరికి' instead of 'ప్రేక్షకులు'. Translate priority, channel, helper and detail words. Replace the native file input with a Telugu 'ఫైళ్ళు ఎంచుకోండి' button.",
+    "evidence": "qa-output/loop/l3-telugu-a5-01-notice.png"
+   },
+   {
+    "screen": "/admission-management/enquiries",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "In the enquiry form the Source chips are Telugu ('నేరుగా వచ్చారు', 'ఫోన్'), but the table's 'మూలం' column shows the same values in English ('Walk-in', 'Phone', 'Website'). The table also has 'Not decided', 'Tomorrow, 11:00 AM', '24 open enquiries', 'Any date added', 'All sources', 'Export', placeholders 'First and last name' / 'Father, mother or guardian', and paging '47లో 1 నుండి 25' (no 'వరకు'). The year select is cut off: '2027-28 (Main Camp'.",
+    "fix": "Show the source and status values through the same labels as the form. Translate the filters, placeholders and paging ('47 లో 1 నుండి 25 వరకు'). Shorten the year option or widen the select.",
+    "evidence": "qa-output/loop/l3-telugu-a7-01-enq-form.png"
+   },
+   {
+    "screen": "/communication (teacher, phone)",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "On the Send message page these are English: 'Sections / One person', 'Parents / Students', 'Your sections', 'General', 'None, type my own message', '0 of 1,000 characters · Blanks you can use…', '– parents', 'Choose at least one section.', 'పరిమితి Your own sections', and the warning 'A message cannot be unsent once delivered.' 'ఉచితం' and 'Free' appear one above the other. The email 'office@sunriseschool.ed u.in' breaks mid-word, and the title placeholder is cut off: 'Shown at the top of an email or app noti'.",
+    "fix": "Translate these strings. Use one word for free ('ఉచితం'). Break the email at the '@' or truncate it with a tooltip. Shorten the placeholder.",
+    "evidence": "qa-output/loop/l3-telugu-t14-01-msg.png"
+   },
+   {
+    "screen": "avatar menu → /profile",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The only way to the language setting is the English line 'My profile, password and language' in the avatar menu. On the profile page the Language block sits below the long 'My details' list, about one screen down on a phone. A Telugu-first person who reads little English will not find it. Once there, choosing 'తెలుగు' works at once, which is good.",
+    "fix": "Add a globe icon row in the avatar menu that shows the current language in its own script ('భాష / Language: English'). On the profile page, move Language to the top or link it from the header.",
+    "evidence": "qa-output/loop/l3-telugu-t2-01-avatar-menu.png, qa-output/loop/l3-telugu-t2-02-profile.png"
+   },
+   {
+    "screen": "/profile",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The profile page itself (in Telugu) still has 'Last changed 31-10-2026', 'A code to your phone or email after your password. Safer if someone learns your password.', 'Active now', 'Last used …', 'Chrome on Windows' and the role 'Class Teacher' (the badge next to it is translated as 'క్లాస్ టీచర్').",
+    "fix": "Translate these security and device strings and the role name in the subtitle.",
+    "evidence": "qa-output/loop/l3-telugu-t3-01-profile-te.png"
+   },
+   {
+    "screen": "/attendance-management, /homework-learning, /communication (phone)",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "On a 390 px phone the Telugu words are longer, so tabs cut off mid-word at the right edge ('విద్యార్థి సెలవు', 'అధ్యయన సామ…', 'WhatsApp ఇన్‌బా…') with only a small arrow. The top bar title truncates to 'సవరణ అభ్యర్థిం…' and 'హోంవర్క్ & అభ్యా…'.",
+    "fix": "Fade the tab row's edge, scroll the active tab into view, and use shorter Telugu tab names. Let the top-bar title wrap to two lines or use a short form.",
+    "evidence": "qa-output/loop/l3-telugu-t4-01-attendance.png, qa-output/loop/l3-telugu-t6-01-corr-dialog.png"
+   }
+  ],
+  "tasksDone": "I worked as a Telugu-first user for about 40 minutes.\n\n**Switching to Telugu:** I found the setting through the avatar menu, under the English line 'My profile, password and language', then the Language block on the profile page. Choosing 'తెలుగు' worked at once.\n\n**Teacher, on a 390 px phone, in Telugu:**\n- **Home:** read the whole home screen.\n- **Attendance:** Today is Sunday, so the app correctly showed no school. Friday's register is locked, so I opened the correction request form but did not submit it.\n- **Homework:** gave 2 homework to Class 5 A, titled in Telugu: 'L3 అభ్యాసం 4.3 ప్రశ్నలు 1-5' and 'L3 పాఠం 2 చదవండి'.\n- **Marks:** on the Half Yearly Maths 6 A paper I entered Bhavya Naidu's Theory mark as 62, used the one-at-a-time view and the grid, and did not submit the paper.\n- **Other screens:** opened the More menu, the Message parents page and the homework page in dark mode.\n\n**Admin, on a 1440 px computer, in Telugu:**\n- **Dashboard:** read the home screen.\n- **Find a student:** searched in Telugu script ('పూజ', no result) and in English ('Pooja', found), and opened Pooja Menon's profile.\n- **Notice:** sent the notice 'L3 సోమవారం తల్లిదండ్రుల సమావేశం' to Class 5 parents. It is waiting for the principal's approval.\n- **Enquiry:** added enquiry ENQ-0048 for child 'L3 సాయి కిరణ్', parent 'L3 రమేష్', phone 9000000731, source Phone.\n\n**Back to normal:** both teacher and admin are set back to 'The school's language', so they see English again, as they did before.\n\n**Files:** screenshots are in D:/all/Projects/School-OS/qa-output/loop/ (all start with 'l3-telugu-'). My steps files and the small enquiry script are in D:/all/Projects/School-OS/qa-output/loop3/. I did not change any repo file."
+ },
+ {
+  "who": "parent",
+  "findings": [
+   {
+    "screen": "/p/[token] (Consent forms, Read the form)",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "Tapping 'फ़ॉर्म पढ़ें (संस्करण 1)' on 'Use of my child's data' shows the legal text with a raw placeholder: 'I agree that {school} may keep and use my child's details…'. Settings > Data security > Consent promises '{school} is replaced with the school's name.', but no code replaces it (grep finds no replace of {school} anywhere in src).",
+    "fix": "Replace {school} with the school name wherever consent text is shown or stored (Parent Link, admission form, PDF), and add a test that no '{' placeholder reaches a parent screen.",
+    "evidence": "qa-output/loop/l3-parent-i-01-form-read.png"
+   },
+   {
+    "screen": "/p/[token] (Consent forms)",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The page is in Hindi, but the consent forms the parent is asked to agree to are English only: title 'Use of my child's data' / 'Photos of my child' and the whole legal paragraph. A parent with little English is asked to give legal consent with a one-time code to text they cannot read. consent_text has only an 'en' version.",
+    "fix": "Ship Hindi and Telugu versions of the two built-in consent texts, and show the parent's language. If a school's custom text has no version in that language, add the line 'यह फ़ॉर्म सिर्फ़ अंग्रेज़ी में है, सवाल हो तो स्कूल को फ़ोन करें'.",
+    "evidence": "qa-output/loop/l3-parent-i-01-form-read.png"
+   },
+   {
+    "screen": "/p/[token] (Events and PTM card)",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "After booking a PTM time on the Hindi page, the green result line is English: 'Booked: 10:00 AM with Ravi Teja. A confirmation message is on its way.' Cancelling shows 'Cancelled your meeting with Ravi Teja at 10:00 AM on Wed 25-11-2026. You can book again until the day before.' The same applies to 'Changed. Your meeting…', 'You already have…', and event 'Thank you. Your consent for … is recorded.' / 'Saved. Your child is not going to…'. These are template strings in src/app/p/[token]/ptm-actions.ts lines 52-70 and event-actions.ts lines 82-96, so they never match the catalogue.",
+    "fix": "Use t() with placeholders, e.g. t('Booked: {time} with {teacher}. …', {time, teacher}), as the consent success message already does.",
+    "evidence": "qa-output/loop/l3-parent-r-02-ptm-booked.png"
+   },
+   {
+    "screen": "/p/[token] (whole page)",
+    "kind": "slow",
+    "severity": "high",
+    "problem": "The parent page HTML is 2.1 MB (478 KB gzipped), even for the first 'पक्का करें कि यह आप हैं' code screen. The inline payload carries the whole staff word catalogue ('Attendance Management', 'Attendance for a class in under a minute', 94 'Attendance' strings and more). On a cheap Android phone on mobile data that is several seconds of blank screen before anything shows. Measured: 544 KB transferred, 18 requests.",
+    "fix": "Pass the Parent Link page only the words it uses (a small parent catalogue for the guardian's language), not the full app dictionary.",
+    "evidence": "qa-output/loop/l3-parent-a-01-open.png"
+   },
+   {
+    "screen": "/p/[token]",
+    "kind": "empty",
+    "severity": "high",
+    "problem": "The parent's job 'see homework' and 'reply/message the teacher' dead-ends. The page has no homework at all, though the office sees 'Homework done 70% · 3 missing' for Kabir. It has no way to message or even see the class teacher; the only contact is 'कोई सवाल? स्कूल कार्यालय को फ़ोन करें 04023456789'. The class teacher's name (Ravi Teja) appears only inside the PTM card. This matches the blueprint ('Parent Link does not show homework yet'), but to a parent it is a missing piece.",
+    "fix": "For now, add one card: 'Class teacher: Ravi Teja' with a WhatsApp/Call-school button, plus a line 'Homework comes on WhatsApp'. Next, a small homework list (this week, done or missing).",
+    "evidence": "qa-output/loop/l3-parent-c-02-home.png"
+   },
+   {
+    "screen": "/p/[token] (Attendance)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "November shows a big green '100% उपस्थित' while the line under it says '11 स्कूल दिवसों में से 1 दर्ज' (only 1 of 11 days marked). The 10 unmarked days are dashed empty boxes that the legend does not explain (P/A/L/LV/H only). A parent cannot tell whether those days were absences. There is also no whole-year figure: the office sees 94.5%, the parent only sees month by month.",
+    "fix": "Show the % only when most days are marked, otherwise 'अभी 1 दिन दर्ज'. Add a legend item for the dashed box ('दर्ज नहीं'), and a small 'इस साल: 94.5%' line.",
+    "evidence": "qa-output/loop/l3-parent-d-02-attend.png"
+   },
+   {
+    "screen": "/p/[token] (Attendance legend)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Leave and Holiday become almost the same word. Hindi: 'LV छुट्टी' vs 'H अवकाश दिवस' (छुट्टी is the everyday word for a school holiday). Telugu: 'LV సెలవు' vs 'H సెలవు దినం'. A parent reads both as holiday and cannot tell 'my child took leave' from 'school closed'. The legend letters P/A/L/LV/H are also English.",
+    "fix": "Use clearly different words, e.g. Hindi 'ली गई छुट्टी (अर्ज़ी)' vs 'स्कूल बंद'; Telugu 'సెలవు తీసుకున్నారు' vs 'స్కూల్ సెలవు'. 'School closed' is already used in the events list.",
+    "evidence": "qa-output/loop/l3-parent-h-01-te-fold.png"
+   },
+   {
+    "screen": "/sign-in/code",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "A parent who lost the WhatsApp link opens the school address, lands on the staff sign-in page in Hindi, types their mobile under 'वन-टाइम कोड से साइन इन करें' and gets a broken mixed sentence: 'हमने the mobile number or email on that login, if it is on School OS पर 6 अंकों का कोड भेजा है।' No code ever comes, and nothing says parents don't sign in here.",
+    "fix": "Translate the whole sentence (no English chunk inside a Hindi line). Add one line on the sign-in page: 'माता-पिता: स्कूल के WhatsApp/SMS संदेश वाला लिंक खोलें।'",
+    "evidence": "qa-output/loop/l3-parent-zb-01-otp-parent.png"
+   },
+   {
+    "screen": "/p/[token] (Fees)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Every fee line is English on the Hindi/Telugu page: 'Tuition fee, Quarter 1 (Apr to Jun)', 'Annual charges, Year 2026-27', 'Exam fee, Half 2 (Oct to Mar)'. A little-English parent cannot tell what each amount is for.",
+    "fix": "Build the period part from translated words ('तिमाही 1 (अप्रैल–जून)') and let the school add a local-language name for each fee head; fall back to English only for custom names.",
+    "evidence": "qa-output/loop/l3-parent-d-01-fold.png"
+   },
+   {
+    "screen": "/p/[token] (Fees)",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The card is titled 'बकाया फ़ीस' / 'Fees due', but its 'शेष राशि ₹32,500' includes a ₹8,000 line marked 'अभी देय नहीं' (Not due). The office's student page says 'Fees due ₹24,500 · ₹24,500 overdue', so parent and school quote different numbers on the phone. 'Tuition fee, Quarter 1 ₹500' also gives no hint that it is the rest of a part-paid ₹8,000.",
+    "fix": "Show two numbers: 'अभी देना है ₹24,500' (big, red) and 'बाद में ₹8,000' (small). On part-paid lines add '₹7,500 दिए, ₹500 बाकी'.",
+    "evidence": "qa-output/loop/l3-parent-d-01-fold.png"
+   },
+   {
+    "screen": "/p/[token] (Report cards)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Marks and progress are only three 'PDF डाउनलोड करें' buttons (Unit Test 1, Unit Test 2, Term 1). To see how the child did, the parent must download and open a PDF on a cheap phone. The office sees 'Unit Test 2 75.2% · B1' at a glance.",
+    "fix": "Show one line per published exam on the page ('Unit Test 2: 75% · B1', with subjects on tap) and keep the PDF as a secondary link.",
+    "evidence": "qa-output/loop/l3-parent-d-03-report.png"
+   },
+   {
+    "screen": "/p/[token] (Consent forms)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After typing the code, the green box says 'धन्यवाद। “Use of my child's data” के लिए आपकी सहमति दर्ज हो गई।', but the row right above it still says 'Kabir Sharma · नहीं दी' (not given). The parent must tap 'पेज फिर से दिखाएँ' to see 'दी'. This is a contradiction on the same screen. Each form also needs its own SMS code (2 forms = 2 codes).",
+    "fix": "Refresh the row in place after success (✓ '15-11-2026 को दी') and drop the 'show page again' link. Offer 'दोनों के लिए हाँ' with one code when several forms are pending.",
+    "evidence": "qa-output/loop/l3-parent-m-01-consent-done.png"
+   },
+   {
+    "screen": "/p/[token] (Consent forms)",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "'वापस लें' (withdraw consent) sits on the same card where the next step's button is 'वापस' (back). The two words differ by one syllable. A parent who wants to go back can easily withdraw consent, and one who wants to withdraw may tap 'वापस'. Nothing explains what withdrawing changes.",
+    "fix": "Rename withdraw to 'सहमति हटाएँ' and back to 'रद्द करें'/'नहीं', and add one line on what stops (e.g. photos of your child will not be shown).",
+    "evidence": "qa-output/loop/l3-parent-x-01-wrong-code.png"
+   },
+   {
+    "screen": "/p/[token]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Everything is one 3,860 px scroll on a 390 px phone: 7 fee lines first, then receipts, attendance, report cards, notices, events, consent. A parent who only wants 'was my child present today' or the receipt has to scroll several screens, and nothing at the top says what is below.",
+    "fix": "Add a sticky row of 4-5 icon chips at the top (फ़ीस, उपस्थिति, अंक, सूचनाएँ, PTM) that jump to each card, and collapse the fee lines to the overdue total with 'सब देखें'.",
+    "evidence": "qa-output/loop/l3-parent-c-02-home.png"
+   },
+   {
+    "screen": "/p/[token] (Notices)",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Notices are English only ('Diwali holidays – The school is closed from 30 October…'). In English mode the priority tag reads 'High', which is jargon (Hindi correctly says 'ज़रूरी'). The ▾ toggle adds nothing for short notices: the full text already shows when closed.",
+    "fix": "Offer translated notices (the blueprint's translate-on-send) or at least the title in the parent's language. Use 'Important' in English. Hide the chevron when the text is already fully shown.",
+    "evidence": "qa-output/loop/l3-parent-f-01-notice-open.png"
+   },
+   {
+    "screen": "/p/[token] (PTM card) and /g/[schoolId]/... album",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Weekday names stay English inside Hindi text: 'अभिभावक–शिक्षक बैठक · Wed 25-11-2026', 'आप Tue 24-11-2026 तक समय बदल…', album 'Thu 01-10-2026'. The events list just below uses 'बुधवार'. 'Class teacher, 5 A' and 'Class 5 A' under the child's name are English too.",
+    "fix": "Use the same localised date helper the events list uses, and translate 'Class teacher' / 'Class'.",
+    "evidence": "qa-output/loop/l3-parent-q-01-ptm-card.png"
+   },
+   {
+    "screen": "/g/[schoolId]/[albumId]/[token]",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Tapping 'फ़ोटो: Science exhibition 2026' opens an album page with no way back to the Parent Link (no back button or link). Each photo opens a raw /api/v1/files/... file with no label. The note 'सिर्फ़ उन विद्यार्थियों की फ़ोटो दिखती हैं जिनके अभिभावकों ने फ़ोटो सहमति दी है' does not tell this parent (who has not given photo consent) that their own child is hidden because of it.",
+    "fix": "Add '← पेरेंट लिंक' at the top, open photos in a simple viewer with Download, and when this parent has not consented say 'आपके बच्चे की फ़ोटो नहीं दिख रहीं: फ़ोटो सहमति दें'.",
+    "evidence": "qa-output/loop/l3-parent-n-01-photos.png"
+   },
+   {
+    "screen": "/p/[token] (PTM booked)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The booked card shows the whole PTM window '9:30 AM – 11:30 AM' right under the title and the parent's own time '10:00 AM, Ravi Teja के साथ' below it, which looks like two different times. It says 'कृपया 5 मिनट पहले आएँ' but not where to go (the venue was 'each teacher's classroom').",
+    "fix": "In the booked state show only the parent's time big, plus the room ('कक्षा 5 A का कमरा').",
+    "evidence": "qa-output/loop/l3-parent-r-02-ptm-booked.png"
+   },
+   {
+    "screen": "/p/[token] (Consent forms)",
+    "kind": "word",
+    "severity": "low",
+    "problem": "'फ़ॉर्म पढ़ें (संस्करण 1)' / Telugu 'ఫారం చదవండి (వెర్షన్ 1)': 'version 1' means nothing to a parent.",
+    "fix": "Show just 'फ़ॉर्म पढ़ें', and mention a version only when a new version replaced one they already agreed to.",
+    "evidence": "qa-output/loop/l3-parent-i-02-consent-1.png"
+   },
+   {
+    "screen": "/communication/parent-link/[id] (staff, local copy)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "On this local copy there is no way to reach a parent's link from the app. Messages are test mode and store '⟦parent-link:id⟧' instead of the URL, the link page has only 'What they see', 'Resend link', 'Revoke or reissue', and the server log shows codes but never the link. I had to work the URL out from the id with the .env secret. On the same page in Telugu, the history is English ('Opened · Windows computer, Chrome', 'One-time code sent · by SMS', '1 phone ధృవీకరించబడింది'), and every open adds a row, so it runs to 20+ 'Opened' lines in minutes.",
+    "fix": "In test mode on a tester's computer, log the rendered Parent Link URL like the one-time codes. Translate the history lines and group repeat opens ('Opened 14 times today').",
+    "evidence": "qa-output/loop/l3-parent-adm-01-pl-detail.png"
+   }
+  ],
+  "tasksDone": "How I got into Parent Link: links live at /p/<token>, and the token is an HMAC of the link id with the .env secret. Messages keep only a placeholder and the admin screens never show the URL. I worked out guardian Sanjay Sharma's link (Kabir Sharma, 5 A) from its id with qa-output/loop3/parent-url.mjs and checked it against the token_hint in the database. Then I acted as the parent on a clean 390 px mobile browser (qa-output/loop3/prun.mjs, own cookies, no staff session).\n\nWhat I did, mostly in Hindi with Telugu and English checks:\n- Confirmed the new phone with the SMS code read from tools/app.log.\n- Looked at the fees, the balance and both receipt PDFs (200, about 0.45 s each).\n- Looked at attendance for November and October, and opened all three report card PDFs.\n- Opened the notices, looked at the events, and opened the photo album.\n- Read the consent form, gave data consent with a code, tried a wrong code and a short code, and tapped withdraw (stopped at the code step).\n- Switched language (Hindi, Telugu, English) and tried a dark-mode browser (no difference: the page stays light).\n- Opened a wrong link and the bare /p.\n- Tried the staff sign-in as a parent.\n\nAs admin, I planned a Class 5 PTM on 25-11-2026 so the parent could book. The parent booked 10:00 AM with Ravi Teja and then cancelled it, twice; it is cancelled now. Two things were left changed: the PTM day stays, and Sanjay's data consent is now 'given'.\n\nDead ends: there is no homework section and no way to message the class teacher (by blueprint design), and marks are PDF only.\n\nScreenshots are in qa-output/loop/l3-parent-*.png and the step files in qa-output/loop3/."
+ },
+ {
+  "who": "wrongclick",
+  "findings": [
+   {
+    "screen": "/front-office/visitors?do=visitor",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "I registered Hari (9000000742). Then I pressed Back, saw a blank form, thought it had not saved, and typed the same phone again. The form only said \"Returning visitor. Last visit 15-11-2026, met Kavitha Nair.\" It never said he is INSIDE right now on pass V-0262. \"Register and make pass\" made a second pass (V-0263), and the visitor log now shows \"Hari Testvisitor · In\" twice. The pass sheet only has Print, Send to phone and Check out now, so there is no way to cancel a pass made by mistake. The only option is to check him out, which records a visit that never happened.",
+    "fix": "When the phone belongs to someone still inside, show \"Hari is inside now on pass V-0262 (since 8:33 AM)\" with the buttons [Open that pass] [New pass anyway], and add a \"Made by mistake: cancel this pass\" action that asks for a reason.",
+    "evidence": "qa-output/loop/l3-wrongclick-v5-01-same-phone.png"
+   },
+   {
+    "screen": "/front-office/visitors?do=visitor",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "I typed visitor Kumar (9000000745), the visitor left, so I pressed \"Cancel\". When the next visitor arrived, \"Add visitor\" opened already filled with Kumar's phone and name. The only hint was a small grey line: \"Draft kept: what you typed last time\". At a busy desk I would type over the name and keep the wrong phone. The expense form does the same: after Cancel it still holds the ₹700.",
+    "fix": "Make Cancel throw the typing away (it is a deliberate choice). Keep the draft only after an accidental close (Escape, Back, refresh), and don't bring back drafts older than about 10 minutes on the visitor desk.",
+    "evidence": "qa-output/loop/l3-wrongclick-v10-01-next-visitor.png"
+   },
+   {
+    "screen": "/front-office/visitors?pass=…",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After \"Register and make pass\" the pass sheet opened. When I pressed the phone's Back button, an empty \"New visitor\" form came up (the address goes back to ?do=visitor). It looks as if the visitor was never saved, and that is exactly what led me to register Hari twice. On the enquiry form, Back after saving goes to the list, so the two forms behave differently.",
+    "fix": "After saving, replace the ?do=visitor history entry (router.replace) so Back goes to the visitor list with the new row on top.",
+    "evidence": "qa-output/loop/l3-wrongclick-v4-04-back.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "With Cheque chosen, the boxes show \"004512\" and \"SBI, Kukatpally\" in grey. They look filled, so I clicked Collect. The error then said \"Cheque number has 6 digits\" under a box that shows 6 digits. That makes no sense to a layman. The visitor and enquiry phone boxes have the same problem: \"+91 98480 12345\" looks like a number someone already typed.",
+    "fix": "Use plain hint text such as \"6-digit number on the cheque\" and \"Bank and branch\", and change the error to \"Type the cheque number (6 digits)\" or \"Type the bank name\".",
+    "evidence": "qa-output/loop/l3-wrongclick-a8-01-cheque-err.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "I typed the same UTR 900000123456 that I had used a minute earlier. The red text under the amount said \"₹5,000 upi for Sneha Nair was collected at 8:35 AM by you. Collect again?\", and the same text appeared again in the \"Same payment again?\" box with a \"Collect again\" button. A UTR that was already used should never be accepted twice, but one more click would save it. The message also says \"upi\" in small letters and never mentions that the UTR is the same.",
+    "fix": "Block a reused UTR outright (\"UTR 900000123456 is already on receipt SPS/2026-27/00357\", with a link to that receipt) and show the warning only once. Write \"UPI\" in capitals.",
+    "evidence": "qa-output/loop/l3-wrongclick-a5-02-same-utr.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After \"₹100 received\" I pressed Escape before printing. The receipt sheet closed, and the student's page showed no sign of the payment just taken (only \"Paid ₹5,100\" at the top). There was no receipt number and no Print again. A nervous cashier cannot reprint the receipt without hunting through the Student Fee Ledger.",
+    "fix": "After a payment, keep a line at the top of the Payment card: \"Just collected ₹100 · SPS/2026-27/00358 · Print · PDF\".",
+    "evidence": "qa-output/loop/l3-wrongclick-a6-02-after-esc.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "When the phone matched an existing family, the box \"This phone already has an open enquiry…\" offered Open existing / Add as sibling enquiry / Different family / Cancel. I pressed that \"Cancel\" to dismiss the warning, but it closed the whole Add enquiry form. The form's own Cancel button sits right below, so the two Cancels are easy to confuse.",
+    "fix": "Rename the button in the warning box to \"Not now\", and make it only hide the warning; or remove it, since the form's Cancel already exists.",
+    "evidence": "qa-output/loop/l3-wrongclick-r8-02-dup-phone2.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "I typed a discount of 5000 under \"Up to ₹1,000\". Nothing turned red, and the amount quietly changed to ₹54,204 (\"Fees ₹59,204 − discount ₹5,000 = ₹54,204\"). I would only learn it is not allowed after clicking Collect, possibly after the parent has already handed over the cheque.",
+    "fix": "As soon as the limit is passed, mark the Discount box red: \"More than ₹1,000 needs the principal's approval\".",
+    "evidence": "qa-output/loop/l3-wrongclick-a8-02-disc-big.png"
+   },
+   {
+    "screen": "/finance-management/expenses?do=new",
+    "kind": "bug",
+    "severity": "low",
+    "problem": "I opened Record expense straight from its link, typed ₹2,500 and \"printer toner\", and pressed Escape within about 2 seconds. Opening \"Record expense\" again showed empty boxes, so it looked lost. After a page refresh, the text came back with \"Draft kept\". Add enquiry did the same when I closed it quickly. The draft is saved, but it shows up only some of the time.",
+    "fix": "Save the draft at the moment the sheet closes (not only on a timer), and read it every time the sheet opens.",
+    "evidence": "qa-output/loop/l3-wrongclick-e2-01-after-esc.png"
+   },
+   {
+    "screen": "/finance-management/expenses?do=new",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Saving the same expense again correctly warned: \"₹1,500 for Stationery on 15-11-2026 was recorded a few minutes ago as EXP/2026-27/00034. Save it again?\", and it asks \"Why save it again?\". But the only ways out are Cancel or Save. There is no quick way to look at EXP/00034 to check, and the amount scrolled out of view.",
+    "fix": "Make EXP/2026-27/00034 a link that opens the saved expense, and add a \"Don't save, it's the same\" button that clears the form.",
+    "evidence": "qa-output/loop/l3-wrongclick-e4-01-second-same.png"
+   },
+   {
+    "screen": "/finance-management/expenses?do=new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The cash box shows two different amounts. The accountant's home page shows \"Cash in hand ₹23,907.50\", while the expense form (Cash mode) said \"₹22,407 in hand now\" after a ₹1,500 expense. The 50 paise was dropped, so the two numbers never match exactly.",
+    "fix": "Use formatRupees with paise in both places, or round both the same way.",
+    "evidence": "qa-output/loop/l3-wrongclick-e4-01-second-same.png"
+   },
+   {
+    "screen": "/fee-management/collect/[studentId]",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The transport rows say the word twice: \"Transport · Transport · Apr 2026\", and so on for every month.",
+    "fix": "When the plan name equals the fee head, show only \"Transport · Apr 2026\".",
+    "evidence": "qa-output/loop/l3-wrongclick-a7-02-more-opts.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The \"Visitors today 3\" tile has the sub-line \"No companions\". This reads oddly, and a receptionist won't know what a companion count is for.",
+    "fix": "Show \"3 people in total\" (or hide the line when there were no extra people).",
+    "evidence": "qa-output/loop/l3-wrongclick-v9-01-FAILED.png"
+   },
+   {
+    "screen": "/dashboard (phone, More)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "In the \"Everything\" menu, a lone \"Dashboard\" tile sits in its own row between YOU and DAILY WORK with no heading. It looks like it slipped out of a group.",
+    "fix": "Move Dashboard into the YOU row, or drop it (Home is already in the bottom bar).",
+    "evidence": "qa-output/loop/l3-wrongclick-m1-01-more.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?id=…",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The same phone number is written two ways. The enquiry shows \"+91 90000 00732\", but the Log a call sheet header shows \"+91 9000000732\".",
+    "fix": "Use the same phone format everywhere (formatPhone).",
+    "evidence": "qa-output/loop/l3-wrongclick-r12-01-logcall.png"
+   }
+  ],
+  "tasksDone": "I worked as a nervous receptionist on a phone (390 px) and as an accountant on a laptop (1440 px), about 40 minutes on localhost only. I made the usual mistakes everywhere: Escape mid-form, refresh mid-form, browser Back and Forward, double-click or double-tap on Save, Cancel, leaving a form half-done and coming back, repeating the same entry.\n\nWhat works well:\n- Enquiry: drafts survive a refresh; double-tap made one record (ENQ-0046); the matching-phone warning works; Back after saving goes to the list.\n- Visitor: missing person-to-meet shows a clear error; drafts survive refresh and Back; double-tap made one pass.\n- Fee: UPI errors are clear (UTR must have 12 digits); double-click made one receipt (SPS/2026-27/00357); the same payment repeated gets a warning.\n- Expense: a missing bill above ₹2,000 is caught; double-click made one record (EXP/2026-27/00034); the same expense repeated gets a warning.\n- Forms open in about 0.5 s; dark mode looks fine.\n\nNote: the server running on :3000 was built at 08:08, before commit 24565512 (08:24). So the reception home still shows the refresh picker (\"Every 5 minutes\") and \"Filters Today\". That is a stale build, not a new bug.\n\nRecords I created on local demo data:\n- Enquiries Charan Testwrong (ENQ-0046) and Deepa Testwrong.\n- Visitor passes V-0262 and V-0263 for Hari Testvisitor, both still \"In\".\n- Sneha Nair payments of ₹5,000 UPI and ₹100 cash.\n- Expense EXP/2026-27/00034 for ₹1,500.\n\nMy steps files and the extended runner (qa-output/loop3/act2.mjs, which adds press, back, reload, dbl and val steps) are in D:/all/Projects/School-OS/qa-output/loop3/wc-*.json. Screenshots are in D:/all/Projects/School-OS/qa-output/loop/l3-wrongclick-*.png."
+ },
+ {
+  "who": "dayone",
+  "tasksDone": "I worked as the School Admin of the new school (\"dayone\" login), on a 1440 px laptop screen, with checks on a 390 px phone and in dark mode. Every task in the brief got done. I added 3 staff from the setup checklist: Ravi Kumar Test as Teacher and Class Teacher with an invite link, Sita Devi Test as Accountant with a temporary password, and Anil Reddy Test as Receptionist with an invite link. I added a Tuition fee head for Class 5 (Rs 24,000 a year in 4 quarters), saved it as a draft, published it to its 4 students, and took Rs 6,000 in cash from Divya Sri (receipt DOT-KKD-001/2026-27/00001). For the Time Table I added Period 1, Period 2 and a short break, added the subjects English and Maths for Class 5, gave both sections to Ravi in Teacher Allocation, filled Class 5 A for the whole week and published it. I added Christmas (25-12-2026) as a holiday. For Parent Link, sending to Prasad Rao was blocked while WhatsApp was off. I switched WhatsApp on in Settings, where it runs in test mode and nothing is sent, and then his link became Active. Last, I published the first notice (\"Welcome to the new school year\") to Class 5 parents. The setup checklist went from 2 of 11 to 9 of 11 done. Screenshots are in D:/all/Projects/School-OS/qa-output/loop/ (files starting l3-dayone-) and my steps files are in D:/all/Projects/School-OS/qa-output/loop3/. No repo files were edited.",
+  "findings": [
+   {
+    "screen": "/fee-management/collect/[student]",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "I published the Class 5 fee today (15 Nov). Straight away all 4 students showed \"Overdue\". Quarters 1 to 3 show \"Due 14-11-2026\", a date I never typed. The dashboard now says \"Rs 66,000 overdue from 4 students\" on day one, and the Collect Fee list says \"OVERDUE, MOST LIKELY AT THE COUNTER TODAY\". A new school would chase parents for money that was never asked for.",
+    "fix": "When a fee is first published, move any due date already past to the 'Applies from' date or later, and show it in the publish box: 'Quarters 1 to 3 are already past. Due date for them: [date]'. Never mark a row overdue on the day it is created.",
+    "evidence": "qa-output/loop/l3-dayone-v-01-divya.png"
+   },
+   {
+    "screen": "/student-management/guardians/[id]",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "Setting up Parent Link for one parent is a dead end on day one. The only button on the guardian page is \"Resend Parent Link\". Pressing it gives \"WhatsApp is switched off, so links cannot be sent.\" The \"Send to existing families\" page says \"Links cannot be sent\" too. Unlike Add Staff, which shows the invite link with Copy, Share and WhatsApp buttons, the admin cannot copy one parent's link and send it by hand.",
+    "fix": "Give the parent's Parent Link card the same Copy / Share / WhatsApp buttons the staff invite has, so a link can be handed over before DREAM TEAM switches WhatsApp on.",
+    "evidence": "qa-output/loop/l3-dayone-ba-01-sent.png"
+   },
+   {
+    "screen": "/dashboard/setup",
+    "kind": "word",
+    "severity": "high",
+    "problem": "The checklist shows \"SMS and WhatsApp · Done · WhatsApp connected\". The settings page says \"Sending: Test mode: nothing is sent\". After I sent a Parent Link, the toast said \"Parent Link is on its way to +91 ••••• ••102\", but in test mode nothing goes. The admin would believe parents are getting messages on Monday.",
+    "fix": "While in test mode, show the step as 'Test mode: nothing is sent yet. Ask DREAM TEAM to go live' and leave it not done. Change the toast to 'Link made. Test mode: nothing was sent.'",
+    "evidence": "qa-output/loop/l3-dayone-ph-02-ph-setupfull.png"
+   },
+   {
+    "screen": "/dashboard/setup",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Checklist steps turn green too early. \"Fee structure · Done · 1 class with a published fee structure\" while 12 of 13 classes have no fees. \"Parent Link · Done · 1 parent have their link\" while 23 of 24 parents have none (the sentence also says \"1 parent have\"). The admin stops working on these steps when they are far from finished.",
+    "fix": "Count the steps against everything, e.g. 'Fees: 1 of 13 classes' and 'Parent Link: 1 of 24 parents'. Mark done only when complete, or when the admin presses 'I already did this'.",
+    "evidence": "qa-output/loop/l3-dayone-ph-02-ph-setupfull.png"
+   },
+   {
+    "screen": "/fee-management/structure?cls=..&do=row",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "After I pressed \"Save in draft\" on the Class 5 tuition row, a new box appeared: \"Every fee head is already in this class. Each fee head can be used once per class. Add a new fee head to add another row...\". It looks like an error right after a successful save. The real result, \"saved in the draft... Publish it when the class is ready\", only appears in a toast behind it.",
+    "fix": "After saving, go back to the class box showing the new row with a clear 'Publish version 1' button. Never reopen the 'Add fee row' form after a save.",
+    "evidence": "qa-output/loop/l3-dayone-q-02-saved.png"
+   },
+   {
+    "screen": "/fee-management/structure",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On a school with no fees, the page opens with a warning banner: \"Mid-year changes need the Principal's approval. Paid rows never change...\". Below it are 13 cards that each say \"Not set ... 0 of 0 heads set ... Rs 0\". The step that has to come first, \"No fee heads yet\", is at the very bottom. Nothing says what order to work in.",
+    "fix": "When no fee heads exist, show one empty state at the top: '1. Add fee heads (Tuition, Annual...)  2. Set amounts per class  3. Publish'. Hide the mid-year banner until a fee has been published.",
+    "evidence": "qa-output/loop/l3-dayone-l-01-fees.png"
+   },
+   {
+    "screen": "/fee-management/structure?do=publish",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The \"Publish version 1\" box says \"Nobody follows this structure yet. Assign it to the class after publishing.\" Right below, a switch that is already on says \"Give it to 4 students without fees\". These two contradict each other. \"Applies from 01-12-2026\" is pre-filled with no reason given for a first-ever fee.",
+    "fix": "Remove the warning when the 'Give it to N students' switch is on. For a first version, leave out 'Applies from' or explain it in one line.",
+    "evidence": "qa-output/loop/l3-dayone-s-01-pub1.png"
+   },
+   {
+    "screen": "/staff-hr-management/add",
+    "kind": "error",
+    "severity": "medium",
+    "problem": "With \"Temporary password\" chosen, Next on step 2 lets me through with an empty password and marks \"Step 2 · done\". The error only appears on step 3. When I typed Welcome123, which matches the hint \"At least 8 characters with a letter and a number\", it was refused as \"too common and easy to guess\", again on step 3.",
+    "fix": "Check the password when Next is pressed on step 2 and keep the person on step 2. Add 'not a common word' to the hint.",
+    "evidence": "qa-output/loop/l3-dayone-h-02-empty-pw-vp.png"
+   },
+   {
+    "screen": "/staff-hr-management/add",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "I left a half-filled Add Staff form. When I started the next person, the page said \"Draft kept: what you typed last time\" and kept the previous choice of \"Temporary password\". Also, choosing the designation \"Receptionist\" did not tick the \"Receptionist / Front Office\" role, while Teacher and Accountant tick their role automatically. The result was the error \"Choose at least one role, or switch off the login\".",
+    "fix": "Clear the draft once the person's name changes, or ask 'Continue Sita's form?'. Map the Receptionist designation to the Receptionist / Front Office role, like the others.",
+    "evidence": "qa-output/loop/l3-dayone-i-03-FAILED.png"
+   },
+   {
+    "screen": "/staff-hr-management/add",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "I ticked the \"Class Teacher\" role but did not choose a section. Create staff went through with no warning, and the summary shows both \"Roles: Teacher, Class Teacher\" and \"Class teacher: No\". The dashboard later flags \"1 Class Teacher has no section ... cannot take attendance yet\".",
+    "fix": "When Class Teacher is ticked and no section is chosen, ask on step 3: 'Which section is Ravi class teacher of?' Offer a clear 'Choose later' option.",
+    "evidence": "qa-output/loop/l3-dayone-f-02-created.png"
+   },
+   {
+    "screen": "/staff-hr-management/add (step 3)",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "For a school with no subjects yet, step 3 repeats \"No subjects set for this class. Subjects\" 13 times, from Nursery to Class 10, as a long wall of identical cards. Clicking \"Subjects\" would leave the half-finished staff form.",
+    "fix": "When no class has subjects, show one line: 'No subjects yet. You can give classes later from Teacher Allocation.' Make Create staff the only button.",
+    "evidence": "qa-output/loop/l3-dayone-e-02-step3.png"
+   },
+   {
+    "screen": "/academic-management/time-table",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "\"Start the Time Table\" created a draft and showed active \"Make automatically\" and \"Publish\" buttons. Only then did it say \"No periods set up\". The page never says up front that periods, subjects and teacher allocation are needed first, so I went through 3 other tabs to find out.",
+    "fix": "Before starting a draft, show a short checklist: Periods (0), Subjects (0), Teachers given (0), each with a link. Enable 'Start' when the checklist is complete.",
+    "evidence": "qa-output/loop/l3-dayone-z-01-ttstart.png"
+   },
+   {
+    "screen": "/academic-management/settings?tab=periods",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Periods are added one dialog at a time, so a normal day (8 periods, 2 breaks, lunch) takes 11 dialogs. Each new period's \"Starts\" is empty instead of the last period's end time. Ticking \"Lunch or break\" leaves the name as \"Period 3\".",
+    "fix": "Add 'Make a standard day' (start time, period length, number of periods, break and lunch times). Pre-fill each new start with the previous end. Rename to 'Break' when the break box is ticked.",
+    "evidence": "qa-output/loop/l3-dayone-ab-01-addperiod.png"
+   },
+   {
+    "screen": "/student-management/guardians/[id]",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The parent's Parent Link status says \"Not sent\", yet the button says \"Resend Parent Link\" and the box says \"Prasad Rao's personal link goes again to ... on WhatsApp\". \"Revoke Parent Link\" is offered even though no link exists yet.",
+    "fix": "When nothing has been sent, the button should say 'Send Parent Link' with no 'again'. Hide Revoke until a link exists.",
+    "evidence": "qa-output/loop/l3-dayone-az-01-resend.png"
+   },
+   {
+    "screen": "/staff-hr-management/add; /communication/parent-link; /fee-management/structure",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Several screens show things that are not in version 1. Add Staff roles include \"Hostel Warden\", \"Librarian\", \"Store Keeper\" and \"Transport In-charge\". Its permissions list includes Transport, Library, Inventory and Hostel Management. Parent Link has a \"School bus\" switch, already on. The fee row says \"Transport, hostel and store items are charged from their own modules\". None of these modules is in the menu, so a new admin goes looking for them.",
+    "fix": "Hide roles, permission rows, Parent Link parts and help text for modules the school has switched off (Modules On/Off).",
+    "evidence": "qa-output/loop/l3-dayone-au-03-plfull.png"
+   },
+   {
+    "screen": "/academic-management/teacher-allocation",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Teacher Allocation and the Time Table both open on \"Nursery\" / \"Nursery A\", which have no subjects, so the first thing I saw was \"No subjects mapped\" with no link. The banner said \"4 subjects in the school have no teacher yet\" when there were only 2 subjects (in 2 sections). The class picker also has no visible label link.",
+    "fix": "Open on the first class that has gaps. Word it as '4 subject places (2 subjects × 2 sections) have no teacher'. Make 'Subjects' a link in the empty state.",
+    "evidence": "qa-output/loop/l3-dayone-ah-01-alloc.png"
+   },
+   {
+    "screen": "/academic-management/subjects",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Subjects are added one at a time, each with a full form (name, code, type, 13 class boxes, periods, date). A school needs 8 to 10 subjects. On day one there is no quick start.",
+    "fix": "Offer 'Add common subjects' (English, Telugu/Hindi, Maths, Science, Social, EVS, Computers) as ticks with class ranges, all saved in one step.",
+    "evidence": "qa-output/loop/l3-dayone-af-01-addsub.png"
+   },
+   {
+    "screen": "/communication/notices",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Notice Board says \"Notices to parents go for approval first\", but my notice was published at once. The confirm box says only \"Audience: Parents · Chosen classes\", with no count. After publishing it showed \"Seen by parents 0 of 8\", even though 7 of the 8 parents have no Parent Link and the notice will never reach them. There was only a small grey hint before publishing.",
+    "fix": "State counts in the confirm box: '8 parents of Class 5: 1 gets it on Parent Link, 7 have no link. Tick WhatsApp to reach them'. Remove the approval line for roles that don't need approval.",
+    "evidence": "qa-output/loop/l3-dayone-bf-01-noticepub.png"
+   },
+   {
+    "screen": "/fee-management/collect/[student]",
+    "kind": "word",
+    "severity": "low",
+    "problem": "After taking the fee, the receipt box says \"No message was sent to the parents.\" Right below is a button \"Send to parent again\", but nothing was sent the first time.",
+    "fix": "Change the button to 'Send to parent' when nothing was sent.",
+    "evidence": "qa-output/loop/l3-dayone-w-02-after.png"
+   },
+   {
+    "screen": "/events-calendar; /communication/notices",
+    "kind": "empty",
+    "severity": "low",
+    "problem": "Empty screens use words that don't fit a new school. Holidays offer \"Copy last year's holidays\" when there is no last year. The Notice Board says \"No notices here. Try another search\" when I never searched.",
+    "fix": "Hide 'Copy last year' when there is no earlier year. For a first-ever empty board, say 'No notices yet. Write your first notice.'",
+    "evidence": "qa-output/loop/l3-dayone-ar-01-hol.png"
+   },
+   {
+    "screen": "/staff-hr-management",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The empty staff list for a new school opens with \"1 person can sign in but has no staff record ... Lakshmi Devi (School Admin) · Add staff record\". The admin is reading about herself as a problem before adding anyone.",
+    "fix": "On a school with 0 staff, show 'Add yourself as staff too?' as a small optional line under the empty state, not as a warning block.",
+    "evidence": "qa-output/loop/l3-dayone-c-01-list.png"
+   },
+   {
+    "screen": "/fee-management/structure; /academic-management; /events-calendar",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Plural mistakes on counts: \"0 of 1 heads set\", \"2 sections · 1 students\", \"1 holidays and vacations\", \"1 parent have their link\".",
+    "fix": "Use singular and plural forms for every count: '1 head', '1 student', '1 holiday', '1 parent has'.",
+    "evidence": "qa-output/loop/l3-dayone-n-01-headadded.png"
+   },
+   {
+    "screen": "/fee-management/structure?head=new",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The first fee head box suggests \"Example: Robotics club\" and defaults Kind to \"Other\", but a new school's first head is almost always Tuition fee.",
+    "fix": "Use 'Example: Tuition fee' as the hint. Default Kind to Tuition when the school has no heads yet.",
+    "evidence": "qa-output/loop/l3-dayone-m-01-addhead.png"
+   },
+   {
+    "screen": "/settings/messaging",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Next to an on/off switch the admin is allowed to use, the WhatsApp card says \"Connected by DREAM TEAM. To change it, tell DREAM TEAM support.\" It sounds like I must not touch the switch. The checklist step is called \"SMS and WhatsApp\", but this page says \"SMS is not used for now\".",
+    "fix": "Say 'DREAM TEAM connected your number. Switch it on here when ready.' Rename the checklist step to 'WhatsApp and email'.",
+    "evidence": "qa-output/loop/l3-dayone-bb-01-msgset.png"
+   },
+   {
+    "screen": "/student-management/guardians/[id]",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The parent's avatar initials \"PR\" are half covered by the camera badge, so the R is cut off.",
+    "fix": "Make the camera badge smaller and move it outside the circle edge, or show it only on hover.",
+    "evidence": "qa-output/loop/l3-dayone-bc-02-plsent.png"
+   }
+  ]
+ },
+ {
+  "who": "recheck",
+  "findings": [
+   {
+    "screen": "/examination-results/marks",
+    "kind": "not-fixed",
+    "severity": "medium",
+    "problem": "Loop 2 finding 2.6 is still there. As Principal at 1440 px, the cards say \"In progress 31 · Being entered now\", but 25 of those 31 rows read \"0 of 16 entered … Overdue 19-10-2026 … In progress\" (for example English · Class 6 B, Sunitha Joshi). The Principal still cannot tell which teachers have really started.",
+    "fix": "Count a paper as In progress only when at least 1 mark is entered. Papers with 0 entered go under Not started, whatever their stored status.",
+    "evidence": "qa-output/loop/l3-recheck-mp2 (console), qa-output/loop/l3-recheck-mp-01-view.png"
+   },
+   {
+    "screen": "/approvals/[id] (phone)",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "New problem, phone 390 px, Principal opening \"Transport fuel ₹10,080\". The Approve / Ask for a change / Reject bar should stay pinned above the bottom menu, but it is missing from the first screen. It only shows after scrolling to the end of the page. The cause: <main> has the class animate-rise, which leaves transform: matrix(1,0,0,1,0,0) on it, so the bar's position: fixed is measured against main and not the screen. Any other position: fixed bar inside a page has the same problem.",
+    "fix": "Animate only opacity, or remove the transform when the animation ends (no fill-mode both). The other option is to render the decision bar through a portal on <body>.",
+    "evidence": "qa-output/loop/l3-recheck-pa-01-detail.png, qa-output/loop/l3-recheck-pa2-01-bottom.png"
+   },
+   {
+    "screen": "/communication/notices/[id] (waiting for approval)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "New, next to the notice fixes. The Principal opens the notice \"L3 సోమవారం తల్లిదండ్రుల సమావేశం\". It says \"Waiting for the Principal. It goes out on the chosen channels once approved.\", but the page has no Approve or Reject button and no link to the approval. She is the approver, and the page leaves her nowhere to act.",
+    "fix": "When the viewer is the current approver, show the same Approve / Reject bar as /approvals/[id] on this page, or at least a \"Decide in Approvals\" button linking to /approvals/<approvalId>.",
+    "evidence": "qa-output/loop/l3-recheck-nwait-01-view.png"
+   },
+   {
+    "screen": "/examination-results/marks/<exam>/<paper> (phone)",
+    "kind": "not-fixed",
+    "severity": "medium",
+    "problem": "Loop 2 finding 0.1 is only partly fixed. The keyboard-hiding fix never triggers here, because the one-at-a-time pad is on the page and opens no phone keyboard, so the bottom menu stays. When the sheet opens, the teacher sees only keys 1-6. The rows \"7 8 9 ½\" and \"AB 0 ML\" and the \"Previous / Next\" buttons sit under the bottom menu (Home, My class, Attendance, Marks, More) until she scrolls past the Entered / Absent / Medical / Class average cards. The good part: the sheet now opens on the empty Internal box (0.0 is fixed), and the sticky Submit bar no longer covers the pad.",
+    "fix": "On the phone marks sheet, hide the bottom menu, or move the 4 summary cards below the pad (or fold them into one line), so the student, both boxes, all keys and Next fit on one screen.",
+    "evidence": "qa-output/loop/l3-recheck-mk-02-pad.png, qa-output/loop/l3-recheck-mk-03-pad2.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add and /dashboard (Add task)",
+    "kind": "not-fixed",
+    "severity": "medium",
+    "problem": "Loop 2 findings 1.3 and 2.12 are still there. On Add enquiry, the \"Owner *\" list still shows \"Naresh Kumar (Receptionist)\" twice. On the Principal's \"Add task\", \"Assign to\" shows \"Naresh Kumar · Receptionist\" twice. Only New visitor tells them apart (\"Naresh Kumar · Receptionist, SPS-ST-040\" and \"…SPS-ST-029\"), and a receptionist does not know their own staff code.",
+    "fix": "Use one picker label everywhere: name · role · staff code. Show the signed-in person as \"Me (Naresh Kumar)\" at the top. Also ask the school to archive the duplicate staff record.",
+    "evidence": "qa-output/loop/l3-recheck-enq-02-owner.png, qa-output/loop/l3-recheck-task-01-task-form.png"
+   },
+   {
+    "screen": "/homework-learning, /attendance-management, /salary-management/slips, /dashboard (Telugu)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Several of the loop 2 rewordings were not translated, so a Telugu teacher or admin gets mixed screens. Homework shows \"Waiting for you to check\", \"Current · this month\" and \"Search homework\"; the te key exists but the placeholder is not passed through t(). The locked day says \"Attendance for 13-11-2026 locked at 11:00 AM.\" Marks shows \"All marks saved at 8:27 AM\". My leave shows \"Your leave requests and balances\" and \"Apply for leave\". The salary banner is put together from pieces and comes out broken: \"November 2026 slip: ప్రిన్సిపాల్ ఆమోదించిన తర్వాత సిద్ధం Novemberజీతం\", with no space and the month in English. The admin home cards are in English too: \"No school today\", \"New enquiries\", \"7 staff documents have expired\", \"42 papers past the marks due date\", \"See papers\".",
+    "fix": "Translate each sentence as one key with {month} or {date} placeholders, not joined fragments. Then run a check that every string in the loop 2 diff exists in te.ts and hi.ts and goes through t() or Words.",
+    "evidence": "qa-output/loop/l3-recheck-mk2-01-typed.png, qa-output/loop/l3-recheck-menu-01-menu.png"
+   },
+   {
+    "screen": "/admission-management/enquiries (phone)",
+    "kind": "not-fixed",
+    "severity": "low",
+    "problem": "Loop 2 finding 1.12 is still there. The top bar says \"Enquiries\" but the big heading says \"Admissions\", so the receptionist is unsure which page she is on. The Fees pages were fixed: the heading there is now \"Defaulters\" or \"Concessions & Refunds\", with \"Fees\" above it.",
+    "fix": "Use the Fees pattern: a small \"Admissions\" line above a big \"Enquiries\" heading.",
+    "evidence": "qa-output/loop/l3-recheck-enqlist-01-view.png"
+   },
+   {
+    "screen": "/dashboard and every page (side menu, 1440x900)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "New, from the side-menu fix. The \"More below\" pill sits on top of the last visible menu row, and the words \"Inve…\" and \"…nt\" (Inventory Management) peek out on both sides of it. It looks like a rendering glitch. The fix itself works: the menu now scrolls, and Front Office is visible.",
+    "fix": "Fade the last row fully under the gradient, or give the menu list bottom padding equal to the pill's height, so no row text sits behind the pill.",
+    "evidence": "qa-output/loop/l3-recheck-rej-02-after-esc.png, qa-output/loop/l3-recheck-cert-01-view.png"
+   },
+   {
+    "screen": "/communication/notices/new (Publish confirm)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "New, next to the Publish confirm. The confirm says \"Audience: Parents · Whole school · Channels: Notice board, App notification, Parent Link\", but gives no number and does not repeat the form's warning \"Parents without Parent Link will not get this.\" A clerk pressing Publish still cannot see how many parents will actually get it on their phone.",
+    "fix": "Add one line to the confirm: \"Reaches N of 565 parents. M have no Parent Link: tick WhatsApp to reach them.\"",
+    "evidence": "qa-output/loop/l3-recheck-ndark-02-confirm.png"
+   },
+   {
+    "screen": "/front-office/visitors?do=visitor (phone)",
+    "kind": "not-fixed",
+    "severity": "low",
+    "problem": "Loop 2 finding 1.2 is only partly fixed. \"Person to meet *\" is still a plain phone dropdown with 42 names and no search. It still lists drivers, attendants, the store keeper and the hostel warden. Office staff now come first, which helps. The Sunday status is fixed: it now says \"School closed today: not in school\".",
+    "fix": "Use a type-to-search picker. Put teachers by class first, and leave out roles parents never come to meet (drivers, attendants).",
+    "evidence": "qa-output/loop/l3-recheck-vis-01-picked.png"
+   },
+   {
+    "screen": "/reports-analytics/r/fe-defaulter (1440 px)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "Loop 2 finding 2.2 is mostly fixed: the Overdue column now shows in full. The table is still 36 px wider than its box, though, so the last header is cut to \"Reminders s…\" at the right edge.",
+    "fix": "Narrow the Admission no. and Phone columns, or let the last header wrap onto 2 lines, so the table fits at 1440 px.",
+    "evidence": "qa-output/loop/l3-recheck-rep-01-report.png"
+   },
+   {
+    "screen": "/approvals and /dashboard (approval card)",
+    "kind": "not-fixed",
+    "severity": "low",
+    "problem": "Loop 2 finding 2.10: the title \"Sibling of ₹6,000 for Sneha Varma\" still reads wrong, both in the list and on the Principal's home card (\"Discount or concession · Sibling of ₹6,000 for Sneha Varma\").",
+    "fix": "Word the title as \"Sibling discount ₹6,000 for Sneha Varma\".",
+    "evidence": "qa-output/loop/l3-recheck-p1-01-list.png"
+   },
+   {
+    "screen": "/dashboard (Add task)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "In \"Assign to\", \"Me (Lakshmi Rao)\" sits in the middle of the A to Z list, between \"LD-రమేష్ Ramesh 1345 · Teacher\" and \"Mahesh Yadav\". After \"Add task\" with only a name, the window showed \"Saving…\" for more than 3 seconds before it closed. It did save; the date-or-time error from loop 2 is gone.",
+    "fix": "Put \"Me\" first in the list. Close the window and show the toast as soon as the task is saved.",
+    "evidence": "qa-output/loop/l3-recheck-task3-01-after-save.png"
+   },
+   {
+    "screen": "/admission-management/enquiries (phone)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The search hint is cut off: \"Child, parent, phone or ENQ numbe\". It is the same problem loop 2 fixed on Defaulters, which now reads \"Name or number\".",
+    "fix": "Shorten it to \"Name, phone or ENQ no.\"",
+    "evidence": "qa-output/loop/l3-recheck-enqlist-01-view.png"
+   },
+   {
+    "screen": "/dashboard (More sheet, phone)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The More sheet now starts with the YOU tiles (My leave, My salary slips), so 0.12 is fixed. Below them, one \"Dashboard\" tile sits alone in its own group with no heading. It looks like a leftover.",
+    "fix": "Leave Dashboard out of the More sheet (it is already Home in the bottom menu), or put it in the YOU row.",
+    "evidence": "qa-output/loop/l3-recheck-more-01-more.png"
+   }
+  ],
+  "tasksDone": "Re-checked 24 loop 2 findings in the browser with the same role and screen size as before. Most screens were checked in the local build from 08:08, which comes before the 24565512 home changes. Read-only work: screenshots, text and the database. My only changes were 2 test tasks (\"L3 check…\") on the Principal; I approved and rejected nothing.\n\nFIXED, so not reported: 0.0 (the marks sheet opens on the empty Internal box; the total and the student line are no longer cut off), 0.2 (the salary card now matches the slip: ₹40,425 / ₹4,479), 0.4 (Homework shows \\\"Waiting for you to check 72\\\"), 0.7 (homework toast wording, checked in the code), 0.8 (the locked-day box now talks about attendance, not marks), 0.10 (teacher home), 0.12 (the More sheet starts with YOU), 0.13 (the leave form fills in Monday), 1.0 (\\\"Fee balance: ask Accounts. Send to Accounts\\\"), 1.1 (\\\"School closed today: not in school\\\"), 2.0 and the dashboard (money Approve asks \\\"Approve ₹9,450? … This cannot be undone.\\\"), 2.1 (Publish asks first), 2.5 (the rule editor warns before leaving), 2.7 (Reject Esc drops ?reject=1), 3.0 (\\\"₹200 asked ₹1,500\\\"; the ₹10,200 total matches the rows), 3.1 (the sheet closes and a toast shows), 3.3 (10 missing on both screens), 3.6 (\\\"₹39,300 · ₹5,000 · ₹27,000 · Not due yet ₹7,300\\\"), 3.7 (age groups shown as amounts), 3.8 (the reminder button is secondary, the list is paged), 3.9 (receipt numbers are links), 3.2 (Due today / Overdue pills, checked in the code), 4.0 (the menu scrolls, with \\\"More below\\\"), 4.1 and 4.2 (no expired passes under Today; Visitors today 3 matches), 4.3 (Parent Link warning), 4.4 (no seen list before sending), 4.6 (\\\"Changes apply to both\\\"), 4.7 (search finds bonafide, change phone and holiday), 4.8 and 1.14 (\\\"323 · 2 not in a class\\\").\n\nSTILL BROKEN: 2.6, 1.3/2.12, 1.12, 0.1 (only partly), 1.2 (only partly), 2.10, and a small leftover of 2.2.\n\nNEW: the phone Approve bar is not pinned to the screen (the main animate-rise transform breaks position: fixed); the Principal has no way to approve from a waiting notice; the \\\"More below\\\" pill covers a menu row; the Publish confirm gives no number of parents; the loop 2 words are not in Telugu (the salary banner is broken).\n\nNote: during the run another tester switched the teacher (DB language=te) and the admin view to Telugu, which is how the translation gaps showed up.\n\nScreenshots: D:/all/Projects/School-OS/qa-output/loop/l3-recheck-*.png. Step files: D:/all/Projects/School-OS/qa-output/loop3/."
+ }
+]

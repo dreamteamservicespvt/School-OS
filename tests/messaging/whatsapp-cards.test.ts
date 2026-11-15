@@ -133,7 +133,7 @@ describe("sending a card for approval", () => {
   it("without the PDF sample the receipt card goes with its text header", () => {
     const t = READY_WHATSAPP.find((x) => x.key === "fee-paid")!;
     const r = cardSubmission(t.texts.te, readyCard("fee-paid", "te")!, opts);
-    expect(r.components[0]).toEqual({ type: "HEADER", format: "TEXT", text: "✅ ఫీజు అందింది" });
+    expect(r.components[0]).toEqual({ type: "HEADER", format: "TEXT", text: "ఫీజు అందింది" });
     expect(r.submitted.header).toBe("text");
   });
 
@@ -141,7 +141,7 @@ describe("sending a card for approval", () => {
     const t = READY_WHATSAPP.find((x) => x.key === "fee-due")!;
     expect(t.texts.en).toContain("{how_to_pay}");
     const r = cardSubmission(t.texts.hi, readyCard("fee-due", "hi")!, opts);
-    expect(r.components[0]).toEqual({ type: "HEADER", format: "TEXT", text: "💳 फ़ीस रिमाइंडर" });
+    expect(r.components[0]).toEqual({ type: "HEADER", format: "TEXT", text: "फ़ीस रिमाइंडर" });
     expect(r.components.at(-1)).toEqual({ type: "BUTTONS", buttons: [
       { type: "PHONE_NUMBER", text: "स्कूल को कॉल करें", phone_number: "+919876500001" },
     ] });

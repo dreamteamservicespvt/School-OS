@@ -121,3 +121,62 @@ Behaviour points and the query rating were switched back off.
 - Wording: "Send to parent again" when nothing was sent; Resolve dialog says "sent to the requester".
 - Delivery status: say "Sent to WhatsApp (delivery reports not connected)" (owner: leave the gym webhook).
 - Behaviour incident with points off: fixed (points optional).
+
+## Deploy 9 cards (15-16 Nov)
+
+Live site https://school-os-beta.vercel.app, test school "chaitanya", deploy 9 (main 88af496f). Tested by Claude, 15-11 23:58 to 16-11 00:12 IST.
+
+**Result: blocked. WhatsApp refused 40 of the 41 new card texts at submission ("Invalid parameter"), so no rich card could be sent.**
+
+### What happened
+- School Admin > Message Templates > **Make 24 templates ready for WhatsApp**: done, 24 new card versions made.
+- **Send 33 templates to WhatsApp for approval** (it then sent 41 language texts): **1 approved, 40 refused at once**, each "WhatsApp said: Invalid parameter". Nothing went to Pending, so there was nothing to re-check every 10 minutes.
+  - Approved: **Pickup code (English)**, the AUTHENTICATION code template, which has no header, footer or emoji.
+  - Refused: every card. That is Admission welcome, Absent today (en, hi, te), Arrived late, PTM reminder, Exam reminder, Results published, Fee received, Fee reminder (en, te), Appointment cancelled / confirmation / reminder, Pickup gate pass, Visitor pass, Walk-in request number, Behaviour note, Birthday wishes student (en, te) and staff, General announcement, New notice, WhatsApp connection test, Homework pending, Homework set, Consent request, Parent Link (en, hi, te), Query rating request, Query received, Message to staff, Salary slip ready (en, hi, te), Staff invite, Bus arriving, Dropped by the bus, Picked up by the bus.
+- **Cause, found by elimination:** a custom test template "QA emoji body test" was made with the same body style (emoji labels, `*{blank}*` bold, blank lines) and **no header, footer or buttons**. WhatsApp accepted it (Pending, name `qa_emoji_body_test_ade03e`). The bodies are therefore fine. The common factor of all 40 refusals is the card's **text header, which always starts with an emoji** (🔔 ⏰ 💳 ✅ 📢 🎂 …) plus the footer. WhatsApp does not support emojis in a text header. Meta's page says only "no Markdown", but WhatsApp Manager and the vendor docs say no emojis. Cards without buttons were refused too, so the buttons are not the cause.
+
+### Results by kind
+
+| Kind | Template status (+ Meta reason) | How sent | Arrived (time) | What the card showed | Problem |
+|---|---|---|---|---|---|
+| Fee received | Refused at submission: Invalid parameter | Not sent | – | – | Card cannot be approved (header emoji). The receipt PDF header could not be tested |
+| Fee reminder (en, te) | Refused: Invalid parameter | Not sent | – | – | Same |
+| Absent today (en, hi, te) | Refused: Invalid parameter | Not sent | – | – | Same |
+| Arrived late | Refused: Invalid parameter | Not sent | – | – | Same |
+| Homework set | Refused: Invalid parameter | Not sent | – | – | Same |
+| Results published | Refused: Invalid parameter | Not sent | – | – | Same |
+| New notice | Refused: Invalid parameter | Not sent | – | – | Same |
+| Consent request | Refused: Invalid parameter | Not sent | – | – | Same |
+| Parent Link (en, hi, te) | Refused: Invalid parameter | Not sent | – | – | Same |
+| PTM reminder | Refused: Invalid parameter | Not sent | – | – | Same |
+| Birthday wishes (student en, te; staff) | Refused: Invalid parameter | Not sent | – | – | Same |
+| Admission welcome | Refused: Invalid parameter | Not sent | – | – | Same |
+| **General announcement** | v3 card refused; **old v2 still approved** | Send Message > One person (Venkatesh) > General announcement, 1 credit, 16-11 00:02 | **Yes, 12:02 AM** | The OLD plain text: "Dear Venkatesh, here is a message from chaitanya: School OS test: … Please contact the school office if you have any questions." No header, footer or button | Not a card. It shows the approved-text fallback works: parents still get messages while the new versions are refused |
+| Message to staff | Refused: Invalid parameter | Not sent | – | – | Same |
+| Staff invite | Refused: Invalid parameter | Not sent | – | – | Same |
+| Appointment confirmation (Front Office) | Refused: Invalid parameter | Not sent | – | – | Same; Front Office still has no approved template |
+| WhatsApp connection test | Refused: Invalid parameter | Not tried | – | – | Same |
+| Pickup code | **Approved** (AUTHENTICATION) | Not sent (not on the list) | – | – | None |
+
+Screenshot: `qa/whatsapp-cards/deploy9-fallback-general-0002.png` (the 12:02 AM fallback message). No card screenshots exist, because no card could be approved.
+
+### Credits
+**1 WhatsApp credit** used (475 → 474). Template submissions cost nothing.
+
+### School OS bugs found
+1. **Card headers with an emoji are refused by WhatsApp** (all 40 cards).
+   - To reproduce: Message Templates > Make N templates ready > Send N templates for approval. Every card shows "WhatsApp said: Invalid parameter".
+   - Fix: take the emoji out of every `header` in `src/lib/messaging/ready-whatsapp.ts`, or strip `\p{Extended_Pictographic}` and variation selectors from `card.header.text` in `cardSubmission()` (`src/lib/messaging/card.ts`).
+   - Also add "The header cannot have an emoji" to `cardProblems()`, so it is caught before sending, and add a test.
+   - The emoji can stay in the WhatsApp preview only if WhatsApp gets the same words, so better to drop it everywhere.
+   - Then "Make ready" again (new `_vN` names) and resubmit.
+2. **Meta's real reason is hidden.**
+   - `submitWhatsappTemplate()` (`src/lib/messaging/providers/whatsapp.ts:254`) shows only `error.message` ("Invalid parameter").
+   - Meta puts the useful words in `error.error_user_title`, `error.error_user_msg` and `error.error_data.details`. Show those, and add them to the `GraphError` type (line 32).
+3. **The page shows the new words, but the old ones go.** In Send Message the template box says "Template, version 3" and shows the new card words, while the preview and the delivered message use approved v2. Suggest a line under the box: "WhatsApp has not approved these words yet; the last approved words go meanwhile."
+4. **Small:** the custom-template preview shows `*Ravi Kumar*` with the asterisks instead of in bold.
+
+### Test changes left on the test school
+- 24 new card versions (current, "Not submitted", refused). The old approved versions keep going.
+- Custom template "QA emoji body test" (Pending on WhatsApp, `qa_emoji_body_test_ade03e`). Archive it after the fix.
+- One General announcement to Venkatesh (16-11 00:02).

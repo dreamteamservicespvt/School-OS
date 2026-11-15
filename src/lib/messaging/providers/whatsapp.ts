@@ -29,7 +29,7 @@ export function isGraphPage(url: string): boolean {
   }
 }
 
-type GraphError = { error?: { code?: number; message?: string; error_data?: { details?: string } } };
+type GraphError = { error?: { code?: number; message?: string; error_user_title?: string; error_user_msg?: string; error_data?: { details?: string } } };
 
 /** Plain words for WhatsApp's error codes (the common ones). */
 export function whatsappReason(code: number | undefined, message?: string): { reason: string; retryable: boolean } {
@@ -251,7 +251,11 @@ export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmi
     );
     const json = res.json as ({ id?: string; status?: string } & GraphError) | null;
     if (res.ok && json?.id) return { ok: true as const, status: (json.status ?? "PENDING").toUpperCase(), submitted };
-    return { ok: false as const, reason: json?.error?.message ? `WhatsApp said: ${json.error.message.slice(0, 200)}` : "WhatsApp did not accept the template." };
+    // Meta's own words for the person: the user title and message and the details say what is wrong
+    // ("Invalid parameter" alone hid a header emoji, live test 16 Nov).
+    const e = json?.error;
+    const said = [e?.error_user_title, e?.error_user_msg, e?.error_data?.details, e?.message].filter((x, i, a): x is string => Boolean(x) && a.indexOf(x) === i).join(" · ");
+    return { ok: false as const, reason: said ? `WhatsApp said: ${said.slice(0, 400)}` : "WhatsApp did not accept the template." };
   } catch {
     return { ok: false as const, reason: "Could not reach WhatsApp. Please try again." };
   }

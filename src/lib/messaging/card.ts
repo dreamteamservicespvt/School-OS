@@ -58,8 +58,9 @@ export function readCard(raw: unknown): WhatsappCard | null {
   if (!isObj(raw)) return null;
   const out: WhatsappCard = {};
   const h = raw.header;
-  if (isObj(h) && h.type === "text" && typeof h.text === "string") out.header = { type: "text", text: h.text };
-  else if (isObj(h) && h.type === "document" && h.source === "receipt") out.header = { type: "document", source: "receipt", ...(typeof h.text === "string" ? { text: h.text } : {}) };
+  // Saved headers lose any emoji (WhatsApp refuses them; cards saved before 16 Nov had one).
+  if (isObj(h) && h.type === "text" && typeof h.text === "string") out.header = { type: "text", text: headerWithoutEmoji(h.text) };
+  else if (isObj(h) && h.type === "document" && h.source === "receipt") out.header = { type: "document", source: "receipt", ...(typeof h.text === "string" ? { text: headerWithoutEmoji(h.text) } : {}) };
   if (typeof raw.footer === "string") out.footer = raw.footer;
   if (Array.isArray(raw.buttons)) {
     out.buttons = raw.buttons.flatMap((b): CardButton[] => {
@@ -124,6 +125,15 @@ const EMOJI = /\p{Extended_Pictographic}/u;
 /** Button words: letters (any script), numbers and spaces only (Meta: "alphanumeric", no emoji). */
 const BUTTON_WORDS = /^[\p{L}\p{M}\p{N} ‌‍]+$/u;
 
+/**
+ * WhatsApp refuses a text header with an emoji ("Invalid parameter"; live test 16 Nov: 40 of 41 cards refused).
+ * The emoji stays in the words; the header keeps letters only.
+ */
+const HEADER_EMOJI = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}\u{1F3FB}-\u{1F3FF}]/gu;
+export function headerWithoutEmoji(text: string): string {
+  return text.replace(HEADER_EMOJI, "").replace(/\s{2,}/g, " ").trim();
+}
+
 /** Why WhatsApp (Meta) would refuse a card's header, footer or buttons, in plain words; empty when it would take them. */
 export function cardProblems(card: WhatsappCard | null): string[] {
   if (!card) return [];
@@ -135,6 +145,7 @@ export function cardProblems(card: WhatsappCard | null): string[] {
     if (/[*_~`]/.test(t)) out.push("The header cannot use * _ ~ or ` (WhatsApp already shows it bold).");
     if (/[{}]/.test(t)) out.push("The header cannot hold a blank.");
     if (/\n/.test(t)) out.push("The header must be one line.");
+    if (headerWithoutEmoji(t) !== t.trim()) out.push("The header cannot have an emoji (WhatsApp refuses it). Put the emoji in the message words instead.");
   }
   if (card.footer != null) {
     if ([...card.footer].length > FOOTER_MAX) out.push(`The footer can have at most ${FOOTER_MAX} characters.`);
@@ -216,14 +227,14 @@ export function cardSubmission(body: string, card: WhatsappCard, o: SubmissionOp
   const components: Record<string, unknown>[] = [];
   let header: SubmittedCard["header"] = null;
   if (card.header?.type === "text") {
-    components.push({ type: "HEADER", format: "TEXT", text: card.header.text });
+    components.push({ type: "HEADER", format: "TEXT", text: headerWithoutEmoji(card.header.text) });
     header = "text";
   } else if (card.header?.type === "document") {
     if (o.documentHandle) {
       components.push({ type: "HEADER", format: "DOCUMENT", example: { header_handle: [o.documentHandle] } });
       header = "document";
     } else if (card.header.text) {
-      components.push({ type: "HEADER", format: "TEXT", text: card.header.text });
+      components.push({ type: "HEADER", format: "TEXT", text: headerWithoutEmoji(card.header.text) });
       header = "text";
     }
   }

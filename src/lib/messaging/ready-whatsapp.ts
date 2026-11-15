@@ -9,7 +9,7 @@
 // When a text here changes, add the old words to PAST_READY_WHATSAPP
 // (./ready-history.ts), so schools still holding them can take the new ones.
 // SMS and app texts are not here: they keep their words (5.4 of the design).
-import type { CardButton, CardHeader, LinkTarget, WhatsappCard } from "./card";
+import { headerWithoutEmoji, type CardButton, type CardHeader, type LinkTarget, type WhatsappCard } from "./card";
 
 type Words = Record<string, string>;
 type ReadyButton = { type: "URL"; target: LinkTarget; blank: string; text: Words } | { type: "URL"; path: string; text: Words } | { type: "PHONE"; text: Words };
@@ -245,8 +245,10 @@ export function readyCard(key: string | null, language: string): WhatsappCard | 
   const t = key ? READY_WHATSAPP.find((x) => x.key === key) : null;
   if (!t) return null;
   const say = (w: Words) => w[language] ?? w.en;
+  // Headers carry no emoji: WhatsApp refuses them (live test 16 Nov). The emoji in the header words below is dropped.
+  const head = (w: Words) => headerWithoutEmoji(say(w));
   const c = t.card;
-  const header: CardHeader | null = c.document ? { type: "document", source: c.document, ...(c.header ? { text: say(c.header) } : {}) } : c.header ? { type: "text", text: say(c.header) } : null;
+  const header: CardHeader | null = c.document ? { type: "document", source: c.document, ...(c.header ? { text: head(c.header) } : {}) } : c.header ? { type: "text", text: head(c.header) } : null;
   const buttons: CardButton[] = (c.buttons ?? []).map((b) => (b.type === "PHONE" ? { type: "PHONE", text: say(b.text) } : "target" in b ? { type: "URL", text: say(b.text), target: b.target, blank: b.blank } : { type: "URL", text: say(b.text), path: b.path }));
   return { header, buttons, ...(c.category ? { category: c.category } : {}) };
 }

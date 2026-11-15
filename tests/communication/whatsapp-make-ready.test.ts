@@ -125,7 +125,7 @@ describe("Make ready for WhatsApp, and sending for approval", () => {
     // The approved old words get the card as a new version; the approved one stays for sending until then.
     const general = await current(ids.general);
     expect(general.body).toBe(readyWhatsappWords("general", "en"));
-    expect(general.whatsappCard).toMatchObject({ header: { type: "text", text: "📢 Message from school" }, buttons: [{ type: "PHONE", text: "Call school" }] });
+    expect(general.whatsappCard).toMatchObject({ header: { type: "text", text: "Message from school" }, buttons: [{ type: "PHONE", text: "Call school" }] });
     const approvedOld = await withSchool(ctx, (tx) => tx.templateVersion.findUniqueOrThrow({ where: { id: before.general.id } }));
     expect(approvedOld).toMatchObject({ isCurrent: false, whatsappStatus: "APPROVED", whatsappName: "general_x" });
     expect((await current(ids.late)).id).toBe(before.late.id);

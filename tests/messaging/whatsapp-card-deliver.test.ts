@@ -59,7 +59,7 @@ describe("a card on a real WhatsApp account", () => {
     const sent = await approve("result", "en");
     const comps = sent.components as Record<string, unknown>[];
     expect(sent.name).toMatch(/^results_published_[0-9a-f]{6}$/);
-    expect(comps[0]).toEqual({ type: "HEADER", format: "TEXT", text: "📊 Results are out" });
+    expect(comps[0]).toEqual({ type: "HEADER", format: "TEXT", text: "Results are out" });
     expect(comps.find((c) => c.type === "FOOTER")).toEqual({ type: "FOOTER", text: "Chaitanya School · School OS" });
     expect(JSON.stringify(comps)).not.toMatch(/sample (guardian|student)/);
     expect(comps.find((c) => c.type === "BUTTONS")).toMatchObject({ buttons: [{ type: "URL", text: "See results" }] });

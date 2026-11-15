@@ -1,0 +1,805 @@
+<title>Assistant Live Character</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A live 3D School OS Assistant that listens, thinks, speaks with lip-sync and shows feelings. Demo only.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<!--
+  Engine: TalkingHead 1.8.2 by met4citizen, MIT licence
+    https://github.com/met4citizen/TalkingHead  (npm: @met4citizen/talkinghead)
+  3D library: three.js 0.186.1, MIT licence.
+  Sample avatars (loaded at runtime from jsDelivr's mirror of the TalkingHead repo, tag v1.8.2):
+    - brunette.glb  (woman): made with Ready Player Me. CC BY-NC 4.0 (non-commercial use only).
+    - avatarsdk.glb (man):   made with Avatar SDK / MetaPerson Creator. Non-commercial use only.
+  Neither sample avatar may be used in a paid product. A commercial build needs our own avatar
+  (for example one made with MPFB in Blender, which is CC0) or a licensed one.
+  Nothing from TalkingHead is stored in this repo: every file loads from the CDN when the page opens.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+    "talkinghead": "https://cdn.jsdelivr.net/npm/@met4citizen/talkinghead@1.8.2/modules/talkinghead.mjs"
+  }
+}
+</script>
+<style>
+/* Layout: stage on the left (the character fills it), a quiet control column on the right; one column on phones. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #17202c;
+  --muted: #536173;
+  --line: #d9dfe7;
+  --accent: #1f5fbf;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5eefb;
+  --stage-top: #e9eef5;
+  --stage-bottom: #cfd9e6;
+  --stage-glow: rgba(255, 244, 228, 0.85);
+  --note-bg: #fff6e0;
+  --note-ink: #6a4a00;
+  --bubble: #ffffff;
+  --bubble-ink: #17202c;
+  --focus: #f0a400;
+  --font: "Plus Jakarta Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b;
+    --surface: #18202a;
+    --ink: #e8edf3;
+    --muted: #a3afbe;
+    --line: #2b3542;
+    --accent: #6ea8ff;
+    --accent-ink: #0b1220;
+    --accent-soft: #1c2a3d;
+    --stage-top: #1e2834;
+    --stage-bottom: #121921;
+    --stage-glow: rgba(255, 226, 190, 0.16);
+    --note-bg: #2e2612;
+    --note-ink: #f3d68c;
+    --bubble: #222c38;
+    --bubble-ink: #e8edf3;
+    --focus: #ffc94d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b;
+  --surface: #18202a;
+  --ink: #e8edf3;
+  --muted: #a3afbe;
+  --line: #2b3542;
+  --accent: #6ea8ff;
+  --accent-ink: #0b1220;
+  --accent-soft: #1c2a3d;
+  --stage-top: #1e2834;
+  --stage-bottom: #121921;
+  --stage-glow: rgba(255, 226, 190, 0.16);
+  --note-bg: #2e2612;
+  --note-ink: #f3d68c;
+  --bubble: #222c38;
+  --bubble-ink: #e8edf3;
+  --focus: #ffc94d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { overflow-x: clip; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { margin: 0; font-size: clamp(1.25rem, 2.2vw, 1.6rem); font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.note {
+  margin: 0; padding: 6px 12px; border-radius: 999px;
+  background: var(--note-bg); color: var(--note-ink);
+  font-size: 0.85rem; font-weight: 600;
+}
+
+.main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+/* Stage */
+.stage {
+  position: relative; overflow: hidden; border-radius: 20px;
+  height: min(76vh, 720px); min-height: 420px;
+  background:
+    radial-gradient(60% 55% at 50% 30%, var(--stage-glow), transparent 70%),
+    linear-gradient(180deg, var(--stage-top), var(--stage-bottom));
+  border: 1px solid var(--line);
+}
+/* Phones and tablets: the character stays pinned at the top while the controls scroll under it. */
+@media (max-width: 860px) {
+  .stage { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; height: min(48vh, 460px); min-height: 280px; width: 100%; box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.35); }
+  .caption { font-size: 0.9rem; padding: 8px 12px; }
+}
+#avatar { position: absolute; inset: 0; }
+#avatar canvas { display: block; touch-action: pan-y; }
+
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  text-align: center; color: var(--muted); font-weight: 500;
+}
+.overlay .box { display: grid; gap: 12px; justify-items: center; max-width: 34ch; }
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 4px solid var(--line); border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.bar { width: 180px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width 0.2s; }
+
+.mood-chip {
+  position: absolute; top: 12px; left: 12px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  font-size: 0.85rem; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.mood-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.mood-chip[data-state="speaking"] .dot { animation: pulse 0.9s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.6); opacity: 0.5; } }
+
+.caption {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  margin: 0 auto; max-width: 560px;
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--bubble); color: var(--bubble-ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  font-size: 0.98rem;
+}
+.caption .now { color: var(--accent); font-weight: 700; }
+
+/* Panel */
+.panel { display: grid; gap: 16px; min-width: 0; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; display: grid; gap: 12px; min-width: 0;
+}
+.card h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.card p.hint { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+button {
+  font: inherit; font-weight: 600; font-size: 0.95rem;
+  min-height: 44px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+button:hover { border-color: var(--accent); }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.feelings { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.samples { display: grid; gap: 8px; }
+.samples button { text-align: left; font-weight: 500; }
+.samples button.no { border-style: dashed; }
+
+form.ask { display: flex; gap: 8px; }
+form.ask input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 10px 12px;
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+form.ask input::placeholder { color: var(--muted); }
+
+.status { margin: 0; font-size: 0.9rem; color: var(--muted); min-height: 1.5em; }
+.status b { color: var(--ink); }
+.label { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner, .mood-chip .dot { animation: none !important; }
+  button { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>School OS Assistant</h1>
+    <p class="note">Demo only: sample answers</p>
+  </header>
+
+  <div class="main">
+    <section class="stage" aria-label="Assistant character">
+      <div id="avatar" aria-hidden="true"></div>
+      <div class="overlay" id="overlay">
+        <div class="box">
+          <div class="spinner" id="spinner"></div>
+          <div id="loadText">Getting the assistant ready…</div>
+          <div class="bar" aria-hidden="true"><i id="loadBar"></i></div>
+          <button type="button" id="retry" hidden>Try again</button>
+        </div>
+      </div>
+      <div class="mood-chip" id="chip" data-state="neutral" hidden><span class="dot"></span><span id="chipText">Neutral</span></div>
+      <p class="caption" id="caption" hidden></p>
+    </section>
+
+    <div class="panel">
+      <div class="card">
+        <h2>Try it</h2>
+        <p class="hint">Tap a question or type your own. Turn your sound on.</p>
+        <div class="samples" id="samples">
+          <button type="button" data-q="fees">How much fee is pending in Class 8?</button>
+          <button type="button" data-q="absent">Who is absent today?</button>
+          <button type="button" data-q="exam">When do the exams start?</button>
+          <button type="button" class="no" data-q="blocked">Show me another school's data</button>
+        </div>
+        <form class="ask" id="ask">
+          <label for="askInput" class="sr">Your question</label>
+          <input id="askInput" type="text" autocomplete="off" placeholder="Type a question" maxlength="140">
+          <button type="submit" class="primary">Ask</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Feelings</h2>
+        <div class="feelings" id="feelings" role="group" aria-label="Show a feeling">
+          <button type="button" data-f="neutral" aria-pressed="true">Neutral</button>
+          <button type="button" data-f="listening" aria-pressed="false">Listening</button>
+          <button type="button" data-f="thinking" aria-pressed="false">Thinking</button>
+          <button type="button" data-f="speaking" aria-pressed="false">Speaking</button>
+          <button type="button" data-f="happy" aria-pressed="false">Happy</button>
+          <button type="button" data-f="sorry" aria-pressed="false">Sorry</button>
+          <button type="button" data-f="surprised" aria-pressed="false">Surprised</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="label" id="whoLabel">Assistant</span>
+        <div class="seg" role="group" aria-labelledby="whoLabel">
+          <button type="button" data-who="woman" aria-pressed="true">Woman</button>
+          <button type="button" data-who="man" aria-pressed="false">Man</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite">Loading the assistant…</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ---------- Avatars ----------
+// Files load from jsDelivr's GitHub mirror of TalkingHead (tag v1.8.2). If that is blocked,
+// the page also tries "avatars/<file>" next to the page, so a host can serve its own copy.
+const AVATAR_CDN = "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@v1.8.2/avatars/";
+const AVATARS = {
+  woman: {
+    file: "brunette.glb", // Ready Player Me sample, CC BY-NC 4.0
+    look: { tints: [[/Wolf3D_Skin|Wolf3D_Body/, 0xe2c2a8]] },
+    cfg: { body: "F", avatarMood: "neutral", lipsyncLang: "en",
+      baseline: { headRotateX: -0.02, eyeBlinkLeft: 0.05, eyeBlinkRight: 0.05 } },
+    view: { cameraDistance: 0.6, cameraY: 0.36 },
+    voiceWants: [/en-IN/i, /heera|neerja|swara|kajal|aditi|raveena|veena/i, /zira|aria|jenny|susan|hazel|samantha|female|libby|sonia/i]
+  },
+  man: {
+    file: "avatarsdk.glb", // Avatar SDK / MetaPerson sample, non-commercial use
+    look: { tints: [[/^AvatarHead|^AvatarBody/, 0xb59c90]] },
+    cfg: { body: "M", avatarMood: "neutral", lipsyncLang: "en",
+      retarget: {
+        Neck: { z: -0.01, rx: -0.15 }, Neck1: { z: -0.01, rx: -0.15 }, Neck2: { z: -0.01, rx: -0.15 },
+        LeftShoulder: { rz: -0.3 }, RightShoulder: { rz: 0.3 },
+        scaleToEyesLevel: 1.0, origin: { y: -0.1 }
+      },
+      baseline: { headRotateX: -0.04, eyeBlinkLeft: 0.05, eyeBlinkRight: 0.05 } },
+    view: { cameraDistance: 0.65, cameraY: 0.2 },
+    voiceWants: [/en-IN/i, /ravi|prabhat|hemant|madhur/i, /david|guy|mark|george|ryan|daniel|male/i]
+  }
+};
+
+// ---------- Sample answers (demo only) ----------
+const ANSWERS = {
+  fees: { q: "How much fee is pending in Class 8?",
+    a: "Class 8 has 12 students with fees pending. Together that is about 1 lakh 40 thousand rupees. I can open the list for you.", ok: true },
+  absent: { q: "Who is absent today?",
+    a: "18 students are absent today. Class 6 B has the most, with 4 absent. Shall I send a note to their parents?", ok: true },
+  exam: { q: "When do the exams start?",
+    a: "The half yearly exams start on Monday, the 8th of December. The timetable is ready in Exams and Results.", ok: true },
+  blocked: { q: "Show me another school's data",
+    a: "Sorry, I can't do that. Each school can only see its own records.", ok: false },
+  other: { q: "",
+    a: "Good question. In the real assistant I would check your school's records. This demo only knows the sample questions.", ok: true },
+  hello: { q: "",
+    a: "Hello! I am your School OS assistant. Ask me about fees, attendance or exams.", ok: true }
+};
+
+const $ = (s) => document.querySelector(s);
+const statusEl = $("#status"), overlay = $("#overlay"), loadText = $("#loadText"), loadBar = $("#loadBar");
+const spinner = $("#spinner"), retryBtn = $("#retry"), chip = $("#chip"), chipText = $("#chipText"), caption = $("#caption");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const askedWho = new URLSearchParams(location.search).get("who");
+let TalkingHead = null, head = null, who = AVATARS[askedWho] ? askedWho : "woman", busy = false, runId = 0, feeling = "neutral";
+const timers = new Set();
+const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
+const wait = (ms, id) => new Promise((res) => later(() => res(id === runId), ms));
+const say = (html) => { statusEl.innerHTML = html; };
+
+// ---------- Loading ----------
+function showLoading(text, pct) {
+  overlay.hidden = false; spinner.hidden = false; retryBtn.hidden = true;
+  loadText.textContent = text;
+  loadBar.parentElement.hidden = pct == null;
+  if (pct != null) loadBar.style.width = Math.round(pct) + "%";
+}
+function showFailure(text) {
+  overlay.hidden = false; spinner.hidden = true; retryBtn.hidden = false;
+  loadBar.parentElement.hidden = true;
+  loadText.textContent = text;
+  chip.hidden = true; caption.hidden = true;
+  say("The assistant could not load. The rest of the page still works.");
+  setControls(false);
+}
+function setControls(on) {
+  document.querySelectorAll("#samples button, #feelings button, #ask button, #ask input").forEach((b) => { b.disabled = !on; });
+}
+
+async function boot() {
+  setControls(false);
+  showLoading("Getting the assistant ready…", null);
+  try {
+    if (!TalkingHead) ({ TalkingHead } = await import("talkinghead"));
+  } catch (e) {
+    showFailure("The assistant could not load. Please check your internet connection and try again.");
+    return;
+  }
+  try {
+    if (!head) {
+      head = new TalkingHead($("#avatar"), {
+        lipsyncModules: ["en"],
+        lipsyncLang: "en",
+        cameraView: "head",
+        cameraRotateEnable: false,
+        cameraPanEnable: false,
+        cameraZoomEnable: false,
+        modelFPS: 30,
+        modelPixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        modelMovementFactor: reduceMotion ? 0.3 : 1,
+        avatarIdleEyeContact: 0.45,
+        avatarIdleHeadMove: reduceMotion ? 0.15 : 0.45,
+        avatarSpeakingEyeContact: 0.75,
+        avatarSpeakingHeadMove: reduceMotion ? 0.2 : 0.5,
+        // Warm, soft studio light
+        lightAmbientColor: 0xfff3e8, lightAmbientIntensity: 2.2,
+        lightDirectColor: 0xfff0e0, lightDirectIntensity: 22, lightDirectPhi: 0.7, lightDirectTheta: 1.9,
+        lightSpotColor: 0x9fc4ff, lightSpotIntensity: 6, lightSpotPhi: 0.3, lightSpotTheta: 4, lightSpotDispersion: 1
+      });
+    }
+  } catch (e) {
+    showFailure("This browser cannot show 3D graphics, so the assistant cannot appear here.");
+    return;
+  }
+  await loadAvatar(who);
+}
+
+async function loadAvatar(name) {
+  const a = AVATARS[name];
+  stopAll();
+  setControls(false);
+  showLoading("Loading the assistant…", 0);
+  say("Loading the assistant…");
+  const sources = [AVATAR_CDN + a.file, "avatars/" + a.file];
+  let loaded = false;
+  for (const url of sources) {
+    try {
+      await head.showAvatar({ url, ...structuredClone(a.cfg) }, (ev) => {
+        if (ev && ev.lengthComputable && ev.total) showLoading("Loading the assistant…", (ev.loaded / ev.total) * 100);
+      });
+      loaded = true; break;
+    } catch (e) { /* try the next source */ }
+  }
+  if (!loaded) {
+    showFailure("The assistant's 3D model could not be downloaded. Please check your internet connection and try again.");
+    return;
+  }
+  applyLook(a);
+  head.setView("head", a.view);
+  overlay.hidden = true; chip.hidden = false;
+  setControls(true);
+  setFeeling("neutral", { quiet: true });
+  head.makeEyeContact(2500);
+  say("Ready. Tap a question or a feeling.");
+}
+
+retryBtn.addEventListener("click", () => boot());
+
+// Small material fixes: hair cards use alpha-to-coverage (no stringy see-through hair),
+// and an optional colour tint per material group (skin, hair) set in AVATARS[..].look.
+function applyLook(a) {
+  const look = a.look || {};
+  const q = new URLSearchParams(location.search);
+  const noTint = q.get("tint") === "0";
+  head.armature.traverse((o) => {
+    if (!o.isMesh) return;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach((m) => {
+      const n = (m.name || "") + " " + (o.name || "");
+      if (/hair|eyelash/i.test(n) && m.map) {
+        m.transparent = false; m.depthWrite = true;
+        m.alphaTest = /eyelash/i.test(n) ? 0.2 : 0.3;
+        m.alphaToCoverage = true;
+        m.needsUpdate = true;
+      }
+      if (noTint) return;
+      for (const [rx, hex] of look.tints || []) {
+        if (rx.test(n)) { m.color.setHex(hex); m.needsUpdate = true; }
+      }
+    });
+  });
+}
+
+// ---------- Small animation helpers (TalkingHead animation templates) ----------
+function anim(name, dt, vs) {
+  if (!head) return;
+  const i = head.animQueue.findIndex((x) => x.template && x.template.name === name);
+  if (i !== -1) head.animQueue.splice(i, 1);
+  head.animQueue.push(head.animFactory({ name, dt, vs }));
+}
+// "Thinking" face, played as our own animation (not playGesture) so the next feeling can end it cleanly.
+function think(ms) {
+  const em = head.animEmojis && head.animEmojis["🤔"];
+  if (!em) return;
+  const i = head.animQueue.findIndex((x) => x.template && x.template.name === "think");
+  if (i !== -1) head.animQueue.splice(i, 1);
+  // Face only: the emoji's hand-to-chin uses IK, which sometimes lifts the arm behind the head.
+  const vs = { ...em.vs }; delete vs.handRight; delete vs.handFistRight;
+  head.animQueue.push(head.animFactory({ ...em, vs, name: "think", dt: [500, Math.max(600, ms - 500)] }));
+}
+function endThink() {
+  const it = head.animQueue.find((x) => x.template && x.template.name === "think");
+  if (!it) return;
+  const now = head.animClock;
+  it.ts = it.ts.map((t, k) => Math.min(t, now + 40 * (k + 1)));
+}
+function clearFixed() {
+  ["browInnerUp", "eyeWideLeft", "eyeWideRight", "mouthSmile", "jawOpen", "mouthFunnel", "eyesRotateX", "eyesRotateY"].forEach((m) => head.setFixedValue(m, null));
+}
+// Look at a screen point, without the random brow/mouth twitch that lookAt() adds.
+function calmLookAt(x, y, ms) {
+  if (!head || !head.armature) return;
+  head.lookAt(x, y, ms);
+  const it = head.animQueue.find((a) => a.template && a.template.name === "lookat");
+  if (it) { delete it.vs.browInnerUp; delete it.vs.mouthLeft; delete it.vs.mouthRight; }
+}
+
+// ---------- Feelings ----------
+const LABEL = { neutral: "Neutral", listening: "Listening", thinking: "Thinking", speaking: "Speaking", happy: "Happy", sorry: "Sorry", surprised: "Surprised" };
+function mark(f) {
+  feeling = f;
+  document.querySelectorAll("#feelings button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === f)));
+  chip.dataset.state = f; chipText.textContent = LABEL[f];
+}
+function setFeeling(f, opt = {}) {
+  if (!head || !head.armature) return;
+  mark(f);
+  clearFixed();
+  head.stopGesture(500);
+  endThink();
+  switch (f) {
+    case "neutral":
+      head.setMood("neutral");
+      head.makeEyeContact(2000);
+      break;
+    case "listening":
+      head.setMood("neutral");
+      head.makeEyeContact(6000);
+      head.setFixedValue("browInnerUp", 0.18);
+      head.setFixedValue("mouthSmile", 0.12);
+      anim("tilt", [500, 5000, 700], { headRotateZ: [-0.07, -0.07, 0] });
+      if (!reduceMotion) later(() => head.playGesture("yes", 1.4), 450);
+      break;
+    case "thinking":
+      head.setMood("neutral");
+      head.setFixedValue("eyesRotateX", -0.22);
+      head.setFixedValue("eyesRotateY", 0.28);
+      anim("tilt", [600, 1900, 700], { headRotateY: [0.15, 0.15, 0], headRotateX: [-0.08, -0.08, 0], headRotateZ: [0.05, 0.05, 0] });
+      think(2600);
+      if (!reduceMotion) later(() => head.playGesture("index", 2.2), 250);
+      break;
+    case "speaking":
+      head.setMood("neutral");
+      break;
+    case "happy":
+      head.setMood("happy");
+      head.makeEyeContact(3000);
+      head.playGesture("🙂", 2.2);
+      later(() => head.playGesture("thumbup", 2.4), 150);
+      break;
+    case "sorry":
+      head.setMood("sad");
+      head.makeEyeContact(2500);
+      anim("tilt", [700, 3200, 900], { headRotateZ: [0.09, 0.09, 0], headRotateX: [0.05, 0.05, 0] });
+      head.setFixedValue("mouthSmile", 0.08); // keep it gentle
+      if (!reduceMotion) later(() => head.playGesture("side", 2.2), 200);
+      break;
+    case "surprised":
+      head.setMood("neutral");
+      head.makeEyeContact(2500);
+      head.setFixedValue("browInnerUp", 0.75);
+      head.setFixedValue("eyeWideLeft", 0.45);
+      head.setFixedValue("eyeWideRight", 0.45);
+      head.setFixedValue("jawOpen", 0.12);
+      head.setFixedValue("mouthFunnel", 0.18);
+      anim("tilt", [180, 1600, 600], { headRotateX: [-0.06, -0.06, 0] });
+      if (!reduceMotion) later(() => head.playGesture("handup", 1.6, true), 120);
+      later(() => { if (feeling === "surprised") { clearFixed(); head.setFixedValue("mouthSmile", 0.2); } }, 2200);
+      break;
+  }
+  if (!opt.quiet) say("Feeling: <b>" + LABEL[f] + "</b>");
+}
+
+// ---------- Speech with lip-sync ----------
+let voices = [];
+function loadVoices() {
+  return new Promise((res) => {
+    if (!("speechSynthesis" in window)) return res([]);
+    const v = speechSynthesis.getVoices();
+    if (v.length) return res(v);
+    const done = () => res(speechSynthesis.getVoices());
+    speechSynthesis.addEventListener("voiceschanged", done, { once: true });
+    setTimeout(done, 1200);
+  });
+}
+function pickVoice(name) {
+  if (!voices.length) return null;
+  const en = voices.filter((v) => /^en/i.test(v.lang));
+  const pool = en.length ? en : voices;
+  const local = pool.filter((v) => v.localService); // local voices send word timings
+  const tries = [];
+  for (const rx of AVATARS[name].voiceWants) {
+    tries.push(local.find((v) => rx.test(v.lang) || rx.test(v.name)));
+  }
+  for (const rx of AVATARS[name].voiceWants) {
+    tries.push(pool.find((v) => rx.test(v.lang) || rx.test(v.name)));
+  }
+  tries.push(local[0], pool[0]);
+  // A woman should not get a voice that is clearly male, and the other way round
+  const male = /david|guy|mark|george|ryan|daniel|ravi|prabhat|hemant|male\b/i, female = /zira|aria|jenny|susan|hazel|heera|neerja|female|samantha|libby|sonia/i;
+  return tries.find((v) => v && !(name === "woman" ? male.test(v.name) : female.test(v.name))) || tries.find(Boolean) || null;
+}
+
+const lipStats = { boundary: 0, estimated: 0 }; // read by tests: which timing path moved the lips
+
+// One word -> visemes on TalkingHead's own animation clock (same maths as its speakAudio()).
+function mouthWord(word, durMs) {
+  const w = head.lipsyncPreProcessText(word, "en");
+  const val = head.lipsyncWordsToVisemes(w, "en");
+  if (!val || !val.visemes || !val.visemes.length) return;
+  const n = val.visemes.length;
+  const dTotal = val.times[n - 1] + val.durations[n - 1];
+  if (dTotal <= 0) return;
+  let duration = durMs;
+  const overdrive = Math.min(duration, Math.max(0, duration - n * 150));
+  const level = 0.6 + (overdrive / duration) * 0.4;
+  duration = Math.min(duration, n * 200);
+  const t0 = head.animClock + 30;
+  for (let j = 0; j < n; j++) {
+    const t = t0 + (val.times[j] / dTotal) * duration;
+    const d = (val.durations[j] / dTotal) * duration;
+    const v = val.visemes[j];
+    head.animQueue.push({
+      template: { name: "viseme" },
+      ts: [t - Math.min(60, (2 * d) / 3), t + Math.min(25, d / 2), t + d + Math.min(60, d / 2)],
+      vs: { ["viseme_" + v]: [null, v === "PP" || v === "FF" ? 0.9 : level, 0] }
+    });
+  }
+}
+
+function tokenize(text) {
+  const out = []; const rx = /\S+/g; let m;
+  while ((m = rx.exec(text))) out.push({ w: m[0], i: m.index });
+  return out;
+}
+function showCaption(tokens, k) {
+  caption.hidden = false;
+  caption.innerHTML = tokens.map((t, j) => {
+    const s = t.w.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    return j === k ? '<span class="now">' + s + "</span>" : s;
+  }).join(" ");
+}
+
+// Speak one sentence. Lips follow the browser voice's word events when it sends them;
+// otherwise they run on an estimated timeline that starts with the sound.
+function speakSentence(text, id) {
+  return new Promise((resolve) => {
+    const tokens = tokenize(text);
+    let msPerChar = 62, next = 0, lastBoundary = null, gotBoundary = false, finished = false, estTimer = null;
+    const estDur = (k) => Math.max(140, Math.min(900, (head.lipsyncPreProcessText(tokens[k].w, "en").length + 1) * msPerChar));
+    const fire = (k) => {
+      if (id !== runId || k < next || k >= tokens.length) return;
+      next = k + 1;
+      mouthWord(tokens[k].w, estDur(k));
+      showCaption(tokens, k);
+      if (k === 0 && !reduceMotion && Math.random() < 0.6) head.speakWithHands(0, 0.7);
+    };
+    const runEstimated = () => {
+      if (finished || id !== runId || next >= tokens.length) return;
+      lipStats.estimated++;
+      const k = next;
+      fire(k);
+      const pause = /[,.;:!?]$/.test(tokens[k].w) ? 160 : 0;
+      estTimer = later(runEstimated, estDur(k) + pause);
+    };
+    const finish = () => {
+      if (finished) return; finished = true;
+      if (estTimer) clearTimeout(estTimer);
+      resolve(id === runId);
+    };
+
+    const voice = pickVoice(who);
+    if (!("speechSynthesis" in window) || !voice) {
+      // No voice in this browser: move the lips with captions, silently.
+      runEstimated();
+      const total = tokens.reduce((s, t, k) => s + estDur(k) + 60, 0);
+      later(finish, total + 200);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = voice; u.lang = voice.lang; u.rate = /en-IN/i.test(voice.lang) ? 0.97 : 1; u.pitch = 1;
+    let started = false;
+    u.onstart = () => {
+      started = true;
+      fire(0);
+      lastBoundary = { k: 0, t: performance.now() };
+      // If the voice sends no word events, fall back to the estimated timeline.
+      later(() => { if (!gotBoundary && !finished) { estTimer = later(runEstimated, Math.max(0, estDur(0) - 350)); } }, 350);
+    };
+    u.onboundary = (e) => {
+      if (e.name && e.name !== "word") return;
+      gotBoundary = true; lipStats.boundary++;
+      let k = tokens.findIndex((t) => t.i + t.w.length > e.charIndex);
+      if (k < 0) return;
+      const now = performance.now();
+      if (lastBoundary && k > lastBoundary.k) {
+        const chars = tokens.slice(lastBoundary.k, k).reduce((s, t) => s + t.w.length + 1, 0);
+        const rate = (now - lastBoundary.t) / chars;
+        if (rate > 25 && rate < 160) msPerChar = msPerChar * 0.6 + rate * 0.4;
+      }
+      lastBoundary = { k, t: now };
+      if (k >= next) fire(k);
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    speechSynthesis.speak(u);
+    // Sound blocked or never started: still move the lips so the demo does not freeze.
+    later(() => { if (!started && !finished) { speechSynthesis.cancel(); runEstimated(); const total = tokens.reduce((s, t, k) => s + estDur(k) + 60, 0); later(finish, total + 200); } }, 2500);
+  });
+}
+
+async function speak(text, id) {
+  if (!voices.length) voices = await loadVoices();
+  const sentences = text.match(/[^.!?]+[.!?]*/g).map((s) => s.trim()).filter(Boolean);
+  head.isSpeaking = true; head.stateName = "speaking";
+  for (const s of sentences) {
+    const ok = await speakSentence(s, id);
+    if (!ok) return false;
+    if (!(await wait(120, id))) return false;
+  }
+  head.isSpeaking = false; head.stateName = "idle";
+  return true;
+}
+
+function stopAll() {
+  runId++;
+  timers.forEach((t) => clearTimeout(t)); timers.clear();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  if (head) { head.isSpeaking = false; head.stateName = "idle"; }
+  caption.hidden = true;
+  busy = false;
+}
+
+// ---------- Conversation flow ----------
+async function ask(key, typed) {
+  if (!head || !head.armature) return;
+  stopAll();
+  const id = runId; busy = true;
+  const item = ANSWERS[key];
+  const question = typed || item.q;
+  if (!voices.length) voices = await loadVoices();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+
+  setFeeling("listening", { quiet: true });
+  say("You asked: <b>" + escapeHtml(question) + "</b>");
+  caption.hidden = false; caption.textContent = "“" + question + "”";
+  if (!(await wait(1000, id))) return;
+
+  setFeeling("thinking", { quiet: true });
+  say("Thinking…");
+  if (!(await wait(1200, id))) return;
+
+  if (item.ok) { setFeeling("speaking", { quiet: true }); } else { setFeeling("sorry", { quiet: true }); chip.dataset.state = "speaking"; }
+  head.makeEyeContact(8000);
+  say("Speaking…");
+  const done = await speak(item.a, id);
+  if (!done) return;
+
+  setFeeling(item.ok ? "happy" : "sorry", { quiet: true });
+  say(item.ok ? "Done. Ask another question." : "That one is not allowed. Try a sample question.");
+  busy = false;
+  later(() => { caption.hidden = true; }, 4000);
+}
+function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function matchKey(text) {
+  const t = text.toLowerCase();
+  if (/other school|another school|someone else|all schools|password|delete/.test(t)) return "blocked";
+  if (/fee|due|pending|paid|payment/.test(t)) return "fees";
+  if (/absent|attendance|present|leave/.test(t)) return "absent";
+  if (/exam|test|timetable|result/.test(t)) return "exam";
+  if (/^(hi|hello|hey|namaste)\b/.test(t)) return "hello";
+  return "other";
+}
+
+// ---------- Wiring ----------
+document.querySelectorAll("#samples button").forEach((b) => b.addEventListener("click", () => ask(b.dataset.q)));
+$("#ask").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("#askInput").value.trim();
+  if (!v) { $("#askInput").focus(); say("Type a question first."); return; }
+  ask(matchKey(v), v);
+  $("#askInput").value = "";
+});
+document.querySelectorAll("#feelings button").forEach((b) => b.addEventListener("click", async () => {
+  if (!head || !head.armature) return;
+  stopAll();
+  const f = b.dataset.f;
+  if (f === "speaking") {
+    const id = runId; busy = true;
+    setFeeling("speaking");
+    head.makeEyeContact(6000);
+    const done = await speak(ANSWERS.hello.a, id);
+    if (done) { busy = false; say("Feeling: <b>Speaking</b> (finished)"); later(() => { caption.hidden = true; }, 3000); }
+    return;
+  }
+  setFeeling(f);
+}));
+document.querySelectorAll("[data-who]").forEach((b) => b.addEventListener("click", async () => {
+  if (b.dataset.who === who && head && head.armature) return;
+  who = b.dataset.who;
+  document.querySelectorAll("[data-who]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  if (!head) { boot(); return; }
+  await loadAvatar(who);
+}));
+
+// Eyes follow the pointer when the assistant is not busy.
+let lastLook = 0, lastX = -999, lastY = -999;
+window.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "touch") return; // a tap on a phone should not swing the head round
+  if (reduceMotion || busy || !head || !head.armature) return;
+  if (feeling === "thinking" || feeling === "sorry") return;
+  const now = performance.now();
+  if (now - lastLook < 220 && Math.hypot(e.clientX - lastX, e.clientY - lastY) < 80) return;
+  lastLook = now; lastX = e.clientX; lastY = e.clientY;
+  // Half-strength: turn towards the pointer, but keep the face mostly to the front.
+  const r = $("#avatar").getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height * 0.35;
+  calmLookAt(cx + (e.clientX - cx) * 0.5, cy + (e.clientY - cy) * 0.5, 1400);
+}, { passive: true });
+
+// Pause the 3D loop when the tab is hidden.
+document.addEventListener("visibilitychange", () => {
+  if (!head) return;
+  if (document.hidden) head.stop(); else head.start();
+});
+
+window.__assistant = { lipStats, get head() { return head; }, ask, setFeeling, speak: (t) => speak(t, runId), stopAll };
+boot();
+</script>

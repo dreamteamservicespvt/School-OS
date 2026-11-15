@@ -53,7 +53,7 @@ Progress page: see docs/HANDOFF.md (link).
 16. Settings (payment gateways, messaging) say 'DREAM TEAM'; pick the wording schools should see (for example 'your School OS support team').
 17. Parent Link footer: a WhatsApp number for parents (the school office phone is used when it is a mobile).
 18. Accountants still open Fee Management on Collect Fee (the 2nd tab); admin and principal now open the Fee Dashboard. Same for accountants?
-19. Staff with salary vs staff on roll: Salary pages count the payroll subset (42 on payroll, 32 with a structure) while Staff & HR says 43 on roll; the labels now say which subset.
+19. Staff with salary vs staff on roll: Salary pages count the payroll subset (42 on payroll, 32 with a structure) while Staff & HR says 43 on roll; next loop: the salary labels will say which subset.
 
 ## Mindsets (one per round, then start over)
 

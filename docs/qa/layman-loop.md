@@ -54,6 +54,7 @@ Progress page: see docs/HANDOFF.md (link).
 17. Parent Link footer: a WhatsApp number for parents (the school office phone is used when it is a mobile).
 18. Accountants still open Fee Management on Collect Fee (the 2nd tab); admin and principal now open the Fee Dashboard. Same for accountants?
 19. Staff with salary vs staff on roll: Salary pages count the payroll subset (42 on payroll, 32 with a structure) while Staff & HR says 43 on roll; next loop: the salary labels will say which subset.
+20. App icon: the Assistant wears a glowing open-book badge (the School OS mark, decided 15 Nov). Switch the School OS app icon (now a rising sun on blue) to the same book mark so logo, mascot and the sound brand match?
 
 ### Owner answers (15 Nov, in chat) — build these
 - 1 HR reset link for a Teacher: keep blocked (School Admin only).

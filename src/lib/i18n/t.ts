@@ -44,7 +44,9 @@ export function blanksOf(text: string): string[] {
 
 // Amounts, dates, clock times and plain numbers inside words that come from data or the rules.
 // A comma after a number ("dropped for 3, marks for 9") is not part of it.
-const PIECES = /₹\d(?:[\d,]*\d)?(?:\.\d+)?|\b\d{2}-\d{2}-\d{4}\b|\b\d{1,2}:\d{2} [AP]M\b|(?<![\w.₹])\d(?:[\d,]*\d)?(?:\.\d+)?(?!\w)/g;
+// No lookbehind: this file reaches the browser, and iOS Safari before 16.4 cannot parse one (every
+// page would stop working). The character before a bare number is captured and put back instead.
+const PIECES = /(₹\d(?:[\d,]*\d)?(?:\.\d+)?)|(\b\d{2}-\d{2}-\d{4}\b)|(\b\d{1,2}:\d{2} [AP]M\b)|(^|[^\w.₹])(\d(?:[\d,]*\d)?(?:\.\d+)?)(?!\w)/g;
 
 /**
  * "72 pieces of homework to check" as the catalogue keeps it: "{n} pieces of homework to check"
@@ -53,13 +55,14 @@ const PIECES = /₹\d(?:[\d,]*\d)?(?:\.\d+)?|\b\d{2}-\d{2}-\d{4}\b|\b\d{1,2}:\d{
 export function withBlanks(text: string): { key: string; vars: Record<string, string> } | null {
   const vars: Record<string, string> = {};
   const used: Record<string, number> = {};
-  const key = text.replace(PIECES, (p) => {
-    const kind = p.startsWith("₹") ? "amount" : p.includes("-") ? "date" : p.includes(":") ? "time" : "n";
+  const blank = (p: string, kind: string) => {
     const i = (used[kind] = (used[kind] ?? 0) + 1);
     const name = i === 1 ? kind : `${kind}${i}`;
     vars[name] = p;
     return `{${name}}`;
-  });
+  };
+  const key = text.replace(PIECES, (_m: string, amount?: string, date?: string, time?: string, before?: string, n?: string) =>
+    amount ? blank(amount, "amount") : date ? blank(date, "date") : time ? blank(time, "time") : `${before ?? ""}${blank(n ?? "", "n")}`);
   return key === text ? null : { key, vars };
 }
 

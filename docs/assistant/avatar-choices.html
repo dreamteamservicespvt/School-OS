@@ -1,0 +1,1356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Assistant Avatar Choices</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* School OS tokens (src/app/globals.css). RGB triplets so every token works with opacity. */
+:root {
+  --bg: 243 246 245; --surface: 255 255 255; --sunken: 236 241 239; --line: 222 229 226;
+  --ink: 15 23 21; --ink-2: 66 80 76; --ink-3: 96 110 105; --shadow: 16 32 28;
+  --brand: 12 112 100; --brand-ink: 255 255 255;
+  --ok: 21 128 72; --warn: 156 94 0; --warn-text: 128 76 0; --bad: 200 40 48; --info: 28 100 200;
+  --phone-bezel: 14 22 20;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+    --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 130 145 141; --shadow: 0 0 0;
+    --brand: 52 196 174; --brand-ink: 4 20 18;
+    --ok: 72 205 135; --warn: 240 178 70; --warn-text: 240 178 70; --bad: 255 110 112; --info: 112 168 255;
+    --phone-bezel: 44 54 52;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: 9 13 13; --surface: 17 23 23; --sunken: 23 30 30; --line: 36 46 45;
+  --ink: 233 239 237; --ink-2: 166 180 176; --ink-3: 130 145 141; --shadow: 0 0 0;
+  --brand: 52 196 174; --brand-ink: 4 20 18;
+  --ok: 72 205 135; --warn: 240 178 70; --warn-text: 240 178 70; --bad: 255 110 112; --info: 112 168 255;
+  --phone-bezel: 44 54 52;
+  color-scheme: dark;
+}
+/* School colours (same values as the app). Light first, then dark. */
+:root[data-accent="royal"]    { --brand: 37 88 216; }
+:root[data-accent="plum"]     { --brand: 122 52 186; }
+:root[data-accent="saffron"]  { --brand: 184 88 6; }
+:root[data-accent="rose"]     { --brand: 190 28 78; }
+:root[data-accent="graphite"] { --brand: 46 60 78; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="royal"]    { --brand: 118 158 255; }
+  :root:not([data-theme="light"])[data-accent="plum"]     { --brand: 192 146 252; }
+  :root:not([data-theme="light"])[data-accent="saffron"]  { --brand: 248 168 72; }
+  :root:not([data-theme="light"])[data-accent="rose"]     { --brand: 255 120 156; }
+  :root:not([data-theme="light"])[data-accent="graphite"] { --brand: 190 204 222; }
+}
+:root[data-theme="dark"][data-accent="royal"]    { --brand: 118 158 255; }
+:root[data-theme="dark"][data-accent="plum"]     { --brand: 192 146 252; }
+:root[data-theme="dark"][data-accent="saffron"]  { --brand: 248 168 72; }
+:root[data-theme="dark"][data-accent="rose"]     { --brand: 255 120 156; }
+:root[data-theme="dark"][data-accent="graphite"] { --brand: 190 204 222; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: rgb(var(--bg)); color: rgb(var(--ink));
+  font-family: Figtree, "Noto Sans Telugu", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  overflow-wrap: break-word;
+}
+[lang="te"] { font-family: "Noto Sans Telugu", Figtree, sans-serif; }
+button { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; }
+p { margin: 0; }
+.i { flex: none; display: block; }
+:where(button, a, input, [tabindex]):focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 768px) { .wrap { padding: 0 32px; } }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: rgb(var(--ink-3)); }
+.muted { color: rgb(var(--ink-3)); }
+.display { font-family: "Bricolage Grotesque", Figtree, sans-serif; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+  border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); color: rgb(var(--ink));
+  font-weight: 600; font-size: 0.95rem; text-decoration: none; white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+}
+.btn:hover { background: rgb(var(--sunken)); }
+.btn:active { transform: scale(0.98); }
+.btn.primary { background: rgb(var(--brand)); border-color: rgb(var(--brand)); color: rgb(var(--brand-ink)); }
+.btn.primary:hover { background: rgb(var(--brand) / 0.9); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: rgb(var(--sunken)); border: 1px solid rgb(var(--line)); }
+.seg button {
+  border: 0; background: transparent; min-height: 36px; min-width: 40px; padding: 0 10px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  font-weight: 600; font-size: 0.85rem; color: rgb(var(--ink-2));
+}
+.seg button[aria-pressed="true"] { background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 1px 2px rgb(var(--shadow) / .12), 0 0 0 1px rgb(var(--line)); }
+.sample {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px;
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.07em;
+  background: rgb(var(--warn) / 0.13); color: rgb(var(--warn-text));
+}
+
+/* Top bar */
+.top { position: sticky; top: 0; z-index: 20; background: rgb(var(--bg) / 0.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgb(var(--line) / 0.7); }
+.top .wrap { display: flex; align-items: center; gap: 12px; min-height: 60px; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; min-width: 0; }
+.logo-mark { width: 30px; height: 30px; border-radius: 9px; background: rgb(var(--brand)); color: rgb(var(--brand-ink)); display: grid; place-items: center; font-family: "Bricolage Grotesque"; font-weight: 800; font-size: 17px; flex: none; }
+.logo small { font-weight: 500; color: rgb(var(--ink-3)); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.top-tools .lbl { display: none; }
+@media (min-width: 900px) { .top-tools .lbl { display: inline; } }
+@media (max-width: 520px) { .logo small { display: none; } }
+
+/* Hero */
+.hero { padding: 40px 0 16px; display: grid; gap: 28px; }
+@media (min-width: 1024px) { .hero { grid-template-columns: 5fr 7fr; align-items: center; padding-top: 64px; gap: 48px; } }
+.hero h1 { font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: clamp(2.5rem, 6vw, 4.2rem); line-height: 0.98; letter-spacing: -0.025em; margin: 10px 0 16px; font-weight: 800; }
+.hero h1 em { font-style: normal; color: rgb(var(--brand)); }
+.lede { font-size: 1.1rem; color: rgb(var(--ink-2)); max-width: 34em; }
+.picks { display: grid; gap: 10px; }
+.pick {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  text-align: left; padding: 12px 16px 12px 12px; border-radius: 18px; cursor: pointer;
+  background: rgb(var(--surface)); border: 1.5px solid rgb(var(--line));
+  box-shadow: 0 1px 2px rgb(var(--shadow) / .05);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.pick:hover { border-color: rgb(var(--brand) / 0.5); }
+.pick[aria-pressed="true"] { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15), 0 8px 24px -12px rgb(var(--shadow) / .3); }
+.pick-av { width: 64px; height: 64px; border-radius: 16px; background: rgb(var(--sunken)); display: grid; place-items: center; overflow: hidden; }
+.pick-av > div { width: 58px; height: 58px; }
+.pick-text b { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; flex-wrap: wrap; }
+.pick-text b .letter { width: 26px; height: 26px; font-size: .9rem; }
+.pick-text span.line { display: block; color: rgb(var(--ink-2)); font-size: 0.93rem; line-height: 1.4; margin-top: 2px; }
+.pick-tag { font-size: 0.75rem; font-weight: 700; color: rgb(var(--brand)); white-space: nowrap; opacity: 0; transition: opacity .2s; }
+.pick[aria-pressed="true"] .pick-tag { opacity: 1; }
+@media (max-width: 520px) { .pick { grid-template-columns: 56px minmax(0, 1fr); } .pick-av { width: 56px; height: 56px; } .pick-av > div { width: 50px; height: 50px; } .pick-tag { display: none; } }
+.letter { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: rgb(var(--brand)); color: rgb(var(--brand-ink)); font-family: "Bricolage Grotesque"; font-weight: 800; font-size: 1.1rem; flex: none; }
+.pick-hint { font-size: 0.85rem; color: rgb(var(--ink-3)); margin-top: 2px; }
+
+/* Sections */
+section.block { padding: 48px 0 8px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.sec-head h2 { font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: clamp(1.6rem, 3.2vw, 2.25rem); letter-spacing: -0.015em; margin: 4px 0 0; line-height: 1.1; }
+.sec-head p { color: rgb(var(--ink-2)); max-width: 40em; margin-top: 6px; }
+.allbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.allbar .seg { flex-wrap: wrap; }
+
+/* Look cards */
+.looks { display: grid; gap: 20px; }
+@media (min-width: 1024px) { .looks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 700px) and (max-width: 1023px) { .looks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.look { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 2px rgb(var(--shadow) / .05); }
+.look.is-preview { border-color: rgb(var(--brand) / 0.6); }
+.look header { display: flex; align-items: center; gap: 12px; }
+.look h3 { margin: 0; font-family: "Bricolage Grotesque", Figtree, sans-serif; font-size: 1.35rem; letter-spacing: -0.01em; line-height: 1.1; }
+.look h3 [lang="te"] { font-size: 1.05rem; font-weight: 600; color: rgb(var(--ink-3)); margin-left: 4px; }
+.look header p { color: rgb(var(--ink-3)); font-size: .9rem; }
+.stage {
+  position: relative; height: 270px; border-radius: 18px; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(110% 80% at 50% 18%, rgb(var(--surface)) 0%, rgb(var(--sunken)) 78%);
+  border: 1px solid rgb(var(--line) / .7);
+}
+.stage .av-host { width: 216px; height: 216px; position: relative; z-index: 1; }
+.floor { position: absolute; bottom: 30px; left: 50%; width: 120px; height: 16px; margin-left: -60px; border-radius: 50%; background: rgb(var(--shadow) / .14); filter: blur(5px); }
+.meter { position: absolute; left: 14px; top: 12px; display: flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 600; color: rgb(var(--ink-3)); z-index: 2; opacity: 0; transition: opacity .25s; }
+.meter.on { opacity: 1; }
+.meter i { display: block; width: 56px; height: 6px; border-radius: 3px; background: rgb(var(--line)); overflow: hidden; position: relative; }
+.meter i::after { content: ""; position: absolute; inset: 0; background: rgb(var(--brand)); transform-origin: 0 50%; transform: scaleX(var(--lvl, 0)); }
+.state-line { min-height: 2.9em; color: rgb(var(--ink-2)); font-size: .95rem; }
+.state-line b { color: rgb(var(--ink)); }
+.states { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.states button {
+  min-height: 44px; border-radius: 12px; border: 1px solid rgb(var(--line)); background: rgb(var(--surface));
+  font-weight: 600; font-size: .88rem; cursor: pointer; color: rgb(var(--ink-2)); padding: 0 4px;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.states button:hover { background: rgb(var(--sunken)); }
+.states button[aria-pressed="true"] { background: rgb(var(--brand)); border-color: rgb(var(--brand)); color: rgb(var(--brand-ink)); }
+.pc { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid rgb(var(--line)); display: grid; gap: 8px; font-size: .92rem; color: rgb(var(--ink-2)); }
+.pc li { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+.pc li b { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; padding-top: 2px; }
+.pc .good b { color: rgb(var(--ok)); }
+.pc .watch b { color: rgb(var(--warn-text)); }
+.swatches { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: .85rem; color: rgb(var(--ink-3)); }
+.swatches button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgb(var(--surface)); box-shadow: 0 0 0 1px rgb(var(--line)); cursor: pointer; padding: 0; position: relative; }
+.swatches button::before { content: ""; position: absolute; inset: -9px; }
+.swatches button[aria-pressed="true"] { box-shadow: 0 0 0 2px rgb(var(--ink)); }
+
+/* State guide */
+.guide { display: grid; gap: 10px; margin-top: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) { .guide { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.guide div { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 16px; padding: 12px 14px; }
+.guide b { display: flex; align-items: center; gap: 8px; font-size: .95rem; }
+.guide b::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex: none; }
+.guide p { font-size: .85rem; color: rgb(var(--ink-2)); margin-top: 4px; line-height: 1.4; }
+
+/* Screens */
+.demo-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 22px; }
+.demo-bar .lbl { font-weight: 600; color: rgb(var(--ink-2)); font-size: .9rem; margin-right: 4px; }
+.demo-bar .btn { min-height: 40px; font-size: .9rem; padding: 0 14px; }
+.screens { display: grid; gap: 28px; align-items: start; }
+@media (min-width: 900px) { .screens { grid-template-columns: repeat(2, minmax(0, 414px)); justify-content: start; } }
+@media (min-width: 1180px) { .screens { grid-template-columns: 414px 414px minmax(0, 1fr); } }
+figure { margin: 0; }
+figcaption { margin-top: 12px; font-weight: 600; font-size: .95rem; display: flex; gap: 8px; align-items: baseline; }
+figcaption span { color: rgb(var(--ink-3)); font-weight: 500; }
+.fit { position: relative; width: 100%; margin: 0 auto; }
+.fit > .fit-in { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.notes { display: grid; gap: 14px; align-content: start; padding-top: 8px; }
+.notes h3 { margin: 0; font-family: "Bricolage Grotesque"; font-size: 1.25rem; }
+.notes ol { margin: 0; padding: 0; list-style: none; counter-reset: n; display: grid; gap: 12px; }
+.notes li { counter-increment: n; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; color: rgb(var(--ink-2)); font-size: .95rem; }
+.notes li::before { content: counter(n); width: 26px; height: 26px; border-radius: 8px; background: rgb(var(--brand) / .12); color: rgb(var(--brand)); font-weight: 800; display: grid; place-items: center; font-size: .85rem; }
+.notes li b { color: rgb(var(--ink)); }
+.desk-fig { margin-top: 36px; }
+
+/* Phone frame */
+.phone { width: 414px; height: 868px; border-radius: 58px; background: rgb(var(--phone-bezel)); padding: 12px; box-shadow: 0 30px 60px -30px rgb(var(--shadow) / .45), 0 0 0 1px rgb(var(--line)); }
+.screen { position: relative; width: 390px; height: 844px; border-radius: 46px; overflow: hidden; background: rgb(var(--bg)); isolation: isolate; }
+.sbar { height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px 0 34px; font-weight: 700; font-size: 15px; position: relative; z-index: 3; }
+.island { position: absolute; left: 50%; top: 11px; width: 120px; height: 34px; margin-left: -60px; border-radius: 20px; background: #000; }
+.sicons { display: flex; gap: 5px; align-items: center; }
+.sicons i { display: block; background: currentColor; border-radius: 2px; }
+.appbar { display: flex; align-items: center; gap: 10px; padding: 4px 12px 10px; }
+.ib { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 0; background: transparent; cursor: pointer; color: rgb(var(--ink-2)); flex: none; position: relative; }
+.ib:hover { background: rgb(var(--sunken)); }
+.school { flex: 1; min-width: 0; line-height: 1.2; }
+.school b { display: block; font-size: 16px; }
+.school span { font-size: 12.5px; color: rgb(var(--ink-3)); }
+.appbody { padding: 4px 16px 0; display: grid; gap: 12px; }
+.hello { font-family: "Bricolage Grotesque"; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 16px; padding: 12px; }
+.tile span { font-size: 12.5px; color: rgb(var(--ink-3)); font-weight: 600; }
+.tile b { display: block; font-family: "Bricolage Grotesque"; font-size: 24px; letter-spacing: -0.01em; line-height: 1.15; margin-top: 2px; }
+.tile small { font-size: 12.5px; color: rgb(var(--ink-2)); }
+.tile.hero-tile { background: rgb(var(--brand)); border-color: rgb(var(--brand)); color: rgb(var(--brand-ink)); }
+.tile.hero-tile span, .tile.hero-tile small { color: rgb(var(--brand-ink) / .85); }
+.mlist { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 16px; }
+.mlist h4 { margin: 0; padding: 12px 14px 6px; font-size: 14px; }
+.mrow { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid rgb(var(--line)); font-size: 14px; }
+.mrow .dot { width: 34px; height: 34px; border-radius: 10px; background: rgb(var(--sunken)); display: grid; place-items: center; color: rgb(var(--ink-2)); flex: none; }
+.mrow div { flex: 1; min-width: 0; line-height: 1.3; }
+.mrow div small { display: block; color: rgb(var(--ink-3)); font-size: 12.5px; }
+.bnav { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; padding: 8px 6px 24px; display: grid; grid-template-columns: repeat(5, 1fr); background: rgb(var(--surface)); border-top: 1px solid rgb(var(--line)); z-index: 2; }
+.bnav span { display: grid; justify-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: rgb(var(--ink-3)); }
+.bnav span.on { color: rgb(var(--brand)); }
+.fab {
+  position: absolute; right: 16px; bottom: 100px; width: 64px; height: 64px; border-radius: 50%; z-index: 4; cursor: pointer;
+  background: rgb(var(--surface)); border: 0; padding: 0; display: grid; place-items: center;
+  box-shadow: 0 0 0 2px rgb(var(--brand) / .55), 0 10px 24px -6px rgb(var(--shadow) / .4);
+}
+.fab > div { width: 52px; height: 52px; }
+.fab-hint {
+  position: absolute; right: 92px; bottom: 108px; z-index: 4; max-width: 200px; padding: 10px 14px; border-radius: 16px 16px 4px 16px;
+  background: rgb(var(--ink)); color: rgb(var(--bg)); font-size: 14px; font-weight: 600; line-height: 1.35;
+  box-shadow: 0 10px 24px -8px rgb(var(--shadow) / .45);
+}
+.scrim { position: absolute; inset: 0; background: rgb(var(--shadow) / .42); z-index: 2; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 58px; z-index: 3; border-radius: 26px 26px 0 0; box-shadow: 0 -12px 32px -12px rgb(var(--shadow) / .35); }
+.sheet::before { content: ""; position: absolute; top: 7px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: rgb(var(--ink-3) / .4); }
+
+/* Desktop frame */
+.desk { width: 1200px; height: 800px; border-radius: 18px; overflow: hidden; background: rgb(var(--bg)); border: 1px solid rgb(var(--line)); box-shadow: 0 30px 70px -36px rgb(var(--shadow) / .5); display: flex; flex-direction: column; }
+.wbar { height: 38px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: rgb(var(--sunken)); border-bottom: 1px solid rgb(var(--line)); }
+.wbar i { width: 12px; height: 12px; border-radius: 50%; background: rgb(var(--line)); display: block; }
+.wbar span { margin-left: 16px; font-size: 13px; font-weight: 600; color: rgb(var(--ink-3)); }
+.dapp { flex: 1; min-height: 0; display: grid; grid-template-columns: 228px minmax(0, 1fr) 400px; }
+.side { background: rgb(var(--surface)); border-right: 1px solid rgb(var(--line)); padding: 14px 10px; display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+.side .logo { padding: 2px 8px 12px; font-size: 15px; }
+.side a { display: block; padding: 7px 10px; border-radius: 9px; font-size: 13.5px; color: rgb(var(--ink-2)); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side a.on { background: rgb(var(--brand) / .1); color: rgb(var(--brand)); font-weight: 700; }
+.dmain { min-width: 0; display: flex; flex-direction: column; }
+.dtop { height: 64px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid rgb(var(--line)); background: rgb(var(--surface)); }
+.dsearch { flex: 1 1 auto; min-width: 160px; max-width: 300px; height: 40px; white-space: nowrap; border-radius: 12px; background: rgb(var(--sunken)); border: 1px solid rgb(var(--line)); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: rgb(var(--ink-3)); font-size: 14px; }
+.dsearch kbd { margin-left: auto; font: 600 12px Figtree; padding: 2px 7px; border-radius: 6px; border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); }
+.ask-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px 0 6px; border-radius: 999px; border: 1.5px solid rgb(var(--brand)); background: rgb(var(--brand) / .1); color: rgb(var(--brand)); font-weight: 700; font-size: 14px; cursor: pointer; }
+.ask-btn > div { width: 30px; height: 30px; }
+.pill { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgb(var(--line)); display: inline-flex; align-items: center; font-size: 13px; font-weight: 600; color: rgb(var(--ink-2)); }
+.badge { position: absolute; top: 5px; right: 5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: rgb(var(--bad)); color: #fff; font-size: 10.5px; font-weight: 800; display: grid; place-items: center; }
+.me { width: 36px; height: 36px; border-radius: 50%; background: rgb(var(--brand) / .15); color: rgb(var(--brand)); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.dcontent { padding: 22px 24px; display: grid; gap: 16px; align-content: start; overflow: hidden; }
+.dcontent h1 { margin: 0; font-family: "Bricolage Grotesque"; font-size: 28px; letter-spacing: -0.015em; display: flex; align-items: center; gap: 10px; }
+.dcontent .tiles { grid-template-columns: repeat(2, 1fr); }
+.dpanel { border-left: 1px solid rgb(var(--line)); box-shadow: -16px 0 40px -28px rgb(var(--shadow) / .35); min-height: 0; }
+
+/* The assistant panel (shared by phone and computer) */
+.panel { background: rgb(var(--surface)); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.p-head { display: flex; align-items: center; gap: 8px; padding: 14px 10px 4px 18px; flex: none; }
+.p-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.p-name { font-weight: 700; font-size: 16px; }
+.p-lang { font-size: 12px; font-weight: 600; color: rgb(var(--ink-2)); padding: 3px 9px; border-radius: 999px; background: rgb(var(--sunken)); border: 1px solid rgb(var(--line)); }
+.p-hero { flex: none; display: flex; align-items: center; gap: 12px; padding: 4px 18px 12px; position: relative; }
+.p-hero::before { content: ""; position: absolute; left: -20px; top: -30px; width: 200px; height: 170px; background: radial-gradient(closest-side, rgb(var(--brand) / .14), transparent); pointer-events: none; }
+.p-av { width: 92px; height: 92px; flex: none; position: relative; }
+.p-words { min-width: 0; flex: 1; position: relative; }
+.p-status { font-weight: 700; font-size: 17px; line-height: 1.3; min-height: 1.3em; }
+.p-heard { font-size: 14.5px; color: rgb(var(--ink-2)); font-style: italic; min-height: 1.4em; margin-top: 2px; }
+.p-heard:empty::before { content: attr(data-hint); font-style: normal; color: rgb(var(--ink-3)); }
+.p-msgs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; border-top: 1px solid rgb(var(--line)); }
+.p-msgs > :first-child { margin-top: 12px; }
+.m-user { align-self: flex-end; max-width: 84%; background: rgb(var(--brand)); color: rgb(var(--brand-ink)); padding: 9px 14px; border-radius: 18px 18px 6px 18px; font-weight: 500; font-size: 15px; line-height: 1.4; }
+.m-user small { display: block; font-size: 11.5px; opacity: .85; font-weight: 600; margin-top: 1px; }
+.m-bot { align-self: flex-start; max-width: 94%; font-size: 15px; line-height: 1.45; color: rgb(var(--ink)); }
+.card { align-self: stretch; background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 18px; padding: 14px; box-shadow: 0 1px 2px rgb(var(--shadow) / .06), 0 6px 18px -12px rgb(var(--shadow) / .25); }
+.c-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.c-top .eyebrow { font-size: 11px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.big { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.big b { font-family: "Bricolage Grotesque"; font-size: 34px; line-height: 1; letter-spacing: -0.02em; margin-right: 4px; color: rgb(var(--brand)); }
+.src { font-size: 13px; color: rgb(var(--ink-3)); margin-top: 4px; }
+.mini { list-style: none; padding: 0; margin: 10px 0 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.mini li { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 9px; background: rgb(var(--sunken)); font-size: 13.5px; font-weight: 600; color: rgb(var(--ink-2)); }
+.mini li b { color: rgb(var(--ink)); }
+.c-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.c-btns .btn { min-height: 44px; font-size: 14.5px; padding: 0 14px; }
+.c-btns .grow { flex: 1; }
+.confirm { border: 1.5px solid rgb(var(--brand) / .55); background: linear-gradient(rgb(var(--brand) / .05), rgb(var(--brand) / .05)), rgb(var(--surface)); }
+.money { border: 1.5px solid rgb(var(--warn) / .6); background: linear-gradient(rgb(var(--warn) / .06), rgb(var(--warn) / .06)), rgb(var(--surface)); }
+.c-title { font-size: 17.5px; font-weight: 700; line-height: 1.3; margin: 2px 0 10px; }
+.c-rows { margin: 0 0 10px; display: grid; gap: 0; border-radius: 12px; border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); overflow: hidden; }
+.c-rows > div { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; padding: 8px 12px; font-size: 14px; line-height: 1.35; }
+.c-rows > div + div { border-top: 1px solid rgb(var(--line)); }
+.c-rows dt { color: rgb(var(--ink-3)); font-weight: 600; font-size: 13px; }
+.c-rows dd { margin: 0; color: rgb(var(--ink)); }
+.c-rows dd small { color: rgb(var(--ink-3)); font-size: 12.5px; }
+.chg { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chg s { color: rgb(var(--ink-3)); }
+.chg b { background: rgb(var(--ok) / .13); color: rgb(var(--ok)); padding: 0 7px; border-radius: 6px; }
+.c-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: rgb(var(--ink-2)); margin-bottom: 12px; line-height: 1.4; }
+.c-note .i { margin-top: 1px; color: rgb(var(--brand)); }
+.money .c-note .i, .money .c-top .eyebrow { color: rgb(var(--warn-text)); }
+.confirm .c-top .eyebrow { color: rgb(var(--brand)); }
+.done-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgb(var(--ok) / .12); color: rgb(var(--ink)); font-size: 14px; font-weight: 600; }
+.done-row .i { color: rgb(var(--ok)); }
+.done-row.no { background: rgb(var(--sunken)); }
+.done-row.no .i { color: rgb(var(--ink-3)); }
+.linkbtn { border: 0; background: none; padding: 0 4px; min-height: 32px; color: rgb(var(--brand)); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.sorry-card { border-color: rgb(var(--line)); }
+.p-toast { position: absolute; left: 16px; right: 16px; bottom: 150px; z-index: 5; padding: 10px 14px; border-radius: 12px; background: rgb(var(--ink)); color: rgb(var(--bg)); font-size: 14px; font-weight: 600; box-shadow: 0 10px 24px -8px rgb(var(--shadow) / .5); }
+.dpanel { position: relative; }
+.p-sugs { flex: none; display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px 4px; scrollbar-width: none; mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.p-sugs::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgb(var(--line)); background: rgb(var(--surface)); color: rgb(var(--ink)); font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.chip:hover { border-color: rgb(var(--brand) / .6); background: rgb(var(--brand) / .06); }
+.p-comp { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px 0 16px; margin: 0; }
+.p-field { flex: 1; min-width: 0; height: 52px; border-radius: 16px; border: 1px solid rgb(var(--line)); background: rgb(var(--sunken)); display: flex; align-items: center; padding: 0 6px 0 14px; }
+.p-field:focus-within { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / .15); }
+.p-input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 16px; color: rgb(var(--ink)); outline: none; height: 100%; }
+.p-input::placeholder { color: rgb(var(--ink-3)); }
+.p-send { width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgb(var(--brand)); color: rgb(var(--brand-ink)); display: grid; place-items: center; cursor: pointer; }
+.p-field:not(.has-text) .p-send { display: none; }
+.p-mic { position: relative; width: 68px; height: 68px; border-radius: 50%; border: 0; cursor: pointer; flex: none; background: rgb(var(--brand)); color: rgb(var(--brand-ink)); display: grid; place-items: center; box-shadow: 0 8px 20px -8px rgb(var(--brand) / .8); }
+.p-ring { position: absolute; inset: -7px; border-radius: 50%; border: 3px solid rgb(var(--brand) / .35); transform: scale(var(--ring, 1)); transition: border-color .2s; pointer-events: none; }
+.p-mic-ic { position: relative; display: grid; place-items: center; }
+.p-mic-ic.stop { display: none; }
+.panel[data-state="listening"] .p-mic-ic.mic, .panel[data-state="speaking"] .p-mic-ic.mic, .panel[data-state="thinking"] .p-mic-ic.mic { display: none; }
+.panel[data-state="listening"] .p-mic-ic.stop, .panel[data-state="speaking"] .p-mic-ic.stop, .panel[data-state="thinking"] .p-mic-ic.stop { display: grid; }
+.panel[data-state="listening"] .p-ring { border-color: rgb(var(--brand) / .55); }
+.p-micline { flex: none; text-align: right; padding: 6px 16px 0; font-size: 12.5px; font-weight: 600; color: rgb(var(--ink-3)); min-height: 1.5em; }
+.sheet .p-micline { padding-bottom: 22px; }
+.dpanel .p-micline { padding-bottom: 14px; }
+
+/* Safety */
+.safe { display: grid; gap: 14px; }
+@media (min-width: 700px) { .safe { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .safe { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.safe div { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); border-radius: 20px; padding: 18px; }
+.safe .ic { width: 40px; height: 40px; border-radius: 12px; background: rgb(var(--brand) / .12); color: rgb(var(--brand)); display: grid; place-items: center; margin-bottom: 10px; }
+.safe b { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+.safe p { color: rgb(var(--ink-2)); font-size: .95rem; }
+footer { padding: 48px 0 56px; color: rgb(var(--ink-3)); font-size: .9rem; }
+footer .wrap { border-top: 1px solid rgb(var(--line)); padding-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+
+.av-host svg { width: 100%; height: 100%; display: block; overflow: visible; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="logo"><span class="logo-mark" aria-hidden="true">S</span><span>School OS</span><small>Assistant Avatar Choices</small></div>
+    <div class="top-tools">
+      <div class="seg" role="group" aria-label="Colour theme" id="themeSeg">
+        <button type="button" data-theme-set="auto" aria-pressed="true" aria-label="Theme: follow the device"><span data-ic="monitor"></span><span class="lbl">Auto</span></button>
+        <button type="button" data-theme-set="light" aria-pressed="false" aria-label="Light theme"><span data-ic="sun"></span><span class="lbl">Light</span></button>
+        <button type="button" data-theme-set="dark" aria-pressed="false" aria-label="Dark theme"><span data-ic="moon"></span><span class="lbl">Dark</span></button>
+      </div>
+      <button type="button" class="btn" id="calmBtn" aria-pressed="false" aria-label="Calm motion" style="min-height:40px;padding:0 12px"><span data-ic="wave"></span><span class="lbl">Calm motion</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="hero" aria-labelledby="pickTitle">
+      <div>
+        <p class="eyebrow">School OS Assistant · design choice</p>
+        <h1 id="pickTitle">Pick one: <em>A, B or C</em></h1>
+        <p class="lede">Three faces for the talking assistant. Each one listens, thinks, speaks, cheers when a task is done and says sorry when it can't help. Tap a look to see it in the phone and computer screens below.</p>
+      </div>
+      <div>
+        <div class="picks" role="group" aria-label="Show this look in the screens below" id="picks"></div>
+        <p class="pick-hint">Tell us A, B or C. Colours, names and voices can still change.</p>
+      </div>
+    </section>
+
+    <section class="block" id="looks" aria-labelledby="looksTitle">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">Every state, live</p>
+          <h2 id="looksTitle">The three looks</h2>
+        </div>
+        <div class="allbar">
+          <span class="muted" style="font-weight:600;font-size:.9rem">Show all as</span>
+          <div class="seg" role="group" aria-label="Show every look in one state" id="allSeg"></div>
+          <button type="button" class="btn" id="storyBtn"><span data-ic="play"></span><span>Play the story</span></button>
+        </div>
+      </div>
+      <div class="looks" id="lookCards"></div>
+      <div class="guide" aria-label="What each state means">
+        <div style="--dot:rgb(var(--ink-3))"><b>Idle</b><p>Panel open, waiting. Breathes and blinks, so it never looks frozen.</p></div>
+        <div style="--dot:rgb(var(--brand))"><b>Listening</b><p>The mic is on. Moves with your voice; the words appear as it hears them.</p></div>
+        <div style="--dot:rgb(var(--info))"><b>Thinking</b><p>Working on it. After a moment it says what it is looking at.</p></div>
+        <div style="--dot:rgb(var(--brand))"><b>Speaking</b><p>Answering. Tap the mic to stop it and talk again.</p></div>
+        <div style="--dot:rgb(var(--ok))"><b>Happy</b><p>A change you said yes to is saved. A short cheer, then back to idle.</p></div>
+        <div style="--dot:rgb(var(--warn))"><b>Sorry</b><p>Not allowed, or it doesn't know. Gentle, and it offers the right screen.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="screens" aria-labelledby="screensTitle">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">Inside School OS</p>
+          <h2 id="screensTitle">How it looks on a phone and a computer</h2>
+          <p>These screens work. Tap a suggestion, the mic, or "Yes, do it". Or play a whole conversation:</p>
+        </div>
+      </div>
+      <div class="demo-bar" role="group" aria-label="Play a conversation in both screens">
+        <span class="lbl">Play:</span>
+        <button type="button" class="btn" data-demo="ask">Ask a question</button>
+        <button type="button" class="btn" data-demo="do">Do a task</button>
+        <button type="button" class="btn" data-demo="money">Money</button>
+        <button type="button" class="btn" data-demo="sorry">Can't do it</button>
+        <button type="button" class="btn" data-demo="telugu"><span lang="te">తెలుగు</span></button>
+        <button type="button" class="btn" data-demo="interrupt">Interrupt it</button>
+        <button type="button" class="btn" data-demo="reset"><span data-ic="undo"></span>Reset</button>
+      </div>
+      <div class="screens">
+        <figure>
+          <div class="fit" data-w="414" data-h="868"><div class="fit-in">
+            <div class="phone"><div class="screen" id="phoneClosed">
+              <div class="sbar" aria-hidden="true"><span>10:15</span><span class="island"></span><span class="sicons"><i style="width:4px;height:6px"></i><i style="width:4px;height:9px"></i><i style="width:4px;height:12px"></i><span style="font-size:13px;margin-left:3px">4G</span><i style="width:22px;height:11px;border-radius:3px;margin-left:4px"></i></span></div>
+              <div class="appbar"><button class="ib" type="button" aria-label="Menu"><span data-ic="menu"></span></button><div class="school"><b>Green Valley School</b><span>2026-27 · Monday, 16-11-2026</span></div><button class="ib" type="button" aria-label="Search"><span data-ic="search"></span></button></div>
+              <div class="appbody">
+                <p class="hello">Good morning <span class="sample">SAMPLE</span></p>
+                <div class="tiles">
+                  <div class="tile hero-tile"><span>Present today</span><b>412</b><small>of 435 students</small></div>
+                  <div class="tile"><span>Fee today</span><b>₹1,16,400</b><small>38 receipts</small></div>
+                  <div class="tile"><span>Waiting for you</span><b>3</b><small>approvals</small></div>
+                  <div class="tile"><span>Staff present</span><b>41</b><small>of 43</small></div>
+                </div>
+                <div class="mlist"><h4>Waiting for you</h4>
+                  <div class="mrow"><span class="dot"><span data-ic="user"></span></span><div>Leave · Anitha (Teacher)<small>18-11-2026 to 19-11-2026</small></div></div>
+                  <div class="mrow"><span class="dot"><span data-ic="rupee"></span></span><div>Discount · Ravi Kumar, 5-A<small>₹2,000 on Term 2</small></div></div>
+                </div>
+              </div>
+              <div class="fab-hint">Ask me anything, in English or <span lang="te">తెలుగు</span></div>
+              <button class="fab" type="button" aria-label="Open the assistant" id="fabPhone"><div class="av-host" data-mini="fab"></div></button>
+              <nav class="bnav" aria-label="Phone menu (sample)"><span class="on"><span data-ic="home"></span>Home</span><span><span data-ic="search"></span>Search</span><span><span data-ic="approvals"></span>Approvals</span><span><span data-ic="bell"></span>Notifications</span><span><span data-ic="user"></span>Me</span></nav>
+            </div></div>
+          </div></div>
+          <figcaption>1 · Phone <span>the round button on every screen</span></figcaption>
+        </figure>
+        <figure>
+          <div class="fit" data-w="414" data-h="868"><div class="fit-in">
+            <div class="phone"><div class="screen">
+              <div class="sbar" aria-hidden="true"><span>10:16</span><span class="island"></span><span class="sicons"><i style="width:4px;height:6px"></i><i style="width:4px;height:9px"></i><i style="width:4px;height:12px"></i><span style="font-size:13px;margin-left:3px">4G</span><i style="width:22px;height:11px;border-radius:3px;margin-left:4px"></i></span></div>
+              <div class="appbar" aria-hidden="true"><span class="ib"><span data-ic="menu"></span></span><div class="school"><b>Green Valley School</b><span>2026-27</span></div></div>
+              <div class="scrim"></div>
+              <div class="sheet panel" id="panelPhone" role="dialog" aria-label="School OS Assistant on a phone"></div>
+            </div></div>
+          </div></div>
+          <figcaption>2 · Phone <span>the assistant open</span></figcaption>
+        </figure>
+        <div class="notes">
+          <h3>What to look at</h3>
+          <ol>
+            <li><span><b>The face at the top</b> shows what it is doing: listening, thinking, speaking, done or sorry. The words beside it say the same thing.</span></li>
+            <li><span><b>One big mic button.</b> Tap, speak, done. While it speaks, the same button stops it.</span></li>
+            <li><span><b>Suggestions</b> in plain words for the person's role. One tap asks.</span></li>
+            <li><span><b>Every answer is a card</b> with the number, what was counted, and "Open the full screen".</span></li>
+            <li><span><b>Changes ask first.</b> The card lists exactly what will change. Nothing happens until "Yes, do it".</span></li>
+            <li><span><b>Money</b> is never moved by the assistant. It fills the form; you press Collect.</span></li>
+          </ol>
+        </div>
+      </div>
+      <figure class="desk-fig">
+        <div class="fit" data-w="1200" data-h="800"><div class="fit-in">
+          <div class="desk">
+            <div class="wbar" aria-hidden="true"><i></i><i></i><i></i><span>School OS · Dashboard</span></div>
+            <div class="dapp">
+              <aside class="side" aria-label="Menu (sample)">
+                <div class="logo"><span class="logo-mark" aria-hidden="true">S</span><span>Green Valley School</span></div>
+                <a class="on">Dashboard</a><a>Admission Management</a><a>Student Management</a><a>Academic Management</a><a>Attendance Management</a><a>Fee Management</a><a>Finance Management</a><a>Examination &amp; Results</a><a>Staff &amp; HR Management</a><a>Salary Management</a><a>Communication</a><a>Front Office</a><a>Homework &amp; Learning</a><a>Events &amp; Calendar</a><a>Reports &amp; Analytics</a><a>Settings</a>
+              </aside>
+              <div class="dmain">
+                <div class="dtop">
+                  <div class="dsearch"><span data-ic="search"></span><span>Search, ask or do…</span><kbd>/</kbd></div>
+                  <button type="button" class="ask-btn" id="askDesk" aria-label="Assistant (open)"><div class="av-host" data-mini="desk"></div>Assistant</button>
+                  <span class="ib" aria-hidden="true" style="margin-left:auto"><span data-ic="approvals"></span><span class="badge">3</span></span>
+                  <span class="ib" aria-hidden="true"><span data-ic="bell"></span><span class="badge">5</span></span>
+                  <span class="me" aria-hidden="true">PR</span>
+                </div>
+                <div class="dcontent">
+                  <h1>Dashboard <span class="sample">SAMPLE</span></h1>
+                  <div class="tiles">
+                    <div class="tile hero-tile"><span>Present today</span><b>412</b><small>of 435 students · Monday, 16-11-2026</small></div>
+                    <div class="tile"><span>Fee today</span><b>₹1,16,400</b><small>38 receipts · cash ₹72,400 · UPI ₹44,000</small></div>
+                    <div class="tile"><span>Waiting for you</span><b>3</b><small>2 leave, 1 discount</small></div>
+                    <div class="tile"><span>Staff present</span><b>41</b><small>of 43 · 2 on leave</small></div>
+                  </div>
+                  <div class="mlist"><h4>Absent today, by class</h4>
+                    <div class="mrow"><span class="dot">5-A</span><div>4 students<small>Class teacher: Lakshmi</small></div></div>
+                    <div class="mrow"><span class="dot">6-B</span><div>3 students<small>Class teacher: Prasad</small></div></div>
+                    <div class="mrow"><span class="dot">8-C</span><div>3 students<small>Class teacher: Fatima</small></div></div>
+                  </div>
+                </div>
+              </div>
+              <aside class="dpanel panel" id="panelDesk" aria-label="School OS Assistant on a computer"></aside>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>3 · Computer <span>it opens beside the page, so the page stays in view</span></figcaption>
+      </figure>
+    </section>
+
+    <section class="block" aria-labelledby="safeTitle">
+      <div class="sec-head"><div><p class="eyebrow">Why people can trust it</p><h2 id="safeTitle">Four promises the design keeps</h2></div></div>
+      <div class="safe">
+        <div><span class="ic" data-ic="zap"></span><b>Reading is instant</b><p>Answers come from your school's own records, only those your role may see. Every number opens the list behind it.</p></div>
+        <div><span class="ic" data-ic="shield"></span><b>Changes ask first</b><p>Any change shows a card with exactly what will change. Nothing happens until you tap "Yes, do it".</p></div>
+        <div><span class="ic" data-ic="rupee"></span><b>Money needs your own tap</b><p>For fees, refunds and salary it only fills the form. You press the button on the normal screen. It never approves anything.</p></div>
+        <div><span class="ic" data-ic="help"></span><b>Never guesses</b><p>If it doesn't know, or your role can't do it, it says so and opens the right screen. Text inside records is never taken as an order.</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+<footer><div class="wrap"><span>SAMPLE: every school, name and number on this page is made up for the design.</span><span>School OS Assistant · avatar choices · 15-11-2026</span></div></footer>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const TAU = Math.PI * 2;
+const f2 = (n) => (Math.round(n * 100) / 100).toString();
+const store = {
+  get(k) { try { return localStorage.getItem("sos-av-" + k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem("sos-av-" + k, v); } catch { /* private window */ } },
+};
+
+/* ---------- Icons (Lucide shapes, drawn inline) ---------- */
+const ICONS = {
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" stroke="none"/>',
+  up: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  approvals: '<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  menu: '<path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/>',
+  undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  checkc: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  userplus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>',
+  rupee: '<path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  play: '<path d="M7 4v16l13-8z" fill="currentColor" stroke="none"/>',
+  pause: '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>',
+  wave: '<path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+};
+const ic = (n, s = 20) => `<svg class="i" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+function paintIcons(root = document) { $$("[data-ic]", root).forEach((n) => { n.innerHTML = ic(n.dataset.ic, +(n.dataset.size || 20)); n.removeAttribute("data-ic"); }); }
+
+/* ---------- Motion preference ---------- */
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+let calm = store.get("calm") ? store.get("calm") === "1" : mq.matches;
+
+/* A made-up voice: syllables in short phrases with pauses, 0 to 1. */
+function voice(t, seed) {
+  const P = 2.2 + seed * 0.35, G = 0.5;
+  const c = (t + seed * 3.1) % (P + G);
+  if (c > P) return 0;
+  const env = Math.pow(Math.sin(Math.PI * c / P), 0.4);
+  const s = Math.sin(TAU * (3.3 + seed * 0.5) * t + 1.7 * Math.sin(TAU * 0.9 * t + seed));
+  const j = 0.72 + 0.28 * Math.sin(t * 23.7 + seed * 7) * Math.sin(t * 5.3 + seed);
+  return clamp(env * Math.pow(Math.max(0, s), 0.7) * j * 1.08, 0, 1);
+}
+function closedPath(p) {
+  const n = p.length; let d = `M${f2(p[0][0])} ${f2(p[0][1])}`;
+  for (let i = 0; i < n; i++) {
+    const p0 = p[(i - 1 + n) % n], p1 = p[i], p2 = p[(i + 1) % n], p3 = p[(i + 2) % n];
+    d += `C${f2(p1[0] + (p2[0] - p0[0]) / 6)} ${f2(p1[1] + (p2[1] - p0[1]) / 6)} ${f2(p2[0] - (p3[0] - p1[0]) / 6)} ${f2(p2[1] - (p3[1] - p1[1]) / 6)} ${f2(p2[0])} ${f2(p2[1])}`;
+  }
+  return d + "Z";
+}
+function mouthPath(cx, cy, mw, smile, open) {
+  const x0 = cx - mw / 2, x1 = cx + mw / 2, yc = cy - smile * 4, top = cy + smile * 5, bot = top + open * 22 + 0.4;
+  return `M${f2(x0)} ${f2(yc)}Q${f2(cx)} ${f2(top)} ${f2(x1)} ${f2(yc)}Q${f2(cx)} ${f2(bot)} ${f2(x0)} ${f2(yc)}Z`;
+}
+const STAR = "M0 -8 L2 -2 L8 0 L2 2 L0 8 L-2 2 L-8 0 L-2 -2Z";
+function kolamPath(sign) {
+  let d = ""; const N = 200;
+  for (let k = 0; k <= N; k++) {
+    const q = k / N * TAU, r = 86 + sign * 11 * Math.cos(8 * q);
+    d += (k ? "L" : "M") + f2(100 + Math.cos(q - Math.PI / 2) * r) + " " + f2(100 + Math.sin(q - Math.PI / 2) * r);
+  }
+  return d + "Z";
+}
+
+/* ---------- The three looks: drawing ---------- */
+const BUILD = {
+  a: (id) => `<svg viewBox="0 0 200 200">
+    <defs>
+      <radialGradient id="${id}g" cx="42%" cy="34%" r="72%"><stop offset="0" stop-color="#FFF5DA"/><stop offset=".36" stop-color="#FFCB66"/><stop offset=".76" stop-color="#F6922F"/><stop offset="1" stop-color="#E2652B"/></radialGradient>
+      <radialGradient id="${id}h" cx="50%" cy="50%" r="50%"><stop offset=".5" stop-color="#FFB547" stop-opacity=".5"/><stop offset="1" stop-color="#FFB547" stop-opacity="0"/></radialGradient>
+    </defs>
+    <circle data-k="halo" cx="100" cy="100" r="98" fill="url(#${id}h)"/>
+    <g fill="none" stroke="#F49A34" stroke-width="2.5"><circle data-k="rings[]" cx="100" cy="100" r="64"/><circle data-k="rings[]" cx="100" cy="100" r="64"/><circle data-k="rings[]" cx="100" cy="100" r="64"/></g>
+    <g fill="#FFC14D">${[0, 1, 2, 3].map(() => `<path data-k="stars[]" d="${STAR}" opacity="0"/>`).join("")}</g>
+    <g data-k="body">
+      <path data-k="blob" fill="url(#${id}g)"/>
+      <path data-k="cool" fill="#7A90A6" opacity="0"/>
+      <ellipse data-k="shine" cx="78" cy="70" rx="19" ry="11" fill="#fff" opacity=".5"/>
+      <g data-k="face">
+        <ellipse data-k="blush[]" cx="68" cy="114" rx="8.5" ry="5" fill="#FF6F61" opacity=".32"/>
+        <ellipse data-k="blush[]" cx="132" cy="114" rx="8.5" ry="5" fill="#FF6F61" opacity=".32"/>
+        <g data-k="eyes" fill="#3A1D0C">
+          <ellipse data-k="eyeL" cx="82" cy="97" rx="7.5" ry="11"/><ellipse data-k="eyeR" cx="118" cy="97" rx="7.5" ry="11"/>
+          <circle data-k="glint[]" cx="84.6" cy="92.5" r="2.6" fill="#fff"/><circle data-k="glint[]" cx="120.6" cy="92.5" r="2.6" fill="#fff"/>
+        </g>
+        <g data-k="happyEyes" fill="none" stroke="#3A1D0C" stroke-width="5" stroke-linecap="round" opacity="0"><path d="M73 100 Q82 88 91 100"/><path d="M109 100 Q118 88 127 100"/></g>
+        <g data-k="brows" stroke="#3A1D0C" stroke-width="4" stroke-linecap="round" opacity="0"><path d="M72 83 L89 77"/><path d="M128 83 L111 77"/></g>
+        <path data-k="mouth" fill="#3A1D0C" stroke="#3A1D0C" stroke-width="3.6" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g data-k="sparks[]-g" fill="#FFC14D"><circle data-k="sparks[]" r="3"/><circle data-k="sparks[]" r="3"/><circle data-k="sparks[]" r="3"/></g>
+  </svg>`,
+  b: (id) => `<svg viewBox="0 0 200 200">
+    <defs>
+      <linearGradient id="${id}bd" gradientUnits="userSpaceOnUse" x1="76" y1="58" x2="118" y2="162"><stop offset="0" stop-color="#7FDB8C"/><stop offset=".55" stop-color="#43B261"/><stop offset="1" stop-color="#2B8C4B"/></linearGradient>
+      <linearGradient id="${id}bk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7350"/><stop offset="1" stop-color="#D8362A"/></linearGradient>
+      <clipPath id="${id}cl"><circle cx="82" cy="98" r="13.2"/></clipPath>
+      <clipPath id="${id}cr"><circle cx="118" cy="98" r="13.2"/></clipPath>
+    </defs>
+    <g fill="none" stroke-width="3.5" stroke-linecap="round" style="stroke:rgb(var(--brand))"><path data-k="sound[]" d="M172 96 q6 8 0 16" opacity="0"/><path data-k="sound[]" d="M180 89 q10 15 0 30" opacity="0"/><path data-k="sound[]" d="M188 82 q14 22 0 44" opacity="0"/></g>
+    <g data-k="thought" opacity="0">
+      <g style="fill:rgb(var(--surface));stroke:rgb(var(--line))" stroke-width="1.5"><circle cx="146" cy="70" r="3.5"/><circle cx="154" cy="58" r="5.5"/><rect x="142" y="18" width="52" height="30" rx="15"/></g>
+      <g style="fill:rgb(var(--ink-3))"><circle data-k="tdot[]" cx="157" cy="33" r="3.6"/><circle data-k="tdot[]" cx="168" cy="33" r="3.6"/><circle data-k="tdot[]" cx="179" cy="33" r="3.6"/></g>
+    </g>
+    <g data-k="back"><path d="M114 146 C130 158 140 176 138 198 C128 184 118 170 108 154 Z" fill="#2A8C88"/><path d="M104 150 C110 166 112 184 106 200 C99 184 97 168 96 152 Z" fill="#36A27C"/></g>
+    <g>
+      <rect x="32" y="166" width="134" height="13" rx="3" fill="#F5C242"/>
+      <rect x="32" y="166" width="134" height="4.5" rx="2" fill="#FFDA70"/>
+      <rect x="32" y="166" width="15" height="13" rx="3" fill="#F28BA0"/><rect x="45" y="166" width="7" height="13" fill="#B7C1BE"/>
+      <path d="M166 166 L184 172.5 L166 179 Z" fill="#F0D2A2"/><path d="M178 170.3 L184 172.5 L178 174.7 Z" fill="#3A3A3A"/>
+    </g>
+    <g data-k="front">
+      <g fill="#F08A3C"><ellipse cx="88" cy="167" rx="7" ry="4.6"/><ellipse cx="112" cy="167" rx="7" ry="4.6"/></g>
+      <g data-k="tuft" fill="#4FC069">
+        <path data-k="tuftL" d="M100 66 C92 52 92 40 98 32 C102 42 104 54 100 66Z"/>
+        <path data-k="tuftR" d="M100 66 C92 52 92 40 98 32 C102 42 104 54 100 66Z"/>
+        <path d="M100 66 C92 52 92 40 98 32 C102 42 104 54 100 66Z"/>
+      </g>
+      <circle cx="100" cy="110" r="50" fill="url(#${id}bd)"/>
+      <ellipse cx="100" cy="136" rx="30" ry="21" fill="#B9EEAB" opacity=".75"/>
+      <path data-k="wingL" d="M60 104 C45 116 45 142 58 156 C66 142 70 122 60 104 Z" fill="#2E934F"/>
+      <path data-k="wingR" d="M140 104 C155 116 155 142 142 156 C134 142 130 122 140 104 Z" fill="#2E934F"/>
+      <ellipse data-k="blush[]" cx="67" cy="115" rx="8" ry="5" fill="#DDF9C4" opacity=".55"/><ellipse data-k="blush[]" cx="133" cy="115" rx="8" ry="5" fill="#DDF9C4" opacity=".55"/>
+      <g data-k="eyes">
+        <circle cx="82" cy="98" r="12.5" fill="#fff"/><circle cx="118" cy="98" r="12.5" fill="#fff"/>
+        <g data-k="pupils" fill="#17231D"><circle data-k="pupL" cx="83" cy="99" r="7"/><circle data-k="pupR" cx="117" cy="99" r="7"/></g>
+        <g fill="#fff"><circle data-k="glint[]" cx="86" cy="95.5" r="2.4"/><circle data-k="glint[]" cx="120" cy="95.5" r="2.4"/></g>
+        <g clip-path="url(#${id}cl)"><rect data-k="lidL" x="66" y="84" width="32" height="0" fill="url(#${id}bd)"/></g>
+        <g clip-path="url(#${id}cr)"><rect data-k="lidR" x="102" y="84" width="32" height="0" fill="url(#${id}bd)"/></g>
+      </g>
+      <g data-k="happyEyes" fill="none" stroke="#17231D" stroke-width="5" stroke-linecap="round" opacity="0"><path d="M72 101 Q82 88 92 101"/><path d="M108 101 Q118 88 128 101"/></g>
+      <g data-k="brows" stroke="#17231D" stroke-width="4" stroke-linecap="round" opacity="0"><path d="M69 81 L88 75"/><path d="M131 81 L112 75"/></g>
+      <ellipse data-k="mouthIn" cx="100" cy="119" rx="9" ry="0" fill="#5A1410"/>
+      <path data-k="beakD" d="M91 114 C96 112 104 112 109 114 C107 122 104 127 100 129 C96 127 93 122 91 114 Z" fill="#B42A20"/>
+      <path d="M86 102 C90 94 110 94 114 102 C114 112 106 121 100 127 C94 121 86 112 86 102 Z" fill="url(#${id}bk)"/>
+      <path d="M90 101 C94 97 106 97 110 101" fill="none" stroke="#FFB9A3" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+    </g>
+    <g fill="#FFC14D">${[0, 1, 2].map(() => `<path data-k="stars[]" d="${STAR}" opacity="0"/>`).join("")}</g>
+  </svg>`,
+  c: (id) => `<svg viewBox="0 0 200 200">
+    <g data-k="ring">
+      <path data-k="kolam[]" d="${kolamPath(1)}" fill="none" style="stroke:rgb(var(--brand))" stroke-width="2.4" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="1" opacity="0"/>
+      <path data-k="kolam[]" d="${kolamPath(-1)}" fill="none" stroke="#E39A2D" stroke-width="2.4" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="1" opacity="0"/>
+      ${Array.from({ length: 16 }, (_, i) => `<circle data-k="dots[]" r="4.2" ${i % 2 ? 'fill="#E39A2D"' : 'style="fill:rgb(var(--brand))"'}/>`).join("")}
+    </g>
+    <g data-k="face">
+      <circle cx="100" cy="100" r="60" style="fill:rgb(var(--brand))"/>
+      <circle cx="100" cy="100" r="60" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/>
+      <ellipse cx="82" cy="66" rx="26" ry="14" fill="#fff" opacity=".13"/>
+      <g style="fill:rgb(var(--brand-ink))" data-k="eyes"><rect data-k="eyeL" x="75.5" y="84" width="13" height="26" rx="6.5"/><rect data-k="eyeR" x="111.5" y="84" width="13" height="26" rx="6.5"/></g>
+      <g data-k="happyEyes" fill="none" style="stroke:rgb(var(--brand-ink))" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" opacity="0"><path d="M73 101 L82 91 L91 101"/><path d="M109 101 L118 91 L127 101"/></g>
+      <g data-k="brows" style="stroke:rgb(var(--brand-ink))" stroke-width="4.5" stroke-linecap="round" opacity="0"><path d="M72 80 L89 75"/><path d="M128 80 L111 75"/></g>
+      <path data-k="mouth" fill="none" style="stroke:rgb(var(--brand-ink))" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>`,
+};
+const STARS_A = [[34, 54], [166, 44], [174, 132], [26, 140]];
+const STARS_B = [[30, 70], [40, 24], [172, 120]];
+
+const DRAW = {
+  a(av, t) {
+    const { w, el } = av, L = av.level;
+    const li = w.listening, th = w.thinking, sp = w.speaking, ha = w.happy, so = w.sorry, id = w.idle;
+    const h = av.state === "happy" ? av.since : 9;
+    const hopV = ha > 0.01 ? Math.abs(Math.sin(h * Math.PI * 2.4)) * (h < 1.25 ? 1 : 0.28) : 0;
+    const y = Math.sin(t * 1.7) * 3 * (1 - ha) - hopV * 15 * ha + 6 * so - li * L * 2;
+    const sq = ha * (1 - hopV) * 0.05;
+    const s = 1 + L * 0.07 * li + L * 0.035 * sp;
+    const rot = -5 * so + Math.sin(t * 0.6) * 1.2 * id;
+    el.body.setAttribute("transform", `translate(100 ${f2(100 + y)}) rotate(${f2(rot)}) scale(${f2(s * (1 + sq))} ${f2(s * (1 - sq))}) translate(-100 -100)`);
+    const amp = 0.022 * id + (0.028 + L * 0.085) * li + 0.04 * th + (0.018 + L * 0.05) * sp + 0.03 * ha + 0.012 * so;
+    const k = 1 + th * 1.6, pts = [];
+    for (let i = 0; i < 10; i++) {
+      const q = i / 10 * TAU;
+      const r = 62 * (1 + amp * (0.6 * Math.sin(2 * q + t * 1.1 * k) + 0.4 * Math.sin(3 * q - t * 1.7 * k + 1.3) + 0.25 * Math.sin(5 * q + t * 2.3 * k)));
+      pts.push([100 + Math.cos(q) * r, 100 + Math.sin(q) * r]);
+    }
+    const d = closedPath(pts);
+    el.blob.setAttribute("d", d); el.cool.setAttribute("d", d); el.cool.setAttribute("opacity", f2(0.3 * so));
+    const hs = 1 + 0.03 * Math.sin(t * 1.3) + L * 0.16 * (li + sp) + 0.08 * ha;
+    el.halo.setAttribute("transform", `translate(100 ${f2(100 + y * 0.6)}) scale(${f2(hs)}) translate(-100 -100)`);
+    el.halo.setAttribute("opacity", f2(0.85 - 0.45 * so + 0.15 * li));
+    el.rings.forEach((c, i) => {
+      const p = (t * 0.85 + i / 3) % 1;
+      c.setAttribute("r", f2(64 + p * 34)); c.setAttribute("cy", f2(100 + y * 0.6));
+      c.setAttribute("opacity", f2((1 - p) * (0.2 + L * 0.8) * li * 0.85)); c.setAttribute("stroke-width", f2(0.6 + 2.6 * (1 - p)));
+    });
+    el.sparks.forEach((c, i) => {
+      const g = t * 2.3 + i * TAU / 3, dp = 0.5 + 0.5 * Math.sin(g);
+      c.setAttribute("cx", f2(100 + Math.cos(g) * 86)); c.setAttribute("cy", f2(96 + y + Math.sin(g) * 24));
+      c.setAttribute("r", f2(2 + 3 * dp)); c.setAttribute("opacity", f2(th * (0.3 + 0.7 * dp)));
+    });
+    el.stars.forEach((st, i) => {
+      const sc = ha * (0.5 + 0.5 * Math.sin(t * 5 + i * 2.1));
+      st.setAttribute("transform", `translate(${STARS_A[i][0]} ${f2(STARS_A[i][1] + y * 0.5)}) scale(${f2(Math.max(0, sc))}) rotate(${f2((t * 40 + i * 30) % 360)})`);
+      st.setAttribute("opacity", f2(ha));
+    });
+    el.shine.setAttribute("cx", f2(78 + Math.cos(t * 1.6) * 9 * th)); el.shine.setAttribute("cy", f2(70 + Math.sin(t * 1.6) * 6 * th));
+    el.shine.setAttribute("opacity", f2(0.5 - 0.2 * so));
+    const lx = (Math.sin(t * 0.45) * 2.6 + Math.sin(t * 0.17 + 1) * 1.4) * id + 7 * th - so;
+    const ly = -8 * th + 5 * so + 2 * li;
+    el.face.setAttribute("transform", `translate(${f2(lx)} ${f2(ly)})`);
+    const open = Math.max(0.05, (1 + 0.12 * li - 0.18 * th - 0.3 * so) * (1 - 0.92 * av.blink));
+    el.eyeL.setAttribute("ry", f2(11 * open)); el.eyeR.setAttribute("ry", f2(11 * open));
+    el.glint.forEach((g) => g.setAttribute("opacity", open > 0.45 ? 1 : 0));
+    el.eyes.setAttribute("opacity", f2(1 - ha)); el.happyEyes.setAttribute("opacity", f2(ha)); el.brows.setAttribute("opacity", f2(so));
+    el.mouth.setAttribute("d", mouthPath(100, 123, 22 + 10 * ha - 8 * th - 4 * so + 2 * sp, 0.35 * id + 0.3 * li + 0.25 * sp + 1.0 * ha - 0.6 * so, sp * L * 1.05 + ha * 0.5 + th * 0.14 + li * 0.05));
+    el.blush.forEach((b) => b.setAttribute("opacity", f2(0.3 + 0.3 * ha - 0.25 * so)));
+  },
+  b(av, t) {
+    const { w, el } = av, L = av.level;
+    const li = w.listening, th = w.thinking, sp = w.speaking, ha = w.happy, so = w.sorry, id = w.idle;
+    const h = av.state === "happy" ? av.since : 9;
+    const hopV = ha > 0.01 ? Math.abs(Math.sin(h * Math.PI * 2.2)) * (h < 1.4 ? 1 : 0.3) : 0;
+    const y = Math.sin(t * 1.8) * 1.6 * id - hopV * 18 * ha + 4 * so - sp * L * 2.5;
+    const rot = Math.sin(t * 0.32) * 3 * id - 8 * li + 5 * th - 3 * so + sp * Math.sin(t * 6) * 1.5;
+    const tr = `translate(0 ${f2(y)}) rotate(${f2(rot)} 100 160)`;
+    el.back.setAttribute("transform", tr); el.front.setAttribute("transform", tr);
+    const flap = Math.sin(t * 16);
+    const wl = ha * (95 + 25 * flap) - so * 50 + id * Math.sin(t * 1.1) * 3;
+    const wr = -ha * (95 + 25 * flap) + so * 50 + th * 48 - li * 30 - id * Math.sin(t * 1.1) * 3;
+    el.wingL.setAttribute("transform", `rotate(${f2(wl)} 60 104)`); el.wingR.setAttribute("transform", `rotate(${f2(wr)} 140 104)`);
+    const tw = sp * Math.sin(t * 18) * 7 * L + li * Math.sin(t * 9) * 4 * L + th * Math.sin(t * 2) * 4;
+    el.tuft.setAttribute("transform", `rotate(${f2(tw)} 100 66) translate(100 66) scale(1 ${f2(1 + 0.14 * li + 0.08 * ha - 0.14 * so)}) translate(-100 -66)`);
+    const spread = 24 + 32 * so - 6 * li;
+    el.tuftL.setAttribute("transform", `rotate(${f2(-spread)} 100 66)`); el.tuftR.setAttribute("transform", `rotate(${f2(spread)} 100 66)`);
+    const lx = (Math.sin(t * 0.5) * 2.4 + Math.sin(t * 0.21) * 1.2) * id - 3.5 * th;
+    const ly = -4.5 * th + 3.5 * so + li;
+    el.pupL.setAttribute("cx", f2(83 + lx)); el.pupL.setAttribute("cy", f2(99 + ly));
+    el.pupR.setAttribute("cx", f2(117 + lx)); el.pupR.setAttribute("cy", f2(99 + ly));
+    const pr = 7 * (1 + 0.1 * li);
+    el.pupL.setAttribute("r", f2(pr)); el.pupR.setAttribute("r", f2(pr));
+    el.glint[0].setAttribute("cx", f2(86 + lx)); el.glint[0].setAttribute("cy", f2(95.5 + ly));
+    el.glint[1].setAttribute("cx", f2(120 + lx)); el.glint[1].setAttribute("cy", f2(95.5 + ly));
+    const open = clamp((1 - 0.12 * th - 0.45 * so) * (1 - av.blink), 0, 1);
+    const lh = 27 * (1 - open);
+    el.lidL.setAttribute("height", f2(lh)); el.lidR.setAttribute("height", f2(lh));
+    el.lidL.setAttribute("transform", `rotate(${f2(-16 * so)} 82 98)`); el.lidR.setAttribute("transform", `rotate(${f2(16 * so)} 118 98)`);
+    el.eyes.setAttribute("opacity", f2(1 - ha)); el.happyEyes.setAttribute("opacity", f2(ha)); el.brows.setAttribute("opacity", f2(so));
+    const o = sp * L + ha * 0.35 + li * 0.05;
+    el.beakD.setAttribute("transform", `translate(0 ${f2(o * 15)})`);
+    el.mouthIn.setAttribute("ry", f2(o * 11)); el.mouthIn.setAttribute("rx", f2(9 + o * 3)); el.mouthIn.setAttribute("cy", f2(119 + o * 8));
+    el.sound.forEach((p, i) => p.setAttribute("opacity", f2(li * clamp(L * 1.7 - i * 0.32, 0, 1))));
+    el.thought.setAttribute("opacity", f2(th));
+    el.thought.setAttribute("transform", `translate(160 50) scale(${f2(0.6 + 0.4 * th)}) translate(-160 -50)`);
+    el.tdot.forEach((d, i) => d.setAttribute("opacity", f2(0.3 + 0.7 * Math.max(0, Math.sin(t * 5 - i * 0.9)))));
+    el.stars.forEach((st, i) => {
+      const sc = ha * (0.5 + 0.5 * Math.sin(t * 5 + i * 2.1));
+      st.setAttribute("transform", `translate(${STARS_B[i][0]} ${f2(STARS_B[i][1] + y * 0.5)}) scale(${f2(Math.max(0, sc))}) rotate(${f2((t * 40 + i * 30) % 360)})`);
+      st.setAttribute("opacity", f2(ha));
+    });
+    el.blush.forEach((b) => b.setAttribute("opacity", f2(0.5 + 0.25 * ha - 0.3 * so)));
+  },
+  c(av, t) {
+    const { w, el } = av, L = av.level;
+    const li = w.listening, th = w.thinking, sp = w.speaking, ha = w.happy, so = w.sorry, id = w.idle;
+    const h = av.state === "happy" ? av.since : 9;
+    const hopV = ha > 0.01 ? Math.abs(Math.sin(h * Math.PI * 2.4)) * (h < 1.25 ? 1 : 0.25) : 0;
+    const y = Math.sin(t * 1.6) * 2 * id - hopV * 10 * ha + 4 * so;
+    const s = 1 + L * 0.04 * li + L * 0.02 * sp;
+    const rot = -7 * so + Math.sin(t * 0.5) * 1.5 * id + 3 * th;
+    el.face.setAttribute("transform", `translate(100 ${f2(100 + y)}) rotate(${f2(rot)}) scale(${f2(s)}) translate(-100 -100)`);
+    el.ring.setAttribute("transform", `rotate(${f2((t * 4) % 360)} 100 100)`);
+    const head = t * 3.4;
+    el.dots.forEach((d, i) => {
+      const q = i * TAU / 16;
+      const band = 0.35 + 0.65 * Math.abs(Math.sin(i * 1.9 + t * 7.3 + Math.sin(t * 2.1 + i)));
+      const dd = ((head - q) % TAU + TAU) % TAU, comet = Math.exp(-dd * 1.5);
+      const tw = Math.pow(Math.max(0, Math.sin(t * 1.5 - i * 0.4)), 6);
+      const r = 86 + li * L * band * 15 + sp * L * band * 4 - so * 2;
+      const size = 4.2 + li * L * band * 2.4 + th * comet * 3.4 - th * 0.8 + ha * 1.0 - so * 0.9 + id * tw * 1.6;
+      d.setAttribute("cx", f2(100 + Math.cos(q - Math.PI / 2) * r)); d.setAttribute("cy", f2(100 + Math.sin(q - Math.PI / 2) * r + so * 3));
+      d.setAttribute("r", f2(Math.max(1, size))); d.setAttribute("opacity", f2(clamp(1 - th * (1 - comet) * 0.7 - so * 0.5, 0.15, 1)));
+    });
+    if (av.state === "happy") av.kolam = clamp(av.since / 1.2, 0, 1);
+    const drawn = 1 - Math.pow(1 - av.kolam, 3);
+    el.kolam.forEach((k) => { k.setAttribute("stroke-dashoffset", (1 - drawn).toFixed(4)); k.setAttribute("opacity", f2(ha * 0.9)); });
+    const lx = (Math.sin(t * 0.45) * 2.4 + Math.sin(t * 0.19) * 1.2) * id + 6 * th - so;
+    const ly = -6 * th + 4 * so + li;
+    el.eyes.setAttribute("transform", `translate(${f2(lx)} ${f2(ly)})`);
+    const open = Math.max(0.06, (1 + 0.1 * li - 0.25 * th - 0.4 * so) * (1 - 0.94 * av.blink));
+    const eh = 26 * open;
+    el.eyeL.setAttribute("height", f2(eh)); el.eyeR.setAttribute("height", f2(eh));
+    el.eyeL.setAttribute("y", f2(97 - eh / 2)); el.eyeR.setAttribute("y", f2(97 - eh / 2));
+    el.eyes.setAttribute("opacity", f2(1 - ha)); el.happyEyes.setAttribute("opacity", f2(ha)); el.brows.setAttribute("opacity", f2(so));
+    const mw = 32 + 12 * ha - 14 * th - 6 * so + 2 * sp;
+    const smile = 0.45 * id + 0.35 * li + 0.3 * sp + 1.3 * ha - 0.9 * so;
+    const mx = 100 + lx * 0.4 + 4 * th, my = 125 + ly * 0.35, A = sp * L * 10;
+    let d = "";
+    for (let k = 0; k <= 12; k++) {
+      const u = k / 12, x = mx - mw / 2 + u * mw;
+      const yb = my + smile * 7 * (1 - Math.pow(2 * u - 1, 2)) - smile * 1.5;
+      const yw = A * Math.sin(Math.PI * u) * Math.sin(u * TAU * 2.2 + t * 16);
+      d += (k ? "L" : "M") + f2(x) + " " + f2(yb + yw);
+    }
+    el.mouth.setAttribute("d", d);
+  },
+};
+
+/* ---------- Avatar: one per place it appears ---------- */
+const STATES = ["idle", "listening", "thinking", "speaking", "happy", "sorry"];
+const STATE_WORDS = { idle: "Idle", listening: "Listening", thinking: "Thinking", speaking: "Speaking", happy: "Happy", sorry: "Sorry" };
+const avatars = new Set();
+const byHost = new WeakMap();
+const io = new IntersectionObserver((es) => es.forEach((e) => { const a = byHost.get(e.target); if (a) a.visible = e.isIntersecting; }), { rootMargin: "120px" });
+let uid = 0;
+class Avatar {
+  constructor(host, kind, { label = "Assistant", decorative = false } = {}) {
+    this.host = host; this.kind = kind; this.label = label; this.id = "av" + (++uid);
+    this.state = "idle"; this.t = Math.random() * 20; this.since = 0; this.level = 0; this.blink = 0;
+    this.blinkT = 1.5 + Math.random() * 2.5; this.blinkAt = -9; this.kolam = 0; this.visible = true; this.onLevel = null;
+    this.w = {}; STATES.forEach((s) => (this.w[s] = s === "idle" ? 1 : 0));
+    host.innerHTML = BUILD[kind](this.id);
+    this.svg = host.querySelector("svg");
+    if (decorative) this.svg.setAttribute("aria-hidden", "true");
+    else { this.svg.setAttribute("role", "img"); }
+    this.el = {};
+    this.svg.querySelectorAll("[data-k]").forEach((n) => {
+      const k = n.dataset.k;
+      if (k.endsWith("[]")) { const kk = k.slice(0, -2); (this.el[kk] ||= []).push(n); }
+      else if (!k.endsWith("-g")) this.el[k] = n;
+    });
+    avatars.add(this); byHost.set(host, this); io.observe(host);
+    this.setState("idle");
+  }
+  setState(s) {
+    if (!STATES.includes(s)) return;
+    if (s !== this.state) { this.state = s; this.since = 0; if (s === "happy") this.kolam = 0; }
+    if (this.svg.getAttribute("role") === "img") this.svg.setAttribute("aria-label", `${this.label}, ${STATE_WORDS[s].toLowerCase()}`);
+    if (calm) this.render(0);
+  }
+  destroy() { avatars.delete(this); io.unobserve(this.host); this.host.innerHTML = ""; }
+  render(dt) {
+    if (calm) {
+      STATES.forEach((k) => (this.w[k] = k === this.state ? 1 : 0));
+      this.level = this.state === "listening" ? 0.6 : this.state === "speaking" ? 0.55 : 0;
+      this.blink = 0; this.kolam = 1;
+      const t = 1.3, keep = this.since; this.since = 9;
+      DRAW[this.kind](this, t); this.since = keep;
+      if (this.onLevel) this.onLevel(this.level, this.state);
+      return;
+    }
+    this.t += dt; this.since += dt;
+    const k = 1 - Math.exp(-dt * 8);
+    for (const s of STATES) this.w[s] += ((s === this.state ? 1 : 0) - this.w[s]) * k;
+    let target = 0;
+    if (this.state === "listening") target = voice(this.t, 0.3) * 0.95;
+    else if (this.state === "speaking") target = voice(this.t * 1.08, 1.9);
+    this.level += (target - this.level) * (target > this.level ? 1 - Math.exp(-dt * 28) : 1 - Math.exp(-dt * 10));
+    this.blinkT -= dt;
+    if (this.blinkT <= 0) { this.blinkAt = this.t; this.blinkT = Math.random() < 0.15 ? 0.32 : 2.4 + Math.random() * 3.2; }
+    const bt = this.t - this.blinkAt;
+    this.blink = bt >= 0 && bt < 0.17 ? Math.sin(bt / 0.17 * Math.PI) : 0;
+    DRAW[this.kind](this, this.t);
+    if (this.onLevel) this.onLevel(this.level, this.state);
+  }
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!calm && !document.hidden) for (const a of avatars) if (a.visible) a.render(dt);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Data for the looks ---------- */
+const LOOKS = {
+  a: { name: "Deepa", te: "దీప", tag: "The glowing light", line: "A warm glowing light with a face. Calm and modern, like Siri or Gemini, but friendlier.",
+    states: { idle: "Glows softly and blinks", listening: "Swells and sends ripples with your voice", thinking: "Looks up while little sparks circle", speaking: "Its mouth moves with the voice", happy: "Hops, with a sparkle", sorry: "Dims a little and looks sorry" },
+    good: "Calm and modern. Sharp at every size, from the small round button to a full screen.",
+    watch: "The least personality of the three. Its warm orange is its own colour, not the school's." },
+  b: { name: "Chiluka", te: "చిలుక", tag: "The friendly parrot", line: "A round green parrot on a pencil. Parrots talk (చిలుక పలుకులు). Playful and easy to remember.",
+    states: { idle: "Sits on its pencil and blinks", listening: "Tilts its head; sound waves come in", thinking: "Wing on its chin, a thought bubble fills", speaking: "Its beak moves with the voice", happy: "Hops and flaps its wings", sorry: "Folds its wings in a namaste" },
+    good: "The most charming. Staff, parents and children will remember it.",
+    watch: "Playful, so some principals may find it childish. The most work to animate well." },
+  c: { name: "Muggu", te: "ముగ్గు", tag: "The dot face", line: "A simple face inside a ring of muggu dots. Clean and quiet, and it takes each school's own colour.",
+    states: { idle: "Its dots twinkle one by one", listening: "The dot ring dances with your voice", thinking: "A light runs around the dots", speaking: "Its mouth becomes a voice line", happy: "A muggu line is drawn around the dots", sorry: "The dots dim and the face tilts" },
+    good: "Fits School OS best and follows the school's colour. Try the colours below.",
+    watch: "Less cute. Feelings show mostly through the dots and the mouth line." },
+};
+const ACCENTS = [["", "12 112 100", "Lagoon"], ["royal", "37 88 216", "Royal"], ["plum", "122 52 186", "Plum"], ["saffron", "184 88 6", "Saffron"], ["rose", "190 28 78", "Rose"], ["graphite", "46 60 78", "Graphite"]];
+
+let preview = ["a", "b", "c"].includes(store.get("look")) ? store.get("look") : "a";
+
+/* ---------- Pick list ---------- */
+const picks = $("#picks");
+const pickAvatars = [];
+for (const k of ["a", "b", "c"]) {
+  const L = LOOKS[k];
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "pick"; b.dataset.kind = k;
+  b.innerHTML = `<span class="pick-av"><div class="av-host"></div></span><span class="pick-text"><b><span class="letter">${k.toUpperCase()}</span>${L.name} <span lang="te" class="muted" style="font-weight:600">${L.te}</span></b><span class="line">${L.line}</span></span><span class="pick-tag">Showing below</span>`;
+  picks.append(b);
+  pickAvatars.push(new Avatar($(".av-host", b), k, { decorative: true }));
+  b.addEventListener("click", () => setPreview(k));
+}
+
+/* ---------- Look cards ---------- */
+const cards = $("#lookCards");
+const cardAvatars = {};
+for (const k of ["a", "b", "c"]) {
+  const L = LOOKS[k];
+  const art = document.createElement("article");
+  art.className = "look"; art.dataset.kind = k;
+  art.innerHTML = `<header><span class="letter">${k.toUpperCase()}</span><div><h3>${L.name}<span lang="te">${L.te}</span></h3><p>${L.tag}</p></div></header>
+    <div class="stage"><div class="av-host"></div><div class="floor"></div><div class="meter" aria-hidden="true"><i></i>voice (made up)</div></div>
+    <p class="state-line" aria-live="polite"></p>
+    <div class="states" role="group" aria-label="${L.name}: choose a state">${STATES.map((s) => `<button type="button" data-state="${s}" aria-pressed="${s === "idle"}">${STATE_WORDS[s]}</button>`).join("")}</div>
+    ${k === "c" ? `<div class="swatches" role="group" aria-label="School colour"><span>School colour</span>${ACCENTS.map(([key, rgb, nm]) => `<button type="button" data-accent="${key}" aria-pressed="${key === ""}" aria-label="${nm}" title="${nm}" style="background:rgb(${rgb})"></button>`).join("")}</div>` : ""}
+    <ul class="pc"><li class="good"><b>Good</b><span>${L.good}</span></li><li class="watch"><b>Watch</b><span>${L.watch}</span></li></ul>`;
+  cards.append(art);
+  const av = new Avatar($(".av-host", art), k, { label: `${k.toUpperCase()}, ${L.name}` });
+  const meter = $(".meter", art), bar = $(".meter i", art);
+  av.onLevel = (lv, st) => { meter.classList.toggle("on", st === "listening" || st === "speaking"); bar.style.setProperty("--lvl", lv.toFixed(3)); };
+  cardAvatars[k] = av;
+  const line = $(".state-line", art);
+  const show = (s) => { av.setState(s); $$(".states button", art).forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.state === s))); line.innerHTML = `<b>${STATE_WORDS[s]}</b> · ${L.states[s]}`; };
+  art.show = show; show("idle");
+  $$(".states button", art).forEach((x) => x.addEventListener("click", () => { stopStory(); show(x.dataset.state); syncAllSeg(); }));
+}
+const allSeg = $("#allSeg");
+allSeg.innerHTML = STATES.map((s) => `<button type="button" data-state="${s}" aria-pressed="false">${STATE_WORDS[s]}</button>`).join("");
+function syncAllSeg() {
+  const st = $$(".look").map((a) => cardAvatars[a.dataset.kind].state);
+  const same = st.every((x) => x === st[0]) ? st[0] : null;
+  $$("button", allSeg).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === same)));
+}
+$$("button", allSeg).forEach((b) => b.addEventListener("click", () => { stopStory(); $$(".look").forEach((a) => a.show(b.dataset.state)); syncAllSeg(); }));
+syncAllSeg();
+let storyTimer = null;
+const STORY = [["idle", 1200], ["listening", 2800], ["thinking", 1900], ["speaking", 3000], ["happy", 2200], ["sorry", 2200], ["idle", 0]];
+function stopStory() { if (storyTimer) clearTimeout(storyTimer); storyTimer = null; $("#storyBtn").innerHTML = `${ic("play", 18)}<span>Play the story</span>`; }
+$("#storyBtn").addEventListener("click", () => {
+  if (storyTimer) { stopStory(); return; }
+  $("#storyBtn").innerHTML = `${ic("pause", 18)}<span>Stop the story</span>`;
+  let i = 0;
+  const step = () => {
+    const [s, ms] = STORY[i];
+    $$(".look").forEach((a) => a.show(s)); syncAllSeg();
+    i++;
+    if (i < STORY.length) storyTimer = setTimeout(step, ms); else stopStory();
+  };
+  step();
+});
+
+/* ---------- The assistant panel ---------- */
+const SUGS = [
+  { text: "Who is absent today?", play: "ask" },
+  { text: "How much fee came in today?", play: "fee" },
+  { text: "Add Ravi Kumar to 5-A", play: "do" },
+  { text: "ఈ రోజు ఎవరు రాలేదు?", play: "telugu", lang: "te" },
+];
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const T = (lang, text) => (lang ? `<span lang="${lang}">${esc(text)}</span>` : esc(text));
+function el(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); const n = d.firstElementChild; paintIcons(n); return n; }
+const panels = [];
+class Panel {
+  constructor(root, variant) {
+    this.root = root; this.variant = variant; this.run = 0; this.state = "idle";
+    root.innerHTML = `
+      <div class="p-head"><div class="p-title"><span class="p-name">School OS Assistant</span><span class="p-lang">English · <span lang="te">తెలుగు</span></span></div>
+        <button class="ib p-close" type="button" aria-label="Close the assistant">${ic("x", 20)}</button></div>
+      <div class="p-hero"><div class="p-av av-host" aria-hidden="true"></div><div class="p-words"><p class="p-status" aria-live="polite"></p><p class="p-heard" data-hint=""></p></div></div>
+      <div class="p-msgs" role="log" aria-label="Conversation" tabindex="0"></div>
+      <div class="p-toast" role="status" hidden></div>
+      <div class="p-sugs" role="group" aria-label="Try asking">${SUGS.map((s) => `<button type="button" class="chip" data-play="${s.play}"${s.lang ? ` lang="${s.lang}"` : ""}>${s.text}</button>`).join("")}</div>
+      <form class="p-comp" autocomplete="off">
+        <div class="p-field"><input class="p-input" type="text" placeholder="Type here, or tap the mic" aria-label="Type to the assistant"><button class="p-send" type="submit" aria-label="Send">${ic("up", 18)}</button></div>
+        <button class="p-mic" type="button" aria-label="Tap to talk"><span class="p-ring" aria-hidden="true"></span><span class="p-mic-ic mic">${ic("mic", 28)}</span><span class="p-mic-ic stop">${ic("stop", 24)}</span></button>
+      </form>
+      <p class="p-micline" aria-hidden="true"></p>`;
+    this.avHost = $(".p-av", root); this.statusEl = $(".p-status", root); this.heard = $(".p-heard", root);
+    this.msgs = $(".p-msgs", root); this.toastEl = $(".p-toast", root); this.input = $(".p-input", root);
+    this.field = $(".p-field", root); this.mic = $(".p-mic", root); this.ring = $(".p-ring", root); this.micline = $(".p-micline", root);
+    this.makeAvatar();
+    $$(".chip", root).forEach((c) => c.addEventListener("click", () => this.play(c.dataset.play)));
+    $(".p-close", root).addEventListener("click", () => this.toast("In School OS this closes the assistant. The conversation stays for today."));
+    this.input.addEventListener("input", () => this.field.classList.toggle("has-text", this.input.value.trim() !== ""));
+    $("form", root).addEventListener("submit", (e) => { e.preventDefault(); const v = this.input.value.trim(); if (!v) return; this.input.value = ""; this.field.classList.remove("has-text"); this.play("typed", v); });
+    this.mic.addEventListener("click", () => this.micTap());
+    panels.push(this);
+  }
+  makeAvatar() {
+    if (this.av) this.av.destroy();
+    this.av = new Avatar(this.avHost, preview, { decorative: true });
+    this.av.onLevel = (lv, st) => { this.ring.style.setProperty("--ring", (1 + (st === "listening" || st === "speaking" ? lv * 0.32 : 0)).toFixed(3)); };
+    this.av.setState(this.state);
+  }
+  setState(s, words, lang) {
+    this.state = s; this.root.dataset.state = s; this.av.setState(s);
+    this.statusEl.innerHTML = T(lang, words);
+    const lines = { listening: ["Listening… tap to stop", "Stop listening"], thinking: ["Working… tap to stop", "Stop"], speaking: ["Speaking… tap to interrupt", "Stop speaking and listen"] };
+    const [line, label] = lines[s] || ["Tap the mic to talk", "Tap to talk"];
+    this.micline.textContent = line; this.mic.setAttribute("aria-label", label);
+    this.heard.dataset.hint = s === "idle" ? "English, తెలుగు or both" : "";
+  }
+  scroll() { const top = this.msgs.scrollHeight; if (calm) this.msgs.scrollTop = top; else this.msgs.scrollTo({ top, behavior: "smooth" }); }
+  add(node) { this.msgs.append(node); this.scroll(); return node; }
+  user(text, lang, via) { return this.add(el(`<div class="m-user">${T(lang, text)}${via ? `<small>${via}</small>` : ""}</div>`)); }
+  bot(html) { return this.add(el(`<div class="m-bot">${html}</div>`)); }
+  clear() { this.msgs.innerHTML = ""; this.heard.textContent = ""; this.toastEl.hidden = true; }
+  toast(text) { this.toastEl.textContent = text; this.toastEl.hidden = false; clearTimeout(this.tt); this.tt = setTimeout(() => (this.toastEl.hidden = true), 3200); }
+  sleep(ms, id) { return new Promise((res, rej) => setTimeout(() => (id === this.run ? res() : rej("stop")), ms)); }
+  async hear(id, text, lang) {
+    this.setState("listening", lang === "te" ? "వింటున్నాను…" : "Listening…", lang);
+    const words = text.split(" ");
+    this.heard.textContent = ""; if (lang) this.heard.lang = lang; else this.heard.removeAttribute("lang");
+    await this.sleep(500, id);
+    for (let i = 0; i < words.length; i++) { await this.sleep(240 + Math.random() * 140, id); this.heard.textContent = words.slice(0, i + 1).join(" "); }
+    await this.sleep(650, id);
+    this.heard.textContent = "";
+    this.user(text, lang, "Said");
+  }
+  async think(id, words, lang, ms = 1300) { this.setState("thinking", words, lang); await this.sleep(ms, id); }
+  play(name, arg) {
+    const id = ++this.run;
+    const fn = SCRIPTS[name];
+    if (!fn) return;
+    fn(this, id, arg).catch((e) => { if (e !== "stop") throw e; });
+  }
+  micTap() {
+    const s = this.state;
+    if (s === "listening" || s === "thinking") { this.run++; this.heard.textContent = ""; this.setState("idle", "Stopped. Nothing was sent."); return; }
+    if (s === "speaking") { this.play("interrupted"); return; }
+    this.play(Math.random() < 0.5 ? "ask" : "fee");
+  }
+}
+
+/* Cards */
+const C = {
+  absent(lang) {
+    const te = lang === "te";
+    return el(`<div class="card answer">
+      <div class="c-top"><span class="eyebrow">Attendance · today</span><span class="sample">SAMPLE</span></div>
+      <p class="big"${te ? ' lang="te"' : ""}><b>23</b>${te ? "మంది విద్యార్థులు ఈ రోజు రాలేదు" : "students are absent today"}</p>
+      <p class="src">Out of 435 · whole school · Monday, 16-11-2026, 10:15 AM</p>
+      <ul class="mini" aria-label="By class"><li>5-A <b>4</b></li><li>6-B <b>3</b></li><li>8-C <b>3</b></li><li>13 more in 7 classes</li></ul>
+      <div class="c-btns"><button type="button" class="btn primary" data-open="Attendance Management, Absent list for today">${te ? '<span lang="te">పూర్తి స్క్రీన్ తెరవండి</span>' : "Open the full screen"} <span data-ic="arrow" data-size="18"></span></button><button type="button" class="btn" data-open="the message preview for 23 parents, with the count and cost">Message parents</button></div>
+    </div>`);
+  },
+  fee(lang) {
+    const te = lang === "te";
+    return el(`<div class="card answer">
+      <div class="c-top"><span class="eyebrow">Fee Management · today</span><span class="sample">SAMPLE</span></div>
+      <p class="big"${te ? ' lang="te"' : ""}><b>₹1,16,400</b>${te ? "ఈ రోజు ఫీజు వచ్చింది" : "came in today"}</p>
+      <p class="src"${te ? ' lang="te"' : ""}>${te ? "38 రసీదులు · నగదు ₹72,400 · UPI ₹44,000" : "38 receipts · cash ₹72,400 · UPI ₹44,000"}</p>
+      <p class="src">Monday, 16-11-2026, up to 10:15 AM · all classes</p>
+      <div class="c-btns" style="margin-top:12px"><button type="button" class="btn primary" data-open="Fee Management, Collection details for today">${te ? '<span lang="te">పూర్తి స్క్రీన్ తెరవండి</span>' : "Open the full screen"} <span data-ic="arrow" data-size="18"></span></button></div>
+    </div>`);
+  },
+  approvals() {
+    return el(`<div class="card answer">
+      <div class="c-top"><span class="eyebrow">Approvals</span><span class="sample">SAMPLE</span></div>
+      <p class="big"><b>3</b>approvals are waiting for you</p>
+      <ul class="mini"><li>Leave <b>2</b></li><li>Discount <b>1</b></li></ul>
+      <div class="c-btns"><button type="button" class="btn primary" data-open="the Approvals list">Open Approvals <span data-ic="arrow" data-size="18"></span></button></div>
+    </div>`);
+  },
+  confirm(p) {
+    const n = el(`<div class="card confirm" role="group" aria-label="Please check before I do this">
+      <div class="c-top"><span class="eyebrow"><span data-ic="userplus" data-size="16"></span>Please check before I do this</span><span class="sample">SAMPLE</span></div>
+      <p class="c-title">Add student Ravi Kumar to Class 5-A?</p>
+      <dl class="c-rows">
+        <div><dt>Student</dt><dd>Ravi Kumar, son of Suresh Kumar<br><small>Admission no. SS/2026/00123</small></dd></div>
+        <div><dt>Class and section</dt><dd class="chg"><s>Not set</s><span class="sr-only">changes to</span><span data-ic="arrow" data-size="14" aria-hidden="true"></span><b>5-A</b></dd></div>
+        <div><dt>Roll number</dt><dd class="chg"><b>31</b><small>next free number</small></dd></div>
+        <div><dt>Also happens</dt><dd>Class 5 fees for 2026-27 are added: ₹38,500</dd></div>
+      </dl>
+      <p class="c-note"><span data-ic="shield" data-size="16"></span><span>Nothing changes until you tap Yes. You can undo it for 10 seconds.</span></p>
+      <div class="c-btns"><button type="button" class="btn primary grow" data-yes><span data-ic="check" data-size="18"></span>Yes, do it</button><button type="button" class="btn" data-no style="min-width:88px">No</button></div>
+    </div>`);
+    const btns = $(".c-btns", n);
+    $("[data-yes]", n).addEventListener("click", async () => {
+      const id = ++p.run;
+      btns.remove();
+      const done = el(`<div class="done-row" role="status"><span data-ic="checkc" data-size="18"></span><span>Done. Ravi Kumar is in 5-A now, roll number 31.</span><button type="button" class="linkbtn">Undo (10)</button></div>`);
+      n.append(done); p.scroll();
+      p.setState("happy", "Done! Ravi Kumar is in 5-A.");
+      const undo = $(".linkbtn", done); let left = 10;
+      const tick = setInterval(() => { left--; if (!undo.isConnected || left <= 0) { clearInterval(tick); undo.remove(); return; } undo.textContent = `Undo (${left})`; }, 1000);
+      undo.addEventListener("click", () => {
+        clearInterval(tick); p.run++;
+        done.className = "done-row no"; done.innerHTML = `${ic("undo", 18)}<span>Undone. Ravi Kumar has no section again.</span>`;
+        p.setState("idle", "Undone. Nothing else changed.");
+      });
+      try { await p.sleep(2200, id); p.setState("idle", "Anything else?"); } catch { /* moved on */ }
+    });
+    $("[data-no]", n).addEventListener("click", () => {
+      p.run++; btns.remove();
+      n.append(el(`<div class="done-row no" role="status"><span data-ic="x" data-size="18"></span><span>Not done. Nothing was changed.</span></div>`)); p.scroll();
+      p.setState("idle", "Okay, nothing changed.");
+    });
+    return n;
+  },
+  money(p) {
+    const n = el(`<div class="card money" role="group" aria-label="Money: your own tap">
+      <div class="c-top"><span class="eyebrow"><span data-ic="rupee" data-size="16"></span>Money: needs your own tap</span><span class="sample">SAMPLE</span></div>
+      <p class="c-title">Collect ₹5,000 from Ravi Kumar (5-A) in cash?</p>
+      <dl class="c-rows">
+        <div><dt>Pays for</dt><dd>Term 2 tuition fee</dd></div>
+        <div><dt>Fees due</dt><dd class="chg"><s>₹12,500</s><span class="sr-only">changes to</span><span data-ic="arrow" data-size="14" aria-hidden="true"></span><b>₹7,500</b></dd></div>
+        <div><dt>Receipt</dt><dd>Made when you press Collect. Parent told on WhatsApp.</dd></div>
+      </dl>
+      <p class="c-note"><span data-ic="lock" data-size="16"></span><span>I never move money myself. I've filled the Collect Fee form; check it and press <b>Collect ₹5,000</b> there.</span></p>
+      <div class="c-btns"><button type="button" class="btn primary grow" data-open-form>Open the filled form <span data-ic="arrow" data-size="18"></span></button><button type="button" class="btn" data-no style="min-width:88px">No</button></div>
+    </div>`);
+    const btns = $(".c-btns", n);
+    $("[data-open-form]", n).addEventListener("click", () => { p.toast("In School OS, Collect Fee opens here with everything filled in. You press Collect ₹5,000."); p.setState("idle", "Opening Collect Fee…"); });
+    $("[data-no]", n).addEventListener("click", () => { p.run++; btns.remove(); n.append(el(`<div class="done-row no" role="status"><span data-ic="x" data-size="18"></span><span>Not done. No money was collected.</span></div>`)); p.scroll(); p.setState("idle", "Okay, nothing changed."); });
+    return n;
+  },
+  sorry() {
+    return el(`<div class="card sorry-card">
+      <p class="c-title" style="margin-top:0">I can't delete a fee payment.</p>
+      <p style="font-size:14.5px;color:rgb(var(--ink-2));margin-bottom:12px">No one can: payments are never deleted, so receipts and the Day Book always match. You can cancel it with a reason instead.</p>
+      <div class="c-btns"><button type="button" class="btn primary" data-open="Fee Management, Cancel payment, for Anil's receipt">Open Cancel payment <span data-ic="arrow" data-size="18"></span></button></div>
+    </div>`);
+  },
+};
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-open]");
+  if (!b) return;
+  const p = panels.find((x) => x.root.contains(b));
+  if (p) p.toast(`In School OS this opens ${b.dataset.open}.`);
+});
+
+const SCRIPTS = {
+  async ask(p, id) {
+    p.clear(); await p.hear(id, "Who is absent today?");
+    await p.think(id, "Looking at today's attendance…");
+    p.setState("speaking", "23 students are absent today. Class 5-A has the most, with 4."); p.add(C.absent());
+    await p.sleep(3200, id); p.setState("idle", "Anything else?");
+  },
+  async fee(p, id) {
+    p.clear(); await p.hear(id, "How much fee came in today?");
+    await p.think(id, "Adding up today's receipts…");
+    p.setState("speaking", "₹1,16,400 came in today, from 38 receipts."); p.add(C.fee());
+    await p.sleep(3000, id); p.setState("idle", "Anything else?");
+  },
+  async do(p, id) {
+    p.clear(); await p.hear(id, "Add Ravi Kumar to 5-A");
+    await p.think(id, "Finding Ravi Kumar…", null, 1200);
+    p.setState("speaking", "I found him. Please check this first."); p.add(C.confirm(p));
+    await p.sleep(2000, id); p.setState("idle", "Waiting for your yes or no");
+  },
+  async money(p, id) {
+    p.clear(); await p.hear(id, "Collect 5,000 from Ravi Kumar, cash");
+    await p.think(id, "Opening Ravi Kumar's fees…", null, 1200);
+    p.setState("speaking", "This is money, so you press the button. I've filled the form."); p.add(C.money(p));
+    await p.sleep(2600, id); p.setState("idle", "Check the form, then press Collect there");
+  },
+  async sorry(p, id) {
+    p.clear(); await p.hear(id, "Delete Anil's fee receipt from yesterday");
+    await p.think(id, "Checking what's allowed…", null, 1100);
+    p.setState("sorry", "Sorry, I can't do that."); p.add(C.sorry());
+    await p.sleep(3200, id); p.setState("idle", "I can open the right screen for you");
+  },
+  async telugu(p, id) {
+    p.clear(); await p.hear(id, "ఈ రోజు ఎవరు రాలేదు?", "te");
+    await p.think(id, "ఈ రోజు హాజరు చూస్తున్నాను…", "te");
+    p.setState("speaking", "ఈ రోజు 23 మంది విద్యార్థులు రాలేదు.", "te"); p.add(C.absent("te"));
+    await p.sleep(3200, id); p.setState("idle", "ఇంకేమైనా కావాలా?", "te");
+  },
+  async interrupt(p, id) {
+    p.clear(); await p.hear(id, "Tell me about today");
+    await p.think(id, "Looking at today…", null, 1000);
+    p.setState("speaking", "412 of 435 students are present, ₹1,16,400 fee came in, 3 approvals are waiting, and…");
+    await p.sleep(2300, id);
+    p.mic.animate?.([{ transform: "scale(1)" }, { transform: "scale(.9)" }, { transform: "scale(1)" }], { duration: 260 });
+    return SCRIPTS.interrupted(p, id, true);
+  },
+  async interrupted(p, id, cont) {
+    if (!cont) id = p.run;
+    p.setState("listening", "I stopped. Go ahead…");
+    p.bot(`<span class="muted" style="font-size:13.5px">You tapped the mic, so I stopped speaking.</span>`);
+    const words = "Just the approvals".split(" ");
+    await p.sleep(700, id);
+    for (let i = 0; i < words.length; i++) { await p.sleep(300, id); p.heard.textContent = words.slice(0, i + 1).join(" "); }
+    await p.sleep(600, id); p.heard.textContent = ""; p.user("Just the approvals", null, "Said");
+    await p.think(id, "Opening your approvals…", null, 900);
+    p.setState("speaking", "3 approvals are waiting for you: 2 leave requests and 1 discount."); p.add(C.approvals());
+    await p.sleep(2800, id); p.setState("idle", "Anything else?");
+  },
+  async typed(p, id, text) {
+    const s = text.toLowerCase();
+    const te = /[ఀ-౿]/.test(text);
+    p.user(text, te ? "te" : null, "Typed");
+    if (/absent|రాలేదు|leave/.test(s)) { await p.think(id, "Looking at today's attendance…"); p.setState("speaking", "23 students are absent today."); p.add(C.absent(te ? "te" : null)); }
+    else if (/fee|ఫీజు|collect|money/.test(s)) { await p.think(id, "Adding up today's receipts…"); p.setState("speaking", "₹1,16,400 came in today."); p.add(C.fee(te ? "te" : null)); }
+    else if (/ravi|add|5-a|5a/.test(s)) { await p.think(id, "Finding Ravi Kumar…"); p.setState("speaking", "Please check this first."); p.add(C.confirm(p)); }
+    else if (/delete|remove|cancel/.test(s)) { await p.think(id, "Checking what's allowed…"); p.setState("sorry", "Sorry, I can't do that."); p.add(C.sorry()); }
+    else {
+      await p.think(id, "Thinking…", null, 900);
+      p.setState("sorry", "I don't know that yet.");
+      p.bot("This page is a design sample, so I only know the sample questions. In School OS I answer from your school's records. When the records don't say, I tell you so and open the closest screen.");
+    }
+    await p.sleep(2800, id); p.setState("idle", "Anything else?");
+  },
+};
+
+function fillDefaults(p) {
+  p.run++; p.clear();
+  if (p.variant === "phone") {
+    p.user("Who is absent today?", null, "Said"); p.add(C.absent());
+    p.user("Add Ravi Kumar to 5-A", null, "Said"); p.add(C.confirm(p));
+    p.setState("idle", "Waiting for your yes or no");
+  } else {
+    p.user("ఈ రోజు fee ఎంత వచ్చింది?", "te", "Said"); p.add(C.fee("te"));
+    p.user("Collect 5,000 from Ravi Kumar, cash", null, "Said"); p.add(C.money(p));
+    p.setState("idle", "Check the form, then press Collect there");
+  }
+  requestAnimationFrame(() => { p.msgs.scrollTop = p.msgs.scrollHeight; });
+}
+
+/* ---------- Page wiring ---------- */
+paintIcons();
+const phonePanel = new Panel($("#panelPhone"), "phone");
+const deskPanel = new Panel($("#panelDesk"), "desk");
+fillDefaults(phonePanel); fillDefaults(deskPanel);
+const minis = $$("[data-mini]").map((h) => ({ h, av: null }));
+function makeMinis() { minis.forEach((m) => { if (m.av) m.av.destroy(); m.av = new Avatar(m.h, preview, { decorative: true }); }); }
+makeMinis();
+
+function setPreview(k) {
+  preview = k; store.set("look", k);
+  $$(".pick").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.kind === k)));
+  $$(".look").forEach((a) => a.classList.toggle("is-preview", a.dataset.kind === k));
+  panels.forEach((p) => p.makeAvatar()); makeMinis();
+}
+setPreview(preview);
+
+$$("[data-demo]").forEach((b) => b.addEventListener("click", () => {
+  const d = b.dataset.demo;
+  panels.forEach((p) => (d === "reset" ? fillDefaults(p) : p.play(d)));
+}));
+$("#fabPhone").addEventListener("click", () => { phonePanel.input.focus({ preventScroll: true }); phonePanel.root.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "center" }); phonePanel.toast("This is the same assistant, open."); });
+$("#askDesk").addEventListener("click", () => { deskPanel.input.focus({ preventScroll: true }); deskPanel.toast("The assistant is open on the right."); });
+
+/* Theme: auto (device), light or dark */
+const root = document.documentElement;
+function setTheme(m) {
+  if (m === "light" || m === "dark") root.dataset.theme = m; else delete root.dataset.theme;
+  store.set("theme", m);
+  $$("[data-theme-set]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeSet === m)));
+}
+setTheme(store.get("theme") || "auto");
+$$("[data-theme-set]").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.themeSet)));
+
+/* School colour (look C follows it; so does the page) */
+function setAccent(a) {
+  if (a) root.dataset.accent = a; else delete root.dataset.accent;
+  store.set("accent", a);
+  $$("[data-accent]").forEach((b) => { if (b.tagName === "BUTTON") b.setAttribute("aria-pressed", String(b.dataset.accent === a)); });
+}
+setAccent(store.get("accent") || "");
+$$("button[data-accent]").forEach((b) => b.addEventListener("click", () => setAccent(b.dataset.accent)));
+
+/* Calm motion */
+const calmBtn = $("#calmBtn");
+function setCalm(v, save) {
+  calm = v; calmBtn.setAttribute("aria-pressed", String(v));
+  if (save) store.set("calm", v ? "1" : "0");
+  for (const a of avatars) a.render(0);
+}
+setCalm(calm, false);
+calmBtn.addEventListener("click", () => setCalm(!calm, true));
+mq.addEventListener?.("change", (e) => { if (store.get("calm") === null) setCalm(e.matches, false); });
+
+/* Mock screens scale down to fit narrow screens */
+function fit(f) {
+  const w = +f.dataset.w, h = +f.dataset.h;
+  f.style.maxWidth = w + "px";
+  const s = Math.min(1, f.clientWidth / w);
+  f.firstElementChild.style.width = w + "px"; f.firstElementChild.style.height = h + "px";
+  f.firstElementChild.style.transform = `scale(${s})`;
+  f.style.height = h * s + "px";
+}
+const ro = new ResizeObserver((es) => es.forEach((e) => fit(e.target)));
+$$(".fit").forEach((f) => { fit(f); ro.observe(f); });
+
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

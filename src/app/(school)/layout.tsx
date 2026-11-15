@@ -31,6 +31,9 @@ import { AwayWatch } from "@/components/shell/away-watch";
 import { I18nProvider } from "@/lib/i18n/client";
 import { catalogueFor, makeT, personLanguage } from "@/lib/i18n/server";
 import type { T } from "@/lib/i18n/t";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { assistantPanelFor } from "@/lib/assistant/panel";
+import { fileLink } from "@/lib/files";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +71,14 @@ export default async function SchoolLayout({ children }: { children: React.React
   const ends = rules ? sessionEnds(current.session, rules) : null;
   // The person's own screen language, within the school's languages (00-global.md §1.4).
   const lang = personLanguage(current.user, current.school);
+  // The School OS Assistant: only when the school switched it on for this role (default off), never for support access.
+  const assistant = assistantPanelFor(current, lang);
+  const assistantLogo = assistant
+    ? await withSchool(current.ctx, async (tx) => {
+        const s = await tx.school.findFirst({ where: { id: current.school.id }, select: { logoFileId: true, logoUrl: true } });
+        return s?.logoFileId ? fileLink(s.logoFileId, current.school.id) : s?.logoUrl && /^(data:image\/|https:\/\/)/.test(s.logoUrl) ? s.logoUrl : null;
+      }).catch(() => null)
+    : null;
   const t = makeT(lang);
   const supportEnds = current.support ? endsWords(current.support.endsAt, new Date(), current.school.timeZone) : null;
   const banner = isPaused(current)
@@ -126,6 +137,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       )}
       <main id="main" tabIndex={-1} className="outline-none w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
+      {assistant && <AssistantPanel {...assistant} school={{ ...assistant.school, logoUrl: assistantLogo }} />}
     </AppShell>
     </I18nProvider>
   );

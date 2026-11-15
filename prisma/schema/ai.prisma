@@ -35,3 +35,28 @@ model AiCall {
   @@index([schoolId, createdAt])
   @@map("ai_call")
 }
+
+/// Assistant Conversation: one person's talk with the School OS Assistant
+/// (docs/assistant/plan.md). It keeps the conversation's language (set by the
+/// first message, changed only when the person clearly switches), the last few
+/// turns for follow-ups, and the one change prepared and not yet confirmed.
+/// Only the person who started it can read it (checked in the code).
+model AssistantConversation {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  userLoginId     String    @map("user_login_id") @db.Uuid
+  /// en, te or hi.
+  language        String    @default("en")
+  /// A different language seen in the last message(s): { lang, count }.
+  pendingLanguage Json?     @map("pending_language")
+  /// The last few turns: what the person said, the tools used and the reply.
+  turns           Json      @default("[]")
+  /// The change prepared and not yet confirmed: { id, kind, plan, at }.
+  prepared        Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
+
+  @@index([schoolId, userLoginId, updatedAt])
+  @@map("assistant_conversation")
+}

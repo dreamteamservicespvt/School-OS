@@ -14,6 +14,9 @@ import {
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { cx } from "@/components/ui/cx";
+import { Mascot, mascotStyles } from "@/components/assistant/mascot";
+import { MASCOT_CHARACTERS, type MascotCharacter } from "@/lib/assistant/mascot-state";
 
 /** A switch that looks like one, for a module or feature. */
 function SwitchLook({ on }: { on: boolean }) {
@@ -136,7 +139,7 @@ export function PreferencesForm({ weekStart, rollNumberOrder, mayEdit }: { weekS
   );
 }
 
-export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platformLimit }: { on: boolean; roles: { key: string; name: string }[]; chosen: string[]; mayEdit: boolean; dailyLimit: number | null; platformLimit: number }) {
+export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platformLimit, character }: { on: boolean; roles: { key: string; name: string }[]; chosen: string[]; mayEdit: boolean; dailyLimit: number | null; platformLimit: number; character: MascotCharacter }) {
   const [state, action] = useActionState(assistantAction, null);
   const [isOn, setIsOn] = useState(state?.values ? state.values.on === "on" : on);
   const [picked, setPicked] = useState<string[]>(state?.values?.aiRoles ? state.values.aiRoles.split(",") : chosen);
@@ -167,7 +170,33 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
           defaultValue={state?.values?.aiDailyLimit ?? (dailyLimit === null ? "" : String(dailyLimit))} placeholder={String(platformLimit)} disabled={!mayEdit}
           error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most allowed.`} />
       )}
+      {isOn && <CharacterChoice character={(state?.values?.assistantCharacter as MascotCharacter | undefined) ?? character} mayEdit={mayEdit} error={state?.errors?.assistantCharacter} />}
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save AI assistant" /></SubmitButton>}
     </form>
+  );
+}
+
+/** Robot or Cat: how the School assistant (talk or type) looks for everyone in the school. */
+function CharacterChoice({ character, mayEdit, error }: { character: MascotCharacter; mayEdit: boolean; error?: string }) {
+  const [picked, setPicked] = useState<MascotCharacter>(character);
+  return (
+    <fieldset>
+      <legend className="mb-1 text-sm font-medium"><Words k="School assistant look" /></legend>
+      <p className="mb-2 text-sm text-ink-2"><Words k="Everyone in the school sees the assistant as this character." /></p>
+      <div className="grid max-w-md grid-cols-2 gap-3">
+        {MASCOT_CHARACTERS.map((c) => (
+          <label key={c} className={cx("flex cursor-pointer flex-col items-center gap-1 rounded-xl border px-3 pb-3 pt-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", picked === c ? "border-brand bg-brand/5" : "border-line")}>
+            <span className="block w-full overflow-hidden rounded-lg">
+              <span className={cx(mascotStyles.stage, "flex justify-center pt-2 pb-3")}><Mascot character={c} feeling="idle" still className="w-24" /></span>
+            </span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <KeepCheck type="radio" name="assistantCharacter" value={c} checked={picked === c} disabled={!mayEdit} onChange={() => setPicked(c)} className="size-4 accent-brand" />
+              {c === "robot" ? <Words k="Robot" /> : <Words k="Cat" />}
+            </span>
+          </label>
+        ))}
+      </div>
+      {error && <p className="mt-1 text-sm text-danger">{error}</p>}
+    </fieldset>
   );
 }

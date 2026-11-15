@@ -86,6 +86,8 @@ export type Preferences = {
   aiRoles?: string[];
   /** Most requests to the AI service a day for this school (never more than DREAM TEAM's limit). */
   aiDailyLimit?: number | null;
+  /** How the School OS Assistant looks for everyone in the school: "robot" (the default) or "cat". */
+  assistantCharacter?: "robot" | "cat";
   secondBoard?: string | null;
   boardDefaults?: BoardDefaults;
   compliance?: { udiseCode?: string | null; boardSchoolCode?: string | null; registrationNumber?: string | null; panNumber?: string | null };

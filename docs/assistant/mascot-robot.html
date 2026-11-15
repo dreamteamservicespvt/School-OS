@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School OS Assistant</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="A live 3D School OS Assistant robot with feelings, demo questions and a voice.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --page: #dcd6ff;
+  --page-bg: radial-gradient(1200px 700px at 12% -10%, #c7b6ff 0%, rgba(199,182,255,0) 60%),
+             radial-gradient(1000px 700px at 100% 10%, #b3c4ff 0%, rgba(179,196,255,0) 60%),
+             linear-gradient(160deg, #e3dcff 0%, #d6deff 55%, #e6d9ff 100%);
+  --ink: #17143d;
+  --ink-2: #474470;
+  --card: rgba(255,255,255,0.78);
+  --card-border: rgba(118,104,230,0.22);
+  --card-shadow: 0 24px 60px -28px rgba(64,44,170,0.45);
+  --chip: #ffffff;
+  --chip-hover: #f3f0ff;
+  --chip-ink: #211d5c;
+  --chip-border: rgba(104,92,224,0.24);
+  --no-ink: #8a1640;
+  --no-bg: #fff2f6;
+  --no-border: rgba(196,40,96,0.28);
+  --accent: #5146e8;
+  --accent-ink: #ffffff;
+  --focus: #1f4fff;
+  --bubble-q: #5146e8;
+  --bubble-q-ink: #ffffff;
+  --bubble-a: #f1eeff;
+  --bubble-a-ink: #1d1a4a;
+  --tag: #e6e1ff;
+  --tag-ink: #3a2fb8;
+  --stage-shadow: 0 34px 70px -30px rgba(58,36,170,0.6);
+  --wave: #5a63f0;
+  --pill: rgba(255,255,255,0.86);
+  --pill-ink: #1b1846;
+  --press: #e9e5ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0a26;
+    --page-bg: radial-gradient(1100px 700px at 10% -10%, #34217e 0%, rgba(52,33,126,0) 60%),
+               radial-gradient(900px 700px at 100% 0%, #1d2d7e 0%, rgba(29,45,126,0) 60%),
+               linear-gradient(160deg, #120d33 0%, #0d0f2e 55%, #170f38 100%);
+    --ink: #f3f1ff;
+    --ink-2: #c4c0ef;
+    --card: rgba(28,23,72,0.72);
+    --card-border: rgba(150,136,255,0.24);
+    --card-shadow: 0 24px 60px -28px rgba(0,0,0,0.7);
+    --chip: rgba(255,255,255,0.07);
+    --chip-hover: rgba(255,255,255,0.13);
+    --chip-ink: #eeeaff;
+    --chip-border: rgba(170,156,255,0.28);
+    --no-ink: #ffc1d6;
+    --no-bg: rgba(255,80,140,0.10);
+    --no-border: rgba(255,120,170,0.34);
+    --accent: #7b72ff;
+    --accent-ink: #ffffff;
+    --focus: #9fc0ff;
+    --bubble-q: #6a60ff;
+    --bubble-q-ink: #ffffff;
+    --bubble-a: rgba(255,255,255,0.08);
+    --bubble-a-ink: #f1eeff;
+    --tag: rgba(140,124,255,0.22);
+    --tag-ink: #d9d3ff;
+    --stage-shadow: 0 34px 70px -30px rgba(0,0,0,0.8);
+    --wave: #8f97ff;
+    --pill: rgba(18,14,52,0.78);
+    --pill-ink: #f3f1ff;
+    --press: rgba(140,124,255,0.25);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0a26;
+  --page-bg: radial-gradient(1100px 700px at 10% -10%, #34217e 0%, rgba(52,33,126,0) 60%),
+             radial-gradient(900px 700px at 100% 0%, #1d2d7e 0%, rgba(29,45,126,0) 60%),
+             linear-gradient(160deg, #120d33 0%, #0d0f2e 55%, #170f38 100%);
+  --ink: #f3f1ff;
+  --ink-2: #c4c0ef;
+  --card: rgba(28,23,72,0.72);
+  --card-border: rgba(150,136,255,0.24);
+  --card-shadow: 0 24px 60px -28px rgba(0,0,0,0.7);
+  --chip: rgba(255,255,255,0.07);
+  --chip-hover: rgba(255,255,255,0.13);
+  --chip-ink: #eeeaff;
+  --chip-border: rgba(170,156,255,0.28);
+  --no-ink: #ffc1d6;
+  --no-bg: rgba(255,80,140,0.10);
+  --no-border: rgba(255,120,170,0.34);
+  --accent: #7b72ff;
+  --accent-ink: #ffffff;
+  --focus: #9fc0ff;
+  --bubble-q: #6a60ff;
+  --bubble-q-ink: #ffffff;
+  --bubble-a: rgba(255,255,255,0.08);
+  --bubble-a-ink: #f1eeff;
+  --tag: rgba(140,124,255,0.22);
+  --tag-ink: #d9d3ff;
+  --stage-shadow: 0 34px 70px -30px rgba(0,0,0,0.8);
+  --wave: #8f97ff;
+  --pill: rgba(18,14,52,0.78);
+  --pill-ink: #f3f1ff;
+  --press: rgba(140,124,255,0.25);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background-color: var(--page);
+  background-image: var(--page-bg);
+  overflow-x: hidden;
+  line-height: 1.45;
+}
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.page { max-width: 1320px; margin: 0 auto; padding: 12px 16px 32px; }
+.top { display: flex; align-items: center; justify-content: space-between; min-height: 56px; margin-bottom: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+.brand-mark { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+  background: linear-gradient(140deg, #6d5cff, #3f7bff); color: #fff; box-shadow: 0 6px 16px -6px rgba(80,70,240,.7); }
+.icon-btn { min-width: 44px; min-height: 44px; border-radius: 14px; border: 1px solid var(--chip-border);
+  background: var(--chip); display: inline-grid; place-items: center; cursor: pointer; }
+.icon-btn:hover { background: var(--chip-hover); }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.stage-card { position: relative; border-radius: 28px; overflow: hidden; box-shadow: var(--stage-shadow);
+  background: linear-gradient(170deg, #7b5cf0, #5a74ee 60%, #4b55d8); }
+.stage { position: relative; width: 100%; height: 370px; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; cursor: default; }
+.stage canvas.hot { cursor: pointer; }
+.stage-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #fff; font-weight: 600; }
+.state-pill { position: absolute; left: 12px; top: 12px; margin: 0;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+  background: var(--pill); color: var(--pill-ink); font-size: 14px; white-space: nowrap;
+  box-shadow: 0 8px 24px -10px rgba(20,10,80,.5); backdrop-filter: blur(10px); }
+.state-pill b { font-weight: 700; }
+.state-pill .dot { width: 9px; height: 9px; border-radius: 50%; background: #34d6ff; box-shadow: 0 0 10px #34d6ff; }
+.tap-hint { position: absolute; top: 12px; right: 12px; margin: 0; padding: 6px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.18); color: #fff; font-size: 12.5px; font-weight: 600; backdrop-filter: blur(6px); }
+
+.panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 28px;
+  box-shadow: var(--card-shadow); padding: 20px 16px 18px; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); min-width: 0; }
+.demo-badge { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 5px 11px; border-radius: 999px;
+  background: var(--tag); color: var(--tag-ink); font-size: 13px; font-weight: 700; }
+.panel h1 { margin: 0; font-size: 23px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 800; }
+.panel h1 .hl { background: linear-gradient(90deg, #6a4dff, #3f7bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+:root[data-theme="dark"] .panel h1 .hl { background-image: linear-gradient(90deg, #b9a8ff, #8fb4ff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .panel h1 .hl { background-image: linear-gradient(90deg, #b9a8ff, #8fb4ff); } }
+.lead { margin: 6px 0 14px; color: var(--ink-2); font-size: 16px; }
+
+.chips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
+.chip { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 10px 14px; border-radius: 16px; border: 1px solid var(--chip-border); background: var(--chip);
+  color: var(--chip-ink); font-weight: 600; font-size: 15px; cursor: pointer;
+  transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.chip:hover { background: var(--chip-hover); box-shadow: 0 6px 16px -10px rgba(60,40,180,.5); }
+.chip:active { transform: scale(.98); }
+.chip .ico { flex: 0 0 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: #fff; }
+.chip.no { margin-top: 8px; background: var(--no-bg); border-color: var(--no-border); color: var(--no-ink); font-weight: 600; }
+.chip.no .ico { background: linear-gradient(140deg, #ff6f9c, #d6336c); }
+
+.convo { margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.bubble { max-width: 92%; padding: 10px 13px; border-radius: 16px; font-size: 15px; }
+.bubble.q { align-self: flex-end; background: var(--bubble-q); color: var(--bubble-q-ink); border-bottom-right-radius: 6px; font-weight: 600; }
+.bubble.a { align-self: flex-start; background: var(--bubble-a); color: var(--bubble-a-ink); border-bottom-left-radius: 6px; }
+.bubble.a .tag { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; background: var(--tag); color: var(--tag-ink); font-size: 12px; font-weight: 700; vertical-align: 1px; }
+.bubble.a.no .tag { background: var(--no-bg); color: var(--no-ink); }
+.bubble.wait { color: var(--ink-2); font-style: italic; }
+
+.type-form { display: flex; gap: 8px; margin-top: 12px; }
+.type-form[hidden] { display: none; }
+.type-form input { flex: 1; min-width: 0; min-height: 48px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--chip-border); background: var(--chip); color: var(--ink); font-size: 16px; }
+.type-form input::placeholder { color: var(--ink-2); opacity: .85; }
+.btn { min-height: 48px; padding: 0 18px; border-radius: 14px; border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer; }
+
+.voice-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; position: relative; }
+.wave { display: none; align-items: center; gap: 3px; height: 40px; }
+.wave i { display: block; width: 4px; height: 8px; border-radius: 4px; background: var(--wave); opacity: .55; transform-origin: center; }
+.wave.on i { opacity: 1; animation: wv 0.9s ease-in-out infinite; }
+@keyframes wv { 0%,100% { transform: scaleY(.6); } 50% { transform: scaleY(3.4); } }
+.mic { width: 76px; height: 76px; border-radius: 50%; border: 0; cursor: pointer; color: #fff; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #7d9bff, #3e4fe8 60%, #3125c9);
+  box-shadow: 0 12px 28px -8px rgba(60,70,240,.75), 0 0 0 6px rgba(110,120,255,.18); position: relative; }
+.mic[aria-pressed="true"]::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(110,150,255,.8); animation: ping 1.2s ease-out infinite; }
+@keyframes ping { from { transform: scale(1); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
+.kbd { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--chip-border); background: var(--chip); cursor: pointer; display: grid; place-items: center; color: var(--chip-ink); }
+.kbd[aria-expanded="true"] { background: var(--press); }
+.mic-note { margin: 10px 0 0; text-align: center; font-size: 13.5px; color: var(--ink-2); min-height: 1.4em; }
+
+.feelings { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--card-border); }
+.feelings h2 { margin: 0 0 10px; font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.feel-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.feel { min-height: 52px; padding: 7px 10px; border-radius: 14px; border: 1px solid var(--chip-border); background: var(--chip); cursor: pointer; text-align: left; display: flex; flex-direction: column; justify-content: center; }
+.feel b { font-size: 14.5px; font-weight: 700; color: var(--chip-ink); }
+.feel span { font-size: 12.5px; color: var(--ink-2); }
+.feel:hover { background: var(--chip-hover); }
+.feel[aria-pressed="true"] { background: var(--press); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.status { margin: 12px 0 0; font-size: 14px; color: var(--ink-2); }
+.status b { color: var(--ink); }
+.foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+@media (min-width: 600px) {
+  .page { padding: 16px 24px 40px; }
+  .stage { height: 460px; }
+  .chips { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .feel-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+}
+@media (min-width: 980px) {
+  .page { padding: 18px 40px 40px; }
+  .layout { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .stage { height: min(780px, calc(100vh - 110px)); min-height: 600px; }
+  .stage-card { position: sticky; top: 16px; }
+  .panel { padding: 30px 28px 24px; }
+  .panel h1 { font-size: 31px; }
+  .lead { font-size: 17px; }
+  .wave { display: flex; position: absolute; left: 0; }
+  .voice-row { justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave.on i, .mic[aria-pressed="true"]::after { animation: none; }
+  .chip, .chip:active { transition: none; transform: none; }
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5c3-1.5 6.5-1.5 10 .8 3.5-2.3 7-2.3 10-.8V19c-3-1.5-6.5-1.5-10 .8-3.5-2.3-7-2.3-10-.8z"/><path d="M12 6.3v13.5"/></svg>
+      </span>
+      School OS
+    </div>
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="Switch to dark theme">
+      <svg id="themeIco" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </header>
+
+  <main class="layout">
+    <section class="stage-card" aria-label="School OS Assistant robot">
+      <div class="stage" id="stage">
+        <canvas id="scene" role="img" aria-label="A cute white robot assistant with a glowing face, floating above a glowing ring"></canvas>
+        <p class="stage-fallback" id="fallback" hidden>The 3D robot could not start on this device. Everything else on this page still works.</p>
+      </div>
+      <p class="tap-hint" aria-hidden="true">Tap me</p>
+      <p class="state-pill" id="statePill" aria-hidden="true"><span class="dot"></span><b id="pillName">Idle</b><span id="pillSub">Ready to help</span></p>
+    </section>
+
+    <section class="panel" aria-labelledby="hi">
+      <p class="demo-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+        Demo answers only
+      </p>
+      <h1 id="hi">Hi! I'm your <span class="hl">School OS Assistant</span></h1>
+      <p class="lead">How can I help you today?</p>
+
+      <ul class="chips" aria-label="Sample questions">
+        <li><button class="chip" type="button" data-q="Who is absent today?"><span class="ico" style="background:linear-gradient(140deg,#7b6bff,#4f46e5)" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M17 8l4 4M21 8l-4 4"/></svg></span>Who is absent today?</button></li>
+        <li><button class="chip" type="button" data-q="Show today's fee collection"><span class="ico" style="background:linear-gradient(140deg,#3fb7ff,#2563eb)" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12M6 9h12M10 4c4 0 4 9 0 9H6l8 7"/></svg></span>Show today's fee collection</button></li>
+        <li><button class="chip" type="button" data-q="Add a new student"><span class="ico" style="background:linear-gradient(140deg,#a66bff,#7c3aed)" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M19 7v6M16 10h6"/></svg></span>Add a new student</button></li>
+        <li><button class="chip" type="button" data-q="Take me to class timetable"><span class="ico" style="background:linear-gradient(140deg,#2fd0c7,#0e9f9a)" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>Take me to class timetable</button></li>
+      </ul>
+      <button class="chip no" type="button" data-q="Delete all fee records"><span class="ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg></span>Try one it can't do: Delete all fee records</button>
+
+      <div class="convo" id="convo" aria-live="polite"></div>
+
+      <form class="type-form" id="typeForm" hidden>
+        <label for="q" class="sr-only">Type your question</label>
+        <input id="q" name="q" type="text" autocomplete="off" placeholder="Type your question" maxlength="160">
+        <button class="btn" type="submit">Ask</button>
+      </form>
+
+      <div class="voice-row">
+        <div class="wave" id="wave" aria-hidden="true"></div>
+        <button class="mic" id="mic" type="button" aria-pressed="false" aria-label="Talk to the assistant (demo: shows Listening, the microphone is not used)">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <button class="kbd" id="kbd" type="button" aria-expanded="false" aria-controls="typeForm" aria-label="Type a question">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M6.5 14h11"/></svg>
+        </button>
+      </div>
+      <p class="mic-note" id="micNote">Tap a question, type one, or press the mic.</p>
+
+      <div class="feelings">
+        <h2>Feelings</h2>
+        <div class="feel-grid" id="feelGrid">
+          <button class="feel" type="button" data-state="idle" aria-pressed="true"><b>Idle</b><span>Ready to help</span></button>
+          <button class="feel" type="button" data-state="listening" aria-pressed="false"><b>Listening</b><span>Hearing you</span></button>
+          <button class="feel" type="button" data-state="thinking" aria-pressed="false"><b>Thinking</b><span>Working on it</span></button>
+          <button class="feel" type="button" data-state="speaking" aria-pressed="false"><b>Speaking</b><span>Telling you</span></button>
+          <button class="feel" type="button" data-state="done" aria-pressed="false"><b>Task Done</b><span>All set!</span></button>
+          <button class="feel" type="button" data-state="sorry" aria-pressed="false"><b>Sorry</b><span>Can't do it</span></button>
+          <button class="feel" type="button" data-state="surprised" aria-pressed="false"><b>Surprised</b><span>Oh!</span></button>
+          <button class="feel" type="button" data-state="giggle" aria-pressed="false"><b>Say hi</b><span>Giggle and wave</span></button>
+        </div>
+        <p class="status" id="status" aria-live="polite"><b>Idle:</b> Ready to help</p>
+        <div class="foot">
+          <label class="toggle"><input type="checkbox" id="voiceOn" checked> Speak answers aloud</label>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* ---------------- page helpers ---------------- */
+const $ = (s) => document.querySelector(s);
+const stageEl = $('#stage');
+const canvas = $('#scene');
+const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+let reduced = reduceMQ.matches;
+reduceMQ.addEventListener('change', (e) => { reduced = e.matches; });
+
+const waveEl = $('#wave');
+for (let i = 0; i < 26; i++) {
+  const b = document.createElement('i');
+  b.style.animationDelay = (-(i * 97) % 900) / 1000 + 's';
+  b.style.height = (6 + ((i * 7) % 9)) + 'px';
+  waveEl.appendChild(b);
+}
+
+function effectiveTheme() {
+  const a = document.documentElement.dataset.theme;
+  if (a === 'light' || a === 'dark') return a;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/* ---------------- states ---------------- */
+const BASE_FACE = { open: 1, happy: 0, cheek: 0, sad: 0, size: 1, lookX: 0, lookY: 0, smile: 0.6, mouthW: 1, mouthOpen: 0, round: 0, dots: 0, blush: 0.3 };
+const BASE_ARM = { sx: -0.28, sz: 0.32, ex: -0.62, ez: 0.12, hx: 0, hy: 0, hz: 0 };
+const STATES = {
+  idle:      { name: 'Idle', sub: 'Ready to help', follow: 1 },
+  hello:     { name: 'Hello', sub: 'Nice to meet you!', duration: 2000, follow: 0.3,
+               face: { happy: 1, smile: 1, mouthOpen: 0.45, blush: 0.8 }, head: { z: 0.07 }, waveR: true },
+  listening: { name: 'Listening', sub: 'Hearing you', follow: 0.2,
+               face: { size: 1.14, smile: 0.32, mouthW: 0.72, lookY: -3, cheek: 0 },
+               head: { z: 0.15, x: 0.02 }, lean: 0.05, arcs: 1, ring: 1,
+               armL: { sx: -0.35, sz: 0.35, ex: -0.9, ez: 0.1 }, armR: { sx: -0.35, sz: 0.35, ex: -0.9, ez: 0.1 } },
+  thinking:  { name: 'Thinking', sub: 'Working on it', follow: 0,
+               face: { lookX: 26, lookY: -20, smile: 0.08, mouthW: 0.55, dots: 1, cheek: 0, size: 0.96, blush: 0.15 },
+               head: { x: -0.13, y: 0.16, z: -0.07 },
+               armL: { sx: -1.3, sz: -0.62, ex: -2.1, ez: 0.0, hx: -0.4, hy: 0.4 } },
+  speaking:  { name: 'Speaking', sub: 'Telling you', follow: 0.35, talkArms: true, arcsR: 1,
+               face: { cheek: 0.45, smile: 0.75, blush: 0.45, size: 1.02 },
+               armL: { sx: -0.55, sz: 0.38, ex: -1.05, ez: 0.25 }, armR: { sx: -0.55, sz: 0.38, ex: -1.05, ez: 0.25 } },
+  done:      { name: 'Task Done', sub: 'All set!', duration: 1600, follow: 0.2, sparkle: true, bounce: true,
+               face: { happy: 1, smile: 1, mouthOpen: 0.3, blush: 0.95, mouthW: 1.0 }, head: { z: 0.08 }, waveR: true },
+  sorry:     { name: 'Sorry', sub: "Can't do it", follow: 0,
+               face: { sad: 1, smile: -0.5, mouthW: 0.6, size: 0.94, lookY: 9, cheek: 0, blush: 0.2 },
+               head: { z: -0.17, x: 0.13 }, lean: 0.06, sink: -0.06,
+               armR: { sx: -1.04, sz: 0.1, ex: -0.68, ez: -0.88, hy: -0.4 } },
+  surprised: { name: 'Surprised', sub: 'Oh!', follow: 0.2, boing: true,
+               face: { size: 1.2, round: 1, smile: 0, lookY: -4, cheek: 0, blush: 0.15 },
+               head: { x: -0.08 }, lean: -0.05,
+               armL: { sx: -0.35, sz: 0.95, ex: -1.15, ez: 0.65 }, armR: { sx: -0.35, sz: 0.95, ex: -1.15, ez: 0.65 } },
+  giggle:    { name: 'Hee hee!', sub: 'That tickles', duration: 1500, follow: 0, wiggle: true, bounce: true,
+               face: { happy: 1, smile: 1, mouthOpen: 0.38, blush: 1, mouthW: 0.95 }, head: { z: 0.06 }, waveR: true },
+};
+
+/* ---------------- 3D ---------------- */
+let api = null;
+try { api = initScene(); } catch (err) {
+  console.warn('3D view could not start:', err);
+  $('#fallback').hidden = false;
+}
+
+function initScene() {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(DPR);
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+
+  /* environment: a soft studio dome with purple / blue rims */
+  function makeEnv() {
+    const env = new THREE.Scene();
+    const geo = new THREE.SphereGeometry(20, 48, 24);
+    const pos = geo.attributes.position; const cols = [];
+    const top = new THREE.Color(0xf6f2ff), mid = new THREE.Color(0x8a78f2), bot = new THREE.Color(0x3a2a8c);
+    const left = new THREE.Color(0xb26cff), right = new THREE.Color(0x5c9cff);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i) / 20, x = pos.getX(i) / 20;
+      if (y > 0) c.copy(mid).lerp(top, Math.pow(y, 0.8)); else c.copy(mid).lerp(bot, Math.pow(-y, 0.7));
+      c.lerp(x < 0 ? left : right, Math.abs(x) * 0.7 * (1 - Math.abs(y)));
+      cols.push(c.r, c.g, c.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    env.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    const soft = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      const gr = g.createRadialGradient(64, 64, 10, 64, 64, 64);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.55, '#fff'); gr.addColorStop(1, '#000');
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+      const t = new THREE.CanvasTexture(c); return t;
+    })();
+    const box = (w, h, color, k, p) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: soft, color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide }));
+      m.position.set(p[0], p[1], p[2]); m.lookAt(0, 0, 0); env.add(m);
+    };
+    box(9, 6, 0xffffff, 5.0, [-6, 9, 9]);     // key softbox
+    box(5, 5, 0xfff4fb, 2.0, [8, 3, 9]);      // fill
+    box(2.5, 14, 0xb47aff, 5.0, [-12, 1, -5]); // purple rim
+    box(2.5, 14, 0x67a6ff, 5.0, [12, 1, -5]);  // blue rim
+    box(8, 2, 0xffd9ef, 0.7, [0, -9, 3]);      // pink bounce
+    return env;
+  }
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(makeEnv(), 0.025).texture;
+  scene.environmentIntensity = 0.6;
+
+  /* background gradient (per theme) */
+  const bgCanvas = document.createElement('canvas'); bgCanvas.width = 64; bgCanvas.height = 512;
+  const bgTex = new THREE.CanvasTexture(bgCanvas); bgTex.colorSpace = THREE.SRGBColorSpace;
+  function paintBg(theme) {
+    const g = bgCanvas.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, 512);
+    if (theme === 'dark') {
+      gr.addColorStop(0, '#2c1a6e'); gr.addColorStop(0.45, '#26307a'); gr.addColorStop(0.8, '#1b1c5a'); gr.addColorStop(1, '#120f3a');
+    } else {
+      gr.addColorStop(0, '#8a62ee'); gr.addColorStop(0.45, '#6d78ef'); gr.addColorStop(0.8, '#5a6ae4'); gr.addColorStop(1, '#4c48c8');
+    }
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 512);
+    bgTex.needsUpdate = true;
+  }
+  scene.background = bgTex;
+
+  /* lights */
+  const key = new THREE.DirectionalLight(0xfff2ee, 3.0); key.position.set(-3, 5, 6); scene.add(key);
+  const rimP = new THREE.DirectionalLight(0xa66bff, 5.5); rimP.position.set(-5, 2.0, -2.5); scene.add(rimP);
+  const rimB = new THREE.DirectionalLight(0x5c9cff, 5.0); rimB.position.set(5, 1.2, -2.5); scene.add(rimB);
+  scene.add(new THREE.HemisphereLight(0xfff0fb, 0x7a68d8, 0.3));
+  const under = new THREE.SpotLight(0x8fb4ff, 22, 7, 0.62, 1, 1.4); under.position.set(0, -2.2, 1.3); under.target.position.set(0, -1.0, 0); scene.add(under, under.target);
+
+  /* textures */
+  function canvasTex(w, h, draw) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const radial = (stops) => canvasTex(256, 256, (g, w) => {
+    const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, w, w);
+  });
+  const starTex = canvasTex(64, 64, (g) => {
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,0.75)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = 'rgba(255,255,255,0.95)';
+    g.beginPath(); g.moveTo(32, 0); g.quadraticCurveTo(35, 29, 64, 32); g.quadraticCurveTo(35, 35, 32, 64); g.quadraticCurveTo(29, 35, 0, 32); g.quadraticCurveTo(29, 29, 32, 0); g.fill();
+  });
+
+  /* materials */
+  const shell = new THREE.MeshPhysicalMaterial({
+    color: 0xfaf6fd, roughness: 0.26, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05,
+    sheen: 0.35, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xffcfe8), envMapIntensity: 1.0,
+  });
+  const navy = new THREE.MeshPhysicalMaterial({ color: 0x1e1b4d, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.2 });
+  const seam = new THREE.MeshStandardMaterial({ color: 0xc9c1e6, roughness: 0.45 });
+  const glow = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k), toneMapped: true });
+  const glowPurple = glow(0xc277ff, 4.2);
+  const glowPink = glow(0xe79bff, 3.4);
+  const glowWhite = glow(0xfff1ff, 4.5);
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0x8c62ff, emissive: 0x8a4dff, emissiveIntensity: 2.4, roughness: 0.3 });
+
+  /* face screen */
+  const FW = 512, FH = 342;
+  const faceCanvas = document.createElement('canvas'); faceCanvas.width = FW; faceCanvas.height = FH;
+  const fx = faceCanvas.getContext('2d');
+  const faceTex = new THREE.CanvasTexture(faceCanvas); faceTex.colorSpace = THREE.SRGBColorSpace;
+  faceTex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const visorMat = new THREE.MeshPhysicalMaterial({
+    color: 0x03030f, roughness: 0.14, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.08, specularIntensity: 0.35,
+    emissive: 0xffffff, emissiveMap: faceTex, emissiveIntensity: 2.8, envMapIntensity: 0.07,
+  });
+
+  /* ---------- build the robot ---------- */
+  const robot = new THREE.Group(); scene.add(robot);
+  const pickables = [];
+  const add = (parent, mesh) => { parent.add(mesh); pickables.push(mesh); return mesh; };
+
+  // head
+  const HA = 1.27, HB = 0.98, HC = 1.0;
+  const headPivot = new THREE.Group(); headPivot.position.set(0, 0.08, 0); robot.add(headPivot);
+  const head = new THREE.Group(); head.position.set(0, 0.94, 0); headPivot.add(head);
+  const headGeo = new THREE.SphereGeometry(1, 80, 60); headGeo.scale(HA, HB, HC);
+  add(head, new THREE.Mesh(headGeo, shell));
+
+  // visor (super-ellipse patch hugging the head)
+  const VW = 0.98, VH = 0.62, VY = -0.05, VN = 3.4;
+  const surf = (x, y, grow, bulge) => {
+    const a = HA + grow, b = HB + grow, cc = HC + grow + bulge;
+    const k = 1 - (x / a) ** 2 - (y / b) ** 2;
+    return cc * Math.sqrt(Math.max(0.0001, k));
+  };
+  const superPt = (th) => {
+    const c = Math.cos(th), s = Math.sin(th);
+    const r = Math.pow(Math.pow(Math.abs(c), VN) + Math.pow(Math.abs(s), VN), -1 / VN);
+    return [c * r, s * r];
+  };
+  {
+    const rings = 22, segs = 120; const P = [], U = [], I = [];
+    for (let i = 0; i <= rings; i++) {
+      const f = i / rings;
+      for (let j = 0; j <= segs; j++) {
+        const [px, py] = superPt(j / segs * Math.PI * 2);
+        const x = px * VW * f, y = py * VH * f + VY;
+        P.push(x, y, surf(x, y, 0.012, 0.03));
+        U.push((px * f + 1) / 2, (py * f + 1) / 2);
+      }
+    }
+    for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) {
+      const a = i * (segs + 1) + j, b = a + segs + 1;
+      I.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
+    g.setIndex(I); g.computeVertexNormals();
+    add(head, new THREE.Mesh(g, visorMat));
+    // bezel lip
+    const pts = [];
+    for (let j = 0; j < 160; j++) {
+      const [px, py] = superPt(j / 160 * Math.PI * 2);
+      const x = px * (VW + 0.012), y = py * (VH + 0.012) + VY;
+      pts.push(new THREE.Vector3(x, y, surf(x, y, 0.0, 0.0) + 0.012));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts, true);
+    add(head, new THREE.Mesh(new THREE.TubeGeometry(curve, 240, 0.038, 14, true), shell));
+  }
+
+  // ear cups with glowing rings
+  const earRings = [];
+  function earCup(side) {
+    const R = 0.39, T = 0.26, r = 0.08; const prof = [];
+    prof.push(new THREE.Vector2(0, -T / 2));
+    for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 + i / 8 * Math.PI / 2; prof.push(new THREE.Vector2(R - r + Math.cos(a) * r, -T / 2 + r + Math.sin(a) * r)); }
+    for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2; prof.push(new THREE.Vector2(R - r + Math.cos(a) * r, T / 2 - r + Math.sin(a) * r)); }
+    prof.push(new THREE.Vector2(0, T / 2));
+    const g = new THREE.LatheGeometry(prof, 56); g.rotateZ(-Math.PI / 2);
+    const grp = new THREE.Group(); grp.position.set(side * (HA - 0.05), -0.04, -0.02); head.add(grp);
+    grp.rotation.y = side > 0 ? -0.32 : Math.PI + 0.32;
+    add(grp, new THREE.Mesh(g, navy));
+    const face = new THREE.Group(); face.position.x = T / 2 + 0.004; face.rotation.y = Math.PI / 2; grp.add(face);
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(R - 0.05, 48), new THREE.MeshPhysicalMaterial({ color: 0x2a1f66, roughness: 0.2, clearcoat: 1, emissive: 0x6a3cff, emissiveIntensity: 0.35 }));
+    face.add(disc);
+    const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.235, 0.03, 12, 64), glowPurple.clone()); r1.position.z = 0.012; face.add(r1);
+    const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.024, 12, 48), glowPink.clone()); r2.position.z = 0.014; face.add(r2);
+    const core = new THREE.Mesh(new THREE.CircleGeometry(0.06, 32), glowWhite.clone()); core.position.z = 0.016; face.add(core);
+    earRings.push({ r1, r2, core, b1: r1.material.color.clone(), b2: r2.material.color.clone(), b3: core.material.color.clone() });
+    return grp;
+  }
+  earCup(1); earCup(-1);
+
+  // antenna
+  const antenna = new THREE.Group(); antenna.position.set(0.08, HB - 0.03, -0.04); head.add(antenna);
+  add(antenna, new THREE.Mesh(new THREE.SphereGeometry(0.11, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), shell));
+  const stemCurve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, 0.02, 0), new THREE.Vector3(0.0, 0.34, 0), new THREE.Vector3(0.2, 0.46, 0));
+  add(antenna, new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 24, 0.042, 12, false), stemMat));
+  const ball = add(antenna, new THREE.Mesh(new THREE.SphereGeometry(0.12, 32, 20), glowWhite.clone()));
+  ball.position.set(0.22, 0.47, 0);
+  const ballBase = ball.material.color.clone();
+
+  // sound arcs beside the head
+  const arcs = [];
+  const arcMat = () => new THREE.MeshBasicMaterial({ color: new THREE.Color(0x6fe9ff).multiplyScalar(3), transparent: true, opacity: 0, depthWrite: false });
+  for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const span = 1.1;
+    const m = new THREE.Mesh(new THREE.TorusGeometry(0.4 + i * 0.12, 0.026, 8, 40, span), arcMat());
+    m.rotation.z = side > 0 ? -span / 2 : Math.PI - span / 2;
+    m.position.set(side * (HA - 0.05), -0.04, 0.05);
+    head.add(m); arcs.push({ m, side, i });
+  }
+
+  // neck + body
+  add(robot, new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.2, 40), navy)).position.y = 0.04;
+  const profPts = [[0, -1.32], [0.32, -1.28], [0.53, -1.17], [0.66, -0.99], [0.7, -0.79], [0.68, -0.58], [0.62, -0.38], [0.54, -0.2], [0.46, -0.07], [0.34, 0.02], [0.16, 0.06], [0, 0.07]];
+  const bodyCurve = new THREE.CatmullRomCurve3(profPts.map(([x, y]) => new THREE.Vector3(x, y, 0)), false, 'centripetal');
+  const bodySamples = bodyCurve.getPoints(90).map((p) => new THREE.Vector2(Math.max(0, p.x), p.y));
+  bodySamples[0].set(0, -1.32); bodySamples[bodySamples.length - 1].set(0, 0.07);
+  add(robot, new THREE.Mesh(new THREE.LatheGeometry(bodySamples, 72), shell));
+  const R = (y) => {
+    for (let i = 0; i < bodySamples.length - 1; i++) {
+      const a = bodySamples[i], b = bodySamples[i + 1];
+      if ((y >= a.y && y <= b.y) || (y <= a.y && y >= b.y)) { const t = (y - a.y) / ((b.y - a.y) || 1); return a.x + (b.x - a.x) * t; }
+    }
+    return 0;
+  };
+  // seams: belly pocket + collar ring
+  {
+    const pts = [];
+    for (let i = 0; i <= 60; i++) {
+      const t = -Math.PI / 2 + i / 60 * Math.PI;
+      const x = 0.42 * Math.sin(t), y = -0.56 - 0.44 * Math.cos(t);
+      pts.push(new THREE.Vector3(x, y, Math.sqrt(Math.max(0, R(y) ** 2 - x * x)) + 0.002));
+    }
+    robot.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.009, 6, false), seam));
+    const yc = -0.6; const ring = new THREE.Mesh(new THREE.TorusGeometry(R(yc) + 0.002, 0.008, 6, 90), seam);
+    ring.rotation.x = Math.PI / 2; ring.position.y = yc; ring.scale.set(1, 1, 1);
+    // only show the side parts of the waist seam (the pocket covers the front)
+    robot.add(ring);
+  }
+  // chest book emblem
+  const bookTex = canvasTex(256, 256, (g) => {
+    g.shadowColor = 'rgba(110,140,255,0.9)'; g.shadowBlur = 14;
+    const page = (dir) => {
+      g.beginPath();
+      g.moveTo(128 + dir * 5, 196);
+      g.quadraticCurveTo(128 + dir * 50, 172, 128 + dir * 96, 190);
+      g.lineTo(128 + dir * 96, 74);
+      g.quadraticCurveTo(128 + dir * 50, 56, 128 + dir * 5, 80);
+      g.closePath();
+      const gr = g.createLinearGradient(128 + dir * 96, 70, 128, 196);
+      gr.addColorStop(0, '#7a4dff'); gr.addColorStop(1, '#2f6dff');
+      g.fillStyle = gr; g.fill();
+    };
+    page(-1); page(1);
+    g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 5; g.lineCap = 'round';
+    for (const dir of [-1, 1]) for (let k = 0; k < 3; k++) {
+      g.beginPath(); g.moveTo(128 + dir * 22, 100 + k * 26); g.quadraticCurveTo(128 + dir * 50, 90 + k * 26, 128 + dir * 78, 98 + k * 26); g.stroke();
+    }
+    g.fillStyle = '#7fa8ff'; g.shadowColor = 'rgba(120,150,255,0.9)'; g.shadowBlur = 10;
+    g.beginPath(); g.arc(116, 222, 7, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(142, 224, 4.5, 0, Math.PI * 2); g.fill();
+  });
+  {
+    const P = [], U = [], I = []; const n = 24, cx = 0, cy = -0.4, hw = 0.25, hh = 0.25;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
+      const u = j / n, v = i / n; const x = cx + (u - 0.5) * 2 * hw, y = cy + (v - 0.5) * 2 * hh;
+      P.push(x, y, Math.sqrt(Math.max(0, R(y) ** 2 - x * x)) + 0.006); U.push(u, v);
+    }
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const a = i * (n + 1) + j, b = a + n + 1; I.push(a, a + 1, b, b, a + 1, b + 1); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setIndex(I);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: bookTex, transparent: true, depthWrite: false, color: new THREE.Color(1, 1, 1).multiplyScalar(1.35), polygonOffset: true, polygonOffsetFactor: -2 }));
+    robot.add(m);
+  }
+
+  // arms
+  function makeArm(side) {
+    const shoulder = new THREE.Group(); shoulder.position.set(side * 0.56, -0.2, 0); robot.add(shoulder);
+    add(shoulder, new THREE.Mesh(new THREE.SphereGeometry(0.165, 32, 24), navy));
+    const upper = add(shoulder, new THREE.Mesh(new THREE.CapsuleGeometry(0.155, 0.2, 10, 28), shell)); upper.position.y = -0.2;
+    const elbow = new THREE.Group(); elbow.position.y = -0.38; shoulder.add(elbow);
+    const eRing = add(elbow, new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.09, 32), navy)); eRing.position.y = 0.0;
+    const fore = add(elbow, new THREE.Mesh(new THREE.CapsuleGeometry(0.185, 0.16, 10, 28), shell)); fore.position.y = -0.2;
+    const wrist = new THREE.Group(); wrist.position.y = -0.4; elbow.add(wrist);
+    const cuff = add(wrist, new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.12, 0.07, 32), navy)); cuff.position.y = 0.0;
+    const hand = new THREE.Group(); wrist.add(hand);
+    const palm = add(hand, new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), navy)); palm.scale.set(0.165, 0.16, 0.12); palm.position.y = -0.13;
+    for (let k = -1; k <= 1; k++) {
+      const f = add(hand, new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.085, 6, 14), navy));
+      f.position.set(k * 0.07, -0.24 + Math.abs(k) * 0.018, 0.01); f.rotation.z = -k * 0.12;
+    }
+    const thumb = add(hand, new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.06, 6, 14), navy));
+    thumb.position.set(side * 0.135, -0.12, 0.035); thumb.rotation.z = side * 0.75;
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), glow(0xd18bff, 4)); dot.position.set(0, -0.13, 0.1); hand.add(dot);
+    return { side, shoulder, elbow, hand, cur: { ...BASE_ARM } };
+  }
+  const armR = makeArm(1), armL = makeArm(-1);
+
+  // platform
+  const platform = new THREE.Group(); platform.position.y = -2.08; scene.add(platform);
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 6.4), new THREE.MeshBasicMaterial({
+    map: radial([[0, 'rgba(210,235,255,0.95)'], [0.18, 'rgba(150,170,255,0.55)'], [0.45, 'rgba(150,110,255,0.22)'], [1, 'rgba(120,90,255,0)']]),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(1, 1, 1).multiplyScalar(0.9) }));
+  pool.rotation.x = -Math.PI / 2; platform.add(pool);
+  const spot = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.MeshBasicMaterial({
+    map: radial([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(170,210,255,0.6)'], [1, 'rgba(140,120,255,0)']]),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(1, 1, 1).multiplyScalar(1.2) }));
+  spot.rotation.x = -Math.PI / 2; spot.position.y = 0.01; platform.add(spot);
+  const ringSpecs = [[0.7, 0.014, 0x9fe9ff, 2.4], [1.1, 0.01, 0xc9a8ff, 1.8], [1.5, 0.016, 0x8fd2ff, 2.6], [1.9, 0.008, 0xe2c8ff, 1.6]];
+  const platRings = ringSpecs.map(([r, t, c, k], i) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 8, 128), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), transparent: true, opacity: 0.9, depthWrite: false }));
+    m.rotation.x = Math.PI / 2; m.position.y = 0.02; platform.add(m);
+    return { m, base: m.material.color.clone(), i };
+  });
+  const backGlow = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({
+    map: radial([[0, 'rgba(235,220,255,0.3)'], [0.35, 'rgba(190,170,255,0.12)'], [1, 'rgba(160,140,255,0)']]),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  backGlow.position.set(0, 0.5, -5); scene.add(backGlow);
+  // horizon streak
+  const streak = new THREE.Mesh(new THREE.PlaneGeometry(40, 2.4), new THREE.MeshBasicMaterial({
+    map: canvasTex(512, 64, (g, w, h) => {
+      const gx = g.createLinearGradient(0, 0, w, 0);
+      gx.addColorStop(0, 'rgba(255,220,240,0.9)'); gx.addColorStop(0.3, 'rgba(200,190,255,0.25)'); gx.addColorStop(0.5, 'rgba(180,200,255,0.15)'); gx.addColorStop(0.7, 'rgba(200,190,255,0.25)'); gx.addColorStop(1, 'rgba(255,220,240,0.9)');
+      g.fillStyle = gx; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'destination-in';
+      const gy = g.createLinearGradient(0, 0, 0, h);
+      gy.addColorStop(0, 'rgba(0,0,0,0)'); gy.addColorStop(0.5, 'rgba(0,0,0,1)'); gy.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gy; g.fillRect(0, 0, w, h);
+    }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  streak.position.set(0, -2.6, -7); scene.add(streak);
+  const floorFade = new THREE.Mesh(new THREE.PlaneGeometry(40, 12), new THREE.MeshBasicMaterial({
+    map: canvasTex(8, 256, (g, w, h) => { const gy = g.createLinearGradient(0, 0, 0, h); gy.addColorStop(0, 'rgba(20,10,70,0)'); gy.addColorStop(1, 'rgba(20,10,70,0.55)'); g.fillStyle = gy; g.fillRect(0, 0, w, h); }),
+    transparent: true, depthWrite: false }));
+  floorFade.position.set(0, -8.6, -7); scene.add(floorFade);
+
+  // rising motes
+  const MOTES = 26; const moteGeo = new THREE.BufferGeometry(); const moteP = new Float32Array(MOTES * 3); const moteV = [];
+  for (let i = 0; i < MOTES; i++) { resetMote(i, true); }
+  function resetMote(i, init) {
+    const a = Math.random() * Math.PI * 2, r = 0.5 + Math.random() * 1.6;
+    moteP[i * 3] = Math.cos(a) * r; moteP[i * 3 + 1] = -2.05 + (init ? Math.random() * 1.6 : 0); moteP[i * 3 + 2] = Math.sin(a) * r;
+    moteV[i] = 0.12 + Math.random() * 0.22;
+  }
+  moteGeo.setAttribute('position', new THREE.BufferAttribute(moteP, 3));
+  const motes = new THREE.Points(moteGeo, new THREE.PointsMaterial({ map: starTex, size: 0.09, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(0xd9e4ff).multiplyScalar(2) }));
+  scene.add(motes);
+
+  // sparkle burst
+  const SPK = 46; const spkGeo = new THREE.BufferGeometry(); const spkP = new Float32Array(SPK * 3); const spkC = new Float32Array(SPK * 3); const spkV = [];
+  const spkCols = [0xfff3a8, 0x9ff3ff, 0xffb8f2, 0xffffff, 0xc7a8ff].map((h) => new THREE.Color(h));
+  for (let i = 0; i < SPK; i++) { const c = spkCols[i % spkCols.length]; spkC.set([c.r * 3, c.g * 3, c.b * 3], i * 3); spkV.push(new THREE.Vector3()); }
+  spkGeo.setAttribute('position', new THREE.BufferAttribute(spkP, 3)); spkGeo.setAttribute('color', new THREE.BufferAttribute(spkC, 3));
+  const sparkles = new THREE.Points(spkGeo, new THREE.PointsMaterial({ map: starTex, size: 0.26, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sparkles.frustumCulled = false; scene.add(sparkles);
+  let spkLife = 0;
+  function burst() {
+    spkLife = 1.4;
+    for (let i = 0; i < SPK; i++) {
+      const a = Math.random() * Math.PI * 2, el = (Math.random() - 0.2) * 1.2;
+      spkP.set([robot.position.x + Math.cos(a) * 0.4, robot.position.y + 0.9 + Math.random() * 0.4, 0.5 + Math.sin(a) * 0.3], i * 3);
+      spkV[i].set(Math.cos(a) * (1.6 + Math.random() * 1.6), 1.2 + el * 1.6 + Math.random() * 1.2, Math.sin(a) * 0.9 + 0.5);
+    }
+    spkGeo.attributes.position.needsUpdate = true;
+  }
+
+  // robot pose
+  robot.rotation.y = 0.13;
+
+  /* ---------- post-processing ---------- */
+  const samples = DPR < 1.5 ? 4 : 2;
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples });
+  const composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0, 1.4);
+  const bloomSetSize = bloom.setSize.bind(bloom);
+  bloom.setSize = (w, h) => bloomSetSize(Math.max(1, Math.round(w / DPR)), Math.max(1, Math.round(h / DPR))); // ~half res on HiDPI
+  bloom.compositeMaterial.uniforms.bloomFactors.value = [1.0, 0.6, 0.22, 0.06, 0.0]; // tight glow, no wide haze
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
+  function resize() {
+    const w = Math.max(1, stageEl.clientWidth), h = Math.max(1, stageEl.clientHeight);
+    renderer.setSize(w, h, false); composer.setSize(w, h);
+    camera.aspect = w / h;
+    const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const needH = 2.55, needW = 1.9;
+    const dist = Math.max(needH / tanH, needW / (tanH * camera.aspect));
+    camera.position.set(0, 0.6, dist);
+    camera.lookAt(0, 0.3, 0);
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stageEl); resize();
+
+  paintBg(effectiveTheme());
+
+  return { renderer, scene, camera, composer, robot, headPivot, antenna, ball, ballBase, arcs, earRings, armL, armR,
+    platRings, spot, pool, motes, moteP, moteV, resetMote, MOTES, sparkles, spkGeo, spkP, spkV, SPK, burst,
+    getSpk: () => spkLife, setSpk: (v) => { spkLife = v; }, fx, FW, FH, faceTex, pickables, paintBg, under, visorMat, bloom };
+}
+
+/* ---------------- face drawing ---------------- */
+const CYAN = '#4ff0ff';
+function drawFace(F, t) {
+  const { fx, FW, FH } = api;
+  fx.save();
+  fx.globalAlpha = 1; fx.shadowBlur = 0;
+  fx.fillStyle = '#000'; fx.fillRect(0, 0, FW, FH);
+  const g = fx.createRadialGradient(FW / 2, FH * 0.45, 30, FW / 2, FH * 0.5, FW * 0.62);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.7, 'rgba(40,20,90,0.05)'); g.addColorStop(1, 'rgba(110,60,200,0.16)');
+  fx.fillStyle = g; fx.fillRect(0, 0, FW, FH);
+  // glass highlight streak (top-left), drawn faintly on the screen
+  fx.save(); fx.strokeStyle = 'rgba(255,255,255,0.13)'; fx.lineWidth = 16; fx.lineCap = 'round';
+  fx.beginPath(); fx.arc(FW * 0.42, FH * 0.62, FW * 0.36, Math.PI * 1.08, Math.PI * 1.36); fx.stroke();
+  fx.strokeStyle = 'rgba(255,255,255,0.1)'; fx.lineWidth = 7;
+  fx.beginPath(); fx.arc(FW * 0.42, FH * 0.62, FW * 0.36, Math.PI * 1.40, Math.PI * 1.46); fx.stroke();
+  fx.restore();
+  const ex = 134, ey = 136 + F.lookY;
+  if (F.blush > 0.01) drawBlush(F, ex, ey);
+  for (const side of [-1, 1]) drawEye(FW / 2 + side * ex + F.lookX, ey, side, F);
+  drawMouth(FW / 2 + F.lookX * 0.45, 240 + F.lookY * 0.45, F);
+  if (F.dots > 0.01) drawDots(F.dots, t);
+  fx.restore();
+  api.faceTex.needsUpdate = true;
+}
+function ell(x, y, rx, ry) { const { fx } = api; fx.beginPath(); fx.ellipse(x, y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2); }
+function drawEye(cx, cy, side, F) {
+  const { fx } = api;
+  const s = F.size, w = 45 * s, hFull = 58 * s, h = Math.max(4, hFull * F.open);
+  const aOpen = 1 - F.happy;
+  if (aOpen > 0.01) {
+    fx.save();
+    fx.globalAlpha = aOpen;
+    if (F.sad > 0.01) {
+      const outerY = cy - hFull - 4 + F.sad * hFull * 1.05;
+      const innerY = cy - hFull - 4 + F.sad * hFull * 0.2;
+      fx.beginPath();
+      fx.moveTo(cx + side * 90, outerY + (outerY - innerY) * 0.4);
+      fx.lineTo(cx - side * 90, innerY - (outerY - innerY) * 0.4);
+      fx.lineTo(cx - side * 90, cy + 200); fx.lineTo(cx + side * 90, cy + 200); fx.closePath();
+      fx.clip();
+    }
+    if (F.cheek > 0.01) {
+      const Rr = w * 2.1, cyc = cy + h + Rr - F.cheek * h * 1.05;
+      fx.beginPath(); fx.rect(cx - 120, cy - 160, 240, 400);
+      fx.moveTo(cx + Rr, cyc); fx.arc(cx, cyc, Rr, 0, Math.PI * 2);
+      fx.clip('evenodd');
+    }
+    fx.shadowColor = CYAN; fx.shadowBlur = 10; fx.fillStyle = CYAN;
+    ell(cx, cy, w, h); fx.fill();
+    fx.shadowBlur = 0;
+    const core = fx.createRadialGradient(cx - w * 0.15, cy - h * 0.1, 2, cx, cy, Math.max(w, h));
+    core.addColorStop(0, 'rgba(220,255,255,0.9)'); core.addColorStop(0.6, 'rgba(120,245,255,0.25)'); core.addColorStop(1, 'rgba(79,240,255,0)');
+    fx.fillStyle = core; ell(cx, cy, w, h); fx.fill();
+    if (F.open > 0.55) {
+      fx.fillStyle = 'rgba(255,255,255,0.95)';
+      ell(cx + w * 0.34, cy - h * 0.36, w * 0.24, w * 0.24 * Math.min(1, h / hFull)); fx.fill();
+      ell(cx - w * 0.3, cy + h * 0.38, w * 0.1, w * 0.1 * Math.min(1, h / hFull)); fx.fill();
+    }
+    fx.restore();
+  }
+  if (F.happy > 0.01) {
+    fx.save(); fx.globalAlpha = F.happy;
+    fx.strokeStyle = CYAN; fx.lineWidth = 24 * Math.min(1.15, s); fx.lineCap = 'round';
+    fx.shadowColor = CYAN; fx.shadowBlur = 10;
+    fx.beginPath(); fx.arc(cx, cy + 30 * s, 60 * s, Math.PI * 1.15, Math.PI * 1.85); fx.stroke();
+    fx.shadowBlur = 0; fx.strokeStyle = 'rgba(225,255,255,0.8)'; fx.lineWidth = 7;
+    fx.beginPath(); fx.arc(cx, cy + 30 * s, 60 * s, Math.PI * 1.22, Math.PI * 1.78); fx.stroke();
+    fx.restore();
+  }
+  if (F.sad > 0.05) {
+    fx.save(); fx.globalAlpha = Math.min(1, F.sad) * aOpen;
+    fx.strokeStyle = CYAN; fx.lineWidth = 9; fx.lineCap = 'round'; fx.shadowColor = CYAN; fx.shadowBlur = 16;
+    fx.beginPath(); fx.moveTo(cx + side * 34, cy - hFull - 14); fx.lineTo(cx - side * 26, cy - hFull - 34); fx.stroke();
+    fx.restore();
+  }
+}
+function drawMouth(mx, my, F) {
+  const { fx } = api;
+  const s = F.smile, o = Math.min(1.1, Math.max(0, F.mouthOpen)), ro = F.round;
+  const mw = 50 * F.mouthW * (1 + o * 0.1);
+  fx.save(); fx.lineCap = 'round'; fx.lineJoin = 'round';
+  if (1 - ro > 0.01) {
+    fx.globalAlpha = 1 - ro;
+    const endY = my - s * 8;
+    const upY = my + s * 24 * (1 - Math.min(1, o * 1.6)) - o * 4;   // top lip flattens as it opens
+    const loY = my + s * 24 + o * 46;
+    const path = () => {
+      fx.beginPath(); fx.moveTo(mx - mw, endY);
+      fx.quadraticCurveTo(mx, upY, mx + mw, endY);
+      if (o > 0.03) fx.bezierCurveTo(mx + mw * 0.9, loY, mx - mw * 0.9, loY, mx - mw, endY);
+      else fx.quadraticCurveTo(mx, upY, mx - mw, endY);
+      fx.closePath();
+    };
+    path();
+    if (o > 0.03) {
+      fx.save(); fx.clip();
+      fx.fillStyle = 'rgba(25,120,160,0.55)'; fx.fillRect(mx - mw - 4, Math.min(upY, endY) - 10, mw * 2 + 8, 90);
+      fx.fillStyle = 'rgba(255,130,205,0.9)';
+      ell(mx, loY - 4, mw * 0.55, 10 + 12 * o); fx.fill();
+      fx.restore();
+      path();
+    }
+    fx.shadowColor = CYAN; fx.shadowBlur = 10;
+    fx.strokeStyle = CYAN; fx.lineWidth = 13; fx.stroke();
+  }
+  if (ro > 0.01) {
+    fx.globalAlpha = ro; fx.shadowColor = CYAN; fx.shadowBlur = 10;
+    ell(mx, my + 8, 15 + 5 * ro, 19 + 6 * ro);
+    fx.fillStyle = 'rgba(25,120,160,0.55)'; fx.fill();
+    fx.strokeStyle = CYAN; fx.lineWidth = 12; fx.stroke();
+  }
+  fx.restore();
+}
+function drawDots(a, t) {
+  const { fx } = api;
+  fx.save(); fx.shadowColor = CYAN; fx.shadowBlur = 16; fx.fillStyle = CYAN;
+  for (let i = 0; i < 3; i++) {
+    const ph = Math.sin(t * 6 - i * 0.9);
+    fx.globalAlpha = a * (0.6 + 0.4 * Math.max(0, ph));
+    fx.beginPath(); fx.arc(300 + i * 34, 60 - Math.max(0, ph) * 10, 11, 0, Math.PI * 2); fx.fill();
+  }
+  fx.restore();
+}
+function drawBlush(F, ex, ey) {
+  const { fx, FW } = api;
+  for (const side of [-1, 1]) {
+    const x = FW / 2 + side * (ex + 22) + F.lookX * 0.8, y = ey + 58;
+    const g = fx.createRadialGradient(x, y, 2, x, y, 36);
+    g.addColorStop(0, `rgba(255,120,200,${0.55 * F.blush})`); g.addColorStop(1, 'rgba(255,120,200,0)');
+    fx.fillStyle = g; fx.fillRect(x - 40, y - 40, 80, 80);
+  }
+}
+
+/* ---------------- animation state ---------------- */
+let state = 'idle', stateT = 0, stateTimer = null;
+const C = { ...BASE_FACE }; const T = { ...BASE_FACE };
+const body = { hx: 0, hy: 0, hz: 0, lean: 0, sink: 0, arcs: 0, arcsR: 0, ring: 0 };
+const bodyT = { ...body };
+let follow = 1, waveR = false, talkArms = false, wiggle = false;
+let talk = 0, talkTarget = 0, talking = false;
+let blinkT = 2 + Math.random() * 2, blinkP = 0;
+let bounceY = 0, bounceV = 0, boingA = 0, boingV = 0;
+const pointer = { x: 0, y: 0, last: -10 };
+let t = 0;
+let armTL = { ...BASE_ARM }, armTR = { ...BASE_ARM };
+
+function setState(name, opts = {}) {
+  const S = STATES[name]; if (!S) return;
+  state = name; stateT = 0;
+  clearTimeout(stateTimer); stateTimer = null;
+  Object.assign(T, BASE_FACE, S.face || {});
+  const hd = S.head || {};
+  bodyT.hx = hd.x || 0; bodyT.hy = hd.y || 0; bodyT.hz = hd.z || 0;
+  bodyT.lean = S.lean || 0; bodyT.sink = S.sink || 0;
+  bodyT.arcs = S.arcs || 0; bodyT.arcsR = S.arcsR || 0; bodyT.ring = S.ring || 0;
+  armTL = { ...BASE_ARM, ...(S.armL || {}) }; armTR = { ...BASE_ARM, ...(S.armR || {}) };
+  follow = S.follow ?? 1; waveR = !!S.waveR; talkArms = !!S.talkArms; wiggle = !!S.wiggle;
+  if (api && S.sparkle && !opts.noSparkle) api.burst();
+  if (S.bounce && !reduced) bounceV = 2.4;
+  if (S.boing && !reduced) { boingV = 9; bounceV = 1.6; }
+  if (S.duration && !opts.hold) stateTimer = setTimeout(() => setState('idle'), S.duration);
+  // UI
+  $('#pillName').textContent = S.name; $('#pillSub').textContent = S.sub;
+  $('#status').innerHTML = `<b>${S.name}:</b> ${S.sub}`;
+  document.querySelectorAll('.feel').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === name)));
+  waveEl.classList.toggle('on', name === 'listening' || name === 'speaking' || talking);
+  if (name !== 'listening') { $('#mic').setAttribute('aria-pressed', 'false'); }
+}
+
+const damp = (cur, tgt, rate, dt) => cur + (tgt - cur) * (1 - Math.exp(-rate * dt));
+
+function update(dt) {
+  t += dt; stateT += dt;
+  // face params
+  for (const k in T) C[k] = damp(C[k], T[k], k === 'mouthOpen' ? 14 : 9, dt);
+  talk = damp(talk, talkTarget, 30, dt);
+  // blink
+  blinkT -= dt;
+  if (blinkT <= 0) { blinkP = 0.16; blinkT = 2.2 + Math.random() * 3.2; if (Math.random() < 0.2) blinkT = 0.32; }
+  let blink = 1;
+  if (blinkP > 0) { blinkP -= dt; const k = 1 - Math.abs((blinkP / 0.16) * 2 - 1); blink = 1 - k * 0.95; }
+  const F = { ...C };
+  F.open = C.open * (C.happy > 0.6 || state === 'thinking' ? 1 : blink);
+  F.mouthOpen = C.mouthOpen + talk * 0.95;
+  F.mouthW = C.mouthW * (1 - talk * 0.12);
+  
+  drawFace(F, t);
+
+  // body params
+  for (const k in bodyT) body[k] = damp(body[k], bodyT[k], 6, dt);
+  const R = api;
+  const moving = !reduced;
+  // bounce spring
+  if (moving) { const acc = -70 * bounceY - 8 * bounceV; bounceV += acc * dt; bounceY += bounceV * dt; } else { bounceY = 0; bounceV = 0; }
+  const bob = moving ? Math.sin(t * 1.7) * 0.07 : 0;
+  R.robot.position.y = bob + bounceY * 0.25 + body.sink;
+  R.robot.rotation.z = moving ? Math.sin(t * 1.1) * 0.025 : 0;
+  R.robot.rotation.x = body.lean;
+  R.spot.material.opacity = 0.85 - bob * 2.5;
+  R.spot.scale.setScalar(1 - bob * 0.8);
+
+  // head
+  let px = pointer.x, py = pointer.y;
+  if (t - pointer.last > 3.5) { px = Math.sin(t * 0.37) * 0.45; py = Math.sin(t * 0.51) * 0.18; }
+  const f = reduced ? 0 : follow;
+  let hx = body.hx + py * 0.22 * f, hy = body.hy + px * 0.42 * f, hz = body.hz;
+  if (wiggle && moving) hz += Math.sin(stateT * 20) * 0.09 * Math.max(0, 1 - stateT / 1.3);
+  if (talking) hx += (talk - 0.3) * 0.05;
+  if (state === 'listening' && moving) hz += Math.sin(t * 2.2) * 0.02;
+  const hp = R.headPivot.rotation;
+  hp.x = damp(hp.x, hx, 7, dt); hp.y = damp(hp.y, hy, 7, dt); hp.z = damp(hp.z, hz, 7, dt);
+
+  // antenna
+  if (moving) { const acc = -90 * boingA - 6 * boingV; boingV += acc * dt; boingA += boingV * dt; } else { boingA = 0; boingV = 0; }
+  R.antenna.rotation.z = (moving ? Math.sin(t * 2.3) * 0.08 : 0) - (hp.z) * 0.6 + boingA * 0.12;
+  R.antenna.rotation.x = moving ? Math.sin(t * 1.9 + 1) * 0.05 : 0;
+  const pulse = 1 + 0.25 * Math.sin(t * 3);
+  R.ball.material.color.copy(R.ballBase).multiplyScalar(pulse);
+
+  // ear rings
+  const lis = body.ring;
+  for (const e of R.earRings) {
+    const k1 = 1 + lis * (0.6 + 0.6 * Math.sin(t * 7)), k2 = 1 + lis * (0.6 + 0.6 * Math.sin(t * 7 - 1.2));
+    e.r1.material.color.copy(e.b1).multiplyScalar(k1 * (1 + 0.1 * Math.sin(t * 2)));
+    e.r2.material.color.copy(e.b2).multiplyScalar(k2);
+    e.r1.scale.setScalar(1 + lis * 0.05 * Math.sin(t * 7));
+  }
+  // sound arcs
+  for (const a of R.arcs) {
+    const amt = a.side > 0 ? Math.max(body.arcs, body.arcsR * (talking ? 1 : 0.4)) : body.arcs;
+    const ph = (t * 1.6 - a.i * 0.28) % 1;
+    const wave = moving ? Math.max(0, Math.sin(ph * Math.PI)) : 0.8;
+    a.m.material.opacity = amt * wave * 0.95;
+    a.m.visible = a.m.material.opacity > 0.01;
+  }
+
+  // arms
+  poseArm(R.armL, armTL, dt, false);
+  poseArm(R.armR, armTR, dt, waveR);
+
+  // platform
+  for (const r of R.platRings) {
+    const k = moving ? 0.75 + 0.35 * Math.sin(t * 1.3 - r.i * 0.7) : 0.9;
+    r.m.material.color.copy(r.base).multiplyScalar(k);
+    if (moving) r.m.scale.setScalar(1 + 0.012 * Math.sin(t * 1.3 - r.i * 0.7));
+  }
+  // motes
+  if (moving) {
+    for (let i = 0; i < R.MOTES; i++) { R.moteP[i * 3 + 1] += R.moteV[i] * dt; if (R.moteP[i * 3 + 1] > -0.3) R.resetMote(i, false); }
+    R.motes.geometry.attributes.position.needsUpdate = true;
+  }
+  // sparkles
+  let sl = R.getSpk();
+  if (sl > 0) {
+    sl -= dt; R.setSpk(sl);
+    for (let i = 0; i < R.SPK; i++) {
+      const v = R.spkV[i]; v.y -= 2.2 * dt; v.multiplyScalar(1 - 1.2 * dt);
+      R.spkP[i * 3] += v.x * dt; R.spkP[i * 3 + 1] += v.y * dt; R.spkP[i * 3 + 2] += v.z * dt;
+    }
+    R.spkGeo.attributes.position.needsUpdate = true;
+    R.sparkles.material.opacity = Math.min(1, sl / 0.5);
+    R.sparkles.material.size = 0.2 + 0.1 * Math.abs(Math.sin(t * 14));
+  } else R.sparkles.material.opacity = 0;
+}
+
+function poseArm(arm, tgt, dt, wave) {
+  const c = arm.cur, s = arm.side;
+  const W = wave ? { sx: -0.18, sz: 1.3, ex: -0.2, ez: 1.55, hx: 0, hy: 0, hz: 0.15 } : tgt;
+  for (const k in c) c[k] = damp(c[k], W[k] ?? 0, 7, dt);
+  let ez = c.ez, ex = c.ex, sx = c.sx;
+  if (wave) ez += Math.sin(t * 11) * 0.38 * Math.min(1, stateT * 3);
+  if (talkArms && talking) { ex += Math.sin(t * 4.2 + s) * 0.18 * (0.4 + talk); ez += Math.sin(t * 3.1 + s * 2) * 0.1; }
+  if (!reduced && !wave) { sx += Math.sin(t * 1.7 + s) * 0.03; ez += Math.sin(t * 1.7 + s * 1.3) * 0.04; }
+  arm.shoulder.rotation.set(sx, 0, s * c.sz);
+  arm.elbow.rotation.set(ex, 0, s * ez);
+  arm.hand.rotation.set(c.hx, s * c.hy, s * c.hz);
+}
+
+/* ---------------- loop ---------------- */
+let raf = null, last = performance.now();
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt);
+  api.composer.render(dt);
+}
+if (api) {
+  setState('idle');
+  raf = requestAnimationFrame(frame);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
+  });
+  setTimeout(() => { if (state === 'idle') setState('hello'); }, 500);
+
+  // pointer follow + tap
+  window.addEventListener('pointermove', (e) => {
+    const r = stageEl.getBoundingClientRect();
+    pointer.x = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (window.innerWidth * 0.5)));
+    pointer.y = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height * 0.4)) / (window.innerHeight * 0.5)));
+    pointer.last = t;
+    hoverCheck(e);
+  }, { passive: true });
+  const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+  function hit(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, api.camera);
+    return ray.intersectObjects(api.pickables, false).length > 0;
+  }
+  let hoverQueued = false;
+  function hoverCheck(e) {
+    if (hoverQueued || e.target !== canvas) { if (e.target !== canvas) canvas.classList.remove('hot'); return; }
+    hoverQueued = true;
+    requestAnimationFrame(() => { hoverQueued = false; canvas.classList.toggle('hot', hit(e)); });
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    if (hit(e)) { if (state === 'idle' || state === 'giggle' || state === 'hello' || state === 'surprised') setState('giggle'); }
+  });
+} else {
+  // no 3D: keep the panel working
+  window.__noScene = true;
+}
+
+/* ---------------- speech ---------------- */
+let voices = [];
+function loadVoices() { try { voices = speechSynthesis.getVoices() || []; } catch { voices = []; } }
+if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.addEventListener?.('voiceschanged', loadVoices); }
+function pickVoice() {
+  return voices.find((v) => v.lang === 'en-IN') || voices.find((v) => /en[-_]IN/i.test(v.lang)) || voices.find((v) => /India/i.test(v.name))
+    || voices.find((v) => /^en/i.test(v.lang) && /Zira|Aria|Jenny|Female|Samantha|Heera|Neerja|Libby|Sonia/i.test(v.name))
+    || voices.find((v) => /^en[-_]GB/i.test(v.lang)) || voices.find((v) => /^en/i.test(v.lang)) || null;
+}
+const syll = (w) => Math.max(1, (w.toLowerCase().match(/[aeiouy]+/g) || []).length);
+let pulseTimers = [];
+function clearPulses() { pulseTimers.forEach(clearTimeout); pulseTimers = []; }
+function pulseWord(word) {
+  const n = Math.min(4, syll(word));
+  for (let i = 0; i < n; i++) {
+    pulseTimers.push(setTimeout(() => { talkTarget = 0.45 + Math.random() * 0.55; }, i * 125));
+    pulseTimers.push(setTimeout(() => { talkTarget = 0.06 + Math.random() * 0.14; }, i * 125 + 75));
+  }
+  pulseTimers.push(setTimeout(() => { talkTarget = 0.04; }, n * 125 + 40));
+}
+let speakToken = 0;
+function stopSpeech() {
+  speakToken++; clearPulses(); talking = false; talkTarget = 0;
+  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch {}
+  waveEl.classList.toggle('on', state === 'listening');
+}
+function speak(text) {
+  stopSpeech();
+  const my = ++speakToken;
+  talking = true; waveEl.classList.add('on');
+  return new Promise((resolve) => {
+    let finished = false, gotBoundary = false, simRunning = false;
+    const words = text.split(/\s+/).filter(Boolean);
+    const finish = () => {
+      if (finished) return; finished = true;
+      clearTimeout(maxTimer); clearTimeout(watch);
+      if (my === speakToken) { clearPulses(); talking = false; talkTarget = 0; waveEl.classList.toggle('on', state === 'listening'); }
+      resolve(my === speakToken);
+    };
+    const simulate = (loop) => {
+      if (simRunning) return; simRunning = true;
+      let at = 0;
+      const run = () => {
+        at = 0;
+        words.forEach((w) => {
+          pulseTimers.push(setTimeout(() => { if (my === speakToken && !finished) pulseWord(w); }, at));
+          at += 110 + syll(w) * 130 + (/[,;]$/.test(w) ? 170 : 0) + (/[.!?]$/.test(w) ? 320 : 0);
+        });
+        pulseTimers.push(setTimeout(() => { if (finished || my !== speakToken) return; if (loop) run(); else finish(); }, at + 120));
+      };
+      run();
+    };
+    const maxTimer = setTimeout(finish, text.length * 95 + 5000);
+    let watch = null;
+    const voiceOn = $('#voiceOn').checked && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+    if (!voiceOn) { simulate(false); return; }
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-IN';
+      u.rate = 1.06; u.pitch = 1.3;
+      u.onboundary = (e) => {
+        if (my !== speakToken) return;
+        if (e.name && e.name !== 'word') return;
+        gotBoundary = true;
+        if (simRunning) return;
+        const m = text.slice(e.charIndex).match(/^[^\s]+/); pulseWord(m ? m[0] : 'a');
+      };
+      u.onend = finish; u.onerror = () => { if (!simRunning) simulate(false); };
+      // if the voice never starts or gives no word events, move the mouth anyway
+      watch = setTimeout(() => { if (!gotBoundary && !finished) simulate(speechSynthesis.speaking); }, 700);
+      speechSynthesis.speak(u);
+    } catch { simulate(false); }
+  });
+}
+
+/* ---------------- demo conversation ---------------- */
+const convo = $('#convo');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function answerFor(q) {
+  if (/\b(delete|remove|erase|wipe|clear)\b/i.test(q)) return { no: true,
+    text: "Sorry, I can't do that. Fee payments are never deleted in School OS, and I only do what your role allows.",
+    say: "Sorry, I can't do that. Fee payments are never deleted in School OS." };
+  if (/absent/i.test(q)) return { text: '3 students are absent today: 2 in Class 6 A and 1 in Class 8 B.', say: '3 students are absent today. 2 in Class 6 A, and 1 in Class 8 B.' };
+  if (/fee/i.test(q)) return { text: "Today's fee collection is ₹42,500 from 17 payments.", say: "Today's fee collection is 42,500 rupees, from 17 payments." };
+  if (/student/i.test(q)) return { text: "I'll open the New Student form. You fill in the details, and I check them before saving.", say: "Sure! I'll open the New Student form for you." };
+  if (/timetable|time table/i.test(q)) return { text: 'Opening the Class Timetable page for you.', say: 'Opening the Class Timetable page for you.' };
+  return { text: "In the real app I would look this up in your school's records. This demo only knows the sample questions.", say: 'In the real app, I would look this up for you. This demo only knows the sample questions.' };
+}
+function bubble(cls, html) { const d = document.createElement('div'); d.className = 'bubble ' + cls; d.innerHTML = html; convo.appendChild(d); return d; }
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let flow = 0;
+async function ask(q) {
+  const my = ++flow; stopSpeech();
+  convo.innerHTML = '';
+  bubble('q', esc(q));
+  $('#micNote').textContent = 'Demo: the assistant answers with sample data.';
+  setState('listening'); await wait(900); if (my !== flow) return;
+  const w = bubble('a wait', 'Working on it…');
+  setState('thinking'); await wait(1200); if (my !== flow) return;
+  const a = answerFor(q);
+  w.className = 'bubble a' + (a.no ? ' no' : '');
+  w.innerHTML = `<span class="tag">${a.no ? 'Not allowed' : 'Demo answer'}</span>${esc(a.text)}`;
+  if (a.no) {
+    setState('sorry'); await speak(a.say); if (my !== flow) return;
+    stateTimer = setTimeout(() => { if (my === flow) setState('idle'); }, 1800);
+  } else {
+    setState('speaking'); await speak(a.say); if (my !== flow) return;
+    setState('done');
+  }
+}
+
+document.querySelectorAll('.chip[data-q]').forEach((b) => b.addEventListener('click', () => ask(b.dataset.q)));
+$('#typeForm').addEventListener('submit', (e) => {
+  e.preventDefault(); const v = $('#q').value.trim(); if (!v) { $('#q').focus(); return; }
+  $('#q').value = ''; ask(v);
+});
+$('#kbd').addEventListener('click', () => {
+  const f = $('#typeForm'); const open = f.hidden; f.hidden = !open;
+  $('#kbd').setAttribute('aria-expanded', String(open));
+  if (open) $('#q').focus();
+});
+$('#mic').addEventListener('click', () => {
+  const on = $('#mic').getAttribute('aria-pressed') !== 'true';
+  flow++; stopSpeech();
+  if (on) {
+    setState('listening'); $('#mic').setAttribute('aria-pressed', 'true');
+    $('#micNote').textContent = "Listening (demo only: the microphone isn't used). Tap a question or type one.";
+  } else { setState('idle'); $('#micNote').textContent = 'Tap a question, type one, or press the mic.'; }
+});
+document.querySelectorAll('.feel').forEach((b) => b.addEventListener('click', async () => {
+  const s = b.dataset.state; const my = ++flow; stopSpeech();
+  setState(s);
+  if (s === 'speaking') {
+    await speak("Hello! I'm your School OS Assistant. I can help with attendance, fees and timetables.");
+    if (my === flow && state === 'speaking') setState('idle');
+  }
+}));
+$('#voiceOn').addEventListener('change', () => { if (!$('#voiceOn').checked) { try { speechSynthesis.cancel(); } catch {} } });
+
+/* theme */
+function syncThemeBtn() {
+  const th = effectiveTheme();
+  $('#themeBtn').setAttribute('aria-label', th === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+  $('#themeIco').innerHTML = th === 'dark'
+    ? '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>'
+    : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+  if (api) api.paintBg(th);
+}
+$('#themeBtn').addEventListener('click', () => {
+  document.documentElement.dataset.theme = effectiveTheme() === 'dark' ? 'light' : 'dark';
+  syncThemeBtn();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeBtn);
+syncThemeBtn();
+
+/* test hook */
+window.__mascot = { face: () => api && api.fx.canvas.toDataURL(), dbg: () => api, setState: (s, o) => { flow++; stopSpeech(); setState(s, o); }, speak, ask, get state() { return state; },
+  setTalk: (on) => { talking = on; if (on) { talkTarget = 0.85; } else talkTarget = 0; } };
+</script>
+</body>
+</html>

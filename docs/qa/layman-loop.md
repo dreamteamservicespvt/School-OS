@@ -49,6 +49,11 @@ Progress page: see docs/HANDOFF.md (link).
 12. Demo data: test names (QA-, L1-L4, LD-, NA-, NC-, Test..., emoji) are on most pages of the test copy, and tests on the live site used real logins, so check the live pages before a demo or keep a clean demo school. In the test copy every child owes fees (re-seed for demos).
 13. Side menu names: a demo visitor asked for shorter names (Fees, Students, Attendance) and a Time Table entry; the blueprint says module names must match exactly, so not changed.
 14. Telugu fee-reminder template says 'pay by {due_date}' even when overdue; changing a WhatsApp template's words means Meta approval again (do with the deploy's template step). Notifications are stored in English; showing each reader's language needs a schema change.
+15. Moving in: a parent row without a phone cannot come in (Guardian phone is required in the database; Parent Link needs it). Allow a parent without a phone (migration) or keep refusing?
+16. Settings (payment gateways, messaging) say 'DREAM TEAM'; pick the wording schools should see (for example 'your School OS support team').
+17. Parent Link footer: a WhatsApp number for parents (the school office phone is used when it is a mobile).
+18. Accountants still open Fee Management on Collect Fee (the 2nd tab); admin and principal now open the Fee Dashboard. Same for accountants?
+19. Staff with salary vs staff on roll: Salary pages count the payroll subset (42 on payroll, 32 with a structure) while Staff & HR says 43 on roll; the labels now say which subset.
 
 ## Mindsets (one per round, then start over)
 

@@ -27,7 +27,8 @@ import { BASE } from "../../_lib/page";
 import { addEmergencyAction, addNoteAction, archiveDocumentAction, archiveNoteAction, emergencyAction, uploadDocument } from "../../_actions/students";
 import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_actions/guardians";
 import { adjustPointsAction } from "../../_actions/behaviour";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 type Base = { can: StudentAbilities; tz: string };
 
@@ -67,7 +68,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             <CardHeader title="Personal details" action={editLink(href, "personal", can)} />
             <DL rows={[
               ...(v.personal ? [
-                ["Date of birth", s.dateOfBirth ? `${longDate(s.dateOfBirth, tz)} (${ageOn(s.dateOfBirth)} years)` : null],
+                ["Date of birth", s.dateOfBirth ? <><DayText text={longDate(s.dateOfBirth, tz)} /> ({ageOn(s.dateOfBirth) === 1 ? <Words k="1 year" /> : <Words k="{n} years" vars={{ n: ageOn(s.dateOfBirth) }} />})</> : null],
                 ["Gender", s.gender],
                 ["Blood group", s.bloodGroup],
               ] as [string, React.ReactNode][] : []),
@@ -142,8 +143,8 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
               {p.identifiers.map((i) => (
                 <li key={i.key} className="flex items-center justify-between gap-3">
-                  <span className="min-w-0"><span className="block">{i.label}</span><span className="block text-[13px] text-ink3 font-mono">{i.value ?? "Not added"}</span></span>
-                  <Pill tone={i.level === "highly" ? "bad" : "warn"}>{i.level === "highly" ? "Highly restricted" : "Restricted"}</Pill>
+                  <span className="min-w-0"><span className="block">{tx(i.label)}</span><span className="block text-[13px] text-ink3 font-mono">{i.value ?? <Words k="Not added" />}</span></span>
+                  <Pill tone={i.level === "highly" ? "bad" : "warn"}><Words k={i.level === "highly" ? "Highly restricted" : "Restricted"} /></Pill>
                 </li>
               ))}
             </ul>
@@ -173,7 +174,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
   const primary = p.links.find((l) => l.isPrimary);
   return (
     <Card>
-      <CardHeader title="Parents" description={primary ? `Fee receipts and Parent Link go to ${primary.guardian.name}'s number` : "Choose a primary contact for messages"}
+      <CardHeader title="Parents" description={primary ? <Words k="Fee receipts and Parent Link go to {name}'s number" vars={{ name: primary.guardian.name }} /> : "Choose a primary contact for messages"}
         action={can.manage ? (
           <div className="flex flex-wrap gap-0.5">
             <EditLink href={`${BASE}/guardians/new?student=${studentId}`} label="Add" icon={Plus} />
@@ -379,7 +380,7 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
           <CardHeader title="Previous school" description={p.previousLocked ? `Locked: ${p.previousLocked} is closed.` : undefined} icon={Award} action={editLink(href, "previous", can)} />
           {p.previous ? (
             <DL cols={1} rows={[["School", p.previous.schoolName], ["Board", p.previous.board], ["Last class", p.previous.lastClass], ["Year", p.previous.year], ["Marks or %", p.previous.marks], ["Last changed", formatDate(p.previous.updatedAt, tz)]]} />
-          ) : <p className="px-5 pb-5 text-[14px] text-ink3">{p.student.previousSchool ?? "Not added."}</p>}
+          ) : <p className="px-5 pb-5 text-[14px] text-ink3">{p.student.previousSchool ?? <Words k="Not added" />}</p>}
         </Card>
       </Col>
     </Split>

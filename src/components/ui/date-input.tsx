@@ -249,7 +249,7 @@ export function DateInput(props: DateProps) {
         aria-haspopup="dialog"
         aria-expanded={Boolean(open)}
         aria-controls={popId}
-        placeholder={placeholder ?? "DD-MM-YYYY"}
+        placeholder={placeholder ?? t("DD-MM-YYYY")}
         disabled={disabled}
         readOnly={readOnly}
         required={required}

@@ -24,7 +24,7 @@ import { STUDENT_IMPORT, decisionWords, studentImport } from "../students/import
 import { STUDENT_UPDATE_IMPORT } from "../students/update-import";
 import { namesAlike } from "../students/name-match";
 import { MAX_ROWS, readWorkbook, ReadProblem, type Sheet } from "./read";
-import { findHeaderRow, guessKind, matchColumns, type ColumnMatch } from "./match";
+import { findHeaderRow, guessKind, matchColumns, valueType, type ColumnMatch } from "./match";
 import { classKey, plain, splitClassSection } from "./tidy";
 import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } from "./prepare";
 import { teacherOption, type Lookups } from "./lookups";
@@ -131,7 +131,7 @@ function kindOf(key: string, options: unknown = {}): ImportKind<unknown> {
   // A fresh Students import each time (withOptions): the registered one remembers sections it looked up, so a class added since would still read as missing.
   const o = options && typeof options === "object" && !Array.isArray(options) ? (options as Record<string, unknown>) : {};
   if (k.withOptions) return k.withOptions(o);
-  if (key === STUDENT_IMPORT) return studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true }) as ImportKind<unknown>;
+  if (key === STUDENT_IMPORT) return studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: false }) as ImportKind<unknown>;
   return k;
 }
 
@@ -281,7 +281,18 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
   };
 }
 
-export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown; broughtIn?: unknown }): Choices => ({
+/** The one value for every row chosen on screen for a column the file lacks (kept with the file's options). */
+export function fillOf(options: unknown): Record<string, string> {
+  const o = options && typeof options === "object" && !Array.isArray(options) ? (options as Record<string, unknown>).fill : null;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return {};
+  return Object.fromEntries(Object.entries(o as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string" && e[1].length <= 40));
+}
+
+/** Columns that may take one date for every row: any date but a date of birth. */
+export const fillable = (kindKey: string, key: string) => key !== "dateOfBirth" && valueType(kindKey, key) === "date";
+
+export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown; broughtIn?: unknown; options?: unknown }): Choices => ({
+  fill: fillOf(f.options),
   headerRow: f.headerRow,
   done: Object.keys(broughtInOf({ broughtIn: f.broughtIn })).map(Number).filter(Number.isInteger),
   columnMatch: (f.columnMatch ?? {}) as ColumnMatch,
@@ -411,7 +422,7 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
 }
 
 /** The column match chosen on screen: column key → file column numbers. */
-export async function setColumns(tx: Tx, id: string, match: ColumnMatch) {
+export async function setColumns(tx: Tx, id: string, match: ColumnMatch, fill?: Record<string, string>) {
   const f = await openFile(tx, id);
   const sheets = await readStored(tx, f.fileId);
   const width = (sheets[f.sheetIndex]?.rows[f.headerRow - 1] ?? []).length;
@@ -421,7 +432,16 @@ export async function setColumns(tx: Tx, id: string, match: ColumnMatch) {
     const cols = (match[c.key] ?? []).filter((n) => Number.isInteger(n) && n >= 0 && n < width);
     if (cols.length) clean[c.key] = [...new Set(cols)].slice(0, 3);
   }
-  await tx.moveInFile.update({ where: { id }, data: { columnMatch: clean } });
+  // One date for every row with none in the file (a due date, the month salary starts), as DD-MM-YYYY.
+  const fills: Record<string, string> = {};
+  for (const c of kind.columns) {
+    const v = (fill?.[c.key] ?? "").trim();
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    const dmy = iso ? `${iso[3]}-${iso[2]}-${iso[1]}` : /^\d{2}-\d{2}-\d{4}$/.test(v) ? v : "";
+    if (dmy && fillable(kind.key, c.key)) fills[c.key] = dmy;
+  }
+  const options = { ...((f.options ?? {}) as Record<string, unknown>), fill: fills };
+  await tx.moveInFile.update({ where: { id }, data: { columnMatch: clean, ...(fill ? { options: options as Prisma.InputJsonValue } : {}) } });
 }
 
 /** What Smart Import's question to the AI assistant needs from one file: the fields and columns still unmatched. The values only to describe their kind. */

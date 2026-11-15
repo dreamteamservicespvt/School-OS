@@ -51,6 +51,13 @@ export async function nextSchoolDay(tx: Tx, ctx: SchoolContext, after: Date, cam
   return days.working[0] ?? null;
 }
 
+/** The last day attendance was taken before `before` (within 30 days), for the "Last school day" chip on Take Attendance. */
+export async function lastSchoolDay(tx: Tx, ctx: SchoolContext, before: Date, campusId?: string | null): Promise<Date | null> {
+  const day = 86_400_000;
+  const days = await schoolDays(tx, ctx, new Date(before.getTime() - 30 * day), new Date(before.getTime() - day), campusId);
+  return days.working[days.working.length - 1] ?? null;
+}
+
 /** "Sunday · No school", "Holiday: Diwali": the one line a day off is called by (layman loop 15 Nov). */
 export function dayOffTitle(info: DayInfo, date: Date) {
   if (info.reason === "holiday" && info.title) return `Holiday: ${info.title}`;

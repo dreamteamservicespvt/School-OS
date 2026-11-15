@@ -106,7 +106,8 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
         <Card className="p-3 flex flex-col md:flex-row gap-2.5 md:items-center">
           <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
           <UrlSelect param="hw" id="sg-hw" label="Homework" className="flex-1 min-w-0" options={data.list.map((h) => ({ value: h.id, label: `${h.sectionLabel} · ${h.title} · due ${dayDate(h.dueDate)}` }))} />
-          <p className="text-[13px] text-ink3 px-1"><Words k="Out of" /> {hw.maxMarks} · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}</p>
+          {/* "Out of" alone became "కు 100" in Telugu: the whole phrase is translated (layman loop 5). */}
+          <p className="text-[13px] text-ink3 px-1"><Words k="Marks" /> <Words k="out of {n}" vars={{ n: hw.maxMarks }} /> · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}{hw.counts.left ? <> · <Words k="{n} left the class" vars={{ n: hw.counts.left }} /></> : null}</p>
         </Card>
         <Stats items={[
           { label: "Handed in", value: `${counted.filter((r) => !notIn(r.sub.status)).length} of ${counted.length}`, icon: Upload, href: here({ f: null }) },
@@ -157,11 +158,11 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               columns={[
                 { key: "n", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.st.rollNo ?? ""}</span><Avatar name={r.st.name} size={32} /><span className="font-semibold">{r.st.name}</span></div> },
                 { key: "a", label: "Admission no.", render: (r) => <span className="font-mono text-[12.5px]">{r.st.admissionNo}</span> },
-                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3"><Words k="Not handed in" /></span>) },
+                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3">{pastDue ? <Words k="Not handed in" /> : <Words k="Not yet due" />}</span>) },
                 { key: "s", label: "Status", render: (r) => <Pill tone={SUB_TONE[word(r.sub.status)]}>{word(r.sub.status)}</Pill> },
                 { key: "sc", label: `Score / ${hw.maxMarks}`, align: "right", render: scoreCell },
               ]}
-              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : "Not handed in", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
+              mobile={(r) => ({ avatar: r.st.name, title: `${r.st.rollNo ?? ""}. ${r.st.name}`, sub: r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : pastDue ? "Not handed in" : "Not yet due", right: r.sub.score !== null ? <b className="font-semibold tnum">{r.sub.score}/{hw.maxMarks}</b> : null, pills: [<Pill key="s" tone={SUB_TONE[word(r.sub.status)]} className="!h-[22px] !text-[11.5px]">{word(r.sub.status)}</Pill>] })} />
           </div>
         </Card>
       </Stack>

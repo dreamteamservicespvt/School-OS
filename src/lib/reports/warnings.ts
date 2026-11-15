@@ -380,6 +380,10 @@ export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: F
     REVIEWED: counted.filter((r) => r.status === "REVIEWED").length,
     ACTION_PLANNED: counted.filter((r) => r.status === "ACTION_PLANNED").length,
     CLOSED: counted.filter((r) => r.status === "CLOSED").length,
+    // Students, once each, as the Dashboard counts them (layman loop 5: "13 students" there, "Act now 14" flags here).
+    actNowStudents: new Set(counted.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").map((r) => r.studentId)).size,
+    watchStudents: new Set(counted.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").map((r) => r.studentId)).size,
+    newStudents: new Set(counted.filter((r) => r.status === "NEW").map((r) => r.studentId)).size,
   };
   const q = f.q.trim().toLowerCase();
   const list = rows

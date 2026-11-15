@@ -2,7 +2,7 @@
 // language. Fixed messages come from the catalogue; the common ones with a name or a number in
 // them are matched here. A message the catalogue does not have stays in English, never blank.
 import type { T } from "./t";
-import { dayWords } from "./dates";
+import { dateRuns, dayWords } from "./dates";
 
 const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^(.+) is needed\.$/, (t, m) => t("{field} is needed.", { field: t.any(m[1]) })],
@@ -41,7 +41,8 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^Parents of (.+)$/, (t, m) => t("Parents of {class}", { class: m[1] })],
   [/^(.+) and (\d[\d,]*) more$/, (t, m) => t("{names} and {n} more", { names: m[1], n: m[2] })],
   // "Sanjay Verma (V-0240) and Deepika Rao (V-0232) and 4 more." (Front Office dashboard card, layman loop 4).
-  [/^(.+) and (\d[\d,]*) more\.$/, (t, m) => t("{names} and {n} more.", { names: m[1].split(" and ").join(", "), n: m[2] })],
+  // Only the " and " after a pass number joins two people; one inside a name ("Bread and Butter") stays.
+  [/^(.+) and (\d[\d,]*) more\.$/, (t, m) => t("{names} and {n} more.", { names: m[1].split(") and ").join("), "), n: m[2] })],
   [/^Was due (.+)$/, (t, m) => t("Was due {day}", { day: dayWords(t, m[1]) })],
   // Where a staff member is now (Front Office, src/lib/front-office/staff.ts), layman loop 4.
   [/^Teaching (.+) till (\d{1,2}:\d{2} [AP]M)$/, (t, m) => t("Teaching {class} till {time}", { class: m[1], time: m[2] })],
@@ -53,6 +54,31 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^Parent messages: (\d[\d,]*) open$/, (t, m) => t("Parent messages: {n} open", { n: m[1] })],
   [/^(\d[\d,]*) past the reply time$/, (t, m) => t("{n} past the reply time", { n: m[1] })],
   [/^(\d[\d,]*) not in a class yet$/, (t, m) => t("{n} not in a class yet", { n: m[1] })],
+  // A wrong mark on Marks Entry (src/lib/exams/compute.ts and the marks grid), said whole (layman loop 5).
+  [/^(.+) must be a number\.$/, (t, m) => t("{field} must be a number.", { field: t.any(m[1]) })],
+  [/^(.+) is not a number\.$/, (t, m) => t("{field} is not a number.", { field: t.any(m[1]) })],
+  [/^(.+) cannot be below 0\.$/, (t, m) => t("{field} cannot be below 0.", { field: t.any(m[1]) })],
+  [/^(.+) is out of (\d+(?:\.\d+)?)\. (\d+(?:\.\d+)?) is too high\.$/, (t, m) => t("{field} is out of {max}. {n} is too high.", { field: t.any(m[1]), max: m[2], n: m[3] })],
+  [/^(.+): use whole or half marks, such as 37 or 37\.5\.$/, (t, m) => t("{field}: use whole or half marks, such as 37 or 37.5.", { field: t.any(m[1]) })],
+  [/^(.+): a minus sign is not allowed: marks start at 0\.$/, (t, m) => t("{field}: a minus sign is not allowed: marks start at 0.", { field: t.any(m[1]) })],
+  [/^(.+): “(.*)” is not a mark\. Type a number such as 37 or 37\.5, or AB for absent and ML for medical leave\.$/,
+    (t, m) => t("{field}: “{text}” is not a mark. Type a number such as 37 or 37.5, or AB for absent and ML for medical leave.", { field: t.any(m[1]), text: m[2] })],
+  [/^(.+): “(.*)” is not finished\. Type AB for absent, ML for medical leave, or the mark\.$/,
+    (t, m) => t("{field}: “{text}” is not finished. Type AB for absent, ML for medical leave, or the mark.", { field: t.any(m[1]), text: m[2] })],
+  [/^marked (AB|ML) and also has marks\. Remove one\.$/, (t, m) => t("marked {code} and also has marks. Remove one.", { code: m[1] })],
+  [/^choose a grade from (.+)\.$/, (t, m) => t("choose a grade from {grades}.", { grades: m[1] })],
+  // A header part "Class teacher Ravi Teja" (Attendance), and "Your classes: 5 A, 5 B" (Students).
+  [/^Class teacher (.+)$/, (t, m) => t("Class teacher {name}", { name: m[1] })],
+  [/^Your classes: (.+)$/, (t, m) => t("Your classes: {classes}", { classes: m[1] })],
+  // Dashboard card lines (src/lib/dashboard/widgets): short money ("₹48.17 L") and a year name in them.
+  [/^(₹[\d.,]+(?: Cr| L|k)?) of (₹[\d.,]+(?: Cr| L|k)?) due so far$/, (t, m) => t("{paid} of {due} due so far", { paid: m[1], due: m[2] })],
+  [/^Latest in (.+)$/, (t, m) => t("Latest in {year}", { year: m[1] })],
+  [/^(.+): nothing due yet$/, (t, m) => t("{year}: nothing due yet", { year: m[1] })],
+  [/^(\d[\d,]*) studying in (.+)$/, (t, m) => t("{n} studying in {year}", { n: m[1], year: m[2] })],
+  // Communication: whose words a notice or message is, and whom a teacher may message.
+  [/^By (.+)$/, (t, m) => t("By {name}", { name: m[1] })],
+  [/^Automatic: (.+)$/, (t, m) => t("Automatic: {name}", { name: m[1] })],
+  [/^Only the people you may message: (.+)\.$/, (t, m) => t("Only the people you may message: {who}.", { who: t.any(m[1]) })],
 ];
 
 const TESTER = " (On this tester's computer the code is in the server log.)";
@@ -83,6 +109,7 @@ export function screenLine(t: T, text: string | null | undefined): string | unde
   if (!text || t.lang === "en") return text ?? undefined;
   const whole = screenMessage(t, text);
   if (whole !== text) return whole;
-  const part = (p: string) => dayWords(t, screenMessage(t, p));
+  // Only the dates in a part get day and month names: "Sat Pal Singh" or a visitor "April" stays as typed.
+  const part = (p: string) => dateRuns(t, screenMessage(t, p));
   return text.split(" · ").map((p) => (p.includes(". ") ? p.replace(/\. /g, ".\u0000").split("\u0000").map(part).join(" ") : part(p))).join(" · ");
 }

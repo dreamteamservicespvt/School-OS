@@ -251,7 +251,7 @@ export function NoteClear({ id }: { id: string }) {
   return (
     <form action={run} className="shrink-0">
       <input type="hidden" name="noteId" value={id} />
-      <IconButton type="submit" icon={X} label="Clear note" size={30} disabled={pending} />
+      <IconButton type="submit" icon={X} label="Clear note" size={44} disabled={pending} />
       {state && !state.ok && <span className="sr-only" role="alert">{state.message}</span>}
     </form>
   );

@@ -13,7 +13,7 @@ import { FormDialog, type Action } from "../_components/forms";
 import { SignInChoice } from "../_components/sign-in-choice";
 import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
-import { Pencil } from "lucide-react";
+import { IdCard, Pencil } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
 import { ShareMenu } from "@/components/ui/share-menu";
 
@@ -265,7 +265,8 @@ export function SwitchLoginForm({ staffId, on, action }: { staffId: string; on: 
 export function ReprintForm({ staffId }: { staffId: string }) {
   const [reason, setReason] = useState("");
   const [open, setOpen] = useState(false);
-  if (!open) return <Button size="sm" variant="secondary" onClick={() => setOpen(true)}><Words k="Print ID card" /></Button>;
+  // The same size as the other header buttons beside it (layman loop 5).
+  if (!open) return <Button variant="secondary" icon={IdCard} onClick={() => setOpen(true)}><Words k="Print ID card" /></Button>;
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line p-3">
       <TextField label="Reason for printing again" name="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Card lost" />

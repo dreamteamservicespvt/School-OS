@@ -190,7 +190,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
       </Card>
 
       <nav aria-label={t("Profile sections")} className="-mx-4 px-4 md:mx-0 md:px-0 mt-5">
-        <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">
+        <ul className="flex gap-1 overflow-x-auto lg:overflow-visible lg:flex-wrap no-scrollbar border-b border-line">
           {tabs.map((t) => {
             const on = t.key === tab;
             return (

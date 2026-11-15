@@ -156,7 +156,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
       </section>
 
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
-        <fieldset id="n-audience" tabIndex={-1}>
+        <fieldset id="n-audience" tabIndex={-1} aria-invalid={err("audience") ? true : undefined} aria-describedby={err("audience") ? "n-audience-error" : undefined}>
           <legend className="mb-2 font-semibold"><Words k="Audience" /> <span className="text-bad" aria-hidden>*</span></legend>
           {QUICK.length > 1 && (
             <div className="mb-2 flex flex-wrap gap-2">
@@ -173,7 +173,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} /><Words k="Students" /></label>
             {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} /><Words k="Staff" /></label>}
           </div>
-          {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
+          {err("audience") && <p id="n-audience-error" role="alert" className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
           {parents && wa && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
           {staff && roleKeys.length === 0 && data.staffNoLogin > 0 && <p className="text-sm font-medium text-warn">{t("{n} staff have no login, so they will not see this.", { n: data.staffNoLogin })}</p>}
         </fieldset>
@@ -201,7 +201,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <fieldset>
             <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Staff roles (nothing ticked: all staff)" /></legend>
             <div className="flex flex-wrap gap-x-5">
-              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} checked={roleKeys.includes(r.key)} onChange={(e) => setRoleKeys(e.target.checked ? [...roleKeys, r.key] : roleKeys.filter((x) => x !== r.key))} className={box} />{r.name}</label>)}
+              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} checked={roleKeys.includes(r.key)} onChange={(e) => setRoleKeys(e.target.checked ? [...roleKeys, r.key] : roleKeys.filter((x) => x !== r.key))} className={box} />{t.any(r.name)}</label>)}
             </div>
           </fieldset>
         )}

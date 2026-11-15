@@ -5,7 +5,7 @@
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Lang } from "./languages";
 import { screenLine } from "./messages";
-import { dayWords } from "./dates";
+import { dateLabel, dayWords } from "./dates";
 import { englishT, translator, type MessageKey, type T, type Vars } from "./t";
 
 const I18nContext = createContext<T>(englishT);
@@ -53,6 +53,12 @@ export function Line({ text }: { text: string }) {
 /** A date written in words ("Sat 17 Oct 2026", "Thursday, 22 October") with the day and month names in the screen's language. */
 export function DayText({ text }: { text: string }) {
   return <>{dayWords(useT(), text)}</>;
+}
+
+/** A chart label: a lone month or day name ("Oct", "Sept") in the screen's language; anything else as a Line. */
+export function DateLabel({ text }: { text: string }) {
+  const t = useT();
+  return <>{screenLine(t, dateLabel(t, text))}</>;
 }
 
 /** A select's options in the screen's language (an <option> takes only plain words). */

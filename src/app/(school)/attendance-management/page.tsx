@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE, takesAttendance } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
-import { dayInfo, dayOffTitle, nextSchoolDay } from "@/lib/attendance/calendar";
+import { dayInfo, dayOffTitle, lastSchoolDay, nextSchoolDay } from "@/lib/attendance/calendar";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { clockHHMM } from "@/lib/attendance/time";
 import { day, isoDay } from "@/lib/staff/dates";
@@ -20,7 +20,7 @@ import { SheetPicker } from "./_components/picker";
 import { TakeSheet } from "./_components/take-sheet";
 import { OfflinePanel } from "./_components/offline-panel";
 import { longDay } from "./_components/dates";
-import { DayText, Words } from "@/lib/i18n/client";
+import { Line, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -87,15 +87,19 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
   const messageLine = "messages" in data ? messageCountText(data.messages ?? null, isoDay(date) === isoDay(today)) : null;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
   const nextDay = data.info && !data.info.on ? await withSchool(current.ctx, (tx) => nextSchoolDay(tx, current.ctx, date, access.campusId)) : null;
+  // One tap for the usual "I forgot yesterday", like Give homework's date chips (layman loop 5).
+  const lastDay = await withSchool(current.ctx, (tx) => lastSchoolDay(tx, current.ctx, today, access.campusId));
+  const minDay = data.year ? isoDay(data.year.startDate) : null;
+  const lastDayIso = lastDay && (!minDay || isoDay(lastDay) >= minDay) ? isoDay(lastDay) : undefined;
   const sub = data.chosen
     ? [data.chosen.name, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
     : longDay(date);
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<DayText text={sub} />}
+      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<Line text={sub} />}
         actions={<SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
-          date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
+          date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined} lastDay={lastDayIso}
           classLabel={periodWise ? "Class and period" : "Class and section"} />} />
 
       <OfflinePanel userId={current.user.id} offlineOn={offlineOn} />

@@ -52,7 +52,7 @@ export function VerifyPhone({ token, maskedPhone, codeSent }: { token: string; m
       </PhoneCard>
       <PhoneCard className="flex gap-4">
         <span className="w-12 h-12 rounded-2xl bg-sunken text-ink2 grid place-items-center shrink-0"><Lock size={21} aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="font-semibold text-[15px]">{t("Why this step?")}</p><p className="text-[13px] text-ink3 mt-0.5">{t("Your link shows your children’s records. The code makes sure only you can open it on a new phone. This phone is remembered after today. If this is not your number, please call the school.")}</p></div>
+        <div className="min-w-0"><p className="font-semibold text-[15px]">{t("Why this step?")}</p><p className="text-[13px] text-ink3 mt-0.5">{t("Your link shows your children’s records. The code makes sure only you can open it on a new phone. After this, this phone will not need a code each time. If this is not your number, please call the school.")}</p></div>
       </PhoneCard>
     </>
   );

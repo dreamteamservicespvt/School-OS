@@ -31,10 +31,13 @@ async function handleGET(request: Request, { params }: { params: Promise<{ token
   const period = url.searchParams.get("period") ?? "";
   if (!UUID.test(childId) || !UUID.test(yearId) || !/^(year|exam:[0-9a-f-]{36}|term:[0-9a-f-]{36})$/i.test(period)) return plain("This link is not complete. Open the report card from your Parent Link again.", 400);
   const device = await deviceInfo();
-  const limited = await hitLimit(`pl-report:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
-  if (!limited.ok) return plain("Please wait a few minutes and try again.", 429);
+  // Counted per link; the address limit is high, as parents on one network share it (layman test loop 5).
+  const ipLimited = await hitLimit(`pl-report:ip:${device.ipAddress ?? "unknown"}`, 300, 600);
+  if (!ipLimited.ok) return plain("Please wait a few minutes and try again.", 429);
   const found = await findLink(token);
   if (!found) return plain("This link does not work. Please ask the school for a new one.", 404);
+  const limited = await hitLimit(`pl-report:link:${found.linkId}`, 30, 600);
+  if (!limited.ok) return plain("Please wait a few minutes and try again.", 429);
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
   const g = await guardianAccess(found, key, "report-cards");
   if (!g.ok && g.reason === "section-off") return plain("This report card is not available. Results may not be published yet.", 404);

@@ -7,6 +7,8 @@ import { Pill } from "@/components/ui/badge";
 import { Tabs, type Tab } from "@/components/ui/tabs";
 import { isPinned, togglePinned } from "./local-lists";
 import { useT } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
+import { moduleNameFor } from "./page-header";
 
 const PINS_CHANGED = "sos:pins-changed";
 function subscribe(onChange: () => void) {
@@ -32,6 +34,10 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
   const t = useT();
   const page = pageIn ?? pageName ?? title;
   const ownPage = page.trim().toLowerCase() !== title.trim().toLowerCase();
+  // Layman loop 5: one pattern on every page — the module's menu name small above the page's title.
+  const heading = ownPage ? page : title;
+  const moduleName = moduleNameFor(href);
+  const small = moduleName && moduleName.toLowerCase() !== heading.trim().toLowerCase() ? moduleName : ownPage ? title : null;
   const access = accessIn ?? (reach === "all" ? "full" : reach) ?? "full";
   const pinned = useSyncExternalStore(subscribe, () => isPinned(userId, href), () => false);
   const toggle = useCallback(() => {
@@ -44,21 +50,21 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
         <div className="min-w-0">
           {/* Layman loop 2 (15 Nov): the top bar said "Enquiries", the heading "Admissions". The page's own name is the
               heading, as in the top bar and Search; the module's name sits small above it. */}
-          {ownPage && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(title)}</p>}
+          {small && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(small)}</p>}
           {/* The pin stays beside the title; a long title wraps under itself, not the pin onto a line of its own (layman test LD12, 390 px). */}
           <div className="flex items-start gap-1.5">
             <h1 className="min-w-0 font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
-              {t.any(ownPage ? page : title)}
+              {t.any(heading)}
               {access === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
               {access === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}
             </h1>
             <button type="button" onClick={toggle}
               aria-pressed={pinned} aria-label={pinned ? t("Unpin {page}", { page: t.any(page) }) : t("Pin {page} to Search", { page: t.any(page) })} title={pinned ? t("Pinned to Search") : t("Pin to Search")}
-              className={cx("grid size-9 shrink-0 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
+              className={cx("grid size-9 max-md:size-11 shrink-0 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
               <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
             </button>
           </div>
-          {sub && <p className="text-ink3 text-[15px] mt-1">{typeof sub === "string" ? t.any(sub) : sub}</p>}
+          {sub && <p className="text-ink3 text-[15px] mt-1">{typeof sub === "string" ? screenLine(t, sub) : sub}</p>}
         </div>
         {actions && <div className="flex gap-2 flex-wrap items-center">{actions}</div>}
       </div>

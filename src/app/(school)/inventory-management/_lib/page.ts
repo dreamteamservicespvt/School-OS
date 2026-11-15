@@ -31,8 +31,9 @@ export const invPage = cache(async () => {
 export type InvPageData = Awaited<ReturnType<typeof invPage>>;
 
 const TABS: { key: InvPage; href: string; label: string; exact?: boolean }[] = [
-  { key: "items", href: `${BASE}/items`, label: "Items & Stock" },
+  // The page the module opens on is the first tab, so the start point is never mid-strip (layman loop 5).
   { key: "issue", href: BASE, label: "Issue Stock", exact: true },
+  { key: "items", href: `${BASE}/items`, label: "Items & Stock" },
   { key: "purchases", href: `${BASE}/purchases`, label: "Purchases & Vendors" },
   { key: "assets", href: `${BASE}/assets`, label: "Assets" },
   { key: "rooms", href: `${BASE}/rooms`, label: "Rooms, Labs & Maintenance" },

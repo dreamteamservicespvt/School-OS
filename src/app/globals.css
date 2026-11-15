@@ -16,8 +16,9 @@
   /* Accent (default: Lagoon) */
   --brand: 12 112 100; --brand-ink: 255 255 255;
   /* Meaning colours */
-  --ok: 21 128 72; --warn: 156 94 0; --bad: 200 40 48; --info: 28 100 200; --bad-ink: 255 255 255;
-  --av-l: 38%;
+  /* Darkened so 12 px pills on tinted cards keep 4.5:1 (accessibility check 2026-11-15). */
+  --ok: 18 112 62; --warn: 138 82 0; --bad: 184 32 40; --info: 28 100 200; --bad-ink: 255 255 255;
+  --av-l: 28%;
   color-scheme: light;
 }
 
@@ -220,7 +221,17 @@ th > .sr-only { position: static; }
   outline: 2px solid rgb(var(--brand));
   outline-offset: 2px;
 }
-:where(input, textarea):focus-visible { outline: none; }
+/* Text boxes show their own ring; ticks, radios and file pickers keep the outline. */
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"]), textarea):focus-visible { outline: none; }
+:where(input[type="checkbox"], input[type="radio"], input[type="file"], input[type="range"], input[type="color"]):focus-visible {
+  outline: 2px solid rgb(var(--brand));
+  outline-offset: 2px;
+}
+/* A hidden input inside a styled label (priority chips, Attachments): ring the label instead. */
+label:has(> input.sr-only:focus-visible), label:has(input.sr-only:focus-visible) {
+  outline: 2px solid rgb(var(--brand));
+  outline-offset: 2px;
+}
 
 .skip-link { position: absolute; left: -9999px; }
 .skip-link:focus {

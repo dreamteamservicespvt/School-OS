@@ -124,6 +124,8 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const unmarkedWords = incomplete.length ? `Attendance not marked for ${incomplete.length} staff (${sameUnmarked ? `${incomplete[0].notMarkedDays} ${incomplete[0].notMarkedDays === 1 ? "day" : "days"} each` : `${unmarkedDays} days in all`}): those days are paid as present.` : "";
   // A tag on every row means nothing: when all staff have it, it shows once, in the checks (loop 4).
   const hideFlag = (f: string) => f === "Attendance not complete" && included.length > 1 && incomplete.length === included.length;
+  // Everyone has the same unmarked days: one grey line above the table, not a warning on every row (layman test loop 5).
+  const allSameUnmarked = sameUnmarked && included.length > 1 && incomplete.length === included.length;
   const noTds = included.filter((l) => l.flags.includes("No TDS amount"));
   const lopLines = included.filter((l) => Number(l.lopDays) > 0);
   const corrections = data.adjustments.filter((a) => a.forMonth);
@@ -246,6 +248,27 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   </ul>
                 </Card>
               )}
+              {/* Under the month's card, so the left column is not a short card above empty space (layman test loop 5). */}
+              <Card>
+                <CardHeader title="Salary months" description={`${per.label} · tap one to open it`} />
+                <div className="px-5 pb-3 -mt-1"><PeriodFilter {...p.dates} fallback="finyear" size="sm" /></div>
+                {data.runs.length ? (
+                  <ul className="px-2 pb-2">
+                    {data.runs.map((x) => (
+                      <li key={x.id}>
+                        <Link href={qs(HREF, { ...per.keep, campus: one(sp.campus) || null, run: x.id })} scroll={false} aria-current={x.id === run.id ? "true" : undefined}
+                          className={cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition", x.id === run.id ? "bg-brand/8 ring-1 ring-brand/30" : "hover:bg-sunken/70")}>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold text-[14px]">{monthName(x.month)}</span>
+                            <span className="block text-[12.5px] text-ink3 tnum truncate">{[`${x.staffCount} staff`, money ? `net ${formatRupeesShort(x.netPaise)}` : null, statusWords(x) || null].filter(Boolean).join(" · ")}</span>
+                          </span>
+                          <RunPill s={x.status} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No salary months in" /> {per.label.toLowerCase()}.</p>}
+              </Card>
             </Col>
 
             <Col className="[&>*]:min-w-0">
@@ -344,26 +367,6 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   )}
                 </Card>
               )}
-              <Card>
-                <CardHeader title="Salary months" description={`${per.label} · tap one to open it`} />
-                <div className="px-5 pb-3 -mt-1"><PeriodFilter {...p.dates} fallback="finyear" size="sm" /></div>
-                {data.runs.length ? (
-                  <ul className="px-2 pb-2">
-                    {data.runs.map((x) => (
-                      <li key={x.id}>
-                        <Link href={qs(HREF, { ...per.keep, campus: one(sp.campus) || null, run: x.id })} scroll={false} aria-current={x.id === run.id ? "true" : undefined}
-                          className={cx("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition", x.id === run.id ? "bg-brand/8 ring-1 ring-brand/30" : "hover:bg-sunken/70")}>
-                          <span className="min-w-0 flex-1">
-                            <span className="block font-semibold text-[14px]">{monthName(x.month)}</span>
-                            <span className="block text-[12.5px] text-ink3 tnum truncate">{[`${x.staffCount} staff`, money ? `net ${formatRupeesShort(x.netPaise)}` : null, statusWords(x) || null].filter(Boolean).join(" · ")}</span>
-                          </span>
-                          <RunPill s={x.status} />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No salary months in" /> {per.label.toLowerCase()}.</p>}
-              </Card>
             </Col>
           </Split>
         )}
@@ -377,6 +380,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
               <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="show" options={SHOW} fallback="all" label="Show" /></div>
               {p.can.export && <ExportButton href={qs(`${HREF}/export`, { run: run.id, q: q || null, show: show === "all" ? null : show })} />}
             </Toolbar>
+            {allSameUnmarked && <p className="px-5 py-2.5 border-b border-line/70 text-[13px] text-ink3"><Words k="{n} days have no staff attendance yet: paid as present." vars={{ n: incomplete[0].notMarkedDays }} /></p>}
             {rows.length === 0 ? (
               <Empty icon={SearchX} title="No staff match" body={show === "adj" ? "No adjustments yet. Open a row to add a bonus, arrears or a deduction." : "Try a different search or filter."}
                 action={<Link href={qs(HREF, { ...per.keep, run: run.id, campus: one(sp.campus) || null })} scroll={false} className={buttonClass("secondary")}><Words k="Show everyone" /></Link>} />
@@ -408,7 +412,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                               <p className="font-semibold leading-tight font-sans">{s?.fullName}</p><p className="text-[12px] text-ink3 font-sans">{s?.designation}</p>
                             </td>
                             {l.included ? <>
-                              <td className="px-2">{dayNum(d.paid)}{l.notMarkedDays > 0 && <span className="block text-[11.5px] text-warn font-sans">{l.notMarkedDays} <Words k="not marked" /></span>}</td>
+                              <td className="px-2">{dayNum(d.paid)}{l.notMarkedDays > 0 && !allSameUnmarked && <span className="block text-[11.5px] text-ink3 font-sans">{l.notMarkedDays} <Words k="not marked" /></span>}</td>
                               <td className="px-2">{d.leave + d.unpaid + d.beyond ? dayNum(d.leave + d.unpaid + d.beyond) : "—"}</td>
                               <td className={cx("px-2", d.lop > 0 && "text-bad font-semibold")}>{d.lop ? dayNum(d.lop) : "—"}</td>
                               {money && <>

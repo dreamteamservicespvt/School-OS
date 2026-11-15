@@ -14,6 +14,7 @@ import { Tabs, type Tab } from "./tabs";
 import { isPinned, togglePinned } from "@/components/shell/local-lists";
 import { useT } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
+import { moduleNameFor } from "@/components/shell/page-header";
 
 const PINS_CHANGED = "sos:pins-changed";
 function subscribe(onChange: () => void) {
@@ -33,7 +34,7 @@ export function PinButton({ label, href, userId }: { label: string; href: string
   }, [userId, label, href]);
   return (
     <button type="button" onClick={toggle} aria-pressed={pinned} aria-label={pinned ? `Unpin ${label}` : `Pin ${label} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
-      className={cx("grid size-9 place-items-center rounded-xl transition hover:bg-sunken shrink-0", pinned ? "text-brand" : "text-ink3")}>
+      className={cx("grid size-9 max-md:size-11 place-items-center rounded-xl transition hover:bg-sunken shrink-0", pinned ? "text-brand" : "text-ink3")}>
       <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
     </button>
   );
@@ -55,10 +56,13 @@ export function ModuleHead({ title, page, href, userId, sub, scope, actions, tab
   tabsLabel?: string;
 }) {
   const t = useT();
+  // Layman loop 5: one pattern on every page — the module's menu name small above the title.
+  const moduleName = moduleNameFor(href);
   return (
     <>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
         <div className="min-w-0">
+          {moduleName && moduleName.toLowerCase() !== title.trim().toLowerCase() && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(moduleName)}</p>}
           <div className="flex flex-wrap items-center gap-1.5">
             <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
               {t.any(title)}

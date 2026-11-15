@@ -18,8 +18,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-xl",
+  // Phones and tablets: at least 44 px tall so a thumb hits it (accessibility check 2026-11-15).
+  sm: "h-8 max-md:min-h-11 px-3 text-[13px] gap-1.5 rounded-lg",
+  md: "h-10 max-md:min-h-11 px-4 text-sm gap-2 rounded-xl",
   lg: "h-12 px-5 text-[15px] gap-2 rounded-xl",
 };
 
@@ -60,11 +61,14 @@ export function ButtonLink({ href, variant = "secondary", size = "md", icon: Ico
 }
 
 /** A square icon-only button with a name for screen readers, and an optional count. */
+/** An invisible tap area of at least 44 px around a smaller icon button, on phones and tablets. */
+const hit = (size: number) => ({ "--hit": `${Math.min(0, (size - 44) / 2)}px` }) as React.CSSProperties;
+
 export function IconButton({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <button type="button" aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
-      style={{ width: size, height: size }}>
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
     </button>
@@ -74,8 +78,8 @@ export function IconButton({ icon: Icon, label, badge, className, size = 40, ...
 export function IconLink({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ComponentProps<typeof Link> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <Link aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0", shown(className), className)}
-      style={{ width: size, height: size }}>
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
     </Link>

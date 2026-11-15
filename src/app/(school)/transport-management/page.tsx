@@ -27,6 +27,7 @@ import { remindAction } from "./actions";
 import { BASE, UUID, addQ, one, qs, trGuard, type SearchParams } from "./_lib/page";
 import { pageTitle } from "@/lib/i18n/server";
 import { DateInput } from "@/components/ui/date-input";
+import { Words } from "@/lib/i18n/client";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Live Tracking") };
@@ -148,12 +149,17 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
           </Card>
         )}
 
-        <Stats items={[
+        {/* No bus running and no alert: one plain line, not "0 of 0" next to "All live" (layman loop 5). */}
+        {running.length === 0 && data.alerts.length === 0 ? (
+          <p className="flex items-center gap-2.5 rounded-2xl border border-line/70 bg-surface shadow-card px-5 py-4 text-[14.5px] text-ink2">
+            <Bus size={18} className="text-ink3 shrink-0" aria-hidden="true" /><Words k="No trips running now." />
+          </p>
+        ) : <Stats items={[
           { label: "Buses on a trip now", value: `${running.length} of ${data.rows.length}`, icon: Bus, sub: tripKind(kind) },
           { label: "Not updating", value: staleN, icon: Clock, tone: staleN ? "warn" : undefined, sub: staleN ? "stale or offline" : "All live" },
           { label: "Students on board", value: onBoard, icon: Users },
           { label: "Alerts today", value: data.alerts.length, icon: AlertTriangle, tone: openAlerts.length ? "bad" : undefined, sub: openAlerts.length ? `${openAlerts.length} open` : "None open" },
-        ]} />
+        ]} />}
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
           <SegLinks label="Trip" value={kind} options={[
@@ -165,7 +171,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
 
         <div className="grid xl:grid-cols-[minmax(0,1fr)_400px] gap-5 lg:gap-6 items-start [&>*]:min-w-0">
           <Card className="overflow-hidden">
-            <CardHeader title={sel ? `Route ${sel.r.route.number} · ${sel.r.route.name}` : "All buses"} description="Faded buses have an old location." icon={MapPinned}
+            <CardHeader title={sel ? `Route ${sel.r.route.number} · ${sel.r.route.name}` : "Route sketch"} description="Faded buses have an old location." icon={MapPinned}
               action={sel ? <ButtonLink size="sm" variant="ghost" href={qs(BASE, { kind: one(sp.kind) ? kind : null })}>Show all</ButtonLink> : undefined} />
             <div className="px-3 pb-3"><div className="rounded-xl overflow-hidden border border-line/70">
               <TransportMap routes={mapRoutes} school={schoolPoint} selected={routeSel} buses={buses} labelStops={Boolean(routeSel)} ariaLabel="Sketch of the bus routes with the running buses" />

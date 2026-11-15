@@ -63,7 +63,10 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
   const staffName = (id: string | null) => data.staff.find((s) => s.id === id)?.fullName ?? "";
   const loginName = (id: string | null) => data.logins.find((u) => u.id === id)?.displayName ?? "";
   const waiting = data.inside.filter((v) => v.staffReply === "wait").length;
-  const avg = data.outToday.length ? Math.round(data.outToday.reduce((s, v) => s + (v.timeOut!.getTime() - v.timeIn.getTime()), 0) / data.outToday.length / 60_000) : null;
+  const isToday = (d: Date) => d.toISOString().slice(0, 10) === p.todayStr;
+  // People still inside count too, up to now: "Average 0 minutes" showed while two visitors had been in for 4 hours (layman loop 5).
+  const stays = [...data.outToday.map((v) => v.timeOut!.getTime() - v.timeIn.getTime()), ...data.inside.filter((v) => isToday(v.visitDate)).map((v) => now.getTime() - v.timeIn.getTime())];
+  const avg = stays.length ? Math.round(stays.reduce((s, ms) => s + Math.max(0, ms), 0) / stays.length / 60_000) : null;
   const live = data.appts.filter((a) => ["BOOKED", "ARRIVED"].includes(a.status));
   const next = live.find((a) => a.startMin + a.lengthMin > p.minute && a.status === "BOOKED") ?? live[0];
   const apptsSorted = [...live, ...data.appts.filter((a) => !["BOOKED", "ARRIVED"].includes(a.status))];
@@ -71,7 +74,6 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
   const deskWho = imAtDesk ? t("You are at the desk") : data.desk[0] ? t("{name} at the desk", { name: loginName(data.desk[0]) }) : null;
   const here = (extra: Record<string, string>) => addQ(BASE, extra);
   const firstExpired = data.expired[0];
-  const isToday = (d: Date) => d.toISOString().slice(0, 10) === p.todayStr;
   const enquiriesOk = p.can.desk && can(p.current.permissions, "admission-management", "create");
   const BIG = [
     { t: t("New visitor"), s: t("Name, phone, whom to meet"), Ic: IdCard, href: here({ do: "visitor" }), on: p.can.register },
@@ -83,7 +85,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
   return (
     <div>
       <FoHead pageName="Reception Desk" href={BASE}
-        sub={`${shortDay(p.today, t)}${deskWho ? ` · ${deskWho}` : ""} · ${p.passLine}`}
+        sub={`${shortDay(p.today, t)}${deskWho ? ` · ${deskWho}` : ""}`}
         actions={p.can.desk ? <>
           <ButtonLink href={here({ do: "walkin" })} scroll={false} variant="secondary" icon={ClipboardList}><Words k="Walk-in request" /></ButtonLink>
           {p.can.manage && <MoreMenu label="Front Office settings" items={[
@@ -96,7 +98,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           { label: "In the building now", big: String(data.inside.length), foot: waiting ? t("{n} waiting to be called in", { n: waiting }) : data.inside.length ? t("None waiting to be called in") : t("Nobody inside"), href: `${BASE}/visitors?status=In` },
           { label: "Visitors today", big: String(data.todayCount), foot: avg != null ? t("Average {n} minutes inside", { n: avg }) : t("No visit closed yet"), href: `${BASE}/visitors` },
           { label: "Appointments today", big: String(data.appts.length), foot: next ? t("Next: {time}, {name}", { time: clockOf(next.startMin), name: next.visitorName }) : t("None left today"), href: p.may("appointments") ? `${BASE}/appointments` : undefined },
-          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] opacity-70 font-medium"> <Words k="calls," /> {data.enquiries} <Words k="enquiries" /></span></>, foot: data.followUps ? (data.followUps === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: data.followUps })) : t("No follow-ups due today"), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
+          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] font-medium"> <Words k="calls" /></span> {data.enquiries}<span className="text-[0.55em] font-medium"> <Words k="enquiries" /></span></>, foot: data.followUps ? (data.followUps === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: data.followUps })) : t("No follow-ups due today"), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
         ]} />
 
         {BIG.length > 0 && (
@@ -216,6 +218,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
 
 /** "6 visitors not checked out today." said whole in the screen's language. */
 function notOutWords(t: T, n: number, today: boolean) {
-  if (n === 1) return today ? t("1 visitor not checked out today.") : t("1 visitor not checked out.");
-  return today ? t("{n} visitors not checked out today.", { n }) : t("{n} visitors not checked out.", { n });
+  // Earlier days' passes are old passes, not people in the building now (layman loop 5).
+  if (n === 1) return today ? t("1 visitor not checked out today.") : t("1 old pass not closed.");
+  return today ? t("{n} visitors not checked out today.", { n }) : t("{n} old passes not closed.", { n });
 }

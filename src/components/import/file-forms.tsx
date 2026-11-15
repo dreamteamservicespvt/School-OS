@@ -11,10 +11,14 @@ import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { columnsAction, fixRowAction, sheetAction, uploadAction, uploadPhotosAction, valuesAction } from "@/app/(school)/_imports/file-actions";
+import Link from "next/link";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
+
+/** Off by default: moved-in students were charged the whole year on top of their old balances (layman loop 5). */
+const FEE_PLAN_HELP = "Adds this whole year's class fees to each new student. Leave it off if you bring in what they still owe as old dues.";
 
 /** Student Management's own choices with the upload: the section for rows with no class, and the class fee plan. */
 export type StudentChoices = { sections: Opt[]; sectionId?: string };
@@ -42,8 +46,8 @@ export function UploadForm({ place, kinds, kind, guess = true, help, students }:
         <>
           <SelectField key={`s${refused}`} label="Class and section" name="sectionId" options={[{ value: "", label: "From the file's Class and Section columns" }, ...students.sections]}
             defaultValue={(refused ? state?.values?.sectionId : undefined) ?? students.sectionId ?? ""} error={state?.errors?.sectionId} help="Used for new students on rows with no class in the file." />
-          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help="Each new student gets the fee plan of their class (Fee Management)."
-            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : true} />
+          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help={FEE_PLAN_HELP}
+            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : false} />
         </>
       )}
       <SubmitButton pendingText="Reading the file…"><Words k="Upload and check" /></SubmitButton>
@@ -99,8 +103,8 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
         <>
           <SelectField key={`s${refused}`} label="Class and section" name="sectionId" options={[{ value: "", label: "From the register's Class and Section columns" }, ...students.sections]}
             defaultValue={(refused ? state?.values?.sectionId : undefined) ?? students.sectionId ?? ""} error={state?.errors?.sectionId} help="Used for new students on rows with no class." />
-          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help="Each new student gets the fee plan of their class (Fee Management)."
-            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : true} />
+          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help={FEE_PLAN_HELP}
+            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : false} />
         </>
       )}
       <div>
@@ -164,32 +168,48 @@ export function ValuesForm({ place, id, column, rows, children }: { place: strin
   );
 }
 
-export function FixRowForm({ place, id, line, fields }: { place: string; id: string; line: number; fields: { key: string; label: string; value: string; required?: boolean; options?: Opt[] }[] }) {
+type FixField = { key: string; label: string; value: string; required?: boolean; options?: Opt[]; /** The row's problem is about this field: shown first, marked. */ problem?: string };
+
+export function FixRowForm({ place, id, line, fields }: { place: string; id: string; line: number; fields: FixField[] }) {
   const [state, action] = useActionState<FormState, FormData>(fixRowAction, null);
+  // Layman loop 5: 23 boxes and the empty "Parent's phone" not marked. The fields with a problem come first;
+  // the rest wait under More details. The server checks the row (noValidate: no browser message in English).
+  const bad = fields.filter((f) => f.problem);
+  const rest = bad.length ? fields.filter((f) => !f.problem) : fields;
+  const field = (f: FixField) => f.options ? (
+    <SelectField key={f.key} label={f.label} name={`f_${f.key}`} options={f.options} defaultValue={f.value} required={f.required} error={f.problem} />
+  ) : (
+    <TextField key={f.key} label={f.label} name={`f_${f.key}`} defaultValue={f.value} required={f.required} error={f.problem} />
+  );
   return (
-    <form action={action} className="space-y-3 pt-3">
+    <form action={action} className="space-y-3 pt-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="place" value={place} />
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="line" value={line} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {fields.map((f) => f.options ? (
-          <SelectField key={f.key} label={f.label} name={`f_${f.key}`} options={f.options} defaultValue={f.value} required={f.required} />
-        ) : (
-          <TextField key={f.key} label={f.label} name={`f_${f.key}`} defaultValue={f.value} required={f.required} />
-        ))}
-      </div>
+      {bad.length > 0 && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{bad.map(field)}</div>}
+      {bad.length > 0 ? (
+        <details className="rounded-xl border border-line px-3">
+          <summary className="flex min-h-11 cursor-pointer items-center font-medium"><Words k="More details" /></summary>
+          <div className="grid gap-3 pb-3 sm:grid-cols-2 xl:grid-cols-3">{rest.map(field)}</div>
+        </details>
+      ) : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{rest.map(field)}</div>}
       <SubmitButton pendingText="Checking…"><Words k="Save and check row" /> {String(line)}</SubmitButton>
     </form>
   );
 }
 
-type ColumnRow = { key: string; label: string; required: boolean; help?: string; cols: number[]; joinable: boolean };
+type ColumnRow = { key: string; label: string; required: boolean; help?: string; cols: number[]; joinable: boolean; fillable?: boolean; fill?: string; fillDefault?: string };
+
+/** "31-03-2026" → "2026-03-31" for a date box. */
+const isoOf = (v?: string) => { const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(v ?? ""); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; };
 
 /** Step 1: which column of the file is which. Each choice shows the first values of that column, so a wrong match is easy to see. */
-export function ColumnsForm({ place, id, rows, headers, samples }: { place: string; id: string; rows: ColumnRow[]; headers: string[]; samples: string[][] }) {
+export function ColumnsForm({ place, id, rows, headers, samples, salaryHref }: { place: string; id: string; rows: ColumnRow[]; headers: string[]; samples: string[][]; /** Staff files: where salaries are brought in. */ salaryHref?: string }) {
   const [state, action] = useActionState<FormState, FormData>(columnsAction, null);
   const [chosen, setChosen] = useState<Record<string, number[]>>(() => Object.fromEntries(rows.map((r) => [r.key, r.cols])));
+  // One date for every row, for a date column the file does not have (layman loop 5: no due date, no "salary starts from").
+  const [fills, setFills] = useState<Record<string, string>>(() => Object.fromEntries(rows.filter((r) => r.fillable).map((r) => [r.key, isoOf(r.fill) || r.fillDefault || ""])));
   const used = new Map<number, string>();
   for (const r of rows) for (const c of chosen[r.key] ?? []) if (!used.has(c)) used.set(c, r.label);
   const pick = (key: string, slot: number, v: string) => setChosen((old) => {
@@ -197,7 +217,7 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
     if (v === "") list.splice(slot); else list[slot] = Number(v);
     return { ...old, [key]: list.filter((x) => x !== undefined) };
   });
-  const missing = rows.filter((r) => r.required && !(chosen[r.key] ?? []).length);
+  const missing = rows.filter((r) => r.required && !(chosen[r.key] ?? []).length && !(r.fillable && fills[r.key]));
   const unused = headers.map((h, i) => (h.trim() && !used.has(i) ? h.trim() : null)).filter((h): h is string => Boolean(h));
   const options = headers.map((h, i) => ({ value: String(i), label: h }));
   // Only what needs a choice is open (live test 9): needed columns not found yet. Matched columns
@@ -233,7 +253,7 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
         <p role="status" className="rounded-xl border border-line bg-sunken/60 px-4 py-3 text-sm text-ink-2">
           <Words k="Not brought in from your file:" /> <b className="text-ink">{unused.join(", ")}</b>.{" "}
           <Words k="To bring one in, choose it for a column above." />
-          {unused.some((h) => /salary|pay|ctc|wage|basic/i.test(h)) && <> <Words k="Salaries go in Salary Management, Salary Structures, which has its own import." /></>}
+          {salaryHref && unused.some((h) => /salary|pay|ctc|wage|basic/i.test(h)) && <> <Link href={salaryHref} className="inline-flex min-h-11 items-center font-semibold text-brand-text underline"><Words k="Bring in salaries on Import salary" /></Link></>}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
@@ -266,6 +286,13 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
                   ))}
                 </div>
                 <p className="text-sm text-ink-2 break-words">{sample.length ? <><Words k="For example:" /> {sample.map((v, i) => <span key={i}>{i ? ", " : ""}<span className="text-ink">{v}</span></span>)}</> : cols.length ? "This column is empty in the first rows." : "\u00a0"}</p>
+                {r.fillable && !cols.length && (
+                  <label className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium"><Words k="Or one date for every row" /></span>
+                    <input type="date" name={`fill_${r.key}`} value={fills[r.key] ?? ""} onChange={(e) => { const v = e.target.value; setFills((o) => ({ ...o, [r.key]: v })); }}
+                      className="h-11 rounded-lg border border-line-strong bg-surface px-2 text-base" />
+                  </label>
+                )}
               </div>
             </li>
           );

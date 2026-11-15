@@ -202,7 +202,7 @@ export function matchColumns(kindKey: string, columns: ImportColumn[], headers: 
   if (sample.length) {
     for (const c of columns) {
       if (match[c.key] || !c.required) continue;
-      const col = byContent(valueType(kindKey, c.key), c.key, headers.length, sample, used);
+      const col = byContent(valueType(kindKey, c.key), c.key, headers.length, sample, used, undefined, headers);
       if (col !== null) { match[c.key] = [col]; used.add(col); }
     }
     // Optional columns too, by their values alone, but only where nothing else in this
@@ -213,7 +213,7 @@ export function matchColumns(kindKey: string, columns: ImportColumn[], headers: 
     for (const c of columns) {
       const type = valueType(kindKey, c.key);
       if (match[c.key] || c.required || !BY_VALUE_ALONE.has(type) || typeCount.get(type) !== 1) continue;
-      const col = byContent(type, c.key, headers.length, sample, used, { share: 0.9, least: 3 });
+      const col = byContent(type, c.key, headers.length, sample, used, { share: 0.9, least: 3 }, headers);
       if (col !== null) { match[c.key] = [col]; used.add(col); }
     }
   }
@@ -238,13 +238,52 @@ function valuesAgree(type: ValueType, col: number, sample: string[][]) {
   return vals.length < 3 || vals.filter(test).length / vals.length >= 0.3;
 }
 
-function byContent(type: ValueType, key: string, width: number, sample: string[][], used: Set<number>, need = { share: 0.7, least: 2 }): number | null {
+/**
+ * A heading that names an amount ("Total Fee", "Paid", "Balance", "Salary"), not a date.
+ * Layman loop 5 (15 Nov): "Due date" was matched to "Total Fee" because 46000 reads as an Excel day number.
+ */
+export function moneyHeading(h: string): boolean {
+  const t = h.toLowerCase();
+  if (/date|\bdt\b|\bdob\b|\bdoj\b|\bdoa\b|month|year/.test(t)) return false;
+  return /fee|amount|\bamt\b|paid|balance|\bbal\b|total|salary|\bpay\b|gross|\bnet\b|basic|\bdue\b|dues|rupee|\brs\b|₹|price|cost|allowance|ctc|wage|tds/.test(t);
+}
+
+/** A heading that looks like a date ("Due date", "DOB", "W.E.F", "Paid on"): only these turn a plain number into a date. */
+export function dateHeading(h: string): boolean {
+  return /date|\bdt\b|\bdob\b|\bdoj\b|\bdoa\b|d\.o\.[bja]|birth|joining|joined|w\.?e\.?f|\bfrom\b|\bon\b|\bmonth\b/i.test(h);
+}
+
+/** Which date a heading names ("Date of Joining" → joining), so it is never taken for another date. */
+function namedDate(h: string): "birth" | "joining" | "admission" | null {
+  const t = h.toLowerCase();
+  if (/birth|\bdob\b|d\s*\.?\s*o\s*\.?\s*b\b/.test(t)) return "birth";
+  if (/join|\bdoj\b|appoint/.test(t)) return "joining";
+  if (/admi|\bdoa\b/.test(t)) return "admission";
+  return null;
+}
+
+/** The dates a column key may be: a student's "joining date" is their admission date. */
+const OWN_DATES: Record<string, string[]> = { dateOfBirth: ["birth"], joiningDate: ["joining"], admissionDate: ["admission", "joining"] };
+
+/** A plain number ("46000"): an amount, not a written date. */
+const bareNumber = (v: string) => /^\d+(?:\.\d+)?$/.test(v.replace(/,/g, ""));
+
+function byContent(type: ValueType, key: string, width: number, sample: string[][], used: Set<number>, need = { share: 0.7, least: 2 }, headers: string[] = []): number | null {
   const test = testFor(type);
   if (!test) return null;
   let best: { col: number; share: number; year: number } | null = null;
   for (let col = 0; col < width; col++) {
     if (used.has(col)) continue;
+    if (type === "date") {
+      // Never a date from a money column, nor from another named date (Effective from ← Date of Joining).
+      const h = headers[col] ?? "";
+      if (moneyHeading(h)) continue;
+      const named = namedDate(h);
+      if (named && !(OWN_DATES[key] ?? []).includes(named)) continue;
+    }
     const vals = sample.map((r) => (r[col] ?? "").trim()).filter(Boolean);
+    // Plain numbers are amounts: a date found by its values must be written as a date.
+    if (type === "date" && vals.some(bareNumber)) continue;
     if (vals.length < need.least) continue;
     const share = vals.filter(test).length / vals.length;
     if (share < need.share) continue;

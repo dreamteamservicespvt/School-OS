@@ -168,9 +168,9 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
               <Card className="overflow-hidden">
                 <div className="p-4 md:px-5">
                   {/* Says who the notice was for: "staff and students" on a staff notice read as if students were counted (layman loop 4). */}
-                  <p className="text-[13px] font-semibold text-ink3">{n.askAck
+                  <p className="text-[13px] font-semibold text-ink3"><Words k={n.askAck
                     ? (data.a.staff && !data.a.students ? "Acknowledged by staff" : data.a.students && !data.a.staff ? "Acknowledged by students" : "Acknowledged by staff and students")
-                    : (data.a.staff && !data.a.students ? "Read by staff with a login" : data.a.students && !data.a.staff ? "Read by students" : "Read by staff and students")}</p>
+                    : (data.a.staff && !data.a.students ? "Read by staff with a login" : data.a.students && !data.a.staff ? "Read by students" : "Read by staff and students")} /></p>
                   <p className="font-display text-[24px] font-semibold tnum leading-tight">{data.people.length - notRead.length} <span className="text-[14px] text-ink3 font-sans"><Words k="of" /> {data.people.length}</span></p>
                 </div>
                 <ul className="divide-y divide-line/70 border-t border-line max-h-96 overflow-y-auto scroll-thin">
@@ -181,7 +181,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
                       <li key={p.id} className="flex items-center gap-3 px-4 md:px-5 py-2.5">
                         <Avatar name={p.displayName} size={32} />
                         <p className="min-w-0 flex-1 text-[14px] font-semibold truncate">{p.displayName}</p>
-                        {at ? <span className="text-[12.5px] tnum font-semibold">{formatDateTime(at, tz)}</span> : <Pill tone="warn">{n.askAck ? "Not acknowledged" : "Not read"}</Pill>}
+                        {at ? <span className="text-[12.5px] tnum font-semibold">{formatDateTime(at, tz)}</span> : <Pill tone="warn"><Words k={n.askAck ? "Not acknowledged" : "Not read"} /></Pill>}
                       </li>
                     );
                   })}

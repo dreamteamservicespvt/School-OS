@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { listHref, PAGE_SIZE, type ListParams } from "@/lib/list";
+import { Words } from "@/lib/i18n/client";
 
 export type Column<Row> = {
   key: string;
@@ -110,12 +111,12 @@ export function DataTable<Row>({ rows, columns, rowKey, rowHref, total, params, 
       </ul>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-2">
-        <p aria-live="polite">Showing {from} to {to} of {total.toLocaleString("en-IN")}</p>
+        <p aria-live="polite"><Words k="Showing {from} to {to} of {total}" vars={{ from, to, total: total.toLocaleString("en-IN") }} /></p>
         {pages > 1 && (
           <nav aria-label="Pages" className="flex items-center gap-2">
-            {params.page > 1 ? <Link className="min-h-11 rounded-lg border border-line px-3 py-2.5 hover:bg-surface-2" href={listHref(path, params, { page: params.page - 1 })}>Previous</Link> : null}
-            <span>Page {params.page} of {pages}</span>
-            {params.page < pages ? <Link className="min-h-11 rounded-lg border border-line px-3 py-2.5 hover:bg-surface-2" href={listHref(path, params, { page: params.page + 1 })}>Next</Link> : null}
+            {params.page > 1 ? <Link className="min-h-11 rounded-lg border border-line px-3 py-2.5 hover:bg-surface-2" href={listHref(path, params, { page: params.page - 1 })}><Words k="Previous" /></Link> : null}
+            <span><Words k="Page {n} of {n2}" vars={{ n: params.page, n2: pages }} /></span>
+            {params.page < pages ? <Link className="min-h-11 rounded-lg border border-line px-3 py-2.5 hover:bg-surface-2" href={listHref(path, params, { page: params.page + 1 })}><Words k="Next" /></Link> : null}
           </nav>
         )}
       </div>

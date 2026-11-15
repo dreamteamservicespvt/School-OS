@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Paperclip } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 
@@ -40,6 +40,24 @@ function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: Form
   );
 }
 
+/** The app's own upload button: the browser's "Choose File / No file chosen" stayed English in every language (layman loop 5). */
+function DocPicker() {
+  const [name, setName] = useState("");
+  return (
+    <>
+      <span className="mb-1 block text-sm font-medium"><Words k="Document" /></span>
+      <span className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line-strong bg-surface px-4 text-sm font-medium text-ink hover:bg-sunken has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+          <Paperclip size={16} aria-hidden="true" /><Words k="Add photo or file" />
+          <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="sr-only" aria-describedby="leave-doc-help"
+            onChange={(e) => setName(e.currentTarget.files?.[0]?.name ?? "")} />
+        </label>
+        {name && <span className="min-w-0 break-all text-sm text-ink-2">{name}</span>}
+      </span>
+    </>
+  );
+}
+
 export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defaultOpen, today, label = "Apply for leave" }: {
   action: Action; preview: (s: FormState<{ text: string }>, fd: FormData) => Promise<FormState<{ text: string }>>;
   types: LeaveTypeOption[]; staff: Option[] | null; fixedStaff?: Option; defaultOpen?: boolean; today: string; label?: string;
@@ -66,8 +84,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
           )}
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label htmlFor="leave-doc" className="mb-1 block text-sm font-medium"><Words k="Document" /></label>
-            <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full text-sm text-ink-2 file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line-strong file:bg-surface file:px-4 file:font-medium file:text-ink hover:file:bg-sunken" aria-describedby="leave-doc-help" />
+            <DocPicker />
             <p id="leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Such as a doctor's note. Needed for some leave types and for long leave."}</p>
           </div>
           <Preview action={preview} />

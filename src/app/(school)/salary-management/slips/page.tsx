@@ -132,10 +132,12 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
                         <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0"><ReceiptText size={19} aria-hidden="true" /></span>
                         <Link href={here({ slip: s.id })} scroll={false} className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-[14.5px] truncate">{monthName(s.month)}</p>
-                          <p className="text-[12.5px] text-ink3 truncate">{s.run.paidOn ? `Paid ${dayShort(s.run.paidOn)}` : "Approved, not paid yet"} · {dayNum(Number(l.paidDays))} <Words k="days" /></p>
+                          <p className="text-[12.5px] text-ink3 truncate">{s.run.paidOn ? `Paid ${dayShort(s.run.paidOn)}` : "Approved, not paid yet"}</p>
+                          {/* Its own line: the days paid explain a smaller month and were the part cut off on a phone (layman loop 5). */}
+                          <p className="text-[12.5px] text-ink3 tnum"><Words k="Days paid" /> {dayNum(Number(l.paidDays))} / {l.daysInMonth}</p>
                         </Link>
                         <span className="font-semibold tnum text-[14.5px]">{formatRupees(l.netPaise)}</span>
-                        <a href={pdf(s.id)} download aria-label={`Download ${monthName(s.month)} slip`} className="grid size-9 place-items-center rounded-xl text-ink2 hover:bg-sunken"><Download size={18} aria-hidden="true" /></a>
+                        <a href={pdf(s.id)} download aria-label={`Download ${monthName(s.month)} slip`} className="grid size-11 place-items-center rounded-xl text-ink2 hover:bg-sunken"><Download size={18} aria-hidden="true" /></a>
                       </li>
                     );
                   })}

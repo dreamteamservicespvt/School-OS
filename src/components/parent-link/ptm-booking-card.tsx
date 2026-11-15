@@ -113,13 +113,13 @@ export function PtmBookingCard({ token, preview, c }: { token: string; preview: 
           )}
           {tch && (
             <fieldset>
-              <legend className="text-[13px] font-semibold text-ink2 mb-2 flex items-center gap-1.5"><CalendarClock size={15} aria-hidden="true" />{c.teachers.length > 1 ? t("Free times with {name}", { name: tch.name }) : t("Free times with {name}", { name: `${tch.name}, ${tch.label}` })}</legend>
+              <legend className="text-[13px] font-semibold text-ink2 mb-2 flex items-center gap-1.5"><CalendarClock size={15} aria-hidden="true" />{c.teachers.length > 1 ? t("Free times with {name}", { name: tch.name }) : t("Free times with {name}", { name: `${tch.name} (${tch.label})` })}</legend>
               {tch.free.length ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {tch.free.map((s) => (
                     <label key={s.id} className={cx("h-11 rounded-xl border grid place-items-center text-[14px] font-semibold tnum cursor-pointer transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand", slot === s.id ? "bg-brand text-brandink border-brand" : "border-line hover:border-brand")}>
                       <KeepCheck type="radio" name="time" value={s.id} checked={slot === s.id} onChange={() => setSlot(s.id)} className="sr-only" />
-                      {s.time.replace(/ (AM|PM)$/, "")}<span className="sr-only"> {s.time.slice(-2)}</span>
+                      <span>{s.time.replace(/ (AM|PM)$/, "")}{/ (AM|PM)$/.test(s.time) && <span className="ml-0.5 text-[11px] font-medium opacity-80"> {s.time.slice(-2)}</span>}</span>
                     </label>
                   ))}
                 </div>

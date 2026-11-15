@@ -18,6 +18,7 @@ import { percentText } from "./summary";
 import { attendanceFeatures } from "./settings";
 import { REASONS_FEATURE, studentAbsences } from "./absence-reasons";
 import { FLAG_STATUS_LABEL } from "./flags";
+import { dayInfo } from "./calendar";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Banner } from "@/components/ui/banner";
@@ -51,7 +52,9 @@ registerProfileTab({
   today: async ({ current, studentId }) => withSchool(current.ctx, async (tx) => {
     const today = todayIn(current.school.timeZone);
     const mark = await tx.attendanceMark.findFirst({ where: { studentId, date: today, archivedAt: null }, orderBy: { periodNo: "asc" } });
-    if (!mark) return [{ label: "Attendance today", value: "Not marked yet", tone: "neutral" }];
+    // A Sunday or a holiday has no marks: "No school today", not "Not marked yet", which read like the
+    // teacher forgot (layman loop 5).
+    if (!mark) return [{ label: "Attendance today", value: (await dayInfo(tx, current.ctx, today)).on ? "Not marked yet" : "No school today", tone: "neutral" }];
     const st = await tx.attendanceStatus.findFirst({ where: { key: mark.statusKey } });
     const tone = mark.statusKey === "absent" ? "danger" : mark.statusKey === "late" ? "warning" : "success";
     return [{ label: "Attendance today", value: st?.name ?? mark.statusKey, tone }];

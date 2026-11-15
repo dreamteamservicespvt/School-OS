@@ -25,7 +25,7 @@ import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "..
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { dayBookSourceLink } from "@/lib/finance/source-link";
 import { sourceLinkAccess } from "../_lib/source-link";
-import { closePreview, closesBetween, closesDays, daysToClose, reopensDays } from "@/lib/finance/day-close";
+import { closePreview, closesBetween, closesDays, daysToClose, expectedCash, reopensDays } from "@/lib/finance/day-close";
 import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
 import { CloseDaySheet, ReopenDaySheet } from "./sheets";
@@ -76,11 +76,15 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
     // The day the Close button closes: the oldest day still to count, else the day shown (or today).
     const closeDate = wantDay ?? (pending.through ? pending.days[0] ?? p.today : oneDay && from <= p.today ? from : p.today);
     const preview = closer && doing === "close" ? await closePreview(tx, p.current.ctx, closeDate, p.today) : null;
+    // Cash in the box at the start of the day, so "Cash the books expected" adds up (layman test loop 5).
+    const dayBefore = (d: Date) => new Date(d.getTime() - 86_400_000);
+    const openingShown = oneDay && closes.some((c) => c.date.getTime() === from.getTime()) ? await expectedCash(tx, p.current.ctx, dayBefore(from)) : null;
+    const openingPreview = preview ? await expectedCash(tx, p.current.ctx, dayBefore(preview.date)) : null;
     const people = closes.flatMap((c) => [c.closedById, c.reopenedById]).filter((x): x is string => Boolean(x));
     const names: { id: string; displayName: string }[] = people.length ? await tx.userLogin.findMany({ where: { id: { in: people } }, select: { id: true, displayName: true } }) : [];
     const latest = await tx.dayClose.findFirst({ where: { reopenedAt: null }, orderBy: { date: "desc" }, select: { id: true, date: true, closedById: true, closedAt: true } });
     if (latest?.closedById && !names.some((n) => n.id === latest.closedById)) names.push(...(await tx.userLogin.findMany({ where: { id: latest.closedById }, select: { id: true, displayName: true } })));
-    return { view, classes, accounts, split, match, closedYear, closes, pending, closeDate, preview, names: new Map(names.map((n) => [n.id, n.displayName])), latestCloseId: latest?.id ?? null, latest };
+    return { view, classes, accounts, split, match, closedYear, closes, pending, closeDate, preview, openingShown, openingPreview, names: new Map(names.map((n) => [n.id, n.displayName])), latestCloseId: latest?.id ?? null, latest };
   });
   const v = data.view;
   const keep = { ...per.keep, class: classId, acct, waiting: waiting ? "1" : null };
@@ -198,7 +202,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         ]} />
 
         {/* Layman loop 15 Nov: a quiet day showed 8 empty cards and 6 "₹0 None" tiles; one line says it. */}
-        {!nothing && v.groups.some((g) => g.count) && <Stats items={v.groups.filter((g) => g.count).map((g) => ({
+        {/* One kind only: the band and its table already say it (loop 5: "Partial payments" three times). */}
+        {!nothing && v.groups.filter((g) => g.count).length > 1 && <Stats items={v.groups.filter((g) => g.count).map((g) => ({
           label: g.label, value: formatRupees(g.amount), sub: g.count ? `${g.count} ${g.count === 1 ? "entry" : "entries"}` : g.key === "daycare" ? "No daycare payments" : "None",
           icon: ({ online: Globe, full: CircleCheck, partial: CirclePause, daycare: Baby, "other-fees": Shirt, "other-income": HandCoins } as Record<string, LucideIcon>)[g.key],
         }))} />}
@@ -228,6 +233,10 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                 <CardHeader title="Day closed" description={`By ${closedBy(shownClose.closedById)}, ${formatDate(shownClose.closedAt, p.tz)} at ${formatTime(shownClose.closedAt, p.tz)}`} icon={Lock}
                   action={<Pill tone={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "ok" : "warn"}>{shownClose.countedCashPaise === shownClose.expectedCashPaise ? "Cash matched" : "Cash differed"}</Pill>} />
                 <ul className="px-5 pb-4">
+                  {data.openingShown !== null && <>
+                    <Line k="Cash at the start of the day" v={signed(data.openingShown)} />
+                    <Line k="Cash in and out on the day" v={signed(shownClose.expectedCashPaise - data.openingShown)} />
+                  </>}
                   <Line k="Cash the books expected" v={formatRupees(shownClose.expectedCashPaise)} />
                   <Line k="Cash counted" v={formatRupees(shownClose.countedCashPaise)} bold />
                   <Line k="Difference" v={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "None" : signed(shownClose.countedCashPaise - shownClose.expectedCashPaise)} tone={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "ok" : "bad"} />
@@ -274,14 +283,17 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                 <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Online payments show the account Razorpay split them into. Counter payments show the account the cash or cheque goes into." /></p>
               </Card>
             )}
-            <Card>
-              <CardHeader title="Where entries come from" icon={Workflow} />
+            {/* Folded: how the software fills the book is a question, not something to read every day (loop 5). */}
+            <details className="group rounded-2xl bg-surface border border-line shadow-card">
+              <summary className="min-h-11 px-5 py-3 flex items-center gap-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden text-[14px] font-semibold text-ink2 hover:text-ink">
+                <Workflow size={16} aria-hidden="true" /><Words k="How is this filled?" />
+              </summary>
               <ul className="px-5 pb-4 text-[13.5px] text-ink2 flex flex-col gap-2">
                 {([[ReceiptIndianRupee, "Fees", "when a payment is posted, a reversal when it is cancelled"], [HandCoins, "Income", "when other income is posted"], [ReceiptText, "Expenses", "only when marked Paid, on the date paid"], ...(p.payHeads ? [] : [[Wallet, "Salary", "when a month’s salary or an advance is marked Paid"]]), [ShoppingCart, "Inventory", "vendor bill payments, as expenses"]] as [LucideIcon, string, string][]).map(([Ic, k, w]) => (
                   <li key={k} className="flex gap-2.5"><span className="w-7 h-7 rounded-lg bg-sunken text-ink2 grid place-items-center shrink-0"><Ic size={15} aria-hidden="true" /></span><span><b className="font-semibold text-ink">{k}</b> · {w}</span></li>
                 ))}
               </ul>
-            </Card>
+            </details>
           </div>
         </div>
         </>}
@@ -289,7 +301,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
 
       {data.preview && (
         <CloseDaySheet closeHref={here({ do: null, day: null })} date={dayKey(data.preview.date)} dateWords={formatDate(data.preview.date)}
-          expectedPaise={Number(data.preview.expected)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.incomeEntries}
+          expectedPaise={Number(data.preview.expected)} openingPaise={data.openingPreview === null ? null : Number(data.openingPreview)} incomePaise={Number(data.preview.income)} expensePaise={Number(data.preview.expense)} entries={data.preview.incomeEntries}
           isToday={data.preview.date.getTime() === p.today.getTime()} timeNow={formatTime(new Date(), p.tz)} problem={data.preview.problem} />
       )}
       {doing === "reopen" && shownClose && reopener && shownClose.id === data.latestCloseId && shownClose.closedById !== p.current.user.id && (

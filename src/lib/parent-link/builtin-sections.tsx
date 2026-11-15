@@ -15,6 +15,25 @@ import { Check, FileSignature, ShieldCheck, X } from "lucide-react";
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { makeT } from "../i18n/server";
+import { READY_TEXTS } from "../data-security/consent";
+import type { MessageKey } from "../i18n/t";
+
+/**
+ * A short summary in the parent's language of the school's ready consent texts, shown when the
+ * school has not written the form in that language (layman test loop 5). Never for a text the
+ * school changed: the summary would no longer match it.
+ */
+const SUMMARY: Record<string, MessageKey> = {
+  "data-processing": "In short: the school keeps your child's details safely, only to run the school, and never sells them. You can take back consent at any time.",
+  photo: "In short: the school may show photos of your child in the gallery, notices and its social media. You can take back consent at any time.",
+  apaar: "In short: the school may make or link your child's APAAR ID and share only what the government asks for.",
+  "message-opt-in": "In short: you agree to get school messages about your child on WhatsApp and SMS.",
+};
+const flat = (s: string) => s.replace(/\s+/g, " ").trim();
+function readySummary(text: ConsentTextRow): MessageKey | null {
+  const ready = READY_TEXTS[text.consentType]?.en;
+  return ready && SUMMARY[text.consentType] && flat(text.text.en ?? "") === flat(ready) ? SUMMARY[text.consentType] : null;
+}
 
 async function noticesFor(tx: Tx, ctx: SchoolContext, view: GuardianView, children: GuardianView["children"]) {
   const rows = await noticesForGuardian(tx, ctx, children);
@@ -56,7 +75,7 @@ registerSection<NoticeRow[]>({
 
 type ConsentData = {
   maskedPhone: string;
-  forms: { text: ConsentTextRow; wording: string; ownLanguage: boolean; newVersion: boolean; waitingSince: Date | null; replyBy: Date | null; children: { id: string; name: string; given: boolean; givenAt: Date | null; version: number | null }[] }[];
+  forms: { text: ConsentTextRow; wording: string; ownLanguage: boolean; summary: MessageKey | null; newVersion: boolean; waitingSince: Date | null; replyBy: Date | null; children: { id: string; name: string; given: boolean; givenAt: Date | null; version: number | null }[] }[];
 };
 
 registerSection<ConsentData>({
@@ -83,7 +102,7 @@ registerSection<ConsentData>({
         const wording = consentWording(text, [view.lang, view.language, "en"], view.schoolName);
         // An earlier version agreed to: the form says it is new; otherwise no version number is shown.
         const newVersion = standing.some((r) => r.consentType === text.consentType && r.consentTextId !== text.id);
-        return { text, wording: wording.text, ownLanguage: wording.own, newVersion, waitingSince: req && children.some((c) => !c.given) ? req.createdAt : null, replyBy: req?.replyBy ?? null, children };
+        return { text, wording: wording.text, ownLanguage: wording.own, summary: wording.own ? null : readySummary(text), newVersion, waitingSince: req && children.some((c) => !c.given) ? req.createdAt : null, replyBy: req?.replyBy ?? null, children };
       })
       // Waiting forms first.
       .sort((a, b) => Number(Boolean(b.waitingSince)) - Number(Boolean(a.waitingSince)));
@@ -112,6 +131,7 @@ function ConsentSection({ data, view }: { data: ConsentData; view: GuardianView 
             </div>
             <details className="mt-2 group">
               <summary className="min-h-11 flex items-center cursor-pointer text-[13.5px] font-semibold text-brand list-none [&::-webkit-details-marker]:hidden">{f.newVersion ? t("Read the new form") : t("Read the form")}</summary>
+              {f.summary && <p className="mb-2 text-[14px] font-medium text-ink">{t(f.summary)}</p>}
               {!f.ownLanguage && <p className="mb-2 text-[13px] text-ink3">{t("This form is not in your language yet. For questions, call the school.")}</p>}
               <p className="whitespace-pre-line text-[13.5px] text-ink2 rounded-2xl bg-sunken/60 p-3.5">{f.wording}</p>
             </details>

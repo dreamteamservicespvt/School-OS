@@ -104,9 +104,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
         {a.own && <Banner tone="info" title="Showing your classes only."><Words k="Fee signals go to the Principal and accounts, not to teachers." /></Banner>}
         {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags."><Words k="Class teachers review them; use Remind to ask. Fee flags go to accounts." /></Banner>}
         <Stats items={[
-          { label: "Act now", value: String(counts.actNow), sub: "Open flags · strong signs", tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null, strength: "ACT_NOW" }) },
-          { label: "Watch", value: String(counts.watch), sub: "Open flags · fees are always Watch", tone: "warn", icon: Eye, href: qs(HREF, { ...keep, status: null, strength: "WATCH" }) },
-          { label: "Not reviewed yet", value: String(counts.NEW), sub: "Review before any action", tone: "brand", icon: Inbox, href: qs(HREF, { ...keep, status: "NEW" }) },
+          // Students once each, as on the Dashboard; the flags behind them are said under the number (layman loop 5).
+          { label: "Act now", value: String(counts.actNowStudents), sub: fromFlags(counts.actNow), tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null, strength: "ACT_NOW" }) },
+          { label: "Watch", value: String(counts.watchStudents), sub: fromFlags(counts.watch), tone: "warn", icon: Eye, href: qs(HREF, { ...keep, status: null, strength: "WATCH" }) },
+          { label: "Not reviewed yet", value: String(counts.newStudents), sub: fromFlags(counts.NEW), tone: "brand", icon: Inbox, href: qs(HREF, { ...keep, status: "NEW" }) },
           { label: "Closed", value: String(counts.CLOSED), sub: "With a reason each", icon: CircleCheck, href: qs(HREF, { ...keep, status: "CLOSED" }) },
         ]} />
         <Split side={340}>
@@ -257,4 +258,9 @@ function AheadCard({ s }: { s: AiSignal }) {
         <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost"><Words k="Not a concern" /></QuickButton>
       </>}>{s.body}</Suggestion>
   );
+}
+
+/** "Students, from 14 open flags": under a tile that counts students once each. */
+function fromFlags(n: number) {
+  return n === 1 ? <Words k="Students, from 1 open flag" /> : <Words k="Students, from {n} open flags" vars={{ n }} />;
 }

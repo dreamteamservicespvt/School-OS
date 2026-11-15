@@ -17,8 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT = {
-  "fee-old-dues": "One row per student and fee head: the amount still unpaid from before School OS. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in. A second import for the same student and fee head is refused.",
-  "fee-past-receipts": "One row per receipt already given in the old software this year: its number, date, amount and mode. Each is kept read-only as Brought in, reduces the dues it paid, and never reaches the Day Book or today's collection.",
+  "fee-old-dues": "One row per student: what they still owe from earlier years, or this year's balance if they came in without the class fee plan.",
+  "fee-past-receipts": "One row per payment made this year in the old software. Use this when students already have this year's fee plan: bring in what they paid, not their balance. No receipt numbers? Leave that column out.",
 };
 
 /**

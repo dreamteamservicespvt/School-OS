@@ -104,8 +104,8 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       channelNotes: {
         whatsapp: wa.isOn ? `${wa.environment === "test" || wa.provider === "sandbox" ? "Test mode" : "Connected"}${wa.config.displayNumber ? ` · ${wa.config.displayNumber}` : ""}` : "Not connected",
         sms: sms.isOn ? `${school.smsSenderHeader ? `Header ${school.smsSenderHeader}` : "No sender header yet"} · needs a DLT template` : "Not connected",
-        email: email.isOn ? `${email.config.fromAddress || school.email || "Email"} · free` : "Not connected",
-        app: "Staff logins and Parent Link · free",
+        email: email.isOn ? `${email.config.fromAddress || school.email || "Email"} · Free` : "Not connected",
+        app: "Staff logins and Parent Link · Free",
       } as Record<Channel, string>,
       templates: templates
         // Templates whose blanks only the software can fill (personal links and codes) are not offered here.

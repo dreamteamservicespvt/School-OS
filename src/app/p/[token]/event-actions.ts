@@ -64,7 +64,7 @@ async function askEventConsentEn(token: string, form: FormData): Promise<Guardia
   const x = ids(form);
   if (!x) return { ok: false, message: "Choose your child for this event." };
   const limited = await limits([
-    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
+    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
     [`pl-code:link:${g.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
@@ -89,7 +89,7 @@ async function confirmEventConsentCodeEn(token: string, form: FormData): Promise
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const g = await guardianFor(token);
   if (!g.ok) return { ok: false, message: g.message };
-  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${g.linkId}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const r = await withSchool(g.ctx, (tx) => confirmEventConsent(tx, g.ctx, g.linkId, g.guardianId, typed, g.today));
   if (!r.ok) return { ok: false, step: "code", message: r.message };
@@ -108,7 +108,7 @@ async function declineEventEn(token: string, form: FormData): Promise<GuardianSt
   if (!g.ok) return { ok: false, message: g.message };
   const x = ids(form);
   if (!x) return { ok: false, message: "Choose your child for this event." };
-  const limited = await limits([[`pl-answer:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-answer:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-answer:link:${g.linkId}`, 20, 600]]);
   if (limited) return { ok: false, message: limited };
   try {
     const r = await withSchool(g.ctx, (tx) => declineOnParentLink(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));

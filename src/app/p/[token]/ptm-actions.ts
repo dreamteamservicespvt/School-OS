@@ -30,7 +30,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function limited(linkId: string) {
   const device = await deviceInfo();
-  for (const [key, max, seconds] of [[`pl-ptm:ip:${device.ipAddress ?? "unknown"}`, 30, 600], [`pl-ptm:link:${linkId}`, 12, 3600]] as const) {
+  for (const [key, max, seconds] of [[`pl-ptm:ip:${device.ipAddress ?? "unknown"}`, 300, 600], [`pl-ptm:link:${linkId}`, 12, 3600]] as const) {
     const r = await hitLimit(key, max, seconds);
     if (!r.ok) return limitMessage(r);
   }

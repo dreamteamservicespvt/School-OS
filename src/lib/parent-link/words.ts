@@ -98,7 +98,7 @@ export const PARENT_BROWSER_WORDS: readonly string[] = [
   "You are saying yes for {title}. To confirm, enter the 6-digit code sent to {phone}.",
   "You are saying yes for “{title}”. To confirm, enter the 6-digit code sent to {phone}.",
   "You can change the time or cancel until {date}.",
-  "Your link shows your children’s records. The code makes sure only you can open it on a new phone. This phone is remembered after today. If this is not your number, please call the school.",
+  "Your link shows your children’s records. The code makes sure only you can open it on a new phone. After this, this phone will not need a code each time. If this is not your number, please call the school.",
   "booked by the school",
   "fully booked",
   "until {date}",

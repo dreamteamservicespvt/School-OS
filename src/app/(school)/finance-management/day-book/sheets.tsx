@@ -20,8 +20,8 @@ const toPaise = (s: string) => {
   return Math.round(Number(v) * 100);
 };
 
-export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, incomePaise, expensePaise, entries, isToday, timeNow, problem }: {
-  closeHref: string; date: string; dateWords: string; expectedPaise: number; incomePaise: number; expensePaise: number; entries: number; isToday: boolean; timeNow: string; problem: string | null;
+export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, openingPaise, incomePaise, expensePaise, entries, isToday, timeNow, problem }: {
+  closeHref: string; date: string; dateWords: string; expectedPaise: number; openingPaise: number | null; incomePaise: number; expensePaise: number; entries: number; isToday: boolean; timeNow: string; problem: string | null;
 }) {
   const t = useT();
   const [typed, setTyped] = useState("");
@@ -35,6 +35,8 @@ export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, incom
       <ul className="rounded-2xl border border-line px-4">
         <Line k={t(entries === 1 ? "Income that day, cash, UPI and bank · 1 entry" : "Income that day, cash, UPI and bank · {n} entries", { n: entries })} v={inr(incomePaise)} />
         <Line k={<Words k="Expense that day, all modes" />} v={inr(expensePaise)} />
+        {openingPaise !== null && <Line k={<Words k="Cash at the start of the day" />} v={inr(openingPaise)} />}
+        {openingPaise !== null && <Line k={<Words k="Cash in and out on the day" />} v={inr(expectedPaise - openingPaise)} />}
         <Line k={<Words k="Cash that should be in the box now (cash only, all days)" />} v={inr(expectedPaise)} bold />
         <Line k={<Words k="You counted" />} v={counted === null ? "—" : inr(counted)} />
         <Line k={<Words k="Difference" />} v={diff === null ? "—" : diff === 0 ? t("None") : `${inr(Math.abs(diff))} ${t(diff < 0 ? "short" : "extra")}`} tone={diff === null ? undefined : diff === 0 ? "ok" : "bad"} />

@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT = {
-  "salary-structures": "One row per staff member: staff ID, basic, conveyance, special allowance, monthly TDS and the 1st of the month it starts. Each row becomes a new version of that person's structure, as if typed on Add structure; earlier versions stay. Undo works until salary has been worked out with them.",
+  "salary-structures": "One row per staff member: staff ID and monthly pay (a Salary or Basic column), with conveyance, special allowance and TDS if you have them. Nothing is added to the pay. Undo works until salary is worked out with them.",
   "salary-to-date": "Starting part way through the financial year: one row per staff member with the gross pay, PF, ESI, Professional Tax and TDS already paid this year in the old software, up to the month before go-live. The year's totals on salary slips and in the reports, and the TDS check in Generate Salary, count it. It never reaches the Day Book. Undo takes it back.",
 };
 

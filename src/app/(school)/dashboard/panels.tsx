@@ -12,6 +12,7 @@ import { cx } from "@/components/ui/cx";
 import type { AgendaItem, Birthday, Panel } from "@/lib/dashboard/types";
 import type { T } from "@/lib/i18n/t";
 import { screenLine } from "@/lib/i18n/messages";
+import { dateLabel } from "@/lib/i18n/dates";
 
 export const dashIcon = (name: string): LucideIcon => ((I as unknown as Record<string, LucideIcon>)[name] ?? I.Circle);
 
@@ -209,7 +210,7 @@ export function TodayCard({ items, birthdays, t }: { items: AgendaItem[]; birthd
             );
             return (
               <li key={e.id} className="grid grid-cols-[52px_14px_1fr] gap-2.5">
-                <span className="text-[13px] font-semibold tnum text-ink2 pt-0.5">{screenLine(t, e.time)}</span>
+                <span className="text-[13px] font-semibold tnum text-ink2 pt-0.5">{screenLine(t, dateLabel(t, e.time))}</span>
                 <span className="flex flex-col items-center">
                   <span className={cx("w-2.5 h-2.5 rounded-full mt-1.5 ring-4", DOT[e.tone])} />
                   {i < items.length - 1 && <span className="flex-1 w-px bg-line my-1" />}
@@ -224,13 +225,13 @@ export function TodayCard({ items, birthdays, t }: { items: AgendaItem[]; birthd
         <div className="mx-5 mb-5 rounded-xl bg-sunken/70 p-3">
           <p className="text-[12.5px] font-semibold text-ink2 flex items-center gap-1.5 mb-1.5"><I.Cake size={15} className="text-brand" aria-hidden="true" />{t("Birthdays this week")}</p>
           <ul className="flex flex-col gap-1 text-[13px]">
-            {birthdays.slice(0, 6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{screenLine(t, b.when)}</span></li>)}
+            {birthdays.slice(0, 6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{screenLine(t, dateLabel(t, b.when))}</span></li>)}
           </ul>
           {birthdays.length > 6 && (
             <details className="mt-1 text-[13px]">
               <summary className="cursor-pointer text-ink3 hover:text-ink">{t("and {n} more", { n: birthdays.length - 6 })}</summary>
               <ul className="mt-1 flex flex-col gap-1">
-                {birthdays.slice(6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{screenLine(t, b.when)}</span></li>)}
+                {birthdays.slice(6).map((b) => <li key={b.id} className="flex justify-between gap-3"><span className="truncate">{b.name}</span><span className="text-ink3 shrink-0">{screenLine(t, dateLabel(t, b.when))}</span></li>)}
               </ul>
             </details>
           )}

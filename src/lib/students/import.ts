@@ -80,10 +80,14 @@ const UDISE_COLUMNS: ImportColumn[] = [
 
 export type ImportOptions = { sectionId: string | null; applyFeePlan: boolean };
 
-/** The choices kept with a file (Student Management, Import): a section id for rows with no class, and the fee plan switch (on unless said off). */
+/**
+ * The choices kept with a file (Student Management, Import): a section id for rows with no class, and the
+ * fee plan switch, off unless ticked. Layman loop 5 (15 Nov): moved-in students were charged the whole
+ * year's fees on top of the balances brought in as old dues.
+ */
 export function importOptions(o: Record<string, unknown>): ImportOptions {
   const sectionId = typeof o.sectionId === "string" && new RegExp(`^${UUID}$`, "i").test(o.sectionId) ? o.sectionId : null;
-  return { sectionId, applyFeePlan: o.applyFeePlan !== false };
+  return { sectionId, applyFeePlan: o.applyFeePlan === true };
 }
 
 type NewRow = {
@@ -521,5 +525,5 @@ export function studentImport(kind: string, opts: ImportOptions) {
 }
 
 // Registered so the import history can undo these imports and show their templates.
-defineImport(studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true }));
-defineImport(studentImport(UDISE_IMPORT, { sectionId: null, applyFeePlan: true }));
+defineImport(studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: false }));
+defineImport(studentImport(UDISE_IMPORT, { sectionId: null, applyFeePlan: false }));

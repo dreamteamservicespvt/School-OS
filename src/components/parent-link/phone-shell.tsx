@@ -14,8 +14,10 @@ function Mark() {
   );
 }
 
-export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, children, right, framed, t = englishT }: {
+export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, children, right, framed, privateNote = true, t = englishT }: {
   schoolName?: string; kind?: string; hello?: string; name?: React.ReactNode; schoolPhone?: string | null; children: React.ReactNode; right?: React.ReactNode;
+  /** "Only you can see this page": not on a message page (wrong link, please wait). */
+  privateNote?: boolean;
   /** The page's language (Parent Link and the other pages a parent opens). */
   t?: T;
   /** Inside a phone frame on a staff screen (the preview), not the whole browser window. */
@@ -41,14 +43,22 @@ export function PhoneShell({ schoolName, kind, hello, name, schoolPhone, childre
         <Body id={framed ? undefined : "main"} className="px-4 -mt-12 relative flex flex-col gap-4">
           {children}
           <div className="text-center text-[12.5px] text-ink3 px-6 pt-2">
-            {schoolPhone && <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{schoolPhone}</a>
+            {schoolPhone && <>{t("Questions? Call the school office")}<br /><a href={`tel:${schoolPhone}`} className="font-semibold text-ink2 tnum">{showPhone(schoolPhone)}</a>
               {whatsApp(schoolPhone) && <> · <a href={whatsApp(schoolPhone)!} target="_blank" rel="noreferrer" className="font-semibold text-brand">{t("WhatsApp")}</a></>}</>}
-            <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />{t("Only you can see this page")}</p>
+            {privateNote && <p className="mt-3 flex items-center justify-center gap-1.5"><Lock size={12} aria-hidden="true" />{t("Only you can see this page")}</p>}
           </div>
         </Body>
       </div>
     </div>
   );
+}
+
+/** "98765 43210", "040 2345 6789", as on the receipt (src/lib/documents/render.ts showPhone). */
+export function showPhone(p: string): string {
+  const d = p.trim().replace(/[\s-]/g, "");
+  if (/^[6-9]\d{9}$/.test(d)) return `${d.slice(0, 5)} ${d.slice(5)}`;
+  if (/^0(11|20|22|33|40|44|79|80)\d{8}$/.test(d)) return `${d.slice(0, 3)} ${d.slice(3, 7)} ${d.slice(7)}`;
+  return p.trim();
 }
 
 /** A chat link when the school's phone is an Indian mobile number (a landline has no WhatsApp). */

@@ -32,7 +32,8 @@ import type { Band } from "@/lib/exams/grades";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { readMarksSheet, requestChangeAction, saveMarksAction, submitPaperAction, type ImportedRow } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 import { formatTime } from "@/lib/format";
 
 export type GridStudent = {
@@ -46,6 +47,8 @@ export type GridStudent = {
 export type PaperHead = {
   title: string; sectionShort: string; examTitle: string; paperOn: string; teachers: string; dueText: string | null;
   statusWords: string; statusTone: PillTone; onBehalf: boolean; approver: string;
+  /** The marks due date has passed: One at a time on a phone shows it as a short red word, not a banner. */
+  overdue?: boolean;
 };
 
 type Cat = { name: string; max: number };
@@ -81,6 +84,7 @@ export function MarksGrid(props: Props) {
   const { entryId, sectionId, students, categories: cats, gradeOnly, gradeList, bands, canEdit, canRequest, head } = props;
   const storeKey = `sos-marks:${entryId}:${sectionId}`;
   const max = cats.reduce((s, c) => s + c.max, 0);
+  const t = useT();
   const [rows, setRows] = useState<Record<string, Row>>(() => Object.fromEntries(students.map((s) => [s.id, rowOf(s, cats)])));
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "offline" | "error"; message?: string; at?: Date }>({ state: "idle" });
@@ -92,8 +96,10 @@ export function MarksGrid(props: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saving = useRef(false);
-  /** Rows with a wrong mark already saved with that box empty, as they looked then. */
+  /** Rows with a wrong mark already sent (with the box's last saved mark), as they looked then. */
   const emptied = useRef<Record<string, string>>({});
+  /** What the school holds in each box, from the last successful save (or the page load). */
+  const savedParts = useRef<Record<string, Record<string, number | null>>>(Object.fromEntries(students.map((s) => [s.id, Object.fromEntries(cats.map((c) => [c.name, s.absent ? null : s.parts[c.name] ?? null]))])));
   const rowsRef = useRef(rows);
   const dirtyRef = useRef(dirty);
   useEffect(() => { rowsRef.current = rows; dirtyRef.current = dirty; }, [rows, dirty]);
@@ -138,9 +144,9 @@ export function MarksGrid(props: Props) {
   const marked = students.map((s) => totals[s.id]?.total).filter((t): t is number => t !== null && t !== undefined);
   const average = marked.length ? fmt(Math.round((marked.reduce((a, b) => a + b, 0) / marked.length) * 10) / 10) : null;
 
-  // Save what changed. A row with a wrong mark stays "not saved" until it is fixed, but its wrong
-  // box is saved EMPTY: typing 999 on the keypad had already saved the first 9, and that 9 stayed
-  // in the school's records while the screen showed 999 in red (layman loop 4).
+  // Save what changed. A row with a wrong mark stays "not saved" until it is fixed; its wrong box
+  // sends the box's LAST SAVED mark, so a typing mistake never wipes a correct mark (layman loop 5:
+  // a saved 8 typed over as 99 became empty). Empty only when nothing was saved in that box before.
   const flush = useCallback(async () => {
     if (saving.current) return;
     const good = [...dirtyRef.current].filter((id) => !problemOf(rowsRef.current[id]));
@@ -152,7 +158,7 @@ export function MarksGrid(props: Props) {
     if (ids.length === 0) return;
     const payload = ids.map((id) => {
       const r = rowsRef.current[id];
-      return { studentId: id, parts: Object.fromEntries(cats.map((c) => [c.name, partProblem(c, r.parts[c.name] ?? "") ? null : num(r.parts[c.name] ?? "")])), absent: r.absent, medical: r.absent && r.medical, grade: r.grade || null, remark: r.remark || null };
+      return { studentId: id, parts: Object.fromEntries(cats.map((c) => [c.name, partProblem(c, r.parts[c.name] ?? "") ? savedParts.current[id]?.[c.name] ?? null : num(r.parts[c.name] ?? "")])), absent: r.absent, medical: r.absent && r.medical, grade: r.grade || null, remark: r.remark || null };
     });
     const sent = Object.fromEntries(ids.map((id) => [id, JSON.stringify(rowsRef.current[id])]));
     saving.current = true;
@@ -161,6 +167,7 @@ export function MarksGrid(props: Props) {
       if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("offline");
       const res = await saveMarksAction(entryId, sectionId, payload);
       if (res.ok) {
+        for (const x of payload) savedParts.current[x.studentId] = Object.fromEntries(cats.map((c) => [c.name, x.absent ? null : x.parts[c.name] ?? null]));
         for (const id of wrong) if (JSON.stringify(rowsRef.current[id]) === sent[id]) emptied.current[id] = sent[id];
         const savedIds = good.filter((id) => JSON.stringify(rowsRef.current[id]) === sent[id]);
         setDirty((d) => { const n = new Set(d); for (const id of savedIds) n.delete(id); return n; });
@@ -299,41 +306,44 @@ export function MarksGrid(props: Props) {
   const allSubmitted = props.status === "SUBMITTED" || props.status === "LOCKED";
   const catPill = (c: Cat) => (
     <Pill key={c.name} tone={allSubmitted ? "ok" : canEdit ? "warn" : "neutral"}>
-      {allSubmitted && <Lock size={12} aria-hidden="true" />}{cats.length === 1 ? "Marks" : c.name} / {c.max}{allSubmitted ? (props.status === "LOCKED" ? " locked" : " submitted") : canEdit ? " open" : ""}
+      {allSubmitted && <Lock size={12} aria-hidden="true" />}<Words k="{name} out of {max}" vars={{ name: cats.length === 1 ? t("Marks") : t.any(c.name), max: c.max }} />{allSubmitted ? <> · {t(props.status === "LOCKED" ? "Locked" : "Submitted")}</> : ""}
     </Pill>
   );
+  // One at a time on a phone: the subject card shrinks to its title, so the student, the keys and Next fit the screen (layman loop 5).
+  const one = view === "one";
 
   return (
     <div className={canEdit ? "pb-4" : undefined}>
       <div className="flex flex-col gap-5">
-        <Card className="p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+        <Card className={cx("p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4", one && "max-md:p-3 max-md:gap-2.5")}>
           <div className="flex items-start gap-4 min-w-0 flex-1">
-            <span className={cx("w-12 h-12 rounded-2xl grid place-items-center shrink-0 font-semibold text-[14px]", TONE_SOFT[allSubmitted ? "ok" : "brand"])}>{head.sectionShort}</span>
+            <span className={cx("w-12 h-12 rounded-2xl grid place-items-center shrink-0 font-semibold text-[14px]", TONE_SOFT[allSubmitted ? "ok" : "brand"], one && "max-md:hidden")}>{head.sectionShort}</span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight">{head.title}</h1>
-                {gradeOnly ? <Pill tone={allSubmitted ? "ok" : canEdit ? "warn" : "neutral"}><Words k="Graded" /></Pill> : cats.map(catPill)}
+                <h1 className={cx("font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight", one && "max-md:text-[18px]")}>{head.title}</h1>
+                <span className={cx("contents", one && "max-md:hidden")}>{gradeOnly ? <Pill tone={allSubmitted ? "ok" : canEdit ? "warn" : "neutral"}><Words k="Graded" /></Pill> : cats.map(catPill)}</span>
               </div>
-              <p className="text-[13.5px] text-ink3 mt-0.5">{head.examTitle} <Words k="· paper" /> {head.paperOn} · {head.teachers} · {students.length} {students.length === 1 ? "student" : "students"}{head.dueText ? ` · ${head.dueText}` : ""}</p>
+              <p className={cx("text-[13.5px] text-ink3 mt-0.5", one && "max-md:hidden")}>{head.examTitle} <Words k="· paper" /> {screenMessage(t, head.paperOn)} · {t.any(head.teachers)} · {students.length === 1 ? t("1 student") : t("{n} students", { n: students.length })}{head.dueText ? ` · ${t("marks due {date}", { date: head.dueText })}` : ""}</p>
             </div>
           </div>
           <div className="flex gap-2 items-center flex-wrap">
-            {students.length > 0 && <Segmented size="sm" label="Layout" value={view} onChange={(v) => setView(v as "grid" | "one")} options={[{ value: "grid", label: "Grid", icon: Table }, { value: "one", label: "One at a time", icon: Smartphone }]} />}
+            {students.length > 0 && <Segmented label="Layout" value={view} onChange={(v) => setView(v as "grid" | "one")} options={[{ value: "grid", label: "Grid", icon: Table }, { value: "one", label: "One at a time", icon: Smartphone }]} />}
             {canEdit && <Button variant="secondary" icon={FileSpreadsheet} className="hidden lg:inline-flex" onClick={() => setImportOpen(true)}><Words k="Import" /></Button>}
             {props.actions}
           </div>
         </Card>
 
-        {props.notes}
-        {head.onBehalf && canEdit && <Banner tone="brand" icon={UserPen} title={`You are entering marks for ${head.teachers}.`}><Words k="Each mark records your name in the change history." /></Banner>}
+        {/* One at a time on a phone: the due-date banner folds into the short line above the student (layman loop 5). */}
+        {one && canEdit ? <div className="contents max-md:hidden">{props.notes}</div> : props.notes}
+        {head.onBehalf && canEdit && <Banner tone="brand" icon={UserPen} title={t("You are entering marks for {name}.", { name: head.teachers })}><Words k="Each mark records your name in the change history." /></Banner>}
 
         {students.length === 0 ? (
-          <Alert><Words k="No students sit this paper." /> {gradeOnly ? "" : "If students chose this optional subject, record their choices in Student Management."}</Alert>
+          <Alert><Words k="No students sit this paper." /> {gradeOnly ? "" : t("If students chose this optional subject, record their choices in Student Management.")}</Alert>
         ) : (
           <>
             {/* One at a time on a phone: the four cards fold into one line, so the student, the boxes, every key and
                 Next fit on the first screen (layman loop 3). */}
-            {view === "one" && <p className="md:hidden px-1 text-[13px] text-ink3 tnum">{gradeOnly ? <Words k="Graded {n} of {n2}" vars={{ n: done, n2: students.length }} /> : <Words k="Entered {n} of {n2}" vars={{ n: done, n2: students.length }} />} · AB {ab} · ML {ml}</p>}
+            {view === "one" && <p className="md:hidden px-1 text-[13px] text-ink3 tnum">{gradeOnly ? <Words k="Graded {n} of {n2}" vars={{ n: done, n2: students.length }} /> : <Words k="Entered {n} of {n2}" vars={{ n: done, n2: students.length }} />} · AB {ab} · ML {ml}{canEdit && head.overdue ? <> · <b className="font-semibold text-bad"><Words k="Overdue" /></b></> : null}</p>}
             <Stats className={view === "one" ? "hidden md:block" : undefined} items={[
               { label: gradeOnly ? "Graded" : "Entered", value: `${done} of ${students.length}`, tone: done === students.length ? "ok" : undefined, icon: ListChecks },
               { label: "Absent (AB)", value: ab, sub: props.absentRule === "leave-out" ? "Left out of the total" : "Counted as 0 marks", icon: UserX },
@@ -345,13 +355,20 @@ export function MarksGrid(props: Props) {
 
             {(problems.length > 0 || (tried && blanks.length > 0)) && <div id="marks-fix" className="flex flex-col gap-5">
             {problems.length > 0 && (
-              <Banner tone="bad" title={`${problems.length} ${problems.length === 1 ? "mark needs" : "marks need"} a fix.`}>
-                {problems.slice(0, 3).map((x) => `Roll ${x.s.rollNo ?? "–"}, ${x.s.name}: ${x.e}`).join(" ")}{problems.length > 3 ? ` And ${problems.length - 3} more.` : ""}
+              <Banner tone="bad" title={problems.length === 1 ? t("1 mark needs a fix.") : t("{n} marks need a fix.", { n: problems.length })}>
+                {problems.slice(0, 3).map((x) => t("Roll {n}, {name}: {problem}", { n: x.s.rollNo ?? "–", name: x.s.name, problem: screenMessage(t, x.e ?? "") })).join(" ")}{problems.length > 3 ? ` ${t("And {n} more.", { n: problems.length - 3 })}` : ""}
               </Banner>
             )}
             {tried && !problems.length && blanks.length > 0 && (
-              <Banner tone="warn" title={`${blanks.length} ${blanks.length === 1 ? "student has" : "students have"} ${gradeOnly ? "no grade" : "marks missing"} yet:`}>
-                {blanks.slice(0, 4).map((s) => `${s.name} (roll ${s.rollNo ?? "–"})${missingWords(rows[s.id], cats, gradeOnly)}`).join(", ")}{blanks.length > 4 ? ` and ${blanks.length - 4} more` : ""}<Words k=". Type the mark, or AB for absent and ML for medical leave." />
+              <Banner tone="warn" title={gradeOnly
+                ? (blanks.length === 1 ? t("1 student has no grade yet:") : t("{n} students have no grade yet:", { n: blanks.length }))
+                : (blanks.length === 1 ? t("1 student has marks missing yet:") : t("{n} students have marks missing yet:", { n: blanks.length }))}>
+                {/* Whole sentences with blanks, so a Telugu or Hindi screen keeps its own word order (layman loop 5). */}
+                {blanks.slice(0, 4).map((s) => {
+                  const who = t("{name} (roll {n})", { name: s.name, n: s.rollNo ?? "–" });
+                  const gap = missingWords(rows[s.id], cats, gradeOnly).replace(/^: | missing$/g, "");
+                  return gap ? t("{who}: {what} missing", { who, what: gap.split(" and ").map((x) => t.any(x)).join(", ") }) : who;
+                }).join(", ")}{blanks.length > 4 ? ` ${t("and {n} more", { n: blanks.length - 4 })}` : ""}<Words k=". Type the mark, or AB for absent and ML for medical leave." />
               </Banner>
             )}
             </div>}
@@ -375,8 +392,8 @@ export function MarksGrid(props: Props) {
                         <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2.5 min-w-[190px]"><Words k="Student" /></th>
                         {gradeOnly ? <th scope="col" className="font-semibold px-2 py-2.5 text-center min-w-[100px]"><span className="block text-ink2"><Words k="Grade" /></span></th> : cats.map((c) => (
                           <th key={c.name} scope="col" className="font-semibold px-2 py-2.5 text-center min-w-[100px]">
-                            <span className="block text-ink2">{cats.length === 1 ? "Marks" : c.name} / {c.max}</span>
-                            <span className={cx("block text-[11px] font-medium", allSubmitted ? "text-ok" : canEdit ? "text-brand" : "")}>{allSubmitted ? (props.status === "LOCKED" ? "Locked" : "Submitted") : canEdit ? "Open" : "Not open"}</span>
+                            <span className="block text-ink2">{cats.length === 1 ? t("Marks") : t.any(c.name)} / {c.max}</span>
+                            <span className={cx("block text-[11px] font-medium", allSubmitted ? "text-ok" : canEdit ? "text-brand" : "")}>{allSubmitted ? t(props.status === "LOCKED" ? "Locked" : "Submitted") : canEdit ? "" : t("Not open")}</span>
                           </th>
                         ))}
                         {!gradeOnly && cats.length > 1 && <th scope="col" className="font-semibold px-3 py-2.5 text-right whitespace-nowrap"><Words k="Total /" /> {max}</th>}
@@ -387,7 +404,7 @@ export function MarksGrid(props: Props) {
                     <tbody>
                       {students.map((s, i) => {
                         const r = rows[s.id];
-                        const t = totals[s.id];
+                        const tot = totals[s.id];
                         const bad = problemOf(r);
                         return (
                           <tr key={s.id} className="border-b border-line/60 last:border-0">
@@ -398,8 +415,8 @@ export function MarksGrid(props: Props) {
                             {gradeOnly ? (
                               <td className="px-2 py-1.5 text-center">
                                 {canEdit ? (
-                                  <select data-cell={`${i}:0`} aria-label={`Grade for ${s.name}`} value={r.absent ? code(r) : r.grade} onChange={(e) => setGrade(s.id, e.target.value)} onKeyDown={(e) => onKey(e, i, 0, s.id, "")}
-                                    className={cx("w-[88px] h-10 rounded-lg border text-center text-[15px] font-semibold bg-surface outline-none border-line focus:border-brand focus:ring-4 focus:ring-brand/15", r.absent && "text-info", tried && !t.done && "border-warn bg-warn/[.06]")}>
+                                  <select data-cell={`${i}:0`} aria-label={t("Grade for {name}", { name: s.name })} value={r.absent ? code(r) : r.grade} onChange={(e) => setGrade(s.id, e.target.value)} onKeyDown={(e) => onKey(e, i, 0, s.id, "")}
+                                    className={cx("w-[88px] h-10 scroll-mb-48 md:scroll-mb-28 rounded-lg border text-center text-[15px] font-semibold bg-surface outline-none border-line focus:border-brand focus:ring-4 focus:ring-brand/15", r.absent && "text-info", tried && !tot.done && "border-warn bg-warn/[.06]")}>
                                     <option value="">—</option>
                                     {gradeList.map((g) => <option key={g} value={g}>{g}</option>)}
                                     <option value="AB">AB</option><option value="ML">ML</option>
@@ -412,26 +429,26 @@ export function MarksGrid(props: Props) {
                               return (
                                 <td key={c.name} className="px-2 py-1.5 text-center">
                                   {canEdit ? (
-                                    <input data-cell={`${i}:${k}`} inputMode="text" autoComplete="off" spellCheck={false} aria-label={`${cats.length === 1 ? "Marks" : c.name} for ${s.name}, out of ${c.max}`} aria-invalid={cellBad ? true : undefined}
-                                      title={cellBad ? bad ?? undefined : undefined} value={v}
+                                    <input data-cell={`${i}:${k}`} inputMode="text" autoComplete="off" spellCheck={false} aria-label={t("{what} for {name}, out of {max}", { what: cats.length === 1 ? t("Marks") : t.any(c.name), name: s.name, max: c.max })} aria-invalid={cellBad ? true : undefined}
+                                      title={cellBad && bad ? screenMessage(t, bad) : undefined} value={v}
                                       onChange={(e) => type(s.id, c.name, e.target.value)} onBlur={() => settle(s.id, c.name)} onKeyDown={(e) => onKey(e, i, k, s.id, c.name)} onFocus={(e) => e.currentTarget.select()}
-                                      className={cx("w-[72px] h-10 rounded-lg border text-center text-[15px] font-semibold tnum bg-surface outline-none transition",
+                                      className={cx("w-[72px] h-10 scroll-mb-48 md:scroll-mb-28 rounded-lg border text-center text-[15px] font-semibold tnum bg-surface outline-none transition",
                                         cellBad ? "border-bad ring-4 ring-bad/10 text-bad" : r.absent ? "border-line text-info" : "border-line focus:border-brand focus:ring-4 focus:ring-brand/15",
-                                        tried && !t.done && !cellBad && v === "" && "border-warn bg-warn/[.06]")} />
+                                        tried && !tot.done && !cellBad && v === "" && "border-warn bg-warn/[.06]")} />
                                   ) : <LockedCell value={r.absent ? code(r) : r.parts[c.name] ?? ""} s={s} canRequest={canRequest && (!s.late || props.lateMarks === "approval")} onAsk={setAsk} />}
                                 </td>
                               );
                             })}
-                            {!gradeOnly && cats.length > 1 && <td className="px-3 text-right font-semibold tnum">{t.total !== null ? fmt(t.total) : r.absent ? <span className="text-info">{code(r)}</span> : <span className="text-ink3 font-normal">—</span>}</td>}
+                            {!gradeOnly && cats.length > 1 && <td className="px-3 text-right font-semibold tnum">{tot.total !== null ? fmt(tot.total) : r.absent ? <span className="text-info">{code(r)}</span> : <span className="text-ink3 font-normal">—</span>}</td>}
                             {!gradeOnly && (
                               <td className="px-4 text-center">
-                                {r.absent ? <Pill tone="info" className="!h-5 !text-[11px]">{code(r)}</Pill> : t.grade ? <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill> : <span className="text-ink3">—</span>}
+                                {r.absent ? <Pill tone="info" className="!h-5 !text-[11px]">{code(r)}</Pill> : tot.grade ? <Pill tone={toneOf(tot.grade, bands)} className="!h-5 !text-[11px]">{tot.grade}</Pill> : <span className="text-ink3">—</span>}
                               </td>
                             )}
                             {canEdit && (
                               <td className="px-4 py-1.5">
-                                <input aria-label={`Remark for ${s.name}`} maxLength={200} value={r.remark} placeholder="Optional" onChange={(e) => change(s.id, { ...r, remark: e.target.value })}
-                                  className="h-10 w-full min-w-40 rounded-lg border border-line bg-surface px-2.5 text-[13px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
+                                <input aria-label={t("Remark for {name}", { name: s.name })} maxLength={200} value={r.remark} placeholder={t("Optional")} onChange={(e) => change(s.id, { ...r, remark: e.target.value })}
+                                  className="h-10 scroll-mb-48 md:scroll-mb-28 w-full min-w-40 rounded-lg border border-line bg-surface px-2.5 text-[13px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
                               </td>
                             )}
                           </tr>
@@ -454,7 +471,7 @@ export function MarksGrid(props: Props) {
             <div className="px-5">
               <Timeline items={history.map(({ s, h }) => ({
                 icon: h.approvedBy ? BadgeCheck : Hourglass, tone: h.approvedBy ? "ok" as const : "warn" as const,
-                what: <><b className="font-semibold">{s.name}</b>: {h.before || "blank"} → {h.after}. “{h.reason}<Words k="” · asked by" /> {h.by || "a teacher"}{h.approvedBy ? `, approved by ${h.approvedBy}` : ""}</>,
+                what: <><b className="font-semibold">{s.name}</b>: {h.before || t("blank")} → {h.after}. “{h.reason}<Words k="” · asked by" /> {h.by || t("a teacher")}{h.approvedBy ? `, ${t("approved by {name}", { name: h.approvedBy })}` : ""}</>,
                 when: h.at,
               }))} />
             </div>
@@ -469,8 +486,8 @@ export function MarksGrid(props: Props) {
             {/* Shown on a phone too, so "Save now" visibly says it saved (self-test B4). */}
             <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 flex items-center gap-1.5 leading-snug", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
-                : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
-                : dirty.size && problems.length ? <><CircleAlert size={13} className="text-bad" aria-hidden="true" /><Words k="Marks in red are not saved. Fix them first." /></>
+                : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{screenMessage(t, save.message)}</>
+                : dirty.size && problems.length ? <><CircleAlert size={13} className="text-bad" aria-hidden="true" /><Words k="Marks in red are not saved. The last saved mark stays." /></>
                 : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Not sent to the school yet. Keep this page open, or tap Save now." /></>
                 : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? <Words k="All marks saved at {time}" vars={{ time: formatTime(save.at) }} /> : <Words k="Marks save as you type" />}</>}
             </p>
@@ -480,7 +497,7 @@ export function MarksGrid(props: Props) {
         </div>
       )}
 
-      <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={`Submit ${props.paperLabel} marks?`} confirmLabel={`Submit marks of ${students.length} students`} confirmIcon={<Send size={16} />} pendingText="Submitting…" run={submit}>
+      <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={t("Submit {paper} marks?", { paper: props.paperLabel })} confirmLabel={t("Submit marks of {n} students", { n: students.length })} confirmIcon={<Send size={16} />} pendingText="Submitting…" run={submit}>
         <div className="flex flex-col gap-3 text-[14px] text-ink2">
           <p>{head.examTitle} · {props.paperLabel}.</p>
           <ul className="grid grid-cols-3 gap-2 text-center">
@@ -488,7 +505,7 @@ export function MarksGrid(props: Props) {
             <li className="rounded-xl bg-sunken/70 py-2.5"><b className="block font-display text-[20px] text-ink tnum">{ab}</b><span className="text-[12px]"><Words k="absent (AB)" /></span></li>
             <li className="rounded-xl bg-sunken/70 py-2.5"><b className="block font-display text-[20px] text-ink tnum">{ml}</b><span className="text-[12px]"><Words k="medical (ML)" /></span></li>
           </ul>
-          <p><Words k="After this, you cannot change these marks. A correction needs a reason and approval from" /> {head.approver}<Words k=", and the old mark is kept." /></p>
+          <p>{t("After this, you cannot change these marks. A correction needs a reason and approval from {who}, and the old mark is kept.", { who: t.any(head.approver) })}</p>
         </div>
       </ActionSheet>
       {ask && <ChangeSheet {...props} student={ask} onClose={() => setAsk(null)} />}
@@ -498,25 +515,31 @@ export function MarksGrid(props: Props) {
 }
 
 function LockedCell({ value, s, canRequest, onAsk }: { value: string; s: GridStudent; canRequest: boolean; onAsk: (s: GridStudent) => void }) {
+  const t = useT();
   const isCode = value === "AB" || value === "ML";
   if (s.late) {
-    if (!canRequest) return <span title="Joined after the marks were in: left out of this exam." className="inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 text-ink3">—</span>;
+    if (!canRequest) return <span title={t("Joined after the marks were in: left out of this exam.")} className="inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 text-ink3">—</span>;
     return (
-      <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={s.waiting ? "Marks are waiting for approval." : "Joined after the marks were in. Tap to add marks; they need approval."}
-        aria-label={`${s.name} joined late and has no marks. ${s.waiting ? "Marks are waiting for approval." : "Add marks."}`}
+      <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={t(s.waiting ? "Marks are waiting for approval." : "Joined after the marks were in. Tap to add marks; they need approval.")}
+        aria-label={`${t("{name} joined late and has no marks.", { name: s.name })} ${t(s.waiting ? "Marks are waiting for approval." : "Add marks.")}`}
         className={cx("w-[72px] h-10 rounded-lg inline-flex items-center justify-center gap-1 text-[13px] font-semibold transition", s.waiting ? "bg-warn/12 text-warn" : "bg-info/10 text-info hover:bg-info/15")}>
-        {s.waiting ? <><Hourglass size={12} aria-hidden="true" /><Words k="Asked" /></> : "+ Add"}
+        {s.waiting ? <><Hourglass size={12} aria-hidden="true" /><Words k="Asked" /></> : <>+ {t("Add")}</>}
       </button>
     );
   }
   if (!canRequest) return <span className={cx("inline-grid place-items-center w-[72px] h-10 rounded-lg bg-sunken/50 font-semibold tnum", isCode ? "text-info" : value ? "text-ink" : "text-ink3")}>{value || "—"}</span>;
   return (
-    <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={s.waiting ? "A change is waiting for approval." : "Submitted. Tap to ask for a change."}
-      aria-label={`${s.name}: ${value || "no mark"}. ${s.waiting ? "A change is waiting for approval." : "Ask for a change."}`}
+    <button type="button" onClick={() => onAsk(s)} disabled={s.waiting} title={t(s.waiting ? "A change is waiting for approval." : "Submitted. Tap to ask for a change.")}
+      aria-label={`${s.name}: ${value || t("no mark")}. ${t(s.waiting ? "A change is waiting for approval." : "Ask for a change.")}`}
       className={cx("w-[72px] h-10 rounded-lg inline-flex items-center justify-center gap-1 font-semibold tnum transition", s.waiting ? "bg-warn/12 text-warn" : "bg-sunken/70 hover:bg-sunken", isCode && !s.waiting && "text-info")}>
       {s.waiting ? <Hourglass size={12} aria-hidden="true" /> : <Lock size={11} className="text-ink3" aria-hidden="true" />}{value || "—"}
     </button>
   );
+}
+
+/** An empty box: a dash on screen, "not entered" to a screen reader (not "dash"). */
+function NotEntered() {
+  return <><span aria-hidden="true">—</span><span className="sr-only"><Words k="not entered" /></span></>;
 }
 
 /** The number keys of One at a time, four to a row like a phone's keypad; the label is for screen readers. */
@@ -538,6 +561,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
     const at = row && !row.absent ? cats.findIndex((x) => (row.parts[x.name] ?? "") === "") : -1;
     return at < 0 ? 0 : at;
   };
+  const t0 = useT();
   const [i, setI] = useState(() => Math.max(0, students.findIndex((s) => !totals[s.id]?.done)));
   const [k, setK] = useState(() => firstEmpty(Math.max(0, students.findIndex((s) => !totals[s.id]?.done))));
   const s = students[Math.min(i, students.length - 1)];
@@ -552,6 +576,9 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   const [fresh, setFresh] = useState(true);
   const go = (n: number) => { setI(n); setK(firstEmpty(n)); setFresh(true); };
   const pick = (n: number) => { setK(n); setFresh(true); };
+  // Next moves to this student's next EMPTY box, else to the next student. It never lands on a box that
+  // already has a mark, where the next key would replace it (layman loop 5: a saved 8 was typed over).
+  const nextPart = canEdit && !gradeOnly && !r.absent ? cats.findIndex((x, n) => n > k && (r.parts[x.name] ?? "") === "") : -1;
   const press = (key: string) => {
     if (!canEdit || !c) return;
     const next = keypadValue(v, key, { fresh, absent: r.absent });
@@ -576,8 +603,8 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
           </div>
           {/* A short "Roll 3" chip, so the name and the line under it are not cut off on a phone (layman loop 2). */}
           <span className={cx(inputCls(), "!h-10 !w-auto relative shrink-0 inline-flex items-center gap-1 text-[13px] font-semibold")}>
-            {s.rollNo ? `Roll ${s.rollNo}` : `${i + 1} / ${students.length}`}<ChevronDown size={15} className="text-ink3" aria-hidden="true" />
-            <select aria-label="Go to student" value={i} onChange={(ev) => go(Number(ev.target.value))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            {s.rollNo ? t0("Roll {n}", { n: s.rollNo }) : `${i + 1} / ${students.length}`}<ChevronDown size={15} className="text-ink3" aria-hidden="true" />
+            <select aria-label={t0("Go to student")} value={i} onChange={(ev) => go(Number(ev.target.value))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
               {students.map((x, n) => <option key={x.id} value={n}>{x.rollNo ? `${x.rollNo}. ` : ""}{x.name}{totals[x.id]?.done ? " ✓" : ""}</option>)}
             </select>
           </span>
@@ -585,7 +612,7 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
         {gradeOnly ? (
           <div className="rounded-2xl border-2 border-brand bg-brand/5 p-3 mt-4 [@media(max-height:720px)]:mt-3 [@media(max-height:720px)]:p-2">
             <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}<Words k="Grade" /></span>
-            <span className={cx("block font-display text-[28px] font-semibold leading-tight [@media(max-height:720px)]:text-[24px]", r.absent && "text-info")} aria-live="polite">{shown || "—"}</span>
+            <span className={cx("block font-display text-[28px] font-semibold leading-tight [@media(max-height:720px)]:text-[24px]", r.absent && "text-info")} aria-live="polite">{shown || <NotEntered />}</span>
           </div>
         ) : (
           <>
@@ -598,10 +625,10 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
                   <button key={x.name} type="button" onClick={() => (canEdit ? pick(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
                     className={cx("rounded-2xl border-2 p-3 text-left transition flex items-end justify-between gap-2 [@media(max-height:720px)]:p-2", k === n && canEdit ? "border-brand bg-brand/5" : "border-line")}>
                     <span className="min-w-0">
-                      <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}{cats.length === 1 ? "Marks" : x.name} / {x.max}</span>
+                      <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}<Words k="{name} out of {max}" vars={{ name: cats.length === 1 ? t0("Marks") : t0.any(x.name), max: x.max }} /></span>
                       <span className={cx("block font-display text-[28px] font-semibold tnum leading-tight [@media(max-height:720px)]:text-[24px]", xBad && "text-bad", r.absent && "text-info")} aria-live="polite">
                         {/* A chosen box with a mark shows it selected: the next key replaces it. */}
-                        {xv && k === n && fresh && canEdit ? <span className="rounded-md bg-brand/20 px-1 -mx-1">{xv}</span> : xv || "—"}
+                        {xv && k === n && fresh && canEdit ? <span className="rounded-md bg-brand/20 px-1 -mx-1">{xv}</span> : xv || <NotEntered />}
                       </span>
                     </span>
                     {/* The grade sits in the box, so the box and keys fit a small screen; never for a mark that is not allowed. */}
@@ -610,38 +637,43 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
                 );
               })}
             </div>
-            {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2"><Words k="Total" /> <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : !r.absent && !e && cats.some((x) => r.parts[x.name]) ? cats.map((x) => r.parts[x.name] || "—").join(" + ") : "—"}</b>{t.grade && <> <Words k="· Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
+            {/* "8 so far, Theory missing", not "— + 8", which read like a sum (layman loop 5). */}
+            {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2"><Words k="Total" /> <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : !r.absent && !e && cats.some((x) => r.parts[x.name])
+              ? <Words k="{n} so far, {what} missing" vars={{ n: fmt(cats.reduce((a, x) => a + (num(r.parts[x.name] ?? "") ?? 0), 0)), what: cats.filter((x) => !r.parts[x.name]).map((x) => t0.any(x.name)).join(", ") }} />
+              : <NotEntered />}</b>{t.grade && <> <Words k="· Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
             {canEdit && !e && !r.absent && fresh && c && r.parts[c.name] && <p className="mt-1 text-[12.5px] text-ink3"><Words k="The next key replaces this mark." /></p>}
           </>
         )}
-        {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
+        {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{t0("{name}: {problem}", { name: s.name, problem: screenMessage(t0, e) })}</p>}
       </div>
       {gradeOnly ? (
         canEdit ? (
-          <div className="grid grid-cols-3 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label="Grades">
+          <div className="grid grid-cols-3 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label={t0("Grades")}>
             {[...gradeList, "AB", "ML"].map((g) => (
               <button key={g} type="button" aria-pressed={shown === g} onClick={() => setGrade(s.id, g)}
                 className={cx("h-14 rounded-xl border text-[18px] font-semibold transition [@media(max-height:720px)]:h-11", shown === g ? "border-brand bg-brand text-brandink" : "border-line hover:bg-sunken/60", (g === "AB" || g === "ML") && shown !== g && "text-info")}>{g}</button>
             ))}
           </div>
-        ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{s.waiting ? "Waiting for approval" : s.late ? "Add marks" : "Ask for a change"}</Button>
+        ) : canRequest && <Button variant="secondary" className="mt-4 w-full" disabled={s.waiting} onClick={() => onAsk(s)}>{t0(s.waiting ? "Waiting for approval" : s.late ? "Add marks" : "Ask for a change")}</Button>
       ) : canEdit ? (
-        <div className="grid grid-cols-4 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label="Number keys">
+        <div className="grid grid-cols-4 gap-2 mt-4 [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:gap-1.5" role="group" aria-label={t0("Number keys")}>
           {KEYS.map(({ key, label, wide }) => (
-            <button key={key} type="button" aria-label={label} onClick={() => (key === "clear" ? setCell(s.id, c.name, "") : press(key))}
+            <button key={key} type="button" aria-label={label ? t0.any(label) : undefined} onClick={() => (key === "clear" ? setCell(s.id, c.name, "") : press(key))}
               className={cx("h-14 rounded-xl border border-line font-semibold tnum active:bg-sunken hover:bg-sunken/60 transition grid place-items-center [@media(max-height:720px)]:h-11",
                 wide && "col-span-2", key === "AB" || key === "ML" ? "text-info text-[16px]" : key === "clear" ? "text-ink2 text-[14px]" : "text-[20px]")}>
-              {key === "del" ? <Delete size={20} aria-hidden="true" /> : key === "clear" ? "Clear" : key === ".5" ? "½" : key}
+              {key === "del" ? <Delete size={20} aria-hidden="true" /> : key === "clear" ? <Words k="Clear" /> : key === ".5" ? "½"
+                // AB and ML say what they mean under the letters, at no extra height (layman loop 5).
+                : key === "AB" || key === "ML" ? <span className="flex flex-col items-center leading-none gap-0.5">{key}<span className="text-[10px] font-medium text-ink3 max-w-full truncate px-0.5"><Words k={key === "AB" ? "absent" : "medical leave"} /></span></span> : key}
             </button>
           ))}
         </div>
-      ) : <p className="text-[13.5px] text-ink3 mt-4">{s.late
+      ) : <p className="text-[13.5px] text-ink3 mt-4">{t0(s.late
         ? (canRequest ? (s.waiting ? "Marks for this student are waiting for approval." : "Joined after the marks were in. Tap a mark to add marks; they need approval.") : "Joined after the marks were in: left out of this exam.")
-        : canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here."}</p>}
+        : canRequest ? (s.waiting ? "A change for this student is waiting for approval." : "These marks are submitted. Tap a mark to ask for a change.") : "These marks cannot be changed here.")}</p>}
       <div className="flex gap-2 mt-4 [@media(max-height:720px)]:mt-2">
         <Button variant="secondary" icon={ChevronLeft} className="flex-1" disabled={i === 0} onClick={() => go(i - 1)}><Words k="Previous" /></Button>
-        <Button variant="primary" iconRight={ChevronRight} className="flex-1" disabled={i === students.length - 1 || Boolean(e)}
-          onClick={() => (!gradeOnly && k < cats.length - 1 && canEdit ? pick(k + 1) : go(i + 1))}><Words k="Next" /></Button>
+        <Button variant="primary" iconRight={ChevronRight} className="flex-1" disabled={(nextPart < 0 && i === students.length - 1) || Boolean(e)}
+          onClick={() => (nextPart >= 0 ? pick(nextPart) : go(i + 1))}>{cats.length < 2 || gradeOnly ? <Words k="Next" /> : nextPart >= 0 ? <Words k="Next mark" /> : <Words k="Next student" />}</Button>
       </div>
     </Card>
   );
@@ -652,31 +684,32 @@ const LATE_REASONS = ["Joined late; took the paper on another day", "Marks from 
 
 function ChangeSheet({ entryId, sectionId, categories: cats, gradeOnly, gradeList, student, head, onClose }: Props & { student: GridStudent; onClose: () => void }) {
   const [reason, setReason] = useState("");
-  const now = student.late ? "None yet" : student.absent ? (student.medical ? "ML" : "AB") : gradeOnly ? student.grade ?? "—" : cats.map((c) => `${cats.length > 1 ? `${c.name} ` : ""}${student.parts[c.name] ?? "—"}`).join(", ");
+  const t = useT();
+  const now = student.late ? t("None yet") : student.absent ? (student.medical ? "ML" : "AB") : gradeOnly ? student.grade ?? "—" : cats.map((c) => `${cats.length > 1 ? `${t.any(c.name)} ` : ""}${student.parts[c.name] ?? "—"}`).join(", ");
   return (
-    <ActionSheet open onClose={onClose} title={student.late ? "Add marks for a student who joined late" : "Ask for a mark change"} sub={`${student.name}${student.rollNo ? ` · roll ${student.rollNo}` : ""}`} confirmLabel="Send for approval" confirmIcon={<Send size={16} />} pendingText="Sending…"
+    <ActionSheet open onClose={onClose} title={student.late ? "Add marks for a student who joined late" : "Ask for a mark change"} sub={`${student.name}${student.rollNo ? ` · ${t("roll {n}", { n: student.rollNo })}` : ""}`} confirmLabel={t("Send for approval")} confirmIcon={<Send size={16} />} pendingText="Sending…"
       run={async (fd) => {
         fd.set("entryId", entryId); fd.set("sectionId", sectionId); fd.set("studentId", student.id);
         const r = await requestChangeAction({ ok: false } as FormState, fd);
-        return r?.ok ? undefined : r?.message ?? "That did not work. Please try again.";
+        return r?.ok ? undefined : screenMessage(t, r?.message ?? "That did not work. Please try again.");
       }}>
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-sunken/70 px-3.5 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{student.late ? "Marks now" : "Submitted mark"}</p><p className="font-display text-[22px] font-semibold tnum text-ink">{now}</p></div>
+        <div className="rounded-xl bg-sunken/70 px-3.5 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{t(student.late ? "Marks now" : "Submitted mark")}</p><p className="font-display text-[22px] font-semibold tnum text-ink">{now}</p></div>
         {gradeOnly ? (
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Correct grade" />
-            <select name="grade" defaultValue={student.grade ?? ""} className={cx(inputCls(), "h-11")}><option value="">Choose</option>{gradeList.map((g) => <option key={g} value={g}>{g}</option>)}</select>
+            <select name="grade" defaultValue={student.grade ?? ""} className={cx(inputCls(), "h-11")}><option value="">{t("Choose")}</option>{gradeList.map((g) => <option key={g} value={g}>{g}</option>)}</select>
           </label>
         ) : cats.length === 1 ? (
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Correct mark" />
-            <input name={`part:${cats[0].name}`} inputMode="decimal" defaultValue={student.parts[cats[0].name] ?? ""} placeholder={`0 to ${cats[0].max}`} className={cx(inputCls(), "h-11 tnum !text-[18px] font-semibold")} />
+            <input name={`part:${cats[0].name}`} inputMode="decimal" defaultValue={student.parts[cats[0].name] ?? ""} placeholder={t("0 to {max}", { max: cats[0].max })} className={cx(inputCls(), "h-11 tnum !text-[18px] font-semibold")} />
           </label>
         ) : null}
       </div>
       {!gradeOnly && cats.length > 1 && (
         <div className="grid grid-cols-2 gap-3">
           {cats.map((c) => (
-            <label key={c.name} className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">{c.name} / {c.max}
-              <input name={`part:${c.name}`} inputMode="decimal" defaultValue={student.parts[c.name] ?? ""} placeholder={`0 to ${c.max}`} className={cx(inputCls(), "h-11 tnum font-semibold")} />
+            <label key={c.name} className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">{t.any(c.name)} / {c.max}
+              <input name={`part:${c.name}`} inputMode="decimal" defaultValue={student.parts[c.name] ?? ""} placeholder={t("0 to {max}", { max: c.max })} className={cx(inputCls(), "h-11 tnum font-semibold")} />
             </label>
           ))}
         </div>
@@ -688,13 +721,13 @@ function ChangeSheet({ entryId, sectionId, categories: cats, gradeOnly, gradeLis
       <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
         <span><Words k="Reason" /> <span className="text-bad">*</span></span>
         <span className="flex flex-wrap gap-1.5 mb-1">
-          {(student.late ? LATE_REASONS : REASONS).map((x) => <button key={x} type="button" onClick={() => setReason(x)} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium text-ink hover:bg-line">{x}</button>)}
+          {(student.late ? LATE_REASONS : REASONS).map((x) => <button key={x} type="button" onClick={() => setReason(t.any(x))} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium text-ink hover:bg-line">{t.any(x)}</button>)}
         </span>
-        <textarea name="reason" required rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: question 7 was checked but not added to the total" className={cx(inputCls(), "py-2 font-normal")} />
+        <textarea name="reason" required rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("For example: question 7 was checked but not added to the total")} className={cx(inputCls(), "py-2 font-normal")} />
       </label>
       <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{student.late
-        ? `Goes to ${head.approver} in Approvals. Nothing changes until it is approved. The student's result counts once every paper has marks, and is then published like any other; the class's published results do not change.`
-        : `Goes to ${head.approver} in Approvals. The old mark stays until it is approved. Results are worked out again after approval.`}</p>
+        ? t("Goes to {who} in Approvals. Nothing changes until it is approved. The student's result counts once every paper has marks, and is then published like any other; the class's published results do not change.", { who: t.any(head.approver) })
+        : t("Goes to {who} in Approvals. The old mark stays until it is approved. Results are worked out again after approval.", { who: t.any(head.approver) })}</p>
     </ActionSheet>
   );
 }
@@ -703,6 +736,7 @@ function ImportDialog({ open, onClose, entryId, sectionId, paperLabel, students,
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ rows: ImportedRow[]; skipped: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
   const template = () => {
     const head = ["Roll no", "Admission no", "Name", ...(gradeOnly ? ["Grade"] : cats.map((c) => `${c.name} (${c.max})`)), "Absent"];
     const q = (s: string) => `"${s.replace(/"/g, '""')}"`;
@@ -727,8 +761,8 @@ function ImportDialog({ open, onClose, entryId, sectionId, paperLabel, students,
           fd.set("entryId", entryId); fd.set("sectionId", sectionId);
           try {
             const r = await readMarksSheet(fd);
-            if (r.ok) setResult({ rows: r.rows, skipped: r.skipped }); else setError(r.message);
-          } catch { setError("The file could not be sent. Check the internet connection and try again."); }
+            if (r.ok) setResult({ rows: r.rows, skipped: r.skipped }); else setError(screenMessage(t, r.message));
+          } catch { setError(t("The file could not be sent. Check the internet connection and try again.")); }
           setBusy(false);
         }}>
           <input type="file" name="file" required accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line file:bg-surface file:px-3" />
@@ -737,8 +771,8 @@ function ImportDialog({ open, onClose, entryId, sectionId, paperLabel, students,
         {error && <Alert tone="danger">{error}</Alert>}
         {result && (
           <div className="space-y-2">
-            <Alert tone="success">{result.rows.length} <Words k="students found in the file." /></Alert>
-            {result.skipped.length > 0 && <ul className="list-disc pl-5 text-sm text-warn">{result.skipped.map((s) => <li key={s}>{s}</li>)}</ul>}
+            <Alert tone="success">{t("{n} students found in the file.", { n: result.rows.length })}</Alert>
+            {result.skipped.length > 0 && <ul className="list-disc pl-5 text-sm text-warn">{result.skipped.map((s) => <li key={s}>{screenMessage(t, s)}</li>)}</ul>}
             <div className="flex justify-end gap-2 border-t border-line pt-3">
               <Button variant="secondary" onClick={() => { setResult(null); onClose(); }}><Words k="Cancel" /></Button>
               <Button onClick={() => { onFill(result.rows); setResult(null); onClose(); }}><Words k="Fill the grid" /></Button>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cx } from "./cx";
 import { BAND_STYLE } from "./band-style";
-import { Line } from "@/lib/i18n/client";
+import { DateLabel, Line } from "@/lib/i18n/client";
 
 // The one bold moment on a page: two to four numbers on the brand colour
 // (the approved design's "School today" band, kit.jsx Band and HeroStat).
@@ -79,7 +79,7 @@ export function HBars({ rows, goal, lowBelow, labelWidth = 64 }: { rows: { key: 
         const low = lowBelow != null && r.value < lowBelow;
         const inner = (
           <>
-            <span className="text-ink2 font-medium truncate"><Line text={r.label} /></span>
+            <span className="text-ink2 font-medium truncate"><DateLabel text={r.label} /></span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden">
               <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.max(0, Math.min(100, r.value))}%` }} />
               {goal != null && <span className="absolute inset-y-0 w-px bg-ink3/50" style={{ left: `${goal}%` }} />}

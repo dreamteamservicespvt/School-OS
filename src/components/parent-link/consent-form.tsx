@@ -45,8 +45,8 @@ export function ConsentForm({ token, consentTextId, title, photo = false, kids: 
       <form action={confirm} className="mt-4 flex flex-col gap-3">
         <p className="text-[14px] text-ink2">{action === "give" ? t("You are saying yes for “{title}”. To confirm, enter the 6-digit code sent to {phone}.", { title, phone: maskedPhone }) : t("You are removing your consent for “{title}”. To confirm, enter the 6-digit code sent to {phone}.", { title, phone: maskedPhone })}</p>
         {asked.notSent && <p role="status" className="text-[13px] text-warn">{asked.message}</p>}
-        <label htmlFor={`cc-${consentTextId}`} className="sr-only">{t("6-digit code")}</label>
-        <input id={`cc-${consentTextId}`} name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required className={codeCls} aria-describedby={`ce-${consentTextId}`} />
+        <label htmlFor={`cc-${consentTextId}`} className="-mb-1.5 text-[13px] font-semibold text-ink2">{t("6-digit code")}</label>
+        <input id={`cc-${consentTextId}`} name="code" inputMode="numeric" autoFocus autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required className={codeCls} aria-describedby={`ce-${consentTextId}`} />
         {confirmed && !confirmed.ok && <p id={`ce-${consentTextId}`} role="alert" className="text-[13px] text-bad">{confirmed.message}</p>}
         <div className="grid grid-cols-2 gap-2.5 mt-1">
           <Button variant="ghost" size="lg" className="w-full" onClick={() => setAction(null)}>{t("Cancel")}</Button>
@@ -56,7 +56,8 @@ export function ConsentForm({ token, consentTextId, title, photo = false, kids: 
     );
   }
 
-  const choose = (a: "give" | "withdraw") => (preview ? undefined : () => { setOff([]); setAction(a); });
+  // Removing starts with no child ticked when there are several, so one tap cannot remove it for all (layman test loop 5).
+  const choose = (a: "give" | "withdraw") => (preview ? undefined : () => { setOff(a === "withdraw" && given.length > 1 ? given.map((c) => c.id) : []); setAction(a); });
   if (action) {
     const list = action === "give" ? notGiven : given;
     return (

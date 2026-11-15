@@ -121,10 +121,28 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
 
   // The box takes the keys at once (QA SEARCH-01): focus it before the browser paints, and any
   // letter pressed while focus is still elsewhere (the search bar just clicked) goes into the box.
-  useLayoutEffect(() => { inp.current?.focus(); }, []);
+  // On close the cursor goes back where it was, or to the Search button (not lost on the page; accessibility check 2026-11-15).
+  useLayoutEffect(() => {
+    const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    inp.current?.focus();
+    return () => {
+      const to = back?.isConnected ? back : [...document.querySelectorAll<HTMLElement>("[data-search-button]")].find((b) => b.offsetParent !== null);
+      to?.focus();
+    };
+  }, []);
   useEffect(() => {
     const t = setTimeout(() => { if (document.activeElement !== inp.current) inp.current?.focus(); }, 40);
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      // Tab and Shift+Tab stay inside the open search, as a modal should.
+      if (e.key !== "Tab" || !box.current) return;
+      const list = [...box.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((el) => el.offsetParent !== null);
+      if (!list.length) return;
+      const first = list[0], last = list[list.length - 1], at = document.activeElement;
+      if (!box.current.contains(at)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+    };
     const early = (e: KeyboardEvent) => {
       const ch = typedKey(e);
       // Only while focus is still outside the palette; inside it, keys do what they normally do.

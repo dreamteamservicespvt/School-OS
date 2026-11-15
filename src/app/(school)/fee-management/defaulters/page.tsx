@@ -122,7 +122,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
         {data.testMode && <Banner tone="warn" title="Test mode: nothing is sent, no credits used." />}
         <Stats items={all.ageingTotals.map((g, i) => ({
           // Amounts only: each installment counts by its own due date, so student counts overlapped and did not add up (layman loop 2).
-          label: g.label, value: formatRupees(g.amount), sub: filter.ageing === g.index ? "Showing these students" : "Tap to see who owes it",
+          // Lakh short form in summary tiles, as on the Fee Dashboard; full rupees in the table (layman test loop 5).
+          label: g.label, value: formatRupeesShort(g.amount), sub: filter.ageing === g.index ? "Showing these students" : "Tap to see who owes it",
           tone: STAT_TONES[Math.min(i, STAT_TONES.length - 1)], icon: Hourglass, href: here({ age: filter.ageing === g.index ? null : String(g.index), who: null }), active: filter.ageing === g.index,
         }))} />
 

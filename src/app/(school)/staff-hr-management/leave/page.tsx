@@ -189,9 +189,11 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                 const ended = r.toDate < today;
                 const canCancel = cancellable && (r.status === "WAITING" || (r.status === "APPROVED" && !ended)) && (canHr || r.staffId === viewer.staffId);
                 return (
-                  <li key={r.id} className="flex items-start gap-3 py-3">
+                  // On a phone the status and Cancel leave sit on their own line under the details: beside them the
+                  // details were squeezed to one word a line (layman loop 5).
+                  <li key={r.id} className="flex flex-wrap items-start gap-3 py-3">
                     {r.staffName && <Avatar name={r.staffName} photoFileId={null} size={38} />}
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 basis-56">
                       <p className="font-semibold">
                         {r.staffName && r.staffId ? <><Link href={`${BASE}/${r.staffId}?tab=leave`} className="hover:underline">{r.staffName}</Link> · </> : null}
                         {type}
@@ -205,7 +207,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                       <p className="text-[13.5px] text-ink2">“{r.reason}”</p>
                       {r.decisionReason && r.status !== "APPROVED" && <p className="text-[13px] text-ink3"><Words k="Note:" /> {r.decisionReason}</p>}
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2 max-sm:w-full max-sm:justify-start">
                       <Badge tone={s.tone}>{s.label}</Badge>
                       {r.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 text-brand-text hover:underline"><Words k="Document" /></a>}
                       {canCancel && <CancelLeaveForm requestId={r.id} action={cancelLeaveAction} started={r.status === "APPROVED" && r.fromDate <= today} />}

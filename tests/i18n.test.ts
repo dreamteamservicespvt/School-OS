@@ -10,8 +10,8 @@ import { EN } from "@/lib/i18n/catalogues/en";
 import { CATALOGUES, makeT, personLanguage, titleIn } from "@/lib/i18n/server";
 import { blanksOf, englishOf, fill, translator } from "@/lib/i18n/t";
 import { SCREEN_LANGUAGES, cleanLang, pickLanguage, schoolLanguages } from "@/lib/i18n/languages";
-import { screenMessage } from "@/lib/i18n/messages";
-import { dayWords } from "@/lib/i18n/dates";
+import { screenLine, screenMessage } from "@/lib/i18n/messages";
+import { dateBlank, dayWords } from "@/lib/i18n/dates";
 import { NAV_GROUPS, BOTTOM_BY_ROLE, QUICK_BY_ROLE } from "@/components/shell/nav-config";
 import { MODULES } from "@/lib/modules";
 import { allSections } from "@/lib/parent-link/section-list";
@@ -106,6 +106,13 @@ describe("the translator", () => {
     expect(te("Pay {amount}", { amount: "₹1,16,400" })).toContain("₹1,16,400");
     expect(dayWords(hi, "Thursday, 22 October")).toContain("22");
     expect(dayWords(hi, "Thursday, 22 October")).not.toContain("Thursday");
+  });
+
+  it("never turns a person's name into a day or month (code review 15 Nov)", () => {
+    const hi = makeT("hi");
+    expect(screenLine(hi, "Sat Pal Singh")).toBe("Sat Pal Singh");
+    expect(dateBlank(hi, "April")).toBe("April");
+    expect(screenLine(hi, "Bread and Butter and 3 more.")).toContain("Bread and Butter");
   });
 
   it("puts messages from the rules into the screen's language", () => {

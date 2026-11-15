@@ -43,9 +43,10 @@ export const hostelPage = cache(async () => {
 export type HostelPageData = Awaited<ReturnType<typeof hostelPage>>;
 
 const TABS: { key: HostelPage; href: string; label: string; exact?: boolean }[] = [
+  // The page the module opens on is the first tab, so the start point is never mid-strip (layman loop 5).
+  { key: "rollcall", href: BASE, label: "Roll Call & Incidents", exact: true },
   { key: "rooms", href: `${BASE}/rooms`, label: "Rooms & Beds" },
   { key: "allocation", href: `${BASE}/allocation`, label: "Allocation" },
-  { key: "rollcall", href: BASE, label: "Roll Call & Incidents", exact: true },
   { key: "outings", href: `${BASE}/outings`, label: "Outing & Visitors" },
   { key: "mess", href: `${BASE}/mess`, label: "Mess" },
   { key: "reports", href: `${BASE}/reports`, label: "Hostel Reports" },

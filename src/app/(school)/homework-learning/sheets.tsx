@@ -14,7 +14,7 @@ import { AttachPicker, HandInPicker } from "./_components/attach";
 import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
 
 export type DueChoice = { date: string; words: string };
@@ -32,9 +32,10 @@ export function Text({ name, label, start, required, placeholder, help, value, o
   maxLength?: number;
 }) {
   const t = useTyped(name, start);
+  const tr = useT();
   const id = `f-${name}`;
   const common = {
-    id, name, placeholder, maxLength, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
+    id, name, placeholder: placeholder ? tr.any(placeholder) : undefined, maxLength, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
     ...(onValue ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onValue(e.target.value) } : { defaultValue: t.value }),
   };
   return (
@@ -48,6 +49,7 @@ export function Text({ name, label, start, required, placeholder, help, value, o
 export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineOn, ai, startSection }: {
   closeHref: string; sections: GiveSection[]; own: boolean; today: string; defaultMax: number; onlineOn: boolean; ai: boolean; startSection?: string;
 }) {
+  const tr = useT();
   const typedSection = useTyped("sectionId", startSection ?? sections[0]?.id).value;
   const [sectionId, setSectionId] = useState(sections.some((s) => s.id === typedSection) ? typedSection : sections[0]?.id ?? "");
   const section = sections.find((s) => s.id === sectionId) ?? sections[0];
@@ -167,7 +169,10 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
           options={[{ value: "next", label: "Next class" }, { value: "tomorrow", label: "Tomorrow" }, { value: "pick", label: "Pick a date" }]} />
         {due === "pick"
           ? <DateInput id="gh-due" value={picked} min={today} onChange={(e) => setPicked(e.target.value)} aria-invalid={typedPick.error ? true : undefined} className={cx(inputCls(typedPick.error), "h-11 tnum mt-1")} />
-          : <p className="text-[12.5px] text-ink3">{due === "next" ? `Next ${subject.name} class: ${subject.next.words}` : `${section.tomorrow.words}, 11:59 PM`}</p>}
+          : <p className="text-[12.5px] text-ink3">{/* "Next Mathematics class: Mon 16 Nov, period 6" said whole in the screen's language (layman loop 5). */}
+            {due === "next" ? tr("Next {subject} class: {when}", { subject: tr.any(subject.name), when: /, period \d+$/.test(subject.next.words)
+              ? tr("{day}, period {n}", { day: subject.next.words.replace(/, period \d+$/, ""), n: subject.next.words.replace(/^.*, period /, "") }) : subject.next.words })
+              : tr("{day}, {time}", { day: section.tomorrow.words, time: "11:59 PM" })}</p>}
       </FieldShell>
 
       <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="self-start inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brand h-8 px-1 rounded-lg">
@@ -176,7 +181,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
       <div className={cx("flex flex-col gap-3", !more && "hidden")}>
         <FieldShell label="Given to" id="gh-to" required error={studentsT.error}>
           <Segmented value={to} onChange={setTo} className="w-full" label="Given to"
-            options={[{ value: "SECTION", label: `Whole ${section.label}` }, ...(sameClass.length > 1 ? [{ value: "CLASS", label: `All of ${section.className}` }] : []), { value: "STUDENTS", label: "Chosen students" }]} />
+            options={[{ value: "SECTION", label: tr("Whole {name}", { name: section.label }) }, ...(sameClass.length > 1 ? [{ value: "CLASS", label: tr("All of {name}", { name: section.className }) }] : []), { value: "STUDENTS", label: "Chosen students" }]} />
         </FieldShell>
         {to === "CLASS" && <p className="text-[12.5px] text-ink3 -mt-1"><Words k="Goes to" /> {sameClass.map((s) => s.label).join(", ")}: {sameClass.reduce((a, s) => a + s.students, 0)} <Words k="students." /></p>}
         {to === "STUDENTS" && (

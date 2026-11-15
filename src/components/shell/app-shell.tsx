@@ -173,7 +173,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
         </div>
       )}
       <div className="relative flex-1 min-h-0 flex flex-col">
-      <nav ref={navRef} className="flex-1 overflow-y-auto scroll-thin px-3 pb-4" aria-label={t("Main menu")}>
+      <nav ref={navRef} className="flex-1 overflow-y-auto scroll-thin px-3 pb-4 scroll-pb-20" aria-label={t("Main menu")}>
         {groups.map((g, gi) => (
           <div key={gi} className="pt-2">
             {g.group && <p className="eyebrow text-ink3 px-3 pb-1.5 hidden lg:block">{t.any(g.group)}</p>}
@@ -227,7 +227,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
       {below && (
         // Solid behind the pill, so no half row ("Inve… …nt") peeks out on both sides of it (layman loop 3).
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-surface from-55% to-transparent flex items-end justify-center pb-1.5">
-          <button type="button" onClick={() => navRef.current?.scrollBy({ top: navRef.current.clientHeight * 0.7, behavior: "smooth" })}
+          <button type="button" onClick={() => navRef.current?.scrollBy({ top: navRef.current.clientHeight * 0.7, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })}
             className="pointer-events-auto inline-flex items-center gap-1 h-8 px-3 rounded-full bg-surface border border-line shadow-card text-[12.5px] font-semibold text-ink2 hover:text-brand"
             title={t("More below")}>
             <I.ChevronDown size={15} aria-hidden="true" /><span className="hidden lg:inline">{t("More below")}</span><span className="sr-only lg:hidden">{t("More below")}</span>
@@ -274,7 +274,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
         </span>
       </Link>
       {/* Computer: search */}
-      <button type="button" onClick={onSearch}
+      <button type="button" onClick={onSearch} data-search-button=""
         className="hidden md:flex items-center gap-3 h-11 flex-1 min-w-0 max-w-xl rounded-xl bg-sunken border border-transparent hover:border-line px-3.5 text-ink3 text-[14.5px] transition">
         <I.Search size={18} className="shrink-0" aria-hidden="true" />
         <span className="truncate">{ai ? t("Search students, staff, pages… or ask a question") : t("Search students, staff, pages…")}</span>
@@ -285,7 +285,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
         className={cx("hidden lg:inline-flex shrink-0 whitespace-nowrap items-center gap-2 h-9 px-3 rounded-xl border text-[13px] font-semibold hover:bg-sunken tnum", year?.closed ? "border-warn/50 text-warn" : "border-line text-ink2")}>
         <I.CalendarRange size={16} aria-hidden="true" /> {year ? yearLabel(year.name) : t("No year yet")}
       </Link>
-      <IconButton className="md:hidden" icon={I.Search} label={t("Search")} onClick={onSearch} />
+      <IconButton className="md:hidden" icon={I.Search} label={t("Search")} onClick={onSearch} data-search-button="" />
       {/* On a phone the count shows here too when the bottom bar has no Approve button (a class teacher, an accountant). */}
       {canApprove && <IconLink className={phoneApprovals ? "inline-flex" : "hidden md:inline-flex"} href="/approvals" icon={I.ListChecks} label={t("Approvals waiting")} badge={approvals} />}
       {canMessage && <IconLink className="hidden md:inline-flex" href="/messages" icon={I.MessageCircle} label={t("Messages")} />}
@@ -616,7 +616,8 @@ export function AppShell(props: ShellProps) {
 
   return (
     <div className="flex min-h-dvh">
-      <a href="#main" className="skip-link">{t("Skip to the page")}</a>
+      {/* The page itself takes the cursor, so the next Tab starts inside it (accessibility check 2026-11-15). */}
+      <a href="#main" className="skip-link" onClick={() => { const m = document.getElementById("main"); if (m) { if (!m.hasAttribute("tabindex")) m.setAttribute("tabindex", "-1"); m.focus(); } }}>{t("Skip to the page")}</a>
       <Sidebar school={school} schools={schools} menu={menu} mine={mine} landing={landing} quick={quick} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme} ai={ai}

@@ -186,11 +186,17 @@ export async function columnsAction(_prev: FormState, fd: FormData): Promise<For
     if (!Number.isInteger(n)) continue;
     (match[m[1]] ??= []).push(n);
   }
+  // One date for every row, for a date column not in the file ("fill_dueDate").
+  const fill: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) {
+    const m = /^fill_([A-Za-z]+)$/.exec(k);
+    if (m && typeof v === "string" && v.trim() && !match[m[1]]?.length) fill[m[1]] = v.trim().slice(0, 20);
+  }
   let place: ImportPlace | null = null;
   const r = await run(async () => {
     const x = await forFile(fd.get("place"), id);
     place = x.place;
-    await withSchool(x.current.ctx, (tx) => setColumns(tx, id, match), { timeout: 60_000 });
+    await withSchool(x.current.ctx, (tx) => setColumns(tx, id, match, fill), { timeout: 60_000 });
   });
   if (r || !place) return { ok: false, message: r || "This page was not found." };
   refresh(place, id);

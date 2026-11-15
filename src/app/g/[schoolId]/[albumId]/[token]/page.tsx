@@ -52,8 +52,9 @@ export default async function SharedAlbumPage({ params }: { params: Promise<{ sc
 async function SharedAlbum({ params, t }: { params: Promise<{ schoolId: string; albumId: string; token: string }>; t: T }) {
   const { schoolId, albumId, token } = await params;
   const device = await deviceInfo();
-  const limited = await hitLimit(`album-open:ip:${device.ipAddress ?? "unknown"}`, 120, 600);
-  if (!limited.ok) return <PhoneShell t={t} kind="Photos"><PhoneNotice title="Please wait a moment">{screenMessage(t, limitMessage(limited))}</PhoneNotice></PhoneShell>;
+  // High: one album link goes to every parent, and parents on one network share an address (layman test loop 5).
+  const limited = await hitLimit(`album-open:ip:${device.ipAddress ?? "unknown"}`, 1000, 600);
+  if (!limited.ok) return <PhoneShell t={t} kind="Photos" privateNote={false}><PhoneNotice title="Please wait a moment">{screenMessage(t, limitMessage(limited))}</PhoneNotice></PhoneShell>;
 
   const found = uuid.test(schoolId) && uuid.test(albumId) ? await withSchool({ schoolId, userId: null }, async (tx) => {
     const ctx = { schoolId, userId: null };
@@ -67,14 +68,14 @@ async function SharedAlbum({ params, t }: { params: Promise<{ schoolId: string; 
 
   if (!found || !found.album) {
     return (
-      <PhoneShell t={t} schoolName={found?.school.name} kind="Photos" schoolPhone={found?.school.phone}>
+      <PhoneShell t={t} schoolName={found?.school.name} kind="Photos" privateNote={false} schoolPhone={found?.school.phone}>
         <PhoneNotice title="This link does not work" icon={<LinkIcon size={26} />}><Words k="The album may have been archived or a new link sent. Please open the latest link from the school’s message." /></PhoneNotice>
       </PhoneShell>
     );
   }
   const { school, album, shared } = found;
   return (
-    <PhoneShell t={t} schoolName={school.name} kind="Photos" schoolPhone={school.phone}>
+    <PhoneShell t={t} schoolName={school.name} kind="Photos" privateNote={false} schoolPhone={school.phone}>
       <BackLink />
       <PhoneCard className="flex items-start gap-3.5">
         <span className="w-12 h-12 rounded-2xl bg-brand/10 text-brand grid place-items-center shrink-0"><Images size={22} aria-hidden="true" /></span>

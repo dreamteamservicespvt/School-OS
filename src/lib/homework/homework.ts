@@ -156,6 +156,9 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   // The same title for the same class, subject and due date is almost always a second tap of Give homework:
   // parents got two messages and the school paid twice (layman loop 4). Asked first; Send again gives it anyway.
   if (!input.sendAgain) {
+    // Two taps at once both passed the check before either saved (code review): one lock per class, subject,
+    // due date and title, held to the end of this transaction, so the second waits and then finds the first.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`homework:${ctx.schoolId}:${section.classId}:${subject.id}:${input.dueDate.toISOString().slice(0, 10)}:${title.toLowerCase()}`}))`;
     const same = await tx.homework.findFirst({
       where: { sectionId: { in: targets.map((t) => t.id) }, subjectId: subject.id, dueDate: input.dueDate, archivedAt: null, title: { equals: title, mode: "insensitive" } },
       select: { id: true, sectionId: true }, orderBy: { createdAt: "desc" },
@@ -307,22 +310,37 @@ export async function restoreHomework(tx: Tx, s: HomeworkScope, id: string) {
 
 // ---------------------------------------------------------------- counts and lists
 
-export type Counts = { assigned: number; submitted: number; graded: number; toCheck: number; late: number; notIn: number; excused: number };
+export type Counts = { assigned: number; submitted: number; graded: number; toCheck: number; late: number; notIn: number; excused: number; left: number };
 
-/** Submission counts per homework, all from the submissions table so the card and the table always agree (17 §9.3). */
+/**
+ * Submission counts per homework, all from the submissions table so the card and the table always agree (17 §9.3).
+ * Only students still in the homework's section count; one who left the class (or moved section) is in `left`.
+ * The card said "16 assigned, 14 submitted" while Check work, which lists the class now, said "13 of 15" (layman loop 5).
+ */
 export async function countsFor(tx: Tx, ids: string[]): Promise<Map<string, Counts>> {
-  const rows = ids.length ? await tx.submission.groupBy({ by: ["homeworkId", "status"], where: { homeworkId: { in: ids }, archivedAt: null }, _count: true }) : [];
+  // campus: pinned to homework this person already read.
+  const rows = ids.length ? await tx.submission.findMany({ where: { homeworkId: { in: ids }, archivedAt: null }, select: { homeworkId: true, studentId: true, status: true } }) : [];
+  const hws = rows.length ? await tx.homework.findMany({ where: { id: { in: ids } }, select: { id: true, sectionId: true, academicYearId: true } }) : [];
+  // campus: pinned to the students of those submissions.
+  const enrolled = rows.length ? await tx.enrolment.findMany({
+    where: { studentId: { in: [...new Set(rows.map((r) => r.studentId))] }, academicYearId: { in: [...new Set(hws.map((h) => h.academicYearId))] }, archivedAt: null, status: { not: "LEFT" }, student: { archivedAt: null } },
+    select: { studentId: true, sectionId: true, academicYearId: true },
+  }) : [];
+  const inClass = new Set(enrolled.map((e) => `${e.studentId}|${e.sectionId}|${e.academicYearId}`));
+  const hwById = new Map(hws.map((h) => [h.id, h]));
   const out = new Map<string, Counts>();
-  for (const id of ids) out.set(id, { assigned: 0, submitted: 0, graded: 0, toCheck: 0, late: 0, notIn: 0, excused: 0 });
+  for (const id of ids) out.set(id, { assigned: 0, submitted: 0, graded: 0, toCheck: 0, late: 0, notIn: 0, excused: 0, left: 0 });
   for (const r of rows) {
     const c = out.get(r.homeworkId)!;
-    if (r.status === "EXCUSED") { c.excused += r._count; continue; }
-    c.assigned += r._count;
-    if ((HANDED_IN as readonly string[]).includes(r.status)) c.submitted += r._count;
-    if (r.status === "GRADED") c.graded += r._count;
-    if ((TO_CHECK as readonly string[]).includes(r.status)) c.toCheck += r._count;
-    if (r.status === "LATE") c.late += r._count;
-    if (r.status === "ASSIGNED" || r.status === "MISSING") c.notIn += r._count;
+    const h = hwById.get(r.homeworkId);
+    if (h && !inClass.has(`${r.studentId}|${h.sectionId}|${h.academicYearId}`)) { c.left += 1; continue; }
+    if (r.status === "EXCUSED") { c.excused += 1; continue; }
+    c.assigned += 1;
+    if ((HANDED_IN as readonly string[]).includes(r.status)) c.submitted += 1;
+    if (r.status === "GRADED") c.graded += 1;
+    if ((TO_CHECK as readonly string[]).includes(r.status)) c.toCheck += 1;
+    if (r.status === "LATE") c.late += 1;
+    if (r.status === "ASSIGNED" || r.status === "MISSING") c.notIn += 1;
   }
   return out;
 }

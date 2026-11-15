@@ -10,11 +10,14 @@ import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { inputCls } from "@/components/ui/field";
 import { DateInput } from "@/components/ui/date-input";
+import { Words } from "@/lib/i18n/client";
 
 export type PickerChoice = { value: string; label: string };
 
-export function SheetPicker({ choices, value, date, maxDate, minDate, classLabel }: {
+export function SheetPicker({ choices, value, date, maxDate, minDate, classLabel, lastDay }: {
   choices: PickerChoice[]; value: string; date: string; maxDate: string; minDate?: string; classLabel: string;
+  /** The last school day before today: a one-tap chip, so a missed day needs no calendar (layman loop 5). */
+  lastDay?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,7 +33,7 @@ export function SheetPicker({ choices, value, date, maxDate, minDate, classLabel
     start(() => router.push(sp.toString() ? `${pathname}?${sp}` : pathname, { scroll: false }));
   };
   return (
-    <div className="flex gap-2 w-full md:w-auto items-center">
+    <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
       {choices.length > 1 && (
         <div className="relative flex-1 md:w-60 md:flex-none">
           <select aria-label={classLabel} value={value} onChange={(e) => go({ choice: e.target.value })}
@@ -43,6 +46,15 @@ export function SheetPicker({ choices, value, date, maxDate, minDate, classLabel
       <DateInput aria-label="Date" value={date} max={maxDate} min={minDate} required
         onChange={(e) => { if (e.target.value) go({ date: e.target.value }); }}
         className={cx(inputCls(false), "h-10 w-40 text-[14px] font-semibold tnum")} />
+      {date === maxDate ? lastDay && (
+        <button type="button" onClick={() => go({ date: lastDay })} className="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-3.5 text-[13px] font-semibold text-ink2 hover:bg-sunken">
+          <Words k="Last school day" />
+        </button>
+      ) : (
+        <button type="button" onClick={() => go({ date: maxDate })} className="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-3.5 text-[13px] font-semibold text-ink2 hover:bg-sunken">
+          <Words k="Today" />
+        </button>
+      )}
       {pending && <Spinner className="text-ink3" />}
     </div>
   );

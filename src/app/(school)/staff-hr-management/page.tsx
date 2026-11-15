@@ -23,6 +23,7 @@ import { bulkChangeDepartment, bulkMessage } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { loginsWithoutStaff, postsNotMatchingRoles } from "@/lib/staff/link-login";
 import { pageTitle } from "@/lib/i18n/server";
+import { phoneShow } from "@/lib/students/show";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Staff List") };
@@ -107,7 +108,7 @@ export default async function StaffListPage({ searchParams }: Search) {
       <><p className="leading-tight">{r.designation}</p><p className="text-[12.5px] text-ink3">{r.employmentType}</p></>
     ) },
     { key: "department", label: "Department", render: (r) => r.department?.name ?? <span className="text-ink3">–</span> },
-    { key: "phone", label: "Phone", nowrap: true, render: (r) => <span className="tnum">{r.phone}</span> },
+    { key: "phone", label: "Phone", nowrap: true, render: (r) => <span className="tnum">{phoneShow(r.phone)}</span> },
     { key: "today", label: "Today", render: (r) => today$(r) },
     { key: "act", label: <span className="sr-only"><Words k="Actions" /></span>, render: (r) => (
       <div className="flex justify-end gap-0.5">

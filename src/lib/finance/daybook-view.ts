@@ -109,13 +109,19 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     return null;
   };
 
+  // "Deepika Patel (Class 2 B)" is posted with the class; the Class column shows it, so the name cell does not repeat it (layman test loop 5).
+  const bare = (x: string) => x.replace(/^Class\s+/i, "").replace(/\s+/g, " ").trim().toLowerCase();
+  const withoutClass = (name: string, cls: string) => {
+    const m = /\s*\(([^()]*)\)$/.exec(name);
+    return cls && m && m.index > 0 && bare(m[1]) === bare(cls) ? name.slice(0, m.index) : name;
+  };
   const rows: DayRow[] = entries.map((e) => {
     const source = SECTION_OF[e.section] ?? "income";
     const isRev = e.section === "reversal" || e.section === "refund";
     const total = isRev && e.direction === "OUT" ? -e.amountPaise : e.amountPaise;
     return {
       id: e.id, source, section: isRev ? "refunds" : e.section === "salary-advance" ? "salary" : e.section === "online-fees" ? "fees-full" : e.section,
-      date: e.date, at: e.postedAt, who: e.partyName, number: numberOf(e), classLabel: e.studentId ? classLabelOf(e) : "",
+      date: e.date, at: e.postedAt, who: e.studentId ? withoutClass(e.partyName, classLabelOf(e)) : e.partyName, number: numberOf(e), classLabel: e.studentId ? classLabelOf(e) : "",
       head: e.headName, amount: e.amountPaise - e.penaltyPaise, penalty: e.penaltyPaise, total, mode: e.mode, reference: e.reference,
       account: e.accountId ? acc.get(e.accountId) ?? null : null, depositAccount: e.depositAccountId ? acc.get(e.depositAccountId) ?? null : null,
       note: e.note, waiting: false, cancelled: reversed.has(e.id), studentId: e.studentId, sourceType: e.sourceType, sourceId: e.sourceId,

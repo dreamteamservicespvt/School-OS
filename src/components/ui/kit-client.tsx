@@ -44,7 +44,7 @@ export function UrlSearch({ placeholder, name = "q", className, label }: { place
   return (
     <div className={cx("relative flex-1 min-w-0", className)}>
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
-      <input type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={placeholder} aria-label={label ?? placeholder}
+      <input type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={tr.any(placeholder)} aria-label={tr.any(label ?? placeholder)}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
         : value && <button type="button" onClick={() => change("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
@@ -57,12 +57,14 @@ export type UrlOption = { value: string; label: string };
 /** A select kept in the page address. The empty value removes it. `reset` lists other keys cleared on change. */
 export function UrlSelect({ name, options, label, className, value: forced, reset = [] }: { name: string; options: UrlOption[]; label: string; className?: string; value?: string; reset?: string[] }) {
   const { sp, go, pending } = useAddress();
+  const tr = useT();
   const value = forced ?? sp.get(name) ?? "";
   return (
     <div className={cx("relative", className)}>
-      <select aria-label={label} value={value} onChange={(e) => go({ [name]: e.target.value || null }, reset)}
+      <select aria-label={tr.any(label)} value={value} onChange={(e) => go({ [name]: e.target.value || null }, reset)}
         className={cx(inputCls(false), "h-11 appearance-none pr-10 cursor-pointer")}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {/* "All exams", "All classes" in the screen's language; a name the school typed stays as typed. */}
+        {options.map((o) => <option key={o.value} value={o.value}>{tr.any(o.label)}</option>)}
       </select>
       {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
         : <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />}

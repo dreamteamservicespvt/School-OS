@@ -34,17 +34,20 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom, star
       <ActionForm action={action} hidden={{ ...hidden, sheet: "1" }} submitLabel="Send for approval" pendingText="Sending…" keep>
         {(f) => (
           <>
-            <fieldset>
+            {/* min-w-0: a fieldset is as wide as its widest line by default, which made this form 654 px wide on a
+                390 px phone with every status but P off screen. On a phone the statuses sit under the name, four to a
+                row, 44 px each, and the page scrolls (no box inside the page) (layman loop 5). */}
+            <fieldset className="min-w-0">
               <legend className="mb-1 font-medium"><Words k="Mark each student" /> <span className="text-danger">*</span></legend>
               <p className="mb-2 text-sm text-ink-2"><Words k="Nothing was saved for this day. Mark everyone, then send it once." /></p>
-              <ul className="max-h-[28rem] divide-y divide-line overflow-y-auto rounded-xl border border-line">
+              <ul className="divide-y divide-line rounded-xl border border-line">
                 {people.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                  <li key={p.id} className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center">
                     <input type="hidden" name="people" value={p.id} />
-                    <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                    <span role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-1">
+                    <span className="min-w-0 truncate sm:flex-1">{p.label}</span>
+                    <span role="radiogroup" aria-label={p.label} className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-1">
                       {statuses.map((st) => (
-                        <label key={st.key} title={t.any(st.name)} className="inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-line-strong text-sm font-semibold has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-bg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+                        <label key={st.key} title={t.any(st.name)} className="inline-flex h-11 min-w-11 px-1 cursor-pointer items-center justify-center rounded-lg border border-line-strong text-sm font-semibold has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-bg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
                           <input type="radio" name={`to:${p.id}`} value={st.key} defaultChecked={f.val(`to:${p.id}`) ? f.val(`to:${p.id}`) === st.key : st.key === first} className="sr-only" />
                           <span aria-hidden="true">{st.letter}</span><span className="sr-only">{t.any(st.name)}</span>
                         </label>
@@ -66,7 +69,7 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom, star
     <ActionForm action={action} hidden={hidden} submitLabel="Send for approval" pendingText="Sending…" keep>
       {(f) => (
         <>
-          <fieldset aria-describedby={f.err("people") ? "people-error" : undefined}>
+          <fieldset className="min-w-0" aria-describedby={f.err("people") ? "people-error" : undefined}>
             <legend className="mb-1 font-medium">{forWhom === "staff" ? t("Staff member") : t("Student(s)")} <span className="text-danger">*</span></legend>
             {people.length > 8 && (
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Find by name")} aria-label={t("Find by name")}
@@ -98,7 +101,7 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom, star
             <span id="people-error"><ProblemText name="people" given={f.err("people")} /></span>
           </fieldset>
           <SelectField label="New status" name="status" required placeholder="Choose the new status" error={f.err("status")} defaultValue={f.val("status") ?? ""}
-            options={statuses.map((s) => ({ value: s.key, label: `${s.name} (${s.letter})` }))} />
+            options={statuses.map((s) => ({ value: s.key, label: `${t.any(s.name)} (${s.letter})` }))} />
           <TextField label="Note on the entry" name="note" maxLength={300} defaultValue={f.val("note")} help="Optional. For example: came at 10:15, doctor's visit." />
           <TextArea label="Reason" name="reason" required minLength={5} maxLength={500} rows={3} defaultValue={f.val("reason")} error={f.err("reason")}
             help="The approver sees this. For example: marked absent by mistake." />

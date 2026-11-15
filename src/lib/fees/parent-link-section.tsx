@@ -58,6 +58,14 @@ export function feePeriodWords(t: T, label: string): string {
   if (year) return t("Year {name}", { name: year[1] });
   const term = /^Term (\d+)$/.exec(label);
   if (term) return t("Term {n}", { n: term[1] });
+  // Library fines sent to fees (src/lib/library/fines.ts); the book's title stays as typed (layman test loop 5).
+  const lib = /^Library: (late return|lost book|damaged book)(?: \((\d+) days?\))? · (.+)$/.exec(label);
+  if (lib) {
+    const title = lib[3];
+    if (lib[1] === "lost book") return t("Library: lost book · {title}", { title });
+    if (lib[1] === "damaged book") return t("Library: damaged book · {title}", { title });
+    return lib[2] ? t("Library: late return ({n} days) · {title}", { n: lib[2], title }) : t("Library: late return · {title}", { title });
+  }
   return dayWords(t, t.any(label));
 }
 

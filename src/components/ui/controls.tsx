@@ -46,7 +46,7 @@ export function Checkbox({ checked, onChange, label, id, indeterminate }: { chec
   return (
     <button type="button" role="checkbox" aria-checked={indeterminate ? "mixed" : checked} aria-label={label} id={id}
       onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
-      className={cx("w-5 h-5 rounded-md border-2 grid place-items-center transition shrink-0",
+      className={cx("relative w-5 h-5 rounded-md border-2 grid place-items-center transition shrink-0 before:absolute before:-inset-3",
         checked || indeterminate ? "bg-brand border-brand text-brandink" : "border-line bg-surface hover:border-ink3")}>
       {indeterminate ? <span className="w-2.5 h-0.5 bg-current rounded" /> : checked && <Check size={13} strokeWidth={3.5} aria-hidden="true" />}
     </button>

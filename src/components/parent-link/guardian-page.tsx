@@ -26,13 +26,13 @@ export function GuardianPage({ view, sections, schoolPhone, basePath, right, fra
         {view.children.map((c) => {
           const on = c.id === view.child.id;
           return (
-            <Link key={c.id} href={`${basePath}${many ? `?child=${c.id}` : ""}`} aria-current={on ? "page" : undefined} scroll={false}
+            <Link key={c.id} href={`${basePath}${many ? `?child=${c.id}` : ""}`} aria-current={on ? "page" : undefined} scroll={false} prefetch={false}
               className={cx("rounded-2xl p-3 text-left bg-surface border-2 shadow-card transition flex", many ? "flex-col" : "items-center gap-3", on && many ? "border-brand" : "border-transparent")}>
               <Avatar name={c.name} size={38} />
               <span className={cx("min-w-0", many && "mt-2")}>
                 <span className="block font-semibold text-[14.5px] leading-tight truncate">{many ? c.firstName : c.name}</span>
                 <span className="block text-[12px] text-ink3 truncate">{c.classLabel ? classWords(t, c.classLabel) : t("Class not set")}</span>
-                {c.classTeacher && <span className="block text-[12px] text-ink3 truncate">{t("Class teacher")}: {c.classTeacher}</span>}
+                {c.classTeacher && <span className="block text-[12px] text-ink3 break-words">{t("Class teacher")}: {c.classTeacher}</span>}
               </span>
             </Link>
           );

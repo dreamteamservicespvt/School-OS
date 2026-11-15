@@ -35,7 +35,7 @@ async function payFeesEn(token: string, form: FormData): Promise<PayState> {
   const device = await deviceInfo();
   const limited = await hitLimit(`pl-pay:link:${found.linkId}`, 20, 3600);
   if (!limited.ok) return { ok: false, message: limitMessage(limited) };
-  const ipLimited = await hitLimit(`pl-pay:ip:${device.ipAddress ?? "unknown"}`, 40, 3600);
+  const ipLimited = await hitLimit(`pl-pay:ip:${device.ipAddress ?? "unknown"}`, 400, 3600);
   if (!ipLimited.ok) return { ok: false, message: limitMessage(ipLimited) };
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
   const g = await guardianAccess(found, key, "fees");

@@ -11,6 +11,7 @@ import { Card } from "./card";
 import { Pill } from "./badge";
 import { Avatar } from "./avatar";
 import { tx } from "@/lib/i18n/tx";
+import { Words } from "@/lib/i18n/client";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 export const TONE_TEXT: Record<string, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", info: "text-info", brand: "text-brand", neutral: "" };
@@ -261,9 +262,9 @@ export const SubHead = ({ children }: { children: React.ReactNode }) => <p class
 export function ListFooter({ shown, total, moreHref, children }: { shown: number; total: number; moreHref?: string | null; children?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-line text-[13px] text-ink3">
-      <span className="tnum" aria-live="polite">Showing {shown.toLocaleString("en-IN")} of {total.toLocaleString("en-IN")}</span>
+      <span className="tnum" aria-live="polite"><Words k="Showing {n} of {n2}" vars={{ n: shown.toLocaleString("en-IN"), n2: total.toLocaleString("en-IN") }} /></span>
       {children}
-      {moreHref && <Link href={moreHref} scroll={false} className="inline-flex items-center justify-center font-semibold whitespace-nowrap transition h-8 px-3 text-[13px] gap-1.5 rounded-lg bg-surface text-ink border border-line hover:bg-sunken">Show more</Link>}
+      {moreHref && <Link href={moreHref} scroll={false} className="inline-flex items-center justify-center font-semibold whitespace-nowrap transition h-8 px-3 text-[13px] gap-1.5 rounded-lg bg-surface text-ink border border-line hover:bg-sunken"><Words k="Show more" /></Link>}
     </div>
   );
 }

@@ -206,42 +206,42 @@ export function TakeSheet(p: Props) {
         <Banner tone={p.correction.status === "APPROVED" ? "ok" : p.correction.status === "WAITING" ? "info" : "warn"}
           icon={p.correction.status === "APPROVED" ? CircleCheck : Info} className="mb-4" role="status"
           title={p.correction.status === "APPROVED"
-            ? `Correction approved${p.correction.by ? ` by ${p.correction.by}` : ""} at ${p.correction.atText}. The attendance below is updated.`
+            ? (p.correction.by ? tr("Correction approved by {name} at {time}. The attendance below is updated.", { name: p.correction.by, time: p.correction.atText }) : tr("Correction approved at {time}. The attendance below is updated.", { time: p.correction.atText }))
             : p.correction.status === "WAITING"
-              ? `Correction sent at ${p.correction.atText}. Waiting for the principal.`
-              : `Correction not approved${p.correction.by ? ` by ${p.correction.by}` : ""} at ${p.correction.atText}.`}
+              ? tr("Correction sent at {time}. Waiting for the principal.", { time: p.correction.atText })
+              : p.correction.by ? tr("Correction not approved by {name} at {time}.", { name: p.correction.by, time: p.correction.atText }) : tr("Correction not approved at {time}.", { time: p.correction.atText })}
           action={<div className="flex flex-wrap gap-2">
             <Link href={p.correction.href} className={buttonClass("secondary", "sm")}><Words k="See the correction" /></Link>
             {p.correction.status !== "WAITING" && <Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}
           </div>}>
           {p.correction.status === "APPROVED"
-            ? `Locked at ${p.lockText}. Another change needs a new correction request.`
+            ? tr("Locked at {time}. Another change needs a new correction request.", { time: p.lockText })
             : p.correction.status === "WAITING"
-              ? "The marks below are the saved ones. They change once the principal approves."
-              : `The marks below are unchanged.${p.correction.note ? ` Reason: ${p.correction.note}` : ""}`}
+              ? tr("The marks below are the saved ones. They change once the principal approves.")
+              : `${tr("The marks below are unchanged.")}${p.correction.note ? ` ${tr("Reason: {reason}", { reason: p.correction.note })}` : ""}`}
         </Banner>
       ) : null}
       {readOnly && p.correction?.tellParents ? (
-        <Banner tone="warn" icon={Info} className="mb-4" title={`Parents already told the old mark: ${p.correction.tellParents.names.join(", ")}.`}
+        <Banner tone="warn" icon={Info} className="mb-4" title={tr("Parents already told the old mark: {names}.", { names: p.correction.tellParents.names.join(", ") })}
           action={<Link href={p.correction.tellParents.href} className={buttonClass("secondary", "sm")}><Words k="Send a correction message" /></Link>}>
           <Words k="A correction sends no new message by itself. Send these parents a short correction message." />
         </Banner>
       ) : null}
       {readOnly && p.correction ? null : readOnly ? (
-        <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
-          action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
+        <Banner tone="warn" icon={Lock} className="mb-4" title={tr("Attendance for {date} locked at {time}.", { date: p.dateText, time: p.lockText })}
+          action={<Link href={p.correctionHref} className={buttonClass("primary")}><Words k="Request a correction" /></Link>}>
           {!p.saved
-            ? "Nothing was saved for this day. To mark attendance now, request a correction; the principal approves it."
-            : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the old marks are kept.`}
+            ? tr("Nothing was saved for this day. To mark attendance now, request a correction; the principal approves it.")
+            : `${unsaved ? `${tr("{who} not marked: no mark is saved for them on this day.", { who: tr.any(studentsWord(unsaved)) })} ` : ""}${tr("A change now needs a correction request. The principal approves it, and the old marks are kept.")}`}
         </Banner>
       ) : savedNow ? (
-        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}
+        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={p.savedBy ? tr("Saved at {time} by {name}.", { time: p.savedAtText ?? "", name: p.savedBy }) : tr("Saved at {time}.", { time: p.savedAtText ?? "" })}
           action={p.next && !unsaved ? <Link href={p.next.href} className={buttonClass("secondary", "sm")}><Words k="Next class: {class}" vars={{ class: p.next.label }} /> →</Link> : undefined}>
-          {unsaved ? `${studentsWord(unsaved)} not marked yet: tap P, A or L for each, then save. ` : ""}
-          {p.locked ? `It locked at ${p.lockText}; the school keeps a record of who changed it and when.` : `You can change it until ${p.lockText}.`}
+          {unsaved ? `${tr("{who} not marked yet: tap P, A or L for each, then save.", { who: tr.any(studentsWord(unsaved)) })} ` : ""}
+          {p.locked ? tr("It locked at {time}; the school keeps a record of who changed it and when.", { time: p.lockText }) : tr("You can change it until {time}.", { time: p.lockText })}
         </Banner>
       ) : p.locked && !p.saved ? (
-        <Banner tone="warn" icon={Info} className="mb-4" title={`Not taken: nothing is saved for ${p.dateText}.`}>
+        <Banner tone="warn" icon={Info} className="mb-4" title={tr("Not taken: nothing is saved for {date}.", { date: p.dateText })}>
           <Words k="It locked at" /> {p.lockText}<Words k=". You may still take it; the school keeps a record of who changed it and when." />{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
         </Banner>
       ) : p.locked ? (
@@ -260,7 +260,8 @@ export function TakeSheet(p: Props) {
           {tiles.map((t) => (
             <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
               <p className={cx("font-display text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
-              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{tr.any(t.label)}</p>
+              {/* The tile names the letter its button shows ("P · Present"): bare P, A, L had no meaning on screen (layman loop 5). */}
+              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{byKey.get(t.key)?.letter ? `${byKey.get(t.key)!.letter} · ` : ""}{tr.any(t.label)}</p>
             </div>
           ))}
         </div>
@@ -306,12 +307,17 @@ export function TakeSheet(p: Props) {
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full min-h-10">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>
               </div>
-              {isFixed ? <Pill tone="info"><Words k="Leave" /></Pill> : (
-                <div className="flex gap-1 shrink-0" role="radiogroup" aria-label={`Attendance for ${s.name}`}>
+              {isFixed ? <Pill tone="info"><Words k="Leave" /></Pill> : readOnly ? (
+                // Locked: only the saved mark shows, not faded P/A/L that looked tappable and did nothing (layman loop 5).
+                <span title={st ? tr.any(st.name) : undefined} className={cx("min-w-11 h-11 px-1.5 rounded-xl border text-[14px] font-bold grid place-items-center shrink-0", st ? STATUS_ON[st.tone] ?? STATUS_ON.neutral : "border-dashed border-line text-ink3")}>
+                  <span aria-hidden="true">{st?.letter ?? "–"}</span><span className="sr-only">{st ? tr.any(st.name) : tr("Not marked")}</span>
+                </span>
+              ) : (
+                <div className="flex gap-1 shrink-0" role="radiogroup" aria-label={tr("Attendance for {name}", { name: s.name })}>
                   {extra && (
-                    <button type="button" role="radio" aria-checked="true" aria-label={extra.name} title={`${extra.name}. Tap to choose another status.`} disabled={readOnly}
+                    <button type="button" role="radio" aria-checked="true" aria-label={tr.any(extra.name)} title={tr("{status}. Tap to choose another status.", { status: tr.any(extra.name) })} disabled={readOnly}
                       onClick={() => setNoteFor(s.id)}
-                      className={cx("min-w-10 h-10 md:min-w-11 md:h-11 px-1.5 rounded-xl border text-[13px] font-bold transition", STATUS_ON[extra.tone] ?? STATUS_ON.neutral)}>
+                      className={cx("min-w-11 h-11 px-1.5 rounded-xl border text-[13px] font-bold transition", STATUS_ON[extra.tone] ?? STATUS_ON.neutral)}>
                       {extra.letter}
                     </button>
                   )}
@@ -325,7 +331,7 @@ export function TakeSheet(p: Props) {
                         onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
                         onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
                         onContextMenu={(e) => { e.preventDefault(); if (!readOnly) setNoteFor(s.id); }}
-                        className={cx("w-10 h-10 md:w-11 md:h-11 rounded-xl border text-[14px] font-bold transition select-none",
+                        className={cx("w-11 h-11 rounded-xl border text-[14px] font-bold transition select-none",
                           on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : readOnly ? "border-line/60 text-ink3/50 bg-sunken/50 cursor-not-allowed" : "border-line text-ink3 hover:border-ink3/60 hover:text-ink",
                           readOnly && on && "cursor-not-allowed")}>
                         {sk.letter}

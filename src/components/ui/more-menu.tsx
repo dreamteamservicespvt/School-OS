@@ -37,6 +37,18 @@ export function MoreMenu({ items, label: said = "More actions", size = "md", cla
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
   }, [open]);
   if (!items.length) return null;
+  // Arrow keys, Home and End move between the items; Tab closes the menu and goes back to its button.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const list = Array.from(panel.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
+    if (!list.length) return;
+    const i = list.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => { e.preventDefault(); list[(n + list.length) % list.length]?.focus(); };
+    if (e.key === "ArrowDown") go(i + 1);
+    else if (e.key === "ArrowUp") go(i < 0 ? list.length - 1 : i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(list.length - 1);
+    else if (e.key === "Tab") { e.preventDefault(); setOpen(false); ref.current?.querySelector("button")?.focus(); }
+  };
   const itemCls = (tone?: "bad") => cx("w-full flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken focus:bg-sunken outline-none text-[14px] text-left [&>svg]:shrink-0", tone === "bad" ? "text-bad" : "[&>svg]:text-ink3");
   return (
     <div ref={ref} className={cx("relative", className)}>
@@ -45,7 +57,7 @@ export function MoreMenu({ items, label: said = "More actions", size = "md", cla
         <Ellipsis size={size === "sm" ? 15 : 17} aria-hidden="true" />
       </button>
       {open && (
-        <Floating anchor={ref} panel={panel} focusFirst="[role=menuitem]" id={id} role="menu" aria-label={label} className="w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <Floating anchor={ref} panel={panel} focusFirst="[role=menuitem]" id={id} role="menu" aria-label={label} onKeyDown={onKeyDown} className="w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map((it) => !it.href
             ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{t.any(it.label)}</button>
             : it.file

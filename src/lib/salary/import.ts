@@ -24,10 +24,17 @@ export const SALARY_IMPORT = "salary-structures";
 const ZERO = BigInt(0);
 /** Monthly gross up to which ESI applies (₹21,000), as on the structure form. */
 const ESI_LIMIT = BigInt(2100000);
+/**
+ * No percentage items (DA, HRA) on an imported structure: the file's amounts are the pay. Layman loop 5:
+ * a ₹25,000 "Salary" came in as a gross of ₹37,500. Add DA or HRA later with Revise structure.
+ */
+const NO_PERCENT: ReadonlySet<string> = new Set();
 
 const COLUMNS: ImportColumn[] = [
   { key: "staffId", label: "Staff ID", required: true, example: "SPS-ST-001", help: "The staff ID in Staff & HR.", aliases: ["staff_id", "staff code", "employee id", "emp id", "emp code", "staff no"] },
-  { key: "basic", label: "Basic", required: true, example: "22000", help: "Monthly basic pay in rupees.", aliases: ["basic pay", "basic salary"] },
+  // Layman loop 5 (15 Nov): an old register has one "Salary" column, the pay itself. It is taken as Basic
+  // and nothing is added to it (no DA or HRA), so the gross is what the file says.
+  { key: "basic", label: "Basic", required: true, example: "22000", help: "Monthly pay in rupees. No allowance is added to it.", aliases: ["basic pay", "basic salary", "salary", "monthly salary", "salary per month", "gross", "gross salary", "gross pay", "total salary", "monthly pay", "pay"] },
   { key: "conveyance", label: "Conveyance", example: "1600", aliases: ["conveyance allowance", "transport allowance"] },
   { key: "specialAllowance", label: "Special allowance", example: "3400", aliases: ["special_allowance", "special"] },
   { key: "tds", label: "TDS", example: "0", help: "Monthly TDS typed in, in rupees.", aliases: ["monthly tds", "tds per month", "income tax"] },
@@ -76,7 +83,7 @@ function makeKind(opts: Options): ImportKind<Row> {
       const from = dateOf(row.fromDate ?? "");
       if (!from) problems.push("Effective from must be a date like 01-11-2026.");
       else if (from.getUTCDate() !== 1) problems.push("Salary changes start on the 1st of a month. Write the 1st.");
-      else if (earliest && from < earliest) problems.push(`Salary before ${formatDate(earliest)} is already approved. Start from ${formatDate(earliest)} or later, and add the difference as arrears in Generate Salary.`);
+      else if (earliest && from < earliest) problems.push(`Salary before ${formatDate(earliest)} is already approved. Start from ${formatDate(earliest)} or later.`);
       const amount = (key: string, label: string) => {
         try {
           return parseRupees(row[key] ?? "", label);
@@ -97,13 +104,14 @@ function makeKind(opts: Options): ImportKind<Row> {
       if (basic) amounts.set(basic.id, basicPay);
       if (conv && conveyance) amounts.set(conv.id, conveyance);
       if (spec && special) amounts.set(spec.id, special);
-      const gross = basicPay * BigInt(3) / BigInt(2) + (conveyance ?? ZERO) + (special ?? ZERO);
+      // Nothing is added to what the file says (no DA or HRA), so the gross is the file's own pay.
+      const gross = basicPay + (conveyance ?? ZERO) + (special ?? ZERO);
       return { ok: true, value: { staffId: staff.id, staffName: staff.fullName, amounts, tds, from, esi: gross <= ESI_LIMIT } };
     },
     async save(tx, ctx, v) {
       const comps = await components(tx, ctx);
       try {
-        const row = await saveStructure(tx, ctx, { staffId: v.staffId, effectiveFrom: v.from, lines: linesFrom(comps, v.amounts), pfApplies: true, esiApplies: v.esi, tdsPaise: v.tds, reason: "Imported from a spreadsheet" });
+        const row = await saveStructure(tx, ctx, { staffId: v.staffId, effectiveFrom: v.from, lines: linesFrom(comps, v.amounts, NO_PERCENT), pfApplies: true, esiApplies: v.esi, tdsPaise: v.tds, reason: "Imported from a spreadsheet" });
         return { id: row.id, created: true };
       } catch (e) {
         if (e instanceof MoneyProblem) throw new RowProblem(`${v.staffName}: ${e.message}`);

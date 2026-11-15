@@ -23,6 +23,11 @@ export function SlipView({ school, place, month, paidOn, line, person, showEmplo
         <div className="min-w-0"><p className="font-display font-semibold text-[16px]">{school}</p><p className="text-[12.5px] text-ink3">{place}</p></div>
         <div className="text-right text-[12.5px] shrink-0"><p className="font-semibold">{monthName(month)}</p><p className="text-ink3">{paidOn ? `Paid ${dayShort(paidOn)} ${paidOn.getUTCFullYear()}` : "Approved, not paid yet"}</p></div>
       </div>
+      {/* The one number a teacher looks for, first: it was at the very bottom, under the PDF bar (layman loop 5). */}
+      <div className="px-4 pt-3 flex items-baseline justify-between gap-3 flex-wrap">
+        <p className="font-semibold text-ink2"><Words k="Net pay" /></p>
+        <p className="font-display text-[26px] font-semibold tnum leading-tight">{formatRupees(line.netPaise)}</p>
+      </div>
       <div className="px-4 pt-3">
         <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2.5 text-[13px]">
           {([["Name", person.fullName], ["Staff ID", person.staffCode], ["Designation", person.designation], ["Department", person.department || "—"], ["Days paid", `${dayNum(Number(line.paidDays))} of ${line.daysInMonth}`], ["PAN", person.pan || "—"], ["UAN", person.uan || "—"], ["Bank", person.bank || "—"]] as const).map(([k, v]) => (

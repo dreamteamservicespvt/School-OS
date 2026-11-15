@@ -64,7 +64,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
   const found = await findLink(token);
   if (!found) return { ok: false, message: GONE };
   const limited = await limits([
-    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
+    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
     [`pl-code:link:${found.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
@@ -101,7 +101,7 @@ async function verifyDeviceEn(token: string, form: FormData): Promise<GuardianSt
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const found = await findLink(token);
   if (!found) return { ok: false, message: GONE };
-  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${found.linkId}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const key = (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null;
   if (!key) return { ok: false, message: "This code was sent for another phone or browser. Tap \"Send a new code\"." };
@@ -126,7 +126,7 @@ async function askConsentEn(token: string, form: FormData): Promise<GuardianStat
   const g = await guardianFor(token, "consent");
   if (!g.ok) return { ok: false, message: g.message };
   const limited = await limits([
-    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 10, 3600],
+    [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
     [`pl-code:link:${g.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
@@ -156,7 +156,7 @@ async function confirmConsentCodeEn(token: string, form: FormData): Promise<Guar
   if (typed.length !== 6) return { ok: false, step: "code", message: "Type the 6-digit code from the message." };
   const g = await guardianFor(token, "consent");
   if (!g.ok) return { ok: false, message: g.message };
-  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 20, 600]]);
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${g.linkId}`, 20, 600]]);
   if (limited) return { ok: false, step: "code", message: limited };
   const result = await withSchool(g.ctx, (tx) => confirmConsent(tx, g.ctx, g.linkId, g.guardianId, typed, device));
   if (!result.ok) return { ok: false, step: "code", message: result.message };

@@ -7,6 +7,7 @@ import { offeredChannels, SMS_OFFERED } from "../messaging/sms-offered";
 import { channelSetups } from "../messaging/channels";
 import { inTestMode } from "../messaging/providers";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { currentYears } from "../academic/years";
@@ -51,6 +52,8 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   const years = await currentYears(tx, ctx);
   const ids = years.map((y) => y.id);
   const year = years.length ? { name: [...new Set(years.map((y) => y.name))].join(", ") } : null;
+  // Parents of studying students only: a left student's parent needs no link, and the step counts the same parents twice over (code review 2026-11-15).
+  const currentParents = { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } } satisfies Prisma.GuardianWhereInput;
   const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses, holidays] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, address: true, logoUrl: true, logoFileId: true, board: true } }),
     ids.length ? tx.term.count({ where: { academicYearId: { in: ids }, archivedAt: null } }) : 0,
@@ -61,7 +64,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.staff.count({ where: { archivedAt: null, status: "ACTIVE" } }),
     tx.staff.findMany({ where: { archivedAt: null, status: "ACTIVE", userLoginId: { not: null } }, select: { userLoginId: true } }),
     tx.student.count({ where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }),
-    tx.guardian.count({ where: { archivedAt: null } }),
+    tx.guardian.count({ where: currentParents }),
     tx.paymentGatewayAccount.count({ where: { archivedAt: null, isActive: true } }),
     channelSetups(tx, ctx),
     tx.parentLink.findMany({ where: { status: "ACTIVE", lastSentAt: { not: null } }, select: { guardianId: true }, distinct: ["guardianId"] }),
@@ -72,7 +75,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   ]);
   // Parents (not archived) whose link was sent.
   // campus: the setup checklist is for the whole school (School Admin and Principal), like the counts above.
-  const linked = links.length ? await tx.guardian.count({ where: { archivedAt: null, id: { in: links.map((l) => l.guardianId) } } }) : 0;
+  const linked = links.length ? await tx.guardian.count({ where: { ...currentParents, id: { in: links.map((l) => l.guardianId) } } }) : 0;
   // Fees count against the classes that have students this year (or, before any student, every class with a section).
   // campus: the whole school's setup, every campus's current year.
   const studying = ids.length ? await tx.enrolment.findMany({ where: { academicYearId: { in: ids }, archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { classId: true }, distinct: ["classId"] }) : [];

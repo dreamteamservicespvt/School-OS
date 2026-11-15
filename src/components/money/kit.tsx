@@ -33,7 +33,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
             <>
               <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone ? TONE_TEXT[m.tone] : "")}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{m.sub}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
             </>
           );
           const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", m.active && "bg-brand/5", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
@@ -64,7 +64,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
             <>
               <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{tx(m.foot)}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] transition", BAND_CELL[n][i]);
@@ -84,7 +84,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
     // On a phone the action goes under the words, so the words keep the full width.
     <div role={tone === "bad" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{children}</p>
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</p>
       {action && <div className="max-w-full md:shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
@@ -334,7 +334,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
               {m.avatar ? <Avatar name={m.avatar} size={42} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{tx(m.title)}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
+                {m.sub && <p className="text-[13px] text-ink3 truncate">{tx(m.sub)}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}

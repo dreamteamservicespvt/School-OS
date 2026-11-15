@@ -204,7 +204,7 @@ export function TasksCard({ mine, given, left, access, people, meId, today }: { 
                 <Link href={`/dashboard/tasks?task=${task.id}`} className="min-w-0 flex-1">
                   <p className={cx("text-[14.5px] font-semibold leading-snug", done && "line-through text-ink3 font-medium")}>{task.title}</p>
                   <p className={cx("text-[12.5px]", over ? "text-bad font-semibold" : "text-ink3")}>
-                    {[over ? t("Overdue") : null, task.due ? t.any(task.due) : t("No due date"), task.by ? t("from {name}", { name: task.by }) : null, task.to ? t("given to {name}", { name: task.to }) : null, task.status === "IN_PROGRESS" && !done ? t("In progress") : null].filter(Boolean).join(" · ")}
+                    {[over ? t("Overdue") : null, task.due ? screenLine(t, task.due) : t("No due date"), task.by ? t("from {name}", { name: task.by }) : null, task.to ? t("given to {name}", { name: task.to }) : null, task.status === "IN_PROGRESS" && !done ? t("In progress") : null].filter(Boolean).join(" · ")}
                   </p>
                 </Link>
               </li>

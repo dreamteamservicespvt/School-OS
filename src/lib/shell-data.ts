@@ -97,6 +97,8 @@ export function landingFor(current: Pick<Current, "permissions" | "roles" | "use
   const out: Record<string, string> = {};
   const fo = foLanding(foViewer(current));
   if (fo && fo !== "/front-office") out["front-office"] = fo;
+  // The School Admin and the Principal open Fee Management on the Fee Dashboard, its first tab, not Collect Fee (layman loop 5).
+  if (current.roles.some((r) => r.key === "principal" || r.key === "school-admin") && feePageAllowedFor(current, "dashboard")) out["fee-management"] = "/fee-management/dashboard";
   return out;
 }
 

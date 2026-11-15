@@ -27,7 +27,8 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { Dialog } from "@/components/ui/dialog";
 import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
-import { Words, useT } from "@/lib/i18n/client";
+import { Line, Words, useT } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { DateTimeInput } from "@/components/ui/date-input";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
@@ -116,7 +117,7 @@ function Toggles({ options, value, onToggle, label }: { options: { value: string
 }
 
 const Problem = ({ text, className }: { text?: string; className?: string }) =>
-  text ? <p className={cx("text-[12.5px] text-bad flex items-center gap-1.5", className)} role="alert"><CircleAlert size={14} aria-hidden="true" className="shrink-0" />{text}</p> : null;
+  text ? <p className={cx("text-[12.5px] text-bad flex items-center gap-1.5", className)} role="alert"><CircleAlert size={14} aria-hidden="true" className="shrink-0" />{tx(text)}</p> : null;
 
 function toggleIn<T>(list: T[], v: T) {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
@@ -197,7 +198,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     : aud === "school" || aud === "classes" || aud === "sections" ? who.map((w): BlankAudience => (w === "students" ? "students" : "parents"))
       : aud === "single" ? [...new Set(people.map((p): BlankAudience => (p.type === "staff" ? "staff" : p.type === "student" ? "students" : "parents")))] : [];
   const usableBlanks = blanksFor(blankKinds);
-  const blanksHint = `Blanks you can use: ${usableBlanks.map((k) => `{${k}}`).join(", ")}`;
+  const blanksHint = tr("Blanks you can use: {blanks}", { blanks: usableBlanks.map((k) => `{${k}}`).join(", ") });
   const textWords = needsText ? text : "";
   const strayTyped = [...new Set([...strayBlanks(textWords), ...strayBlanks(title)])];
   // A blank not on the list ({parent_name}) is named at once, with the one meant; such a message cannot be sent.
@@ -486,7 +487,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                         title={off ? "Switched on in Settings, SMS, WhatsApp & Email" : undefined}
                         className={cx("rounded-xl border p-3 text-left transition flex flex-col gap-1 disabled:opacity-55 disabled:cursor-not-allowed", on ? "border-brand bg-brand/8 ring-1 ring-brand" : "border-line hover:border-ink3/50")}>
                         <span className={cx("flex items-center gap-2 text-[14px] font-semibold", on ? "text-brand" : "text-ink")}><Ic size={17} aria-hidden="true" />{tr.any(CH[c].label)}{on && <Check size={15} strokeWidth={3} className="ml-auto" aria-hidden="true" />}</span>
-                        <span className="text-[11.5px] text-ink3 leading-snug">{data.channelNotes[c]}</span>
+                        <span className="text-[11.5px] text-ink3 leading-snug"><Line text={data.channelNotes[c]} /></span>
                       </button>
                     );
                   })}
@@ -524,7 +525,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   </select>
                 </FieldShell>
                 {channels.map((c) => (
-                  <FieldShell key={c} label={channels.length > 1 ? `${CH[c].label} template` : "Template"} id={c === "sms" ? "send-sms" : `send-tpl-${c}`} required={c === "sms"}
+                  <FieldShell key={c} label={channels.length > 1 ? tr("{channel} template", { channel: tr.any(CH[c].label) }) : "Template"} id={c === "sms" ? "send-sms" : `send-tpl-${c}`} required={c === "sms"}
                     error={tried && c === "sms" ? err.sms : undefined}
                     help={c === "sms" ? (templatesFor("sms").length ? "Only templates with a DLT template ID are offered for SMS" : undefined) : TPL_HELP[c]}>
                     <select id={c === "sms" ? "send-sms" : `send-tpl-${c}`} value={tpl[c] ?? ""} className={cx(inputCls(tried && c === "sms" && err.sms), "h-11 pr-9")}
@@ -621,7 +622,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{tr.any(noun)}</span>
               </p>
               <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-ink2">
-                {!whoReady && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{err.who}</span></li>}
+                {!whoReady && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{err.who ? tr.any(err.who) : null}</span></li>}
                 {whoReady && live && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{live.audienceLabel || whoLabel}</span></li>}
                 {live?.skipped.map((g) => (
                   <li key={g.reason} className={cx("flex gap-2", g.notSent && "text-bad")}>
@@ -677,7 +678,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   </div>
                 </>
               ) : (
-                <p className="text-[13.5px] text-ink3">{checking ? "Working out who gets it…" : whoReady ? "Nobody to preview yet." : "Choose who gets it to see the message as they will."}</p>
+                <p className="text-[13.5px] text-ink3">{tr(checking ? "Working out who gets it…" : whoReady ? "Nobody to preview yet." : "Choose who gets it to see the message as they will.")}</p>
               )}
               {live?.problems.map((p) => <Problem key={p} text={p} className="mt-2" />)}
             </div>

@@ -17,6 +17,8 @@ import {
   type PeriodKey, type SchoolCalendar,
 } from "@/lib/periods";
 import { DateInput } from "@/components/ui/date-input";
+import { useT } from "@/lib/i18n/client";
+import { dateRuns } from "@/lib/i18n/dates";
 
 export type PeriodFilterProps = {
   timeZone?: string;
@@ -46,6 +48,10 @@ export function PeriodFilter({
   const pathname = usePathname();
   const sp = useSearchParams();
   const id = useId();
+  // Every word in the screen's language: "This month", "All exam dates" (layman loop 5).
+  const t = useT();
+  const all = t.any(allLabel);
+  const label = (k: PeriodKey) => t.any(periodLabel(k, calendar));
   const keys = { period: `${prefix}period`, from: `${prefix}from`, to: `${prefix}to` };
   const opts = { timeZone, weekStart, fallback, calendar };
   const range = periodRange({ period: sp.get(keys.period), from: sp.get(keys.from), to: sp.get(keys.to) }, opts);
@@ -58,8 +64,8 @@ export function PeriodFilter({
   const today = todayFor(timeZone).toISOString().slice(0, 10);
   const first = earliest ?? calendar?.lastYear?.from ?? `${Number(today.slice(0, 4)) - 2}-06-01`;
   const max = ahead ? undefined : today;
-  const err = !from || !to ? "Pick both dates." : from > to ? "The From date is after the To date."
-    : max && to > max ? "You cannot pick a date after today." : from < first ? `Records start from ${rangeWords(first, first)}.` : "";
+  const err = !from || !to ? t("Pick both dates.") : from > to ? t("The From date is after the To date.")
+    : max && to > max ? t("You cannot pick a date after today.") : from < first ? t("Records start from {date}.", { date: rangeWords(first, first) }) : "";
 
   const go = (change: { period?: string | null; from?: string | null; to?: string | null }) => {
     const next = new URLSearchParams(sp.toString());
@@ -80,17 +86,17 @@ export function PeriodFilter({
   const bottom = Number(first.slice(0, 4)) * 12 + Number(first.slice(5, 7)) - 1;
   for (let k = top; k >= bottom; k--) {
     const y = Math.floor(k / 12), m = k % 12;
-    months.push({ value: `${y}-${String(m + 1).padStart(2, "0")}`, label: `${MONTH_NAMES[m]} ${y}` });
+    months.push({ value: `${y}-${String(m + 1).padStart(2, "0")}`, label: `${t.any(MONTH_NAMES[m])} ${y}` });
   }
   const yearOf = (k: PeriodKey) => periodRange({ period: k }, opts)!;
   const ac = yearOf("acyear"), lastAc = yearOf("lastacyear"), fin = yearOf("finyear"), lastFin = yearOf("lastfinyear");
   const years = [
-    { value: "acyear", label: `Academic year ${calendar?.year?.name ?? yearSpan(ac.from, ac.to)}` },
-    { value: "lastacyear", label: `Academic year ${calendar?.lastYear?.name ?? yearSpan(lastAc.from, lastAc.to)}` },
-    { value: "finyear", label: `Financial year ${yearSpan(fin.from, fin.to)}` },
-    { value: "lastfinyear", label: `Financial year ${yearSpan(lastFin.from, lastFin.to)}` },
-    { value: "calyear", label: `Calendar year ${today.slice(0, 4)}` },
-    { value: "lastcalyear", label: `Calendar year ${Number(today.slice(0, 4)) - 1}` },
+    { value: "acyear", label: t("Academic year {name}", { name: calendar?.year?.name ?? yearSpan(ac.from, ac.to) }) },
+    { value: "lastacyear", label: t("Academic year {name}", { name: calendar?.lastYear?.name ?? yearSpan(lastAc.from, lastAc.to) }) },
+    { value: "finyear", label: t("Financial year {name}", { name: yearSpan(fin.from, fin.to) }) },
+    { value: "lastfinyear", label: t("Financial year {name}", { name: yearSpan(lastFin.from, lastFin.to) }) },
+    { value: "calyear", label: t("Calendar year {name}", { name: today.slice(0, 4) }) },
+    { value: "lastcalyear", label: t("Calendar year {name}", { name: Number(today.slice(0, 4)) - 1 }) },
   ];
   const groups = (ahead ? [AHEAD_GROUP, ...PERIOD_GROUPS] : PERIOD_GROUPS)
     .map((g) => ({ ...g, keys: g.keys.filter((k) => periodAvailable(k, calendar)) }));
@@ -103,7 +109,7 @@ export function PeriodFilter({
       <button key={k} type="button" onClick={() => pick(k)} aria-pressed={on} title={r ? rangeWords(r.from, r.to) : undefined}
         className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition",
           on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
-        {periodLabel(k, calendar)}
+        {label(k)}
       </button>
     );
   };
@@ -117,8 +123,8 @@ export function PeriodFilter({
           range ? "border-brand/40 bg-brand/5 text-ink" : "border-line bg-surface text-ink2 hover:border-ink3/50", className)}>
         {pending ? <I.LoaderCircle size={17} className="animate-spin text-ink3 shrink-0" aria-hidden="true" />
           : <I.CalendarRange size={17} className={cx("shrink-0", range ? "text-brand" : "text-ink3")} aria-hidden="true" />}
-        {!range && <span className="font-semibold truncate">{allLabel}</span>}
-        {range && !datesOnly && <span className="font-semibold shrink-0">{range.label}</span>}
+        {!range && <span className="font-semibold truncate">{all}</span>}
+        {range && !datesOnly && <span className="font-semibold shrink-0">{dateRuns(t, t.any(range.label))}</span>}
         {range && (datesOnly || range.period !== "month") && (
           <span className={cx("tnum truncate", datesOnly ? "font-semibold text-ink" : "hidden md:inline text-ink3")}>{rangeWords(range.from, range.to)}</span>
         )}
@@ -130,39 +136,39 @@ export function PeriodFilter({
           {(range || fallback === null) && (
             <div className="flex items-center justify-between gap-3 rounded-xl bg-sunken/60 px-3.5 py-2.5 text-[13.5px]">
               <span className="text-ink2 min-w-0 truncate">
-                {range ? <>Showing <b className="text-ink font-semibold">{range.period === "custom" || range.period === "month" ? rangeWords(range.from, range.to) : range.label}</b></> : <>Showing <b className="text-ink font-semibold">{allLabel.toLowerCase()}</b></>}
+                {t("Showing")} <b className="text-ink font-semibold">{range ? (range.period === "custom" || range.period === "month" ? rangeWords(range.from, range.to) : dateRuns(t, t.any(range.label))) : all.toLowerCase()}</b>
               </span>
               {range && (
                 <button type="button" onClick={() => go({ period: null, from: null, to: null })} className="shrink-0 font-semibold text-brand hover:underline">
-                  {fallback ? `Back to ${periodLabel(fallback, calendar).toLowerCase()}` : `Show ${allLabel.toLowerCase()}`}
+                  {fallback ? t("Back to {period}", { period: label(fallback).toLowerCase() }) : t("Show {period}", { period: all.toLowerCase() })}
                 </button>
               )}
             </div>
           )}
           {groups.map((g) => (
             <div key={g.title}>
-              <p className="eyebrow text-ink3 mb-2">{g.title}</p>
+              <p className="eyebrow text-ink3 mb-2">{t.any(g.title)}</p>
               <div className="flex flex-wrap gap-2">{g.keys.map(chip)}</div>
             </div>
           ))}
           <div className="grid md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="eyebrow text-ink3 mb-2 block">One month</span>
+              <span className="eyebrow text-ink3 mb-2 block">{t("One month")}</span>
               <span className="relative block">
                 <select id={`${id}-month`} value={range?.period === "month" ? range.month : ""} className={selectCls}
                   onChange={(e) => e.target.value && go({ period: "month", from: e.target.value, to: null })}>
-                  <option value="">Pick a month</option>
+                  <option value="">{t("Pick a month")}</option>
                   {months.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <I.ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
               </span>
             </label>
             <label className="block">
-              <span className="eyebrow text-ink3 mb-2 block">One year</span>
+              <span className="eyebrow text-ink3 mb-2 block">{t("One year")}</span>
               <span className="relative block">
                 <select id={`${id}-year`} value={years.some((y) => y.value === range?.period) ? range!.period : ""} className={selectCls}
                   onChange={(e) => e.target.value && pick(e.target.value as PeriodKey)}>
-                  <option value="">Pick a year</option>
+                  <option value="">{t("Pick a year")}</option>
                   {years.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <I.ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
@@ -171,23 +177,23 @@ export function PeriodFilter({
           </div>
           <form className="rounded-2xl border border-line p-4" noValidate
             onSubmit={(e) => { e.preventDefault(); setTried(true); if (!err) go({ period: "custom", from, to }); }}>
-            <p className="eyebrow text-ink3 mb-3">From date to To date</p>
+            <p className="eyebrow text-ink3 mb-3">{t("From date to To date")}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor={`${id}-from`} className="text-[13px] font-semibold text-ink2">From</label>
+                <label htmlFor={`${id}-from`} className="text-[13px] font-semibold text-ink2">{t("From")}</label>
                 <DateInput id={`${id}-from`} value={from} min={first} max={max} onChange={(e) => setFrom(e.target.value)}
                   aria-invalid={Boolean(tried && err)} aria-describedby={tried && err ? `${id}-err` : undefined} className={cx(inputCls(Boolean(tried && err)), "h-11")} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor={`${id}-to`} className="text-[13px] font-semibold text-ink2">To</label>
+                <label htmlFor={`${id}-to`} className="text-[13px] font-semibold text-ink2">{t("To")}</label>
                 <DateInput id={`${id}-to`} value={to} min={first} max={max} onChange={(e) => setTo(e.target.value)}
                   aria-invalid={Boolean(tried && err)} aria-describedby={tried && err ? `${id}-err` : undefined} className={cx(inputCls(Boolean(tried && err)), "h-11")} />
               </div>
             </div>
             {tried && err && <p id={`${id}-err`} role="alert" className="text-[13px] text-bad font-medium mt-2 flex items-center gap-1.5"><I.CircleAlert size={14} aria-hidden="true" />{err}</p>}
             <div className="flex items-center gap-3 mt-3">
-              <p className="text-[12.5px] text-ink3 flex-1 tnum">{!err ? `${rangeWords(from, to)} · ${dayCount(from, to)} ${dayCount(from, to) === 1 ? "day" : "days"}` : ""}</p>
-              <Button type="submit" variant="primary" icon={I.Check}>Apply</Button>
+              <p className="text-[12.5px] text-ink3 flex-1 tnum">{!err ? `${rangeWords(from, to)} · ${dayCount(from, to) === 1 ? t("1 day") : t("{n} days", { n: dayCount(from, to) })}` : ""}</p>
+              <Button type="submit" variant="primary" icon={I.Check}>{t("Apply@@filter")}</Button>
             </div>
           </form>
         </div>

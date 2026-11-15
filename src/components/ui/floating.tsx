@@ -6,7 +6,7 @@
 // 2026-11-05, student profile "..." menu). Inside an open dialog it is drawn in
 // the dialog, so it stays in front of it.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { placeMenu, type Placed } from "@/lib/menu-place";
 import { cx } from "./cx";
@@ -42,14 +42,20 @@ export function Floating({ anchor, panel, align = "right", focusFirst, className
       }));
     };
     // Drawn hidden first so its real size is known; then it follows the button when the page scrolls or resizes.
-    const frame = requestAnimationFrame(() => {
-      update();
-      if (focusFirst) panel.current?.querySelector<HTMLElement>(focusFirst)?.focus({ preventScroll: true });
-    });
+    const frame = requestAnimationFrame(update);
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
   }, [host, anchor, panel, align, focusFirst]);
+
+  // The first item takes the cursor once the panel is placed: while hidden (before placing) it cannot take focus,
+  // so the cursor used to stay on the button (accessibility check 2026-11-15).
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!place || !focusFirst || focused.current) return;
+    focused.current = true;
+    panel.current?.querySelector<HTMLElement>(focusFirst)?.focus({ preventScroll: true });
+  }, [place, focusFirst, panel]);
 
   if (!host) return null;
   return createPortal(

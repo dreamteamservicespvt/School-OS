@@ -8,6 +8,8 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { canChangeStaff, canOpenStaff, canSeeSalary } from "@/lib/staff/access";
 import { campusStaffWhere } from "@/lib/staff/list";
 import { showRestricted } from "@/lib/staff/staff";
+import { maskLast4 } from "@/lib/crypto";
+import { phoneShow } from "@/lib/students/show";
 import { balancesFor, daysText, leaveYearFor, offDayMap } from "@/lib/staff/leave";
 import { docStatus, DOC_TONE, showDocNumber } from "@/lib/staff/documents";
 import { EMPLOYMENT_TYPES, hrSettings, statusLabel } from "@/lib/staff/settings";
@@ -45,6 +47,7 @@ import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 import { RecordTitle } from "@/components/ui/record-title";
+import { Reveal } from "./reveal";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -179,7 +182,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                 <PinButton label={s.fullName} href={`${BASE}/${s.id}`} userId={current.user.id} />
               </div>
               <p className="mt-0.5 text-[13.5px] text-ink3">
-                {s.designation}{s.department ? ` · ${s.department.name}` : ""} · <span className="font-mono text-[12.5px]">{s.staffCode}</span> · <a href={`tel:+91${s.phone}`} className="tnum hover:underline">{s.phone}</a>
+                {s.designation}{s.department ? ` · ${s.department.name}` : ""} · <span className="font-mono text-[12.5px]">{s.staffCode}</span> · <a href={`tel:+91${s.phone}`} className="tnum hover:underline">{phoneShow(s.phone)}</a>
               </p>
               {s.statusReason && s.status !== "ACTIVE" && <p className="mt-1 text-[13px] text-ink2">{statusLabel(s.status)}{s.statusSince ? ` since ${formatDate(s.statusSince, tz)}` : ""}: {s.statusReason}</p>}
             </div>
@@ -269,6 +272,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       emergency: contacts.map((c) => ({ name: c.name, relation: c.relation, phone: c.phone })),
       bankIfsc: s!.bankIfsc ?? "", bankName: s!.bankName ?? "", uan: s!.uan ?? "", esiNo: s!.esiNo ?? "",
     };
+    const hidden = (enc: string | null, aadhaar = false) => hiddenValue(enc, viewer.restricted, aadhaar);
     const editable = canEdit && !left;
     const accessRoles = data.access?.roles.map((r) => r.role) ?? [];
     const exceptions = (data.access?.exceptions ?? {}) as Record<string, AccessLevel>;
@@ -290,7 +294,6 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               ["Date of birth", s!.dateOfBirth ? formatDate(s!.dateOfBirth, tz) : null],
               ["Gender", s!.gender],
               ["Blood group", s!.bloodGroup],
-              ["Aadhaar", showRestricted(s!.aadhaarEnc, viewer.restricted)],
               ["Qualifications", s!.qualification],
               ["Experience", s!.experienceYears !== null ? `${s!.experienceYears} years` : null],
               ["Home address", s!.address],
@@ -321,7 +324,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                   <li key={c.id} className="flex items-center gap-3 py-2.5">
                     <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sunken text-[12px] font-semibold tnum">{i + 1}</span>
                     <span className="min-w-0 flex-1"><span className="font-semibold">{c.name}</span>{c.relation ? <span className="text-ink3"> · {c.relation}</span> : null}</span>
-                    {c.phone && <a href={`tel:+91${c.phone}`} className="tnum hover:underline">{c.phone}</a>}
+                    {c.phone && <a href={`tel:+91${c.phone}`} className="tnum hover:underline">{phoneShow(c.phone)}</a>}
                   </li>
                 ))}
               </ol>
@@ -335,23 +338,23 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               <DL rows={fields.map((f) => [f.label, custom[f.key] ? String(custom[f.key]) : null] as [string, React.ReactNode])} />
             </Card>
           )}
-          {viewer.restricted && (
-            <Card>
-              <CardHeader title="Restricted details" description="Shown in full only to HR, the School Admin and the Principal." action={hr && !left ? <RestrictedForm v={v} action={saveRestricted} /> : undefined} />
-              <DL rows={[
-                ["Aadhaar", showRestricted(s!.aadhaarEnc, true)],
-                ["PAN", showRestricted(s!.panEnc, true)],
-                ["Bank account", showRestricted(s!.bankAccountEnc, true)],
+          <Card>
+            <CardHeader title="Restricted details" description={viewer.restricted ? "Masked. Tap Show to see in full." : "Shown in full only to HR, the School Admin and the Principal."} action={hr && !left ? <RestrictedForm v={v} action={saveRestricted} /> : undefined} />
+            <DL rows={[
+              ["Aadhaar", hidden(s!.aadhaarEnc, true)],
+              ...(viewer.restricted ? [
+                ["PAN", hidden(s!.panEnc)],
+                ["Bank account", hidden(s!.bankAccountEnc)],
                 ["IFSC", s!.bankIfsc],
-              ]} />
-            </Card>
-          )}
+              ] as [string, React.ReactNode][] : []),
+            ]} />
+          </Card>
         </Col>
         <Col>
           <Card>
             <CardHeader title="Contact" icon={Phone} action={hr && !left ? <ContactForm v={v} action={saveContact} /> : undefined} />
             <ul className="space-y-3 px-5 pb-5 text-[14px]">
-              <li className="flex flex-wrap items-center gap-2"><Phone size={17} className="text-ink3" aria-hidden="true" /><a href={`tel:+91${s!.phone}`} className="tnum hover:underline">+91 {s!.phone}</a>{verified(s!.phoneVerified)}</li>
+              <li className="flex flex-wrap items-center gap-2"><Phone size={17} className="text-ink3" aria-hidden="true" /><a href={`tel:+91${s!.phone}`} className="tnum hover:underline">{phoneShow(s!.phone)}</a>{verified(s!.phoneVerified)}</li>
               {s!.email ? <li className="flex flex-wrap items-center gap-2"><Mail size={17} className="text-ink3" aria-hidden="true" /><a href={`mailto:${s!.email}`} className="break-all hover:underline">{s!.email}</a>{verified(s!.emailVerified)}</li>
                 : <li className="flex items-center gap-2 text-ink3"><Mail size={17} aria-hidden="true" /><Words k="No email" /></li>}
               {head.onLeave && s!.status === "ACTIVE" && <li className="flex items-center gap-2"><CalendarDays size={17} className="text-warn" aria-hidden="true" /><Words k="On leave until" /> {formatDate(head.onLeave.toDate, tz)}</li>}
@@ -765,10 +768,10 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           <CardHeader title="Bank, PF and ESI numbers" />
           <CardBody>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Detail label="Bank account">{showRestricted(s!.bankAccountEnc, viewer.restricted)}</Detail>
+              <Detail label="Bank account">{hiddenValue(s!.bankAccountEnc, viewer.restricted)}</Detail>
               <Detail label="IFSC">{s!.bankIfsc}</Detail>
               <Detail label="Bank">{s!.bankName}</Detail>
-              <Detail label="PAN">{showRestricted(s!.panEnc, viewer.restricted)}</Detail>
+              <Detail label="PAN">{hiddenValue(s!.panEnc, viewer.restricted)}</Detail>
               <Detail label="UAN (PF)">{s!.uan}</Detail>
               <Detail label="ESI number">{s!.esiNo}</Detail>
             </dl>
@@ -781,3 +784,16 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
 
 // Keeps the module list import used for type checking of exceptions.
 export type _Modules = ModuleKey;
+
+/**
+ * A restricted number (Aadhaar, PAN, bank account) is never shown in plain view: masked ("XXXX XXXX 9932"),
+ * with Show only for the roles allowed to see it in full; only they are sent the full number (layman loop 5).
+ */
+function hiddenValue(enc: string | null, canSee: boolean, aadhaar = false): React.ReactNode {
+  const value = showRestricted(enc, true);
+  if (!value || value === "Cannot be read") return value;
+  const d = value.replace(/\s+/g, "");
+  const masked = aadhaar ? `XXXX XXXX ${d.slice(-4)}` : maskLast4(d);
+  const full = canSee ? (aadhaar ? d.replace(/(\d{4})(?=\d)/g, "$1 ") : d) : null;
+  return <Reveal masked={masked} full={full} />;
+}

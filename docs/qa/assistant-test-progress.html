@@ -58,18 +58,18 @@ h1{font-family:var(--display);font-size:1.5rem;margin:0;text-wrap:balance}
 <script>
 const DATA={
   start:"2026-11-16T15:36:00+05:30",
-  updated:"2026-11-16T18:25:00+05:30",
-  readyAt:"2026-11-16T19:05:00+05:30",
-  pct:85,
-  now:"All 6 roles tested live by typing in their own Chrome: everything from round 1 works. Round 2 found 9 small things (chips wording, names in short lists, amounts in Telugu...). All fixed; tests running, then deploy 20 and a final live check.",
-  mainline:"Step 6 of 6. 90 questions asked (65 in round 1, 25 typed live in round 2). The percent is an estimate.",
-  asked:90, found:20, fixed:20,
-  you:"Optional: put the ANTHROPIC_API_KEY in Vercel (school-os-beta, Production) for free conversation; I never type keys. Everything else works without it.",
+  updated:"2026-11-16T18:50:00+05:30",
+  readyAt:"2026-11-16T18:50:00+05:30",
+  pct:100,
+  now:"Done. Deploy 20 is live (main 26bb0e5f). All 20 problems found are fixed and checked again on the live site.",
+  mainline:"Finished: 2 rounds, 6 roles, 95 questions in English, everyday Telugu, plain Telugu and Telugu in English letters.",
+  asked:95, found:20, fixed:20,
+  you:"Optional: put the ANTHROPIC_API_KEY in Vercel (school-os-beta, Production) so the assistant can also answer free sentences beyond its word list; I never type keys.",
   rows:[
-    {"n":"Round 1: English + Telugu (65 questions)","p":100,"s":"Done","l":"11 problems: Telugu words not understood, bookish replies, no greetings, flat voice. All fixed in deploy 19.","e":"took 2 h"},
-    {"n":"Round 2: all 6 roles, typed live in their Chrome","p":100,"s":"Done","l":"Admin, Accountant, Class Teacher, Receptionist, Principal, Subject Teacher: round 1 fixes work. 9 small new findings.","e":"took 40 min"},
-    {"n":"Fix round 2 findings","p":90,"s":"Checking","l":"Chips in everyday Telugu, names in short lists, Telugu amounts, role message, thanks keeps language, robot eyes on button. Tests running.","e":"Est. 15 min"},
-    {"n":"Deploy 20 + final live check","p":0,"s":"Waiting","l":"Deploy, then repeat the round 2 findings live.","e":"Est. 20 min"}
+    {"n":"Round 1: English + Telugu (65 questions)","p":100,"s":"Done","l":"11 problems: Telugu words not understood, bookish replies, no greetings, flat voice. Fixed in deploy 19.","e":"took 2 h"},
+    {"n":"Round 2: all 6 roles typed live in their Chrome","p":100,"s":"Done","l":"Admin, Accountant, Class Teacher, Receptionist, Principal, Subject Teacher. 9 small findings.","e":"took 40 min"},
+    {"n":"Fix round 2 + deploy 20","p":100,"s":"Done","l":"Everyday Telugu chips, names in short lists (on leave: KUSUMA), Telugu amounts, role message, thanks keeps Telugu, robot eyes on the button. 216 tests pass, build passes.","e":"took 50 min"},
+    {"n":"Final live check","p":100,"s":"Done","l":"Every round 2 fix confirmed on the live site.","e":"took 10 min"}
   ]
 };
 const $=id=>document.getElementById(id);

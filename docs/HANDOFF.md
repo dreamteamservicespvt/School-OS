@@ -4,6 +4,8 @@ Last updated: 2026-11-16 14:53 IST. OWNER GAVE FULL AUTONOMY. main = 2f1b8198 = 
 
 ## State
 
+- 2026-11-16 18:50: ASSISTANT LANGUAGE TEST DONE. Deploy 19 (a1bb534d) + deploy 20 (main 26bb0e5f) live: everyday Telugu (Telugu + English words) that mirrors the person (src/lib/assistant/te-mix.ts, language.ts teluguStyle), English words in Telugu letters understood (ask/questions.ts TE_LOANS), greetings/homework/calendar/approvals/enquiry without AI (assistant/rules.ts), happy feeling + voice tone + spoken dates (speech.ts), robot-face button. 20 of 20 findings fixed and re-checked live in 6 role Chromes: docs/qa/assistant-language-test.md. AI service still not connected on live (owner adds ANTHROPIC_API_KEY in Vercel). Branch has merge commits 62e6f4ea/cea5a7dd tying main in (the other session's b7c33564..a15b0092 Parent Link work is NOT on main yet).
+
 - 2026-11-14: Take Attendance shows a correction's state (waiting/approved/not approved) and names parents already told the old mark, with a Send a correction message link (d392d26b). Subject teachers read the register only: no Take tab in once-a-day schools, no editing, no daily corrections; one rule `mayChangeSection`/`takesAttendance` in src/lib/attendance/access.ts (5fea18f2). Tests pass; not pushed or deployed; no screenshots yet.
 - ROUND 2 DONE (13-11-2026, 02:00 IST): all 69 layman problems (docs/qa/2026-11-12-layman-A..E.md) fixed. Commits
   d15f298c..1f8ccb61 on this branch. Full suite 315 files / 2,744 tests pass; tsc 0; eslint 0 errors (1 old warning

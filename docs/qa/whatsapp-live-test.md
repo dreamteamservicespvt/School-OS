@@ -482,3 +482,31 @@ Screenshots (`qa/whatsapp-cards/`):
 Credits: **1** (Results published). New notice not sent.
 
 Left on the test school: one "Unit Test 1" Results published message to Venkatesh (3:31 PM). No notice published, nothing changed in settings.
+
+## Deploy 19 Parent Link messages (16 Nov)
+
+Deploy 19 live. Tested by Claude, 19:00 to 19:08 IST. School Admin (Saiveni) browser, then the WhatsApp Chrome (chat from +91 79896 17553 only). Only Venkatesh (Sri Lakshmi, 1 A) was messaged.
+
+| Step | Result |
+|---|---|
+| 1. App notice | **PASS.** Send Message > One person > "Parents of Sri Lakshmi" (Venkatesh (Father) · Class 1 A, "Both parents, not only the main contact"). WhatsApp and App notice were both ticked by default; WhatsApp unticked. Words: "1 person · free", Who will get it "1 person, parents of 1 student", Message credits "App notice Free, Total Free, **No credits needed**", preview "Venkatesh, Father of Sri, 1 A, **App notification**", title + text. Confirm box "Send to 1 person? ... parents of 1 student. App notice. No credits needed. Now". Sent **7:01 PM**; History: Queued, then **Delivered 1 (100%)** within seconds, Credits **Free** |
+| 2. New notice card | **PASS.** The WhatsApp template list now offers **"New notice"** (and "General announcement"). Locked text shown "Dear Parent, there is a new notice from the school. 📌 *{title}* Details: {message} You can read the full notice on your Parent Link. {parent_link}", "Approved template, version 4 ... Languages: English". Credits "WhatsApp 1, Total 1, Sufficient credits · 447 available"; confirm box "**1 credits of 447**" (small: should read "1 credit"). Sent **7:03 PM**. **Arrived 7:03 PM**: header **"New notice"**, "Dear Parent, there is a new notice from the school.", 📌 **Test notice from School OS**, "Details: This is a test of the notice message. Please ignore.", "You can read the full notice on your Parent Link.", footer "chaitanya · School OS", button **Read the notice**. History: WhatsApp, "Delivery reports are not connected" |
+| 3. Parent Link inbox | **PASS.** "Read the notice" opened Venkatesh's Parent Link at `/p/<token>~notices`, which redirects to `#pl-notices`. Chips now start with **"Messages from the school"**. The part shows **"Test message on Parent Link" · New · "16-11-2026, 7:01 PM · From School Admin" · "This is a test of the Parent Link messages. Please ignore."** After a reload the **"New" mark is gone**. |
+| 3. Button landing | **PASS (top of page, both parts empty).** No Notice Board notice is published, so there is no `pl-notices` part; the page opened at the top (scroll 0). "See results" (the deploy 18 card, sent 3:31 PM before this deploy, so its button has no `~report-cards` part) opened the page at the top too; no Report cards part exists (no published results). A new Results card sent after deploy 19 was not tested (would cost a credit) |
+| 4. Read count | **PASS.** Message History > "Test message on Parent Link": Delivered 1 (100%), **Read 1 (100%)**, filter "Read · 1", Venkatesh · App notification · **Read · 16-11-2026, 7:05 PM** (the time the Parent Link was opened). A "Resend to 1 unread" button showed before it was read (not pressed) |
+
+Finding (words, not a bug in this deploy's scope): the New notice card says "You can read the full notice on your Parent Link", but a notice typed in **Send Message** with channel WhatsApp only is not on the Parent Link anywhere (not in "Messages from the school", which holds only App notice copies, and not in Notices, which holds only Notice Board notices). "Read the notice" lands at the top of a page with no notice. Fix options: also save an app copy when New notice is sent from Send Message, or offer New notice only from the Notice Board.
+
+Screenshots (`qa/whatsapp-cards/`):
+- `deploy19-app-notice-preview.jpg`: Send Message, App notice only, preview and Free
+- `deploy19-app-notice-sent.jpg`: Message History right after sending (Queued)
+- `deploy19-new-notice-preview.jpg`: New notice template, filled preview, 1 credit of 447
+- `deploy19-new-notice-card.jpg`: the New notice card in WhatsApp Web with "Read the notice"
+- `deploy19-parent-link-messages-new.jpg`: Parent Link, "Messages from the school" with the "New" mark
+- `deploy19-parent-link-after-reload.jpg`: after a reload, "New" gone
+- `deploy19-see-results-landing.jpg`: Parent Link opened from "See results" (top of page)
+- (Message History "Read 7:05 PM" was seen on screen; the saved screenshot failed: the Admin Chrome's capture kept timing out)
+
+Credits: **1** (New notice). The App notice was free.
+
+Left on the test school: one App notice "Test message on Parent Link" to Venkatesh (7:01 PM, read 7:05 PM) and one WhatsApp "Test notice from School OS" New notice (7:03 PM). Nothing changed in settings; no Notice Board notice published.

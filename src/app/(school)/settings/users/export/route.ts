@@ -6,7 +6,7 @@ import { reachFor } from "@/lib/permissions";
 import { buildExport, exportResponse, logExport, type ExportFormat } from "@/lib/exports";
 import { formatDateTime } from "@/lib/format";
 import { readListParams } from "@/lib/list";
-import { filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
+import { TWO_STEP_WORDS, filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
 import { STATE_LABEL } from "@/lib/settings/users";
 
 export async function GET(request: Request) {
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     { label: "Exceptions", value: (r) => r.exceptions },
     { label: "Status", value: (r) => STATE_LABEL[r.state] },
     { label: "Last sign-in", value: (r) => (r.lastSignInAt ? formatDateTime(r.lastSignInAt, tz) : "Never") },
-    { label: "Two-step login", value: (r) => (r.twoStep ? "On" : "Off") },
+    { label: "Two-step login", value: (r) => TWO_STEP_WORDS[r.twoStepState] },
   ], rows, { title: "Users and roles", schoolName: current.school.name, filters: filterWords, exportedBy: current.user.displayName, timeZone: tz });
   return exportResponse(file);
 }

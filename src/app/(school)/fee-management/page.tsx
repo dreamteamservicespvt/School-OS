@@ -46,7 +46,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
             <Empty icon={UserRoundSearch} title="Nobody is overdue" body="Search above to find any student." />
           ) : (
             <>
-              <p className="eyebrow text-ink3 px-5 pt-4 pb-1">{q ? `${list.length} found` : "Overdue, most likely at the counter today"}</p>
+              <p className="eyebrow text-ink3 px-5 pt-4 pb-1">{q ? `${list.length} found` : "Overdue the longest, oldest due first"}</p>
               <ul className="p-2">
                 {list.map((s) => <StudentRow key={s.id} s={s} schoolId={p.current.ctx.schoolId} />)}
               </ul>

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { UserIcon } from "@/components/icons";
-import { filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
+import { TWO_STEP_WORDS, filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
 import { STATE_LABEL, STATE_TONE } from "@/lib/settings/users";
 import { UsersNav } from "./sub-nav";
 import { schoolRoles } from "@/lib/school-roles";
@@ -46,7 +46,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     { key: "scope", label: "Scope", cell: (r) => (r.campus ? `${r.scope}: ${r.campus}` : r.scope) + (r.exceptions ? ` · ${r.exceptions} exception${r.exceptions === 1 ? "" : "s"}` : "") },
     { key: "status", label: "Status", sortable: true, phone: "badge", cell: (r) => <Badge tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Badge> },
     { key: "lastSignIn", label: "Last sign-in", sortable: true, phone: "meta", cell: (r) => (r.lastSignInAt ? formatDateTime(r.lastSignInAt, tz) : "Never") },
-    { key: "twoStep", label: "Two-step login", cell: (r) => (r.twoStep ? "On" : "Off") },
+    // The same truth as the person's own My profile; amber when it is on but no code can reach them (L6-28).
+    { key: "twoStep", label: "Two-step login", cell: (r) => (r.twoStepState === "no-code" ? <Badge tone="warning">{TWO_STEP_WORDS[r.twoStepState]}</Badge> : TWO_STEP_WORDS[r.twoStepState]) },
   ];
   const exportBase = listHref("/settings/users/export", { ...params, page: 1 }, {});
   const sep = exportBase.includes("?") ? "&" : "?";
@@ -64,7 +65,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <ListToolbar placeholder="Search name, username, phone or email" filters={[
         { key: "status", label: "Status", options: [{ value: "ACTIVE", label: "Active" }, { value: "INVITED", label: "Invited" }, { value: "DISABLED", label: "Disabled" }] },
         { key: "role", label: "Role", options: roles.map((r) => ({ value: r.id, label: r.name })) },
-        { key: "twostep", label: "Two-step login", options: [{ value: "on", label: "On" }, { value: "off", label: "Off" }] },
+        { key: "twostep", label: "Two-step login", options: [{ value: "on", label: "On" }, { value: "no-code", label: "On, but not working" }, { value: "off", label: "Off" }] },
         { key: "exceptions", label: "Exceptions", options: [{ value: "yes", label: "Has exceptions" }] },
       ]} showArchived={false}>
         <div className="flex flex-wrap gap-1 text-sm" aria-label="Export">

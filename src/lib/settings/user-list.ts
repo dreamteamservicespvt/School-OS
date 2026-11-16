@@ -3,6 +3,27 @@ import "server-only";
 
 import type { Tx } from "../db";
 import { stateOf, scopeLabel, type UserState } from "./users";
+import { TWO_STEP_FEATURE } from "../auth/two-step";
+import { mailIsSetUp } from "../auth/mail";
+import { signInSmsTemplate } from "../auth/two-step-sms";
+import { mayLogCode } from "../dev-codes";
+
+/**
+ * Two-step login as it really works for one person (layman loop 6, L6-28), the same rule as their
+ * own My profile: on when the feature is on and an enabled role needs it, or they chose it; but
+ * "no-code" when no sign-in code can reach them (no email that mail can carry, no mobile that SMS
+ * can carry), because then they sign in with the password only.
+ */
+export type TwoStepState = "on" | "no-code" | "off";
+
+export function twoStepStateOf(input: { featureOn: boolean; roleNeeds: boolean; chosen: boolean; email: string | null; phone: string | null; mailReady: boolean; smsReady: boolean }): TwoStepState {
+  const on = (input.featureOn && input.roleNeeds) || input.chosen;
+  if (!on) return "off";
+  const reach = (Boolean(input.email) && input.mailReady) || (Boolean(input.phone) && input.smsReady);
+  return reach ? "on" : "no-code";
+}
+
+export const TWO_STEP_WORDS: Record<TwoStepState, string> = { on: "On", "no-code": "On, but not working: no code can reach them", off: "Off" };
 
 export type UserRow = {
   id: string;
@@ -16,7 +37,9 @@ export type UserRow = {
   campus: string | null;
   state: UserState;
   lastSignInAt: Date | null;
+  /** Two-step login applies to them (on, working or not). */
   twoStep: boolean;
+  twoStepState: TwoStepState;
   exceptions: number;
 };
 
@@ -31,6 +54,11 @@ export async function schoolUsers(tx: Tx, schoolId: string): Promise<UserRow[]> 
     tx.staff.findMany({ where: { userLoginId: { in: ids } }, select: { userLoginId: true, fullName: true, designation: true } }),
     tx.student.findMany({ where: { userLoginId: { in: ids } }, select: { userLoginId: true, fullName: true } }),
   ]);
+  // What the profile page checks too: the feature switch, and whether mail or SMS can carry a code.
+  const feature = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId, featureKey: TWO_STEP_FEATURE } }, select: { isOn: true } });
+  const devLog = mayLogCode("none");
+  const mailReady = mailIsSetUp() || devLog;
+  const smsReady = devLog || Boolean(await signInSmsTemplate(tx, { schoolId, userId: null }));
   const rows: UserRow[] = [];
   for (const id of ids) {
     const mine = accesses.filter((a) => a.userLoginId === id);
@@ -53,7 +81,13 @@ export async function schoolUsers(tx: Tx, schoolId: string): Promise<UserRow[]> 
       campus: shown.campus?.name ?? null,
       state: stateOf(login.status, Boolean(live)),
       lastSignInAt: login.lastSignInAt,
-      twoStep: roles.some((r) => r.requiresTwoStep),
+      ...(() => {
+        const st = twoStepStateOf({
+          featureOn: Boolean(feature?.isOn), roleNeeds: roles.some((r) => r.requiresTwoStep && r.isEnabled && !r.archivedAt), chosen: login.twoStepChosen,
+          email: login.email, phone: login.phone, mailReady, smsReady,
+        });
+        return { twoStep: st !== "off", twoStepState: st };
+      })(),
       exceptions: Object.keys((shown.exceptions as object) ?? {}).length,
     });
   }
@@ -68,6 +102,7 @@ export function filterUsers(rows: UserRow[], q: string, filters: Record<string, 
     if (filters.role && !r.roles.some((x) => x.id === filters.role)) return false;
     if (filters.twostep === "on" && !r.twoStep) return false;
     if (filters.twostep === "off" && r.twoStep) return false;
+    if (filters.twostep === "no-code" && r.twoStepState !== "no-code") return false;
     if (filters.exceptions === "yes" && r.exceptions === 0) return false;
     return true;
   });

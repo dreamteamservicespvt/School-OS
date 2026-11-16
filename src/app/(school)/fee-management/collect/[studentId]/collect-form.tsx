@@ -40,6 +40,8 @@ const MODES: { id: string; label: string; short: string; icon: LucideIcon }[] = 
   { id: "BANK_TRANSFER", label: "Bank transfer", short: "Bank", icon: Landmark },
 ];
 const NEEDS_REF = ["UPI", "CARD", "BANK_TRANSFER"];
+// The big button names the amount AND the mode, so a mis-tap is seen before it is a receipt (L6-18).
+const BY_MODE: Record<string, string> = { CASH: "in cash", UPI: "by UPI", CARD: "by card", CHEQUE: "by cheque", BANK_TRANSFER: "by bank transfer" };
 
 const inr = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const toPaise = (s: string) => {
@@ -77,9 +79,12 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const [waive, setWaive] = useState<Set<string>>(new Set());
   const discountPaise0 = toPaise(discount) || 0;
   const waiveTotal0 = rows.filter((r) => waive.has(r.id) && ticked.has(r.id)).reduce((a, r) => a + r.balance, 0);
-  // What is payable after a typed discount or waiver, so the amount and the button follow it until the accountant types an amount.
+  // What is payable after a typed discount or waiver.
   const payable = Math.max(0, selTotal - (Number.isNaN(discountPaise0) ? 0 : discountPaise0) - waiveTotal0);
-  const amount = edited ?? (payable ? rupeesText(payable) : "");
+  // The amount starts EMPTY (layman loop 6, L6-18): a pre-filled full due let one mis-tap post a big
+  // cash receipt that never happened. "Full" is one tap and then follows a discount or a ticked row.
+  const [followFull, setFollowFull] = useState(false);
+  const amount = edited ?? (followFull && payable ? rupeesText(payable) : "");
   const [mode, setMode] = useState("CASH");
   const [ref, setRef] = useState("");
   const [chq, setChq] = useState({ no: "", bank: "", date: today });
@@ -143,6 +148,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       setLast(state.data as Collected);
       setTicked(new Set());
       setEdited(null);
+      setFollowFull(false);
       setRef("");
       setDiscount("");
       setReason("");
@@ -208,7 +214,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                       {isPaid ? <span className="w-5 h-5 rounded-md bg-ok/15 text-ok grid place-items-center"><Check size={13} strokeWidth={3} aria-hidden="true" /></span>
                         : <Checkbox checked={on} onChange={() => toggle(r.id)} label={`${r.head} ${r.label}`} />}
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[14.5px]">{r.head} <span className="text-ink3 font-normal">· {r.label}</span></p>
+                        <p className="font-semibold text-[14.5px]">{tr.any(r.head)} <span className="text-ink3 font-normal">· {tr.any(r.label)}</span></p>
                         {r.timeline && !isPaid
                           ? <>{r.paid > 0 && <p className="text-[12.5px] text-ink3 tnum">{tr.any(`${inr(r.paid)} already paid`)}</p>}<FeeTimelineLine t={r.timeline} className="!mt-0.5" /></>
                           : <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>}
@@ -233,7 +239,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
         <div className="p-5 flex flex-col gap-4">
           <div className="flex items-baseline justify-between">
             <h2 className="font-semibold text-[15px]"><Words k="Payment" /></h2>
-            <span className="text-[13px] text-ink3 tnum">{ticked.size} {ticked.size === 1 ? "row" : "rows"} · {inr(selTotal)}</span>
+            <span className="text-[13px] text-ink3 tnum">{tr.any(ticked.size === 1 ? "1 row" : `${ticked.size} rows`)} · {inr(selTotal)}</span>
           </div>
           {last && !receipt && (
             <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex flex-wrap items-center gap-x-3 gap-y-1.5 -mt-1" role="status">
@@ -249,10 +255,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           )}
           {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
-            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : quick.length ? undefined : "Change it for a part payment"}>
+            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : quick.length ? "Tap Full, or type what the parent gave" : "Type the amount received"}>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-semibold text-ink3" aria-hidden="true">₹</span>
-              <input id="pay-amt" name="amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(e) => setEdited(e.target.value)} placeholder="0"
+              <input id="pay-amt" name="amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(e) => { setFollowFull(false); setEdited(e.target.value); }} placeholder="0"
                 aria-invalid={Boolean((tried && errAmt) || serverErr("amount")) || undefined}
                 className={cx(inputCls((tried && errAmt) || serverErr("amount")), "!h-14 pl-10 !text-[24px] font-semibold tnum font-display")} />
             </div>
@@ -264,7 +270,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 {quick.map((qa) => {
                   const on = !Number.isNaN(amt) && amt === qa.paise;
                   return (
-                    <button key={qa.key} type="button" aria-pressed={on} onClick={() => setEdited(rupeesText(qa.paise))}
+                    <button key={qa.key} type="button" aria-pressed={on} onClick={() => { if (qa.key === "full") { setEdited(null); setFollowFull(true); } else { setFollowFull(false); setEdited(rupeesText(qa.paise)); } }}
                       className={cx("flex-1 min-w-0 h-11 rounded-xl border px-2 text-[13px] font-semibold transition flex flex-col items-center justify-center leading-tight",
                         on ? "border-brand bg-brand/8 text-brand ring-1 ring-brand" : "border-line text-ink2 hover:border-ink3/50")}>
                       <span>{tr.any(qa.label)}</span><span className="text-[11.5px] font-medium tnum opacity-80">{inr(qa.paise)}</span>
@@ -298,7 +304,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 <CalendarDays size={15} aria-hidden="true" />{paidOn ? tr.any(`Paid on ${paidOn.slice(8, 10)}-${paidOn.slice(5, 7)}-${paidOn.slice(0, 4)}`) : tr.any(`Today, ${todayText ?? today}`)}
               </button>
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
-                title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}
+                title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM support."}
                 className="h-11 px-3 rounded-xl border border-dashed border-line inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
                 {qrBusy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <QrCode size={16} aria-hidden="true" />}<Words k="Show QR" />
               </button>
@@ -337,7 +343,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           <div>
             <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="inline-flex items-center gap-1.5 min-h-10 text-[13px] font-semibold text-brand hover:underline">
               <ChevronDown size={15} className={cx("transition", more && "rotate-180")} aria-hidden="true" />
-              {counter.discount || counter.waive ? "Discount, waiver, date or note" : "Date or note"}
+              {tr.any(counter.discount || counter.waive ? "Discount, waiver, date or note" : "Date or note")}
             </button>
             <div className={cx("flex flex-col gap-3 mt-3", !more && "hidden")}>
               {counter.discount && (
@@ -397,11 +403,11 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           {/* With no amount it looks switched off and says what to do; pressing it still names the empty box (self-test B3).
               scroll-mb keeps it clear of the phone's bottom Quick menu when brought into view. */}
           <Button type="submit" variant="primary" size="lg" className={cx("w-full !h-14 !text-[16px] scroll-mb-28", !busy && !(amt > 0) && "opacity-50")} icon={Check} loading={busy} disabled={selTotal === 0 && !(advanceOn && open.length === 0)}>
-            {busy ? "Saving payment…" : amt > 0 ? `Collect ${inr(amt)}` : "Enter the amount"}
+            {tr.any(busy ? "Saving payment…" : amt > 0 ? `Collect ${inr(amt)} ${BY_MODE[mode] ?? ""}`.trim() : "Enter the amount")}
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
-            title={gateway ? undefined : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
-          {!gateway && <p className="text-[12.5px] text-ink3 text-center"><Words k="Show QR and the payment link are off: online payment is not set up yet. Tell DREAM TEAM support." /></p>}
+            title={gateway ? undefined : "Online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
+          {!gateway && <p className="text-[12.5px] text-ink3 text-center">{tr.any("Show QR and the payment link are off: online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM support.")}</p>}
         </div>
       </Card>
       </FormProblems>

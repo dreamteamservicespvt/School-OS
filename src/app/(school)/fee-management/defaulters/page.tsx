@@ -93,10 +93,17 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   const ageTone = (days: number): DefaulterItem["tone"] => (days > 60 ? "bad" : days > 30 ? "warn" : "neutral");
   const items: DefaulterItem[] = list.rows.map((r) => {
     const photo = data.photos.find((x) => x.id === r.studentId)?.photoFileId ?? null;
+    // One ageing group chosen: the row says the money and the days IN that group, and the whole
+    // overdue under it, so "0 to 30 days" never shows a 159-day row as if it were new (L6-26).
+    const g = filter.ageing ?? null;
+    const inGroup = g !== null ? r.overdueByAge[g] ?? null : null;
+    const groupOldest = g !== null ? r.oldestByAge[g] ?? null : null;
+    const shownDays = groupOldest ? Math.floor((p.today.getTime() - groupOldest.getTime()) / 86_400_000) : r.daysOverdue;
     return {
       id: r.studentId, name: r.name, adm: r.admissionNo, photo: photo ? fileLink(photo, p.current.ctx.schoolId) : null, cls: r.classLabel,
-      parent: r.parentName ?? "", phone: r.phone ?? "", amount: formatRupees(r.overduePaise), amountShort: formatRupeesShort(r.overduePaise), amountPaise: r.overduePaise.toString(),
-      heads: r.heads, since: formatDate(r.oldestDue), days: r.daysOverdue, tone: ageTone(r.daysOverdue),
+      parent: r.parentName ?? "", phone: r.phone ?? "", amount: formatRupees(inGroup ?? r.overduePaise), amountShort: formatRupeesShort(r.overduePaise), amountPaise: r.overduePaise.toString(),
+      ofAll: inGroup !== null && inGroup !== r.overduePaise ? `of ${formatRupees(r.overduePaise)} overdue` : null,
+      heads: r.heads, since: formatDate(groupOldest ?? r.oldestDue), days: shownDays, tone: ageTone(shownDays),
       lastReminder: r.lastReminder ? formatDateTime(r.lastReminder, p.tz) : null, reminders: r.reminders, promised: !r.promise && r.promisedOn ? formatDate(r.promisedOn) : null,
       promise: r.promise && (r.promise.state === "OPEN" || r.promise.state === "BROKEN") ? { words: promiseWords(r.promise), tone: r.promise.state === "BROKEN" ? "bad" : "info" } : null,
     };
@@ -116,7 +123,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
       <FeeHead pageName="Defaulters" href={HREF}
         sub={all.rows.length ? `${all.rows.length} ${all.rows.length === 1 ? "student owes" : "students owe"} ${formatRupeesShort(all.total)} past the due date · ${over30} more than 30 days late` : "Nobody owes fees past the due date"}
         viewActions={<ExportButton always href={qs(`${HREF}/export`, keep)} />}
-        actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="secondary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
+        actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="secondary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}…` : `Send reminder to all ${list.rows.length}…`}</ButtonLink> : null} />
       <ViewYearStrip year={view} back={backToThisYear(HREF, sp)} />
       <Stack>
         {data.testMode && <Banner tone="warn" title="Test mode: nothing is sent, no credits used." />}

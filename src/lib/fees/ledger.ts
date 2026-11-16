@@ -66,6 +66,15 @@ export type LedgerPayment = {
 
 const dayOf = (instant: Date, tz: string) => todayIn(tz, instant);
 
+/**
+ * The balance right after one payment, as the statement's running balance shows it on that
+ * payment's line (layman loop 6, L6-19): a reprinted old receipt must say what was left THEN,
+ * not today's balance. Null when the payment is not on the statement.
+ */
+export function balanceAfterPayment(entries: Pick<LedgerEntry, "key" | "balance">[], paymentId: string): bigint | null {
+  return entries.find((e) => e.key === `pay:${paymentId}`)?.balance ?? null;
+}
+
 /** Builds the statement, installments, payments, invoices and adjustments for one student. */
 export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: string) {
   const [dues, payments, conLines, adjustments, refunds, invoices, certificates] = await Promise.all([

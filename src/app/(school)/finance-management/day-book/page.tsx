@@ -101,7 +101,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   // A past day with entries that was not counted, once the school has started closing days.
   const lateDay = data.pending.through ? data.pending.days.find((d) => d < p.today) ?? null : null;
   const closeHref = (d: Date) => here({ do: "close", day: dayKey(d) });
-  const closeLabel = data.closeDate.getTime() === p.today.getTime() ? "Close today" : `Close ${formatDate(data.closeDate)}`;
+  // Says what it does, and is not the page's biggest button: closing locks the day's entries (L6-23).
+  const closeLabel = data.closeDate.getTime() === p.today.getTime() ? "Close today's books…" : `Close the books for ${formatDate(data.closeDate)}…`;
   // The day the button would close is already closed: a "Day closed" tag instead of a button that only shows an error (loop 4).
   const alreadyClosed = data.pending.through !== null && data.closeDate <= data.pending.through;
   const closedBy = (id: string | null) => (id && data.names.get(id)) || "someone";
@@ -160,7 +161,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
       <FinanceHead title="Day Book" pageName="Day Book" href={HREF} sub={`Daily income and expense summary, ${dayWords}`}
         actions={closer && !data.closedYear ? (alreadyClosed && data.latest
           ? <Pill tone="ok" className="!h-9 !px-3 !text-[13px]"><Lock size={14} aria-hidden="true" />{`${data.latest.date.getTime() === p.today.getTime() ? "Today closed" : `Closed to ${formatDate(data.latest.date)}`} · ${closedBy(data.latest.closedById)}, ${formatTime(data.latest.closedAt, p.tz)}`}</Pill>
-          : <Link href={closeHref(data.closeDate)} scroll={false} className={buttonClass("primary")}><Lock size={16} aria-hidden="true" />{closeLabel}</Link>) : undefined} />
+          : <Link href={closeHref(data.closeDate)} scroll={false} className={buttonClass("secondary")} title="Count the cash, then lock the day's entries. Do it after the last payment of the day."><Lock size={16} aria-hidden="true" />{closeLabel}</Link>) : undefined} />
       <Stack>
         {lateDay && closer && (
           <Banner tone="bad" title={`${formatDate(lateDay)} is not closed yet.`}

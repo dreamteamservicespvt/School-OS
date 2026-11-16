@@ -56,6 +56,8 @@ export type DefaulterRow = {
   heads: string;
   /** The overdue amount in each ageing group, each row by its own due date (as the Outstanding report). */
   overdueByAge: bigint[];
+  /** The oldest due date inside each ageing group (null when nothing is in it), so a group's view says its own days (L6-26). */
+  oldestByAge: (Date | null)[];
 };
 
 /** Every student with overdue fees for one search and fee head, before the other filters (see defaulterLists). */
@@ -80,14 +82,17 @@ async function defaulterBase(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, toda
   const dues = await tx.studentFeeDue.findMany({ where: { ...where, studentId: { in: sIds } }, select: { studentId: true, balancePaise: true, dueDate: true, feeHeadId: true, kind: true } });
   const headNames = new Map((await tx.feeHead.findMany({ where: { id: { in: [...new Set(dues.map((d) => d.feeHeadId))] } }, select: { id: true, name: true } })).map((h) => [h.id, h.name]));
   const headOf = (d: { kind: string; feeHeadId: string }) => (d.kind === "LATE_FEE" ? "Late fee" : headNames.get(d.feeHeadId) ?? "Fees");
-  const byStudent = new Map<string, { overdue: bigint; oldest: Date; heads: Set<string>; byAge: bigint[] }>();
+  const byStudent = new Map<string, { overdue: bigint; oldest: Date; heads: Set<string>; byAge: bigint[]; oldestByAge: (Date | null)[] }>();
   for (const d of dues) {
     let cur = byStudent.get(d.studentId);
-    if (!cur) byStudent.set(d.studentId, (cur = { overdue: ZERO, oldest: d.dueDate, heads: new Set<string>(), byAge: settings.ageing.map(() => ZERO) }));
+    if (!cur) byStudent.set(d.studentId, (cur = { overdue: ZERO, oldest: d.dueDate, heads: new Set<string>(), byAge: settings.ageing.map(() => ZERO), oldestByAge: settings.ageing.map(() => null) }));
     cur.overdue += d.balancePaise;
     if (d.dueDate < cur.oldest) cur.oldest = d.dueDate;
     cur.heads.add(headOf(d));
-    cur.byAge[ageingIndexOf(settings.ageing, Math.floor((today.getTime() - d.dueDate.getTime()) / DAY_MS))] += d.balancePaise;
+    const ai = ageingIndexOf(settings.ageing, Math.floor((today.getTime() - d.dueDate.getTime()) / DAY_MS));
+    cur.byAge[ai] += d.balancePaise;
+    const was = cur.oldestByAge[ai];
+    if (!was || d.dueDate < was) cur.oldestByAge[ai] = d.dueDate;
   }
   const ids = [...byStudent.keys()];
   // Each student's class in their own campus's current year.
@@ -135,6 +140,7 @@ async function defaulterBase(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, toda
       promise: promises.get(s.id) ?? null,
       heads: [...info.heads].join(", "),
       overdueByAge: info.byAge,
+      oldestByAge: info.oldestByAge,
     });
   }
   // The call list order: a broken promise first (call them again), then the longest overdue; families with an open promise last.

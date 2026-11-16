@@ -10,7 +10,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { studentYear } from "@/lib/academic/years";
 import { canSeeStudent } from "@/lib/fees/access";
 import { studentCard } from "@/lib/fees/dues";
-import { studentLedger, type LedgerEntry, type LedgerKind } from "@/lib/fees/ledger";
+import { balanceAfterPayment, studentLedger, type LedgerEntry, type LedgerKind } from "@/lib/fees/ledger";
 import { paymentView } from "@/lib/fees/payment-view";
 import { findStudents, mostOverdue } from "@/lib/fees/find";
 import { gatewayFor } from "@/lib/fees/settings";
@@ -134,6 +134,8 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const close = here();
   const first = card.name.split(" ")[0];
   const balance = L.balanceNow;
+  // The receipt sheet says the balance as at that receipt, not today's (L6-19).
+  const after = data.sheet ? balanceAfterPayment(L.entries, data.sheet.id) : null;
   const notYet = L.comingUp.reduce((s, r) => s + r.amount, ZERO);
   const inRange = (d: Date) => !per.from || !per.to || (d >= per.from && d <= per.to);
   const entries = L.entries.filter((e) => inRange(e.date));
@@ -196,16 +198,17 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <div className="hidden sm:block"><Ring value={pct(L.paidTotal, L.yearTotal)} size={60} stroke={7}><span className="text-[12.5px] font-bold tnum">{pct(L.paidTotal, L.yearTotal)}%</span></Ring></div>
             <ButtonLink href={here({ do: "pick" })} scroll={false} variant="secondary" icon={ArrowRightLeft}><span className="hidden md:inline"><Words k="Change student" /></span><span className="md:hidden"><Words k="Change" /></span></ButtonLink>
           </div>
-          <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-line/70 border-t border-line/70">
-            {[...heads.slice(0, 3), ...Array.from({ length: Math.max(0, 3 - heads.length) }, () => null)].map((h, i) => h ? (
+          {/* As many boxes as fee heads (up to 3) and the total: no empty boxes that look broken (L6-21). */}
+          <div className={cx("grid gap-px bg-line/70 border-t border-line/70", heads.length >= 3 ? "grid-cols-3 lg:grid-cols-4" : heads.length === 2 ? "grid-cols-3" : heads.length === 1 ? "grid-cols-2" : "grid-cols-1")}>
+            {heads.slice(0, 3).map((h) => (
               <div key={h.head} className="bg-surface px-3 md:px-5 py-3 min-w-0">
                 <p className="text-[12px] text-ink3 font-semibold truncate">{h.head}</p>
                 <p className="text-[14px] md:text-[15px] font-semibold tnum mt-0.5 truncate">{formatRupees(h.paid)}</p>
                 <p className="text-[12px] text-ink3 tnum truncate"><Words k="of" /> {formatRupees(h.total)}</p>
                 <Progress className="mt-1.5" value={pct(h.paid, h.total)} tone={h.paid >= h.total ? "ok" : "brand"} />
               </div>
-            ) : <div key={`x${i}`} className="bg-surface" />)}
-            <div className="bg-surface px-4 md:px-5 py-3 min-w-0 col-span-3 lg:col-span-1">
+            ))}
+            <div className={cx("bg-surface px-4 md:px-5 py-3 min-w-0", heads.length >= 3 && "col-span-3 lg:col-span-1")}>
               <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · due now" /></p>
               <p className="text-[15px] font-semibold tnum mt-0.5">{formatRupees(L.yearTotal)} · <span className="text-ok">{formatRupees(L.paidTotal)}</span> · <span className={balance > ZERO ? "text-bad" : "text-ok"}>{formatRupees(balance)}</span></p>
               {/* The gap between year total, paid and due now, spelled out (layman loop 2). */}
@@ -316,7 +319,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "partial" && (
             <Card className="overflow-hidden">
-              <CardHeader title="Partial payments" />
+              <CardHeader title="Partial payments" description="Payments that were less than what was due, so the row still has a balance" />
               <DataList rows={partial} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={640} caption="Partial payments"
                 empty={<Empty icon={CircleCheck} title="No partial payments" body={`Every payment by ${first} cleared its row.`} />}
                 columns={[
@@ -456,7 +459,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           }))} />
       )}
 
-      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} stillDue={formatRupees(balance)} />}
+      {data.sheet && <PaymentSheet p={toSheet(data.sheet, today)} closeHref={close} cancelHref={here({ cancel: data.sheet.id })} canEdit={canEdit} ledgerHref={close} stillDue={formatRupees(balance)} balanceAfter={after === null ? null : formatRupees(after)} />}
       {data.cancel && data.cancel.status === "POSTED" && canEdit && (
         <CancelSheet p={toSheet(data.cancel, today)} closeHref={here({ pay: data.cancel.id })} doneHref={close}
           needsOk={p.settings.cancelPastApproval && data.cancel.date < today} approver="the principal" />

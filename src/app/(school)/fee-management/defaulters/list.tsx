@@ -21,7 +21,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { formatRupeesShort } from "@/lib/format";
 import { previewReminderAction, sendReminderAction, type PreviewResult } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 export type DefaulterItem = {
   id: string;
@@ -34,6 +34,8 @@ export type DefaulterItem = {
   amount: string;
   amountShort: string;
   amountPaise: string;
+  /** With one ageing group chosen, the student's whole overdue ("of ₹30,000 overdue"); the amount shown is the group's. */
+  ofAll?: string | null;
   heads: string;
   since: string;
   days: number;
@@ -62,6 +64,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
   whoHref: Record<string, string>;
 }) {
   const router = useRouter();
+  const tr = useT();
   const pathname = usePathname();
   const sp = useSearchParams();
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -122,7 +125,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">{d.cls}</td>
                 <td className="px-3 py-2.5"><p className="leading-tight">{d.parent || "—"}</p><p className="text-[12.5px] text-ink3 tnum">{d.phone}</p></td>
-                <td className="px-3 py-2.5 text-right tnum"><p className="font-semibold">{d.amount}</p><p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.heads}</p></td>
+                <td className="px-3 py-2.5 text-right tnum"><p className="font-semibold">{d.amount}</p>{d.ofAll && <p className="text-[12px] text-ink3">{tr.any(d.ofAll)}</p>}<p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.heads}</p></td>
                 <td className="px-3 py-2.5"><p className="tnum">{d.since}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></td>
                 <td className="px-3 py-2.5">
                   {d.promise && <Pill tone={d.promise.tone} className="!h-5 !text-[11px] mb-1">{d.promise.words}</Pill>}
@@ -146,7 +149,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
                 <p className="text-[13px] text-ink3 truncate">{d.cls} · {d.heads}</p>
                 {d.promise && <p className={cx("text-[12.5px] font-semibold truncate", d.promise.tone === "bad" ? "text-bad" : "text-info")}>{d.promise.words}</p>}
               </div>
-              <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></div>
+              <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p>{d.ofAll && <p className="text-[11.5px] text-ink3 tnum">{tr.any(d.ofAll)}</p>}<Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></div>
               <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />
             </Link>
           </li>

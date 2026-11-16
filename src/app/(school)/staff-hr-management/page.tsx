@@ -131,7 +131,8 @@ export default async function StaffListPage({ searchParams }: Search) {
         </>} />
 
       <Stats label="Staff today" className="mb-5" items={[
-        { label: "Staff on roll", value: data.roll.toLocaleString("en-IN"), sub: `${data.teaching} teaching, ${data.roll - data.teaching} others` },
+        // Counted by each record's Staff type, not the designation: a Principal set as Teaching counts as teaching (L6-62).
+        { label: "Staff on roll", value: data.roll.toLocaleString("en-IN"), sub: `${data.teaching} teaching, ${data.roll - data.teaching} others, by staff type` },
         { label: "Present today", value: "–", sub: "Once staff attendance is taken" },
         { label: "On leave today", value: data.leaveToday.size, sub: data.leaveNames.length ? data.leaveNames.slice(0, 3).join(", ") + (data.leaveNames.length > 3 ? ` and ${data.leaveNames.length - 3} more` : "") : "Nobody", href: `${BASE}/leave`, tone: data.leaveToday.size ? "warn" : undefined },
         { label: "Not in yet", value: "–", sub: "Once staff attendance is taken" },

@@ -140,6 +140,21 @@ async function applicationFeeNote(tx: Tx, f: ReportFilter, viewer: FeeViewer) {
   return `Admission application fees are not in this report: ${formatRupees(total)} in this period. Finance Reports count them as income, on a line of their own.`;
 }
 
+/**
+ * The Collection report counts money received, before refunds; the Fee Dashboard's "Collected this
+ * year" is net of refunds. Say both numbers, so a ₹1,000 refund never looks like lost money (L6-27).
+ */
+async function refundNote(tx: Tx, f: ReportFilter, viewer: FeeViewer, collected: bigint) {
+  if (f.classId || f.feeHeadId || f.collectorId || f.mode) return undefined;
+  const refunds = await tx.refund.findMany({
+    where: { ...(await feeStudentFilter(tx, viewer)), status: "REFUNDED", refundedOn: { gte: f.from, lte: f.to } },
+    select: { amountPaise: true },
+  });
+  const refunded = sum(refunds, (r) => r.amountPaise);
+  if (refunded <= ZERO) return undefined;
+  return `Collected is before refunds. ${plural(refunds.length, "refund")} of ${formatRupees(refunded)} paid back in this period, so net of refunds ${formatRupees(collected - refunded)}.`;
+}
+
 export const FEE_REPORTS: ReportDef[] = [
   {
     key: "collection",
@@ -174,7 +189,7 @@ export const FEE_REPORTS: ReportDef[] = [
         rows,
         totals: { period: "Total", payments: list.length, cash: sum(rows, (r) => r.cash), other: sum(rows, (r) => r.other), late: sum(rows, (r) => r.late), amount: sum(rows, (r) => r.amount) },
         chart: rows.map((r) => ({ label: r.period, value: r.amount })),
-        note: await applicationFeeNote(tx, f, viewer),
+        note: [await refundNote(tx, f, viewer, sum(rows, (r) => r.amount)), await applicationFeeNote(tx, f, viewer)].filter(Boolean).join(" ") || undefined,
       };
     },
   },

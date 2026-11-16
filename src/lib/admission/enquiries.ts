@@ -214,8 +214,11 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
     const sib = await tx.enquiry.findFirst({ where: { id: siblingOfId }, select: { childName: true, parentName: true } });
     if (sib) family = `${sib.childName} (${sib.parentName})`;
   } else if (opts.siblingOfParentId) {
-    const g = await tx.guardian.findFirst({ where: { id: opts.siblingOfParentId, archivedAt: null }, select: { name: true, students: { where: { archivedAt: null, student: { archivedAt: null } }, select: { student: { select: { firstName: true } } } } } });
-    if (g) family = `${g.students.map((x) => x.student.firstName).slice(0, 3).join(", ")} (${g.name})`;
+    // campus: only a parent the duplicate check itself found for this phone or email, on the person's own campus
+    // (findDuplicates keeps parents with a child on that campus). Any other id is ignored (security review, L6-01).
+    const match = (await findDuplicates(tx, { phone: input.phone, email: input.email, campusId: v.campusId }))
+      .find((m) => m.kind === "parent" && m.id === opts.siblingOfParentId);
+    if (match?.family) family = match.family;
   }
   let owner = input.ownerStaffId;
   if (owner) {

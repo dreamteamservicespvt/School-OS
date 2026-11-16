@@ -242,3 +242,26 @@ describe("Admission Reports", () => {
     expect(r.rows.reduce((p, x) => p + Number(x.total), 0)).toBe(1);
   });
 });
+
+describe("Add as sibling of a parent already in School OS (layman loop 6, L6-01)", () => {
+  it("names the chosen family, and ignores a parent id that the phone does not match", async () => {
+    const family = await withSchool(principal.ctx, async (tx) => {
+      const make = async (name: string, phone: string, child: string) => {
+        const g = await tx.guardian.create({ data: { schoolId: t.school.id, name, relationship: "Father", phone } });
+        const st = await tx.student.create({ data: { schoolId: t.school.id, campusId: t.campusId, admissionNo: `S-${phone.slice(-5)}`, firstName: child, fullName: `${child} K`, status: "ACTIVE" } });
+        await tx.studentGuardian.create({ data: { schoolId: t.school.id, studentId: st.id, guardianId: g.id, relationship: "Father", isPrimary: true } });
+        return g.id;
+      };
+      return { mine: await make("Venkatesh", "9123406601", "Sri"), other: await make("Prakash", "9123406602", "Hidden") };
+    });
+    const added = (siblingOfParentId: string, phone: string) => withSchool(counsellor.ctx, async (tx) => {
+      const e = await createEnquiry(tx, counsellor.ctx, counsellor.v, counsellor.s, enquiry({ phone, childName: `Kid ${phone.slice(-3)}` }), { yearId: t.nextYearId, campusId: t.campusId, today: "2026-10-12", force: true, siblingOfParentId });
+      return (await tx.enquiryActivity.findFirstOrThrow({ where: { enquiryId: e.id, kind: "created" } })).text;
+    });
+    expect(await added(family.mine, "9123406601")).toContain("Sibling of Sri (Venkatesh)");
+    // Another family's id with this phone: ignored, its child's name is never read into the history.
+    const text = await added(family.other, "9123406601");
+    expect(text).not.toContain("Hidden");
+    expect(text).not.toContain("Prakash");
+  });
+});

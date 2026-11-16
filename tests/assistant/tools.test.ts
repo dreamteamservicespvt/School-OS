@@ -88,7 +88,7 @@ describe("a person only gets the tools of the lists their role opens", () => {
       expect(r.total).toBeNull();
     }
     // In Telugu too.
-    expect((await run(teacher, "fee_defaulters", {}, "te")).sentence).toBe("ఇది మీ రోల్‌లో లేదు, అందుకే చూపించలేను.");
+    expect((await run(teacher, "fee_defaulters", {}, "te")).sentence).toBe("ఇది మీ role లో లేదు, అందుకే చూపించలేను.");
   });
 });
 
@@ -141,7 +141,7 @@ describe("answers are the person's own list", () => {
     expect(cal.ok).toBe(true);
     expect(text(cal.facts)).toContain("Main Science Fair");
     const ap = await run(principal, "approvals_waiting");
-    expect(ap).toMatchObject({ ok: true, total: 0, sentence: "Nothing is waiting for your decision." });
+    expect(ap).toMatchObject({ ok: true, total: 0, good: true, sentence: "Nothing is waiting for your decision. All clear!" });
   });
 });
 

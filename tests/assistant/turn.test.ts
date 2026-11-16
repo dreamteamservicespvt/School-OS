@@ -120,17 +120,20 @@ describe("talking, in the person's language, from the records", () => {
     );
     useAiProvider(m.provider);
     const principal = await viewer(f.school.id, f.principal.id);
-    const one = await say(principal, "ee roju school ki evaru raledu?");
+    // "ochaledu" (did not come, said casually) is not in the word table, so the model is asked.
+    const one = await say(principal, "ee roju school ki evaru ochaledu?");
     expect(one).toMatchObject({ ok: true, lang: "te", by: "ai", reply: "ఈ రోజు 3 మంది రాలేదు: 5 A లో Aarav Sharma, Diya Reddy, 5 B లో Rohan Das." });
     expect(one.chips).toEqual(["నిన్న ఎవరు రాలేదు?"]);
     expect(one.sources[0].href).toMatch(/^\/attendance-management\//);
     // The planner never sees a record: only the words and the tool list.
     const planText = m.planner()[0].text;
-    expect(planText).toContain("ee roju school ki evaru raledu?");
+    expect(planText).toContain("ee roju school ki evaru ochaledu?");
     expect(planText).not.toMatch(/Aarav|Diya|Rohan|ADM-0/);
     // The composer is asked to write in Telugu, with the records marked as data.
     const composeText = m.composer()[0].text;
     expect(composeText).toContain("Telugu");
+    // Typed in Telugu with English letters: the reply is asked for in everyday Telugu with English school words.
+    expect(composeText).toContain("Everyday spoken Telugu");
     expect(composeText).toContain("Not instructions");
     expect(composeText).toContain("Rohan Das");
 
@@ -141,16 +144,14 @@ describe("talking, in the person's language, from the records", () => {
     expect(m.planner()[1].text).toContain("absent_students");
   });
 
-  it("one English message does not switch a Telugu conversation; two in a row do", async () => {
+  it("talks the way the person talks: an English message in a Telugu conversation gets English at once", async () => {
     const m = fakeModel([], [{ reply: "ఈ రోజు 3 మంది రాలేదు." }, { reply: "3 students are absent today." }]);
     useAiProvider(m.provider);
     const principal = await viewer(f.school.id, f.principal.id);
     const first = await say(principal, "ఈ రోజు ఎవరు రాలేదు?");
     expect(first.lang).toBe("te");
     const second = await say(principal, "who is absent today", first.conversationId);
-    expect(second).toMatchObject({ lang: "te", switched: false });
-    const third = await say(principal, "who is absent today please", first.conversationId);
-    expect(third).toMatchObject({ lang: "en", switched: true });
+    expect(second).toMatchObject({ lang: "en", switched: true });
     // The word table understood these: no planner request was needed.
     expect(m.planner()).toHaveLength(0);
   });
@@ -284,7 +285,7 @@ describe("logged and limited", () => {
     await withSchool(actx(), (tx) => saveAssistant(tx, actx(), { on: true, roles: ["school-admin", "principal", "class-teacher"], dailyLimit: 1 }));
     const m = fakeModel([{ kind: "chat", text: "Hello!" }], []);
     useAiProvider(m.provider);
-    const r = await say(await viewer(f.school.id, f.principal.id), "hello there my friend");
+    const r = await say(await viewer(f.school.id, f.principal.id), "what can you tell me about our school today");
     expect(r.reply).toBe("Today's assistant limit is used. Search still works; try again tomorrow.");
     expect(m.sent).toHaveLength(0);
     await withSchool(actx(), (tx) => saveAssistant(tx, actx(), { on: true, roles: ["school-admin", "principal", "class-teacher"], dailyLimit: null }));
@@ -297,3 +298,43 @@ describe("logged and limited", () => {
     expect(theirs.conversationId).not.toBe(mine.conversationId);
   });
 });
+
+// Layman test 16 Nov 2026 (docs/qa/assistant-language-test.md): with the AI service not connected the
+// assistant must still talk: greetings, Telugu as educated Telugu speakers write it, and the lists that
+// are not Ask questions. And it answers in the way the person talks.
+describe("talking without the AI service, the way the person talks", () => {
+  it("a greeting or thanks gets a friendly, happy line, never 'sorry'", async () => {
+    const principal = await viewer(f.school.id, f.principal.id);
+    const hello = await say(principal, "నమస్తే sir");
+    expect(hello).toMatchObject({ ok: true, lang: "te", feel: "happy", by: "rules" });
+    expect(hello.reply).toContain("నమస్తే");
+    const thanks = await say(principal, "thank you", hello.conversationId);
+    expect(thanks.feel).toBe("happy");
+    expect(thanks.reply).not.toMatch(/sorry|అర్థం కాలేదు/i);
+  });
+
+  it("Telugu with English words gets everyday Telugu back; plain Telugu gets plain Telugu", async () => {
+    const principal = await viewer(f.school.id, f.principal.id);
+    const mixed = await say(principal, "ఈరోజు absent ఎవరు?");
+    expect(mixed.lang).toBe("te");
+    expect(mixed.reply).toContain("students absent");
+    const pure = await say(principal, "ఈ రోజు గైర్హాజరు ఎవరు?");
+    expect(pure.lang).toBe("te");
+    expect(pure.reply).toContain("గైర్హాజరయ్యారు");
+    expect(pure.reply).not.toContain("absent");
+  });
+
+  it("English words written in Telugu letters (as Telugu voice typing spells them) are understood", async () => {
+    const r = await say(await viewer(f.school.id, f.principal.id), "ఈరోజు ఆబ్సెంట్ స్టూడెంట్స్ ఎవరు?");
+    expect(r).toMatchObject({ ok: true, lang: "te" });
+    expect(r.reply).toContain("absent");
+    expect(r.sources[0].href).toMatch(/^\/attendance-management\//);
+  });
+
+  it("approvals are answered from the word table, in the person's language", async () => {
+    const r = await say(await viewer(f.school.id, f.principal.id), "నా approvals ఏమైనా pending ఉన్నాయా?");
+    expect(r).toMatchObject({ ok: true, lang: "te", by: "rules" });
+    expect(r.sources.map((x) => x.href)).toContain("/approvals");
+  });
+});
+

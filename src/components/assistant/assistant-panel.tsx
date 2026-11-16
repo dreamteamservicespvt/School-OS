@@ -19,7 +19,8 @@ import { ArrowRight, Keyboard, MessageCircle, Mic, Send, Square, Volume2, Volume
 import { answerAssistantCard, sendToAssistant } from "@/app/(school)/assistant/actions";
 import type { TurnReply } from "@/lib/assistant/conversation";
 import { ASSISTANT_LANGS, pickVoice, SPEECH_LANG, type AssistantLang } from "@/lib/assistant/language";
-import { AFTER_MS, feelingFor, LipSync, SILENT_SPEAK_MAX, SURPRISE_MS, type Feeling, type MascotCharacter, type ReplyMoment } from "@/lib/assistant/mascot-state";
+import { AFTER_MS, feelingFor, LipSync, SILENT_SPEAK_MAX, SURPRISE_MS, type Feeling, type MascotCharacter, type ReplyFeel, type ReplyMoment } from "@/lib/assistant/mascot-state";
+import { spokenText, toneFor } from "@/lib/assistant/speech";
 import { words, type WordKey } from "@/lib/assistant/words";
 import { playUiSound } from "@/lib/ui-sound";
 import { buttonClass } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import s from "./mascot.module.css";
 type Line = { who: "person"; text: string; voice: boolean } | { who: "assistant"; r: TurnReply };
 
 const OWN_NAME: Record<AssistantLang, string> = { en: "English", te: "తెలుగు", hi: "हिंदी" };
-const STATUS: Record<Feeling, WordKey> = { idle: "stReady", listening: "listening", thinking: "thinking", speaking: "stSpeaking", done: "stDone", sorry: "stSorry", surprised: "stSurprised" };
+const STATUS: Record<Feeling, WordKey> = { idle: "stReady", listening: "listening", thinking: "thinking", speaking: "stSpeaking", done: "stDone", happy: "stHappy", sorry: "stSorry", surprised: "stSurprised" };
 
 type Recognition = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; abort(): void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 const recognitionClass = (): (new () => Recognition) | null => {
@@ -40,15 +41,6 @@ const recognitionClass = (): (new () => Recognition) | null => {
 };
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const failed = (lang: AssistantLang, conversationId: string | null): TurnReply => ({ ok: true, conversationId, lang, switched: false, reply: words(lang, "error"), by: "rules", sources: [], chips: [], card: null, feel: "sorry" });
-
-/** The School OS mark (the open book), the same as the mascot's badge. */
-function BookMark({ size = 22 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 7c-2-1.6-4.6-2-7-1.6V18c2.4-.4 5 0 7 1.6 2-1.6 4.6-2 7-1.6V5.4C16.6 5 14 5.4 12 7Z" /><path d="M12 7v12.6" />
-    </svg>
-  );
-}
 
 export type AssistantPanelProps = {
   screen: string;
@@ -123,7 +115,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
   }, [hush]);
 
   /** Reads the reply aloud (when on and a voice exists) or shows it with the mouth moving for a short while. Resolves when done. */
-  const say = useCallback((reply: string, l: AssistantLang, id: number) => new Promise<void>((resolve) => {
+  const say = useCallback((reply: string, l: AssistantLang, id: number, feel: ReplyFeel = "answer") => new Promise<void>((resolve) => {
     const silent = () => {
       const now = performance.now() / 1000;
       const ends = Math.min(lip.text(reply, now + 0.05), now + SILENT_SPEAK_MAX);
@@ -137,14 +129,18 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     const finish = () => { if (finished) return; finished = true; lip.clear(); resolve(); };
     try {
       synth.cancel();
-      const u = new SpeechSynthesisUtterance(reply);
+      // Said the way a person says it (dates as "today", "16 November"; ₹ as rupees), in the reply's feeling.
+      const spoken = spokenText(reply, l);
+      const tone = toneFor(feel, l);
+      const u = new SpeechSynthesisUtterance(spoken);
       u.voice = voice;
       u.lang = SPEECH_LANG[l];
-      u.pitch = character === "cat" ? 1.3 : 1.08;
-      u.onstart = () => { started = true; lip.text(reply, performance.now() / 1000); };
+      u.pitch = (character === "cat" ? 1.3 : 1.08) + tone.pitch;
+      u.rate = tone.rate;
+      u.onstart = () => { started = true; lip.text(spoken, performance.now() / 1000); };
       u.onboundary = (e) => {
         if (e.name && e.name !== "word") return;
-        const rest = reply.slice(e.charIndex);
+        const rest = spoken.slice(e.charIndex);
         lip.word(rest.slice(0, e.charLength || Math.max(1, rest.search(/\s|$/))) || "a", performance.now() / 1000);
       };
       u.onend = finish;
@@ -162,7 +158,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     const id = ++flow.current;
     if (r.switched) { setMoment({ feel, phase: "surprise" }); await sleep(SURPRISE_MS); if (flow.current !== id) return; }
     setMoment({ feel, phase: "speaking" });
-    await say(r.reply, r.lang, id);
+    await say(r.reply, r.lang, id, feel);
     if (flow.current !== id) return;
     if (feel === "answer") { setMoment(null); return; }
     setMoment({ feel, phase: "after" });
@@ -232,9 +228,10 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     <>
       {!open && (
         <button ref={launcher} type="button" onClick={openPanel} onPointerEnter={preload} onFocus={preload}
-          className={cx(s.launcher, "fixed right-4 bottom-24 md:bottom-6 z-40 h-14 w-14 rounded-full text-white flex items-center justify-center no-print focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand")}
+          className={cx(s.launcher, "fixed right-4 bottom-24 md:bottom-6 z-40 h-14 w-14 overflow-hidden rounded-full text-white flex items-center justify-center no-print focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand")}
           aria-label={title} title={title} data-assistant-launcher="">
-          <BookMark size={24} />
+          {/* The assistant's own face (layman test 16 Nov 2026: a book icon did not say "assistant"). */}
+          <span aria-hidden="true" className={cx(s.launcherFace, character === "cat" ? s.launcherCat : s.launcherRobot)} />
         </button>
       )}
       {open && (

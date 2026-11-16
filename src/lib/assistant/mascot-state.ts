@@ -9,11 +9,14 @@ export const isMascotCharacter = (v: unknown): v is MascotCharacter => v === "ro
 /** The school's choice (School preferences), Robot when none was made. */
 export const mascotCharacterOf = (v: unknown): MascotCharacter => (v === "cat" ? "cat" : "robot");
 
-export type Feeling = "idle" | "listening" | "thinking" | "speaking" | "done" | "sorry" | "surprised";
-export const FEELINGS: readonly Feeling[] = ["idle", "listening", "thinking", "speaking", "done", "sorry", "surprised"];
+export type Feeling = "idle" | "listening" | "thinking" | "speaking" | "done" | "happy" | "sorry" | "surprised";
+export const FEELINGS: readonly Feeling[] = ["idle", "listening", "thinking", "speaking", "done", "happy", "sorry", "surprised"];
 
-/** How a reply ended, for the mascot: a plain answer, a confirmed change, or a refusal / problem. */
-export type ReplyFeel = "answer" | "done" | "sorry";
+/**
+ * How a reply feels, for the mascot and the voice: a plain answer, a confirmed change, a happy one
+ * (a greeting, thanks, good news such as "nobody is absent" or a birthday today), or a refusal / problem.
+ */
+export type ReplyFeel = "answer" | "done" | "happy" | "sorry";
 
 /**
  * What the reply is doing right now: the moment after the language changed
@@ -36,11 +39,11 @@ export function feelingFor(s: { listening: boolean; busy: boolean; moment: Reply
   if (m.phase === "surprise") return "surprised";
   if (m.feel === "sorry") return "sorry";
   if (m.phase === "speaking") return "speaking";
-  return m.feel === "done" ? "done" : "idle";
+  return m.feel === "done" ? "done" : m.feel === "happy" ? "happy" : "idle";
 }
 
 /** How long the beat after a reply lasts before the mascot is idle again (ms). */
-export const AFTER_MS: Record<ReplyFeel, number> = { answer: 0, done: 1700, sorry: 2200 };
+export const AFTER_MS: Record<ReplyFeel, number> = { answer: 0, done: 1700, happy: 1500, sorry: 2200 };
 export const SURPRISE_MS = 750;
 
 export type RobotPose = "r-idle" | "r-wave" | "r-think" | "r-sorry" | "r-listen" | "r-cheer";
@@ -60,6 +63,7 @@ export const LOOK: Record<Feeling, { robot: RobotPose; cat: CatPose; face: Robot
   thinking: { robot: "r-think", cat: "c-think", face: "think", fx: "think" },
   speaking: { robot: "r-idle", cat: "c-idle", face: "speak", fx: null },
   done: { robot: "r-cheer", cat: "c-done", face: "done", fx: "done" },
+  happy: { robot: "r-wave", cat: "c-done", face: "done", fx: "done" },
   sorry: { robot: "r-sorry", cat: "c-sorry", face: "sorry", fx: null },
   surprised: { robot: "r-idle", cat: "c-surprised", face: "surprised", fx: null },
 };

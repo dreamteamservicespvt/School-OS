@@ -147,10 +147,11 @@ describe("PTM", () => {
     expect(n.note.remarks).toBe("Reads well");
   });
 
-  it("cancels a PTM with bookings even when the parents cannot be messaged (ACADEMICS-21)", async () => {
+  it("cancels a PTM with bookings even when no WhatsApp can go (ACADEMICS-21)", async () => {
     const r = await withSchool(P(), (tx) => cancelPtm(tx, P(), ptmId, "Heavy rain warning for the whole district", TODAY));
-    expect(r.told?.people).toBe(0);
-    expect(r.told?.problem).toBeTruthy();
+    // With no WhatsApp, the two booked parents still hear of it on their Parent Link ("Messages from
+    // the school", 16 Nov 2026); before, nobody could be told.
+    expect(r.told?.people).toBe(2);
     expect((await withSchool(P(), (tx) => tx.ptm.findUniqueOrThrow({ where: { id: ptmId } }))).archivedAt).not.toBeNull();
   });
 });

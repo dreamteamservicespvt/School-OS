@@ -190,7 +190,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <Avatar name={l.guardian.name} size={40} />
                 <div className="min-w-0 flex-1">
                   <Link href={`${BASE}/guardians/${l.guardianId}`} className="font-semibold text-[14.5px] leading-tight hover:underline">{l.guardian.name}</Link>
-                  <p className="text-[12.5px] text-ink3">{l.relationship}{l.isPrimary ? " · Parent Link" : ""}{l.guardian.occupation ? ` · ${l.guardian.occupation}` : ""}</p>
+                  <p className="text-[12.5px] text-ink3">{l.relationship}{l.isPrimary ? " · Primary contact" : ""}{l.guardian.occupation ? ` · ${l.guardian.occupation}` : ""}</p>
                   {l.guardian.phone
                     ? <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
                     : <PhoneMissing className="mt-1.5 text-[13.5px]" editHref={can.manage ? `${BASE}/guardians/${l.guardianId}/edit?student=${studentId}` : null} />}

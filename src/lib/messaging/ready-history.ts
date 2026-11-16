@@ -221,6 +221,16 @@ const BEFORE_CARDS: Readonly<Record<string, readonly string[]>> = {
 
 // The card words of four texts Meta refused as the wrong category (deploys 10 and 11, 16 Nov 2026).
 const REFUSED_CARDS: Readonly<Record<string, readonly string[]>> = {
+  // Pickup request, first words (16 Nov): the card goes to the person collecting, so it now says "you".
+  "pickup-approve|en": [
+    "Dear {guardian_name}, {visitor_name} is at the school front desk to take *{student_name}* home now.\n\nIf you agree, tap the button below. If you do not know about this, please call the school.\n{link}",
+  ],
+  "pickup-approve|hi": [
+    "नमस्ते {guardian_name} जी, {visitor_name} आपके बच्चे *{student_name}* को अभी घर ले जाने के लिए स्कूल के फ़्रंट डेस्क पर हैं।\n\nअगर आप सहमत हैं, तो नीचे दिया बटन दबाएँ। अगर आपको इसकी जानकारी नहीं है, तो कृपया स्कूल को फ़ोन करें।\n{link}",
+  ],
+  "pickup-approve|te": [
+    "నమస్కారం {guardian_name} గారు, *{student_name}* ను ఇప్పుడు ఇంటికి తీసుకెళ్లడానికి {visitor_name} పాఠశాల ఫ్రంట్ డెస్క్ వద్ద ఉన్నారు.\n\nమీకు సమ్మతమైతే, కింది బటన్ నొక్కండి. దీని గురించి మీకు తెలియకపోతే, దయచేసి పాఠశాలకు కాల్ చేయండి.\n{link}",
+  ],
   "admission-welcome|en": [
     "Dear {guardian_name}, welcome! We are happy to confirm your child's admission.\n\n👤 *{student_name}* of {class}\n🆔 Admission no.: *{admission_no}*\n\nPlease keep this number safe. We look forward to a wonderful year together.",
     "Dear {guardian_name}, the admission below is confirmed.\n\n👤 *{student_name}*, {class}\n🆔 Admission no.: *{admission_no}*\n\nPlease keep this admission number for school records.",

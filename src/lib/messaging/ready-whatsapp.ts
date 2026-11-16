@@ -242,9 +242,9 @@ export const READY_WHATSAPP: ReadyWhatsapp[] = [
   { key: "pickup-approve", name: "Pickup request", category: "front-office",
     card: { header: { en: "🚸 Pickup request", hi: "🚸 बच्चे को ले जाने का अनुरोध", te: "🚸 పిల్లలను తీసుకెళ్లే అభ్యర్థన" }, buttons: [parentLink(OPEN_PL, "link")] },
     texts: {
-      en: lines("Dear {guardian_name}, {visitor_name} is at the school front desk to take *{student_name}* home now.", "", "If you agree, tap the button below. If you do not know about this, please call the school.", "{link}"),
-      hi: lines("नमस्ते {guardian_name} जी, {visitor_name} आपके बच्चे *{student_name}* को अभी घर ले जाने के लिए स्कूल के फ़्रंट डेस्क पर हैं।", "", "अगर आप सहमत हैं, तो नीचे दिया बटन दबाएँ। अगर आपको इसकी जानकारी नहीं है, तो कृपया स्कूल को फ़ोन करें।", "{link}"),
-      te: lines("నమస్కారం {guardian_name} గారు, *{student_name}* ను ఇప్పుడు ఇంటికి తీసుకెళ్లడానికి {visitor_name} పాఠశాల ఫ్రంట్ డెస్క్ వద్ద ఉన్నారు.", "", "మీకు సమ్మతమైతే, కింది బటన్ నొక్కండి. దీని గురించి మీకు తెలియకపోతే, దయచేసి పాఠశాలకు కాల్ చేయండి.", "{link}"),
+      en: lines("Dear {guardian_name}, you are at the school front desk to take *{student_name}* home now.", "", "If this is you, tap the button below. If you are not at the school, please call the school at once.", "{link}"),
+      hi: lines("नमस्ते {guardian_name} जी, आप *{student_name}* को अभी घर ले जाने के लिए स्कूल के फ़्रंट डेस्क पर हैं।", "", "अगर यह आप ही हैं, तो नीचे दिया बटन दबाएँ। अगर आप स्कूल में नहीं हैं, तो कृपया तुरंत स्कूल को फ़ोन करें।", "{link}"),
+      te: lines("నమస్కారం {guardian_name} గారు, *{student_name}* ను ఇప్పుడు ఇంటికి తీసుకెళ్లడానికి మీరు పాఠశాల ఫ్రంట్ డెస్క్ వద్ద ఉన్నారు.", "", "అది మీరే అయితే, కింది బటన్ నొక్కండి. మీరు పాఠశాలలో లేకపోతే, దయచేసి వెంటనే పాఠశాలకు కాల్ చేయండి.", "{link}"),
     } },
   // The WhatsApp test from Settings (src/lib/messaging/channel-admin.ts): a template always arrives, plain text only within 24 hours.
   { key: "connection-test", name: "WhatsApp connection test", category: "general",

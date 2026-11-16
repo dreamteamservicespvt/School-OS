@@ -105,6 +105,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pendi
               <Button variant={fixable.length ? "secondary" : "primary"} icon={Send} loading={Boolean(sending)} className="max-md:w-full"
                 loadingText={sending ? t("Sending {i} of {n}…", { i: sending.at, n: sending.of }) : undefined} disabled={busy} onClick={sendAll}>
                 {sendCount === 1 ? <Words k="Send 1 template to WhatsApp for approval" /> : <Words k="Send {n} templates to WhatsApp for approval" vars={{ n: sendCount }} />}
+                {toSend.length > sendCount && <span className="block text-[12px] font-normal opacity-80"><Words k="{n} texts, one for each language" vars={{ n: toSend.length }} /></span>}
               </Button>
             </div>
           </section>

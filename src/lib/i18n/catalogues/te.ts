@@ -17364,4 +17364,7 @@ export const te: Catalogue = {
   "allowed by the Principal or a School Admin": "ప్రిన్సిపాల్ లేదా స్కూల్ అడ్మిన్ అనుమతించారు",
   "Only the Principal or a School Admin can allow this release.": "దీన్ని ప్రిన్సిపాల్ లేదా స్కూల్ అడ్మిన్ మాత్రమే అనుమతించగలరు.",
   "Write why you are allowing this release.": "మీరు దీన్ని ఎందుకు అనుమతిస్తున్నారో రాయండి.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{n} texts, one for each language": "{n} సందేశాలు, ప్రతి భాషకు ఒకటి",
+  "The guardian confirms before release: a tap on WhatsApp, or a code by SMS": "విడుదలకు ముందు సంరక్షకులు నిర్ధారిస్తారు: WhatsApp లో ఒక ట్యాప్, లేదా SMS ద్వారా కోడ్",
 };

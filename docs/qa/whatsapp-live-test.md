@@ -407,3 +407,46 @@ Screenshots:
 Credits: **1** (Fee received).
 
 Left on the test school: ₹1 cash receipt C-CHE-001/2026-27/00014 for Sri; Fee received v5 approved, with the PDF header.
+
+## Deploy 15 pickup approval (16 Nov)
+
+Deploy 15 live. Tested by Claude, about 13:00 to 13:22 IST. First round (no message sent) below, then the second round that completed the test.
+
+| Step | Result |
+|---|---|
+| 1. Template | Message Templates offered **"Send 1 template to WhatsApp for approval"** (no "Make ready" step needed). Pressed at 13:01. It sent 3 (English, Hindi, Telugu): "Pickup request (English/Hindi/Telugu): Sent. Waiting for WhatsApp's answer." At the next look (about 13:12) **Pickup request: Approved v1, English, Hindi, Telugu**, and the approval box was gone |
+| 2. Desk | "Pickup code check" was **off**. Switched it on (Admin > Front Office settings, saved). As Receptionist harikaa, Student Pickup > Sri Lakshmi shows only: **"Sri already has gate pass GP-2026-0002 waiting at the gate."** No guardian list and no "Ask Venkatesh to approve on WhatsApp" button. That pass is the 4:48 AM test pass (Venkatesh, released by Saiveni, never checked at the gate); it blocks a new pickup for Sri until midnight |
+| 3 to 4 | **Not done: blocked by step 2.** The only way on is "Check gate pass > GP-2026-0002 > Let them out", which closes that old pass for good and writes a gate log line. Not pressed: it was not in the brief |
+| 5. Setting | Switched "Pickup code check" back **off**, saved, re-opened: off |
+
+Small notes:
+- The button said "Send **1** template" but sent 3 (one per language), shown as "Sending 1 of 3…".
+- The "Pickup code check" switch still says "A code to the guardian's mobile before release", but with this deploy it means "the guardian approves on WhatsApp".
+
+### Second round (13:15 to 13:22 IST), after the coordinator's go-ahead
+
+| Step | Result |
+|---|---|
+| Ramesh Reddy | His child is **Aarav Reddy, 1 A** (C-CHE-001/2026/0003). Aarav's profile lists Ramesh as "Father · Parent Link", "May pick up", and on the Pickup list. Switched Pickup code check **on**. At the desk, Ramesh shows only: **"Ramesh has no Parent Link, so approval cannot be asked on WhatsApp. Check the photo, ID proof or call a guardian instead."** No Ask button, so I used the fallback |
+| Old pass | Check gate pass > GP-2026-0002 > **Let them out**: "Already used at 1:17 PM." Sri's pickup form then opened |
+| 2. Ask | Sri > Venkatesh > "Approval on WhatsApp: Switched on by the school. Sent to Venkatesh's own WhatsApp." > **Ask Venkatesh to approve on WhatsApp**: "Waiting for Venkatesh to tap Approve on WhatsApp…" (1:17 PM) |
+| 3. Card | **Arrived 1:17 PM** in the chat from the school number: header "Pickup request", "Dear Venkatesh, Venkatesh is at the school front desk to take **Sri Lakshmi** home now. If you agree, tap the button below. If you do not know about this, please call the school.", footer "chaitanya · School OS", button **Open Parent Link** |
+| 3. Approve page | The button opened Parent Link: **"Approve: Venkatesh takes Sri home now?"**, "The front desk is asking. Tap Approve only if you know about this.", buttons Approve and "No, call the school", "Only you can see this page". Tapped **Approve**: "Thank you. The front desk can now let Venkatesh take Sri home." with "Open your Parent Link" |
+| 4. Desk | The desk tab updated by itself, with no reload: **"Approved by Venkatesh on WhatsApp at 1:19 PM"** (green). The button still said "Check ID proof or call first" (Venkatesh has no photo). After ticking "ID proof shows Venkatesh" and the reason "Doctor visit", **"Release Sri and make gate pass" became active**. **Not pressed**; tab closed without saving |
+| 5. Setting | Pickup code check switched back **off**, saved, re-opened: off |
+
+Things to look at:
+- **Ramesh's Parent Link**: his profile says "Father · Parent Link", but the desk says "Ramesh has no Parent Link". Either his link is not active (invited, never opened) and the profile badge reads too strongly, or the desk check is wrong.
+- **Card wording when the guardian is the person collecting**: "Dear Venkatesh, Venkatesh is at the school front desk…" reads oddly. Suggest "you are at the school front desk" when they are the same person.
+- The approval shows 1:19 PM, 2 minutes after the ask; that was my own delay, not the app's.
+
+Screenshots (`qa/whatsapp-cards/`):
+- `deploy15-pickup-card.jpg`: the WhatsApp card
+- `deploy15-pickup-approve-page.jpg`: the Parent Link approve page
+- `deploy15-pickup-approved-thanks.jpg`: after Approve
+- `deploy15-pickup-desk-approved.jpg`: the desk, approved, with Release active (not pressed)
+- `deploy15-pickup-ramesh-no-link.jpg`: Ramesh, "no Parent Link"
+
+Credits: **1** (one Pickup request card; template submission is free).
+
+Left on the test school: GP-2026-0002 marked used (left at 1:17 PM, with a gate log line); one approved pickup request for Sri (Venkatesh, 1:19 PM), never used for a release; Pickup request v1 approved in English, Hindi and Telugu; Pickup code check off.

@@ -25,7 +25,7 @@ export function SettingsSheet({ closeHref, s, features, dayEnd }: { closeHref: s
     <SheetForm title="Front Office settings" closeHref={closeHref} action={settingsAction} submitLabel="Save settings" pendingText="Saving…" wide>
       <SSwitch name="photoRequired" title="Visitor photo required" start={s.photoRequired} />
       <SSwitch name="idProofRequired" title="Visitor ID proof required" sub="Only the last 4 digits show later." start={s.idProofRequired} />
-      <SSwitch name="pickupCodeCheck" title="Pickup code check" sub="A code to the guardian’s mobile before release" start={s.pickupCodeCheck} />
+      <SSwitch name="pickupCodeCheck" title="Pickup code check" sub="The guardian confirms before release: a tap on WhatsApp, or a code by SMS" start={s.pickupCodeCheck} />
       <ExpiryFields passExpiry={s.passExpiry} dayEnd={dayEnd} />
       <SSelect name="slotMinutes" label="Appointment slots" start={String(s.slotMinutes)} options={[10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} minutes` }))} />
       <p className="eyebrow text-ink3 pt-1"><Words k="Optional parts" /></p>

@@ -17364,4 +17364,7 @@ export const hi: Catalogue = {
   "allowed by the Principal or a School Admin": "प्रधानाचार्य या स्कूल एडमिन ने अनुमति दी",
   "Only the Principal or a School Admin can allow this release.": "इसकी अनुमति सिर्फ़ प्रधानाचार्य या स्कूल एडमिन दे सकते हैं।",
   "Write why you are allowing this release.": "लिखें कि आप इसकी अनुमति क्यों दे रहे हैं।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{n} texts, one for each language": "{n} संदेश, हर भाषा के लिए एक",
+  "The guardian confirms before release: a tap on WhatsApp, or a code by SMS": "छोड़ने से पहले अभिभावक पुष्टि करते हैं: WhatsApp पर एक टैप, या SMS से कोड",
 };

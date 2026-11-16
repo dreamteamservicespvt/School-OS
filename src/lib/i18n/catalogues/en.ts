@@ -17922,6 +17922,9 @@ export const EN = [
   "allowed by the Principal or a School Admin",
   "Only the Principal or a School Admin can allow this release.",
   "Write why you are allowing this release.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{n} texts, one for each language",
+  "The guardian confirms before release: a tap on WhatsApp, or a code by SMS",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

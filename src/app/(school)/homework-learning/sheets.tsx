@@ -17,7 +17,8 @@ import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words, useT } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
 
-export type DueChoice = { date: string; words: string };
+/** fromTimetable false: no published Time Table gives the next class, so "Next class" is not offered (QA L6-49). */
+export type DueChoice = { date: string; words: string; fromTimetable?: boolean };
 export type GiveSection = {
   id: string; label: string; classId: string; className: string; students: number;
   subjects: { id: string; name: string; next: DueChoice }[];
@@ -60,7 +61,10 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   const typedInstr = useTyped("instructions", "").value;
   const [title, setTitle] = useState(typedTitle);
   const [instr, setInstr] = useState(typedInstr);
-  const [due, setDue] = useState<"next" | "tomorrow" | "pick">(useTyped("due", "next").value as "next" | "tomorrow" | "pick" || "next");
+  const [chosenDue, setDue] = useState<"next" | "tomorrow" | "pick">(useTyped("due", "next").value as "next" | "tomorrow" | "pick" || "next");
+  // "Next class" only when the published Time Table gives it; otherwise the teacher picks Tomorrow or a date.
+  const hasNext = subject?.next.fromTimetable !== false;
+  const due = chosenDue === "next" && !hasNext ? "tomorrow" : chosenDue;
   const typedPick = useTyped("dueDate", "");
   const [picked, setPicked] = useState(typedPick.value);
   const startT = useTyped("startDate", today);
@@ -166,7 +170,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
 
       <FieldShell label="3 · Due" id="gh-due" required error={typedPick.error}>
         <Segmented value={due} onChange={(v) => setDue(v as typeof due)} className="w-full" label="Due"
-          options={[{ value: "next", label: "Next class" }, { value: "tomorrow", label: "Tomorrow" }, { value: "pick", label: "Pick a date" }]} />
+          options={[...(hasNext ? [{ value: "next", label: "Next class" }] : []), { value: "tomorrow", label: "Tomorrow" }, { value: "pick", label: "Pick a date" }]} />
         {due === "pick"
           ? <DateInput id="gh-due" value={picked} min={today} onChange={(e) => setPicked(e.target.value)} aria-invalid={typedPick.error ? true : undefined} className={cx(inputCls(typedPick.error), "h-11 tnum mt-1")} />
           : <p className="text-[12.5px] text-ink3">{/* "Next Mathematics class: Mon 16 Nov, period 6" said whole in the screen's language (layman loop 5). */}
@@ -213,7 +217,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
         )}
       </div>
       <p className="text-[12.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-2.5">
-        <Words k="Students see it in the app. If homework messages are on, the parents of" /> {to === "CLASS" && sameClass.length > 1 ? sameClass.reduce((a, s) => a + s.students, 0) : to === "STUDENTS" ? chosen.size : section.students} <Words k="students also get one message each (about 1 credit each)." />
+        <Words k="Students see it in the app. If homework messages are on, the parents of" /> {to === "CLASS" && sameClass.length > 1 ? sameClass.reduce((a, s) => a + s.students, 0) : to === "STUDENTS" ? chosen.size : section.students} <Words k="students also get one WhatsApp message each (paid by the school)." />
       </p>
     </SheetForm>
   );

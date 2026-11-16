@@ -7,7 +7,7 @@ import "server-only";
 import type { Result } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { examKey, finalKey } from "./common";
-import { round2, type SubjectResult } from "./compute";
+import { didNotPass, isWeakResult, round2, type SubjectResult } from "./compute";
 import { isDone } from "./marks";
 import { sectionStudents, sitters } from "./roster";
 import { resultSubjects, type ExamScope } from "./scope";
@@ -55,6 +55,8 @@ export async function analyse(tx: Tx, ctx: SchoolContext, scope: ExamScope, year
   // Overview.
   const withPercent = results.filter((r) => r.percent !== null);
   const passed = results.filter((r) => r.outcome === "Pass").length;
+  // Grade-only results have no pass or fail, so "Passed" counts out of those with an outcome (QA L6-31).
+  const judged = results.filter((r) => r.outcome !== null).length;
   const grades = new Map<string, number>();
   for (const r of results) if (r.grade) grades.set(r.grade, (grades.get(r.grade) ?? 0) + 1);
   const sorted = [...withPercent].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0) || b.total - a.total);
@@ -64,13 +66,13 @@ export async function analyse(tx: Tx, ctx: SchoolContext, scope: ExamScope, year
     passed,
     failed: results.filter((r) => r.outcome === "Fail").length,
     compartment: results.filter((r) => r.outcome === "Compartment").length,
-    passPercent: pct(passed, results.length),
+    passPercent: pct(passed, judged),
     average: avg(withPercent.map((r) => r.percent!)),
     highest: sorted[0]?.percent ?? null,
     lowest: sorted.at(-1)?.percent ?? null,
     grades: [...grades.entries()].map(([grade, count]) => ({ grade, count })).sort((a, b) => a.grade.localeCompare(b.grade)),
     top: sorted.slice(0, 5).map(person),
-    help: [...sorted].reverse().filter((r) => r.outcome !== "Pass" || (r.percent ?? 0) < 50).slice(0, 5).map(person),
+    help: [...sorted].reverse().filter(isWeakResult).slice(0, 5).map(person),
   };
 
   // Subject-wise, per section, with the subject teacher.
@@ -108,7 +110,7 @@ export async function analyse(tx: Tx, ctx: SchoolContext, scope: ExamScope, year
     const mine = results.filter((r) => r.sectionId === s.id);
     const p = mine.filter((r) => r.outcome === "Pass").length;
     const best = [...mine].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
-    return { sectionId: s.id, section: s.label, students: mine.length, average: avg(mine.filter((r) => r.percent !== null).map((r) => r.percent!)), passPercent: pct(p, mine.length), failed: mine.length - p, topper: best ? `${nameOf(best.studentId)} (${best.percent ?? ""}%)` : "" };
+    return { sectionId: s.id, section: s.label, students: mine.length, average: avg(mine.filter((r) => r.percent !== null).map((r) => r.percent!)), passPercent: pct(p, mine.filter((r) => r.outcome !== null).length), failed: mine.filter(didNotPass).length, topper: best ? `${nameOf(best.studentId)} (${best.percent ?? ""}%)` : "" };
   }).filter((r) => r.students > 0);
 
   return { key, overview, subjects, subjectRows, classRows, sections };
@@ -129,13 +131,13 @@ export async function studentsBehind(tx: Tx, scope: ExamScope, yearId: string, f
   });
   switch (drill.kind) {
     case "pass": results = results.filter((r) => r.outcome === "Pass"); break;
-    case "fail": results = results.filter((r) => r.outcome !== "Pass"); break;
+    case "fail": results = results.filter(didNotPass); break;
     case "grade": results = results.filter((r) => r.grade === drill.value); break;
     case "section": results = results.filter((r) => r.sectionId === drill.value); break;
     case "subject-pass": results = results.filter((r) => subjectCell(r)?.passed === true); break;
     case "subject-fail": results = results.filter((r) => subjectCell(r)?.passed === false); break;
     case "top": results = results.slice(0, 10); break;
-    case "help": results = results.filter((r) => r.outcome !== "Pass" || (r.percent ?? 0) < 50).reverse(); break;
+    case "help": results = results.filter(isWeakResult).reverse(); break;
     default: break;
   }
   const students = await tx.student.findMany({ where: { id: { in: results.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } });

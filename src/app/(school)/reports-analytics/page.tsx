@@ -52,7 +52,7 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
           <span className="block font-semibold text-[14px] leading-snug truncate">{r.name}</span>
           <span className="block text-[12.5px] text-ink3 truncate">{showCat ? `${r.category} · ` : ""}{r.sub}</span>
         </span>
-        {r.heavy && <Pill tone="neutral" className="!h-5 !text-[11px] hidden sm:inline-flex"><Words k="Large" /></Pill>}
+        {r.heavy && <Pill tone="neutral" className="!h-5 !text-[11px] hidden sm:inline-flex"><Words k="May take a minute" /></Pill>}
       </Link>
       <PinButton reportKey={r.key} name={r.name} on={pinSet.has(r.key)} />
     </li>

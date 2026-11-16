@@ -8,7 +8,7 @@ import "server-only";
 import { examScope, resultSubjects, type ExamScope } from "../../exams/scope";
 import { marksDueFilter, marksDueSoon, papersFor } from "../../exams/marks";
 import { classRange } from "../../exams/common";
-import { addDays, dayWord, dueWord, n, plural, someNames } from "../common";
+import { addDays, awayToday, dayWord, dueWord, n, plural, someNames } from "../common";
 import { isWeakResult } from "../../exams/results";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
 
@@ -62,12 +62,17 @@ const upcoming: Widget<"agenda"> = {
       orderBy: { startDate: "asc" }, take: 3,
     });
     const classNames = new Map(v.sections.map((s) => [s.classId, s.className]));
+    // An exam whose papers for the person's classes are all written is "marks being entered", not "is on" (QA L6-43).
+    // campus: only the person's own classes (v.classIds).
+    const papersLeft = new Set((await c.tx.datesheetEntry.findMany({
+      where: { examId: { in: exams.map((e) => e.id) }, classId: { in: v.classIds }, archivedAt: null, date: { gte: c.today } }, select: { examId: true },
+    })).map((d) => d.examId));
     const out: AgendaItem[] = exams.map((e) => {
       const mine = e.classIds.filter((id) => classNames.has(id)).map((id) => classNames.get(id)!);
       const started = e.startDate <= c.today;
       return {
         id: `exam:${e.id}`, time: started ? "Now" : dayWord(e.startDate, c.today), tone: "bad",
-        title: started ? `${e.title} is on` : `${e.title} starts`,
+        title: started ? (papersLeft.has(e.id) ? `${e.title} is on` : `${e.title}: marks being entered`) : `${e.title} starts`,
         where: `${[...new Set(mine)].length ? classRange([...new Set(mine)]) : "Your classes"}${started ? ` · ends ${endWord(e.endDate, c.today)}` : ""}`,
         href: `${BASE}/datesheet/${e.id}`, sort: started ? -1 : 1440 * Math.max(1, Math.round((e.startDate.getTime() - c.today.getTime()) / 86_400_000)) + 1,
       };
@@ -82,12 +87,14 @@ const upcoming: Widget<"agenda"> = {
         c.tx.subject.findMany({ where: { id: { in: duties.map((d) => d.subjectId) } }, select: { id: true, name: true } }),
         c.tx.schoolClass.findMany({ where: { id: { in: duties.map((d) => d.classId) } }, select: { id: true, name: true } }),
       ]);
+      // On leave today: today's duty says it needs cover, as the principal's card does (QA L6-32).
+      const away = (await awayToday(c)).has(v.scope.staffId);
       for (const d of duties) {
         const days = Math.round((d.date.getTime() - c.today.getTime()) / 86_400_000);
         const [h, m] = d.startTime.split(":").map(Number);
         out.push({
           id: `invigilation:${d.id}`, time: dayWord(d.date, c.today), tone: "warn",
-          title: `Invigilation: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, ${classes.find((x) => x.id === d.classId)?.name ?? ""}`.trim(),
+          title: `${away && days === 0 ? "You are on leave: needs cover · " : ""}Invigilation: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, ${classes.find((x) => x.id === d.classId)?.name ?? ""}`.trim(),
           where: [d.exam.title, d.room ? `Room ${d.room}` : null, `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`].filter(Boolean).join(" · "),
           href: `${BASE}/datesheet/${d.exam.id}`, sort: days * 1440 + h * 60 + m,
         });

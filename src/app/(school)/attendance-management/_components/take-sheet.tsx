@@ -36,6 +36,8 @@ export type SheetRow = {
   leave: { typeName: string; halfDay: boolean; reason: string | null; note?: string } | null;
   /** The saved absence reason, as this person may see it. */
   reason?: { key: string; label: string; note: string | null } | null;
+  /** "4:48 PM": left early on a gate pass that day. */
+  leftEarly?: string | null;
 };
 export type ReasonChoice = { key: string; label: string };
 
@@ -80,6 +82,9 @@ export function TakeSheet(p: Props) {
   // The page gives this sheet a new key when the server's copy changes, so it starts fresh then.
   const [marks, setMarks] = useState<Record<string, Mark>>(start);
   const [dirty, setDirty] = useState(!p.saved);
+  // Only a real tap counts as a change for the "Leave site?" box: a teacher who only looked was
+  // asked about unsaved changes she never made (QA L6-34).
+  const [touched, setTouched] = useState(false);
   const unsaved = unsavedCount(p.students);
   const [q, setQ] = useState("");
   const [confirmAll, setConfirmAll] = useState(false);
@@ -98,15 +103,16 @@ export function TakeSheet(p: Props) {
 
   // Warn before leaving with unsaved marks.
   useEffect(() => {
-    if (!dirty || readOnly) return;
+    if (!touched || readOnly) return;
     const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, readOnly]);
+  }, [touched, readOnly]);
 
   const set = (id: string, change: Partial<Mark>) => {
     setMarks((m) => ({ ...m, [id]: { ...m[id], ...change } }));
     setDirty(true);
+    setTouched(true);
     setProblem(null);
   };
   const changed = p.students.some((s) => !fixed(s) && marks[s.id]?.statusKey !== (p.defaultStatus === "present" ? "present" : null));
@@ -117,6 +123,7 @@ export function TakeSheet(p: Props) {
       return next;
     });
     setDirty(true);
+    setTouched(true);
     setProblem(null);
     setConfirmAll(false);
   };
@@ -151,7 +158,7 @@ export function TakeSheet(p: Props) {
     });
     if (ok) {
       clientId.current = newClientId();
-      setDirty(false);
+      setDirty(false); setTouched(false);
     } else {
       setProblem({ text: "This phone has no room to keep the attendance. Your marks are still on the screen; save again when online." });
     }
@@ -167,7 +174,7 @@ export function TakeSheet(p: Props) {
         const r = await saveSheet({ sectionId: p.sectionId, date: p.date, periodNo: p.periodNo, entries: list, clientId: clientId.current });
         if (r.ok) {
           clientId.current = newClientId();
-          setDirty(false);
+          setDirty(false); setTouched(false);
           // Stay on the class just saved. With no class in the address the page opened the next class by
           // itself, all marked present, under the finger that had just pressed Save (layman loop 4).
           const url = new URL(window.location.href);
@@ -198,6 +205,7 @@ export function TakeSheet(p: Props) {
     ...(counts.notMarked ? [{ key: "none", label: "Not marked", value: counts.notMarked }] : []),
   ];
   const savedNow = p.saved && !dirty;
+  const notYetSaved = !savedNow && !readOnly && counter.marked > 0;
   const lateCount = counts.c.late ?? 0;
   const leaveCount = counts.c.leave ?? 0;
   const saveLabel = pending ? tr("Saving…") : savedNow ? tr("Saved") : tr("Save attendance: {list}", {
@@ -262,10 +270,12 @@ export function TakeSheet(p: Props) {
 
       {/* Live counter: how many are marked, and how (adopt item 3). */}
       <div className="mb-3" aria-live="polite" data-testid="sheet-counter">
-        <p className="text-[14px] font-semibold tnum">{parts(counter.text)}</p>
+        {/* Until it is saved the counter says so in amber and the bar stays pale: "17 of 17 marked" on a
+            full green bar read as done, and the class stayed "Not taken" (QA L6-33). */}
+        <p className="text-[14px] font-semibold tnum">{notYetSaved && <span className="text-warn"><Words k="Not saved yet" />: </span>}{parts(counter.text)}</p>
         <div className="mt-1.5 h-2 rounded-full bg-sunken overflow-hidden flex" aria-hidden="true">
           {p.statuses.filter((s) => counter.by[s.key]).map((s) => (
-            <span key={s.key} className={cx("h-full transition-[width] duration-200 motion-reduce:transition-none", STATUS_BAR[s.tone] ?? STATUS_BAR.neutral)} style={{ width: `${(counter.by[s.key] / Math.max(1, counter.total)) * 100}%` }} />
+            <span key={s.key} className={cx("h-full transition-[width] duration-200 motion-reduce:transition-none", notYetSaved ? "bg-warn/35" : STATUS_BAR[s.tone] ?? STATUS_BAR.neutral)} style={{ width: `${(counter.by[s.key] / Math.max(1, counter.total)) * 100}%` }} />
           ))}
         </div>
       </div>
@@ -292,6 +302,11 @@ export function TakeSheet(p: Props) {
         </div>
       </div>
 
+      {/* Every letter with its full word, for phones with no hover (QA L6-35). The register uses HOL for a holiday. */}
+      <p className="-mt-2 mb-4 text-[12.5px] text-ink3 leading-relaxed" data-testid="sheet-key">
+        {p.statuses.map((s, i) => <span key={s.key} className="whitespace-nowrap">{i ? " · " : ""}<b className="text-ink2">{s.letter}</b> {tr.any(s.name)}</span>)}
+      </p>
+
       {problem && (
         <Banner tone="bad" role="alert" className="mb-4"
           action={problem.link ? <Link href={problem.link.href} className={buttonClass("secondary", "sm")}>{problem.link.label}</Link> : undefined}>
@@ -313,6 +328,8 @@ export function TakeSheet(p: Props) {
               <Avatar name={s.name} src={s.photoUrl} size={36} className="hidden sm:inline-grid" />
               <div className="min-w-0 flex-1">
                 <p className={cx("font-semibold text-[14.5px] truncate", isFixed && "text-ink2")}>{s.name}</p>
+                {/* Left on a gate pass: the register should not say "in all day" (QA L6-36). */}
+                {s.leftEarly && <p className="text-[12px] font-semibold text-warn">{tr("Left early {time} · consider Half-day", { time: s.leftEarly })}</p>}
                 <p className="text-[12px] text-ink3 truncate">
                   {isFixed ? <span className="text-info">{parts(s.leave!.note ?? `On approved leave · ${s.leave!.reason || s.leave!.typeName}`)}</span>
                     : p.reasons && isAbsent(v) ? (readOnly

@@ -17,6 +17,8 @@ import { Words, useT } from "@/lib/i18n/client";
 export type ApprovalRow = {
   id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
   status: { label: string; tone: BadgeTone }; waitingFor: string | null; decidable: boolean; overdue: boolean;
+  /** "by anjali, 14-11-2026 11:30 PM" once decided. */
+  decided?: string | null;
   /** The person may reject this kind of request: the list offers Reject, which opens the reason box on its page (QA LC15). */
   rejectable?: boolean;
   /** The asker's job ("Teacher, Science · Class teacher, Class 5 A") and the reason they gave. */
@@ -108,6 +110,7 @@ export function ApprovalList({ rows, paged = false, total = rows.length }: { row
                   {r.repeat && <Pill tone="warn"><Words k="Same as another waiting request" /></Pill>}
                   {/* Overdue already says it is waiting: one pill, not two (layman loop 4). */}
                   {!(r.overdue && r.status.label === "Waiting") && <Pill tone={r.status.tone}>{r.status.label}</Pill>}
+                  {r.decided && <span className="text-[12.5px] text-ink3 tnum">{r.decided}</span>}
                 </span>
               </Link>
             </div>

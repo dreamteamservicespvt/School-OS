@@ -43,6 +43,7 @@ import { ArchiveOvertime, ArchiveShift, AssignShiftForm, OvertimeForm, ShiftForm
 import { archiveOvertimeAction, archiveShiftAction, assignShiftAction, recordOvertimeAction, saveShiftAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { HOLIDAY_MARK } from "@/lib/attendance/letters";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Staff Attendance") };
@@ -439,7 +440,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
                           <Link href={qs({ staff: s.id })} scroll={false} className="hover:text-brand">{s.fullName}</Link> <span className="font-normal text-ink3 font-mono text-[11.5px]">{s.staffCode}</span>
                         </th>
                         {dates.map((d) => d.off
-                          ? <td key={d.iso} className="px-0.5 py-1 text-center" title={d.off}><span className="grid size-7 mx-auto place-items-center rounded-md bg-info/10 text-info text-[11px] font-bold">H</span><span className="sr-only">{d.off}</span></td>
+                          ? <td key={d.iso} className="px-0.5 py-1 text-center" title={d.off}><span className="grid size-7 mx-auto place-items-center rounded-md bg-info/10 text-info text-[11px] font-bold">{HOLIDAY_MARK}</span><span className="sr-only">{d.off}</span></td>
                           : <td key={d.iso} className="px-0.5 py-1 text-center"><Cell status={marks.get(d.iso) ? byKey.get(marks.get(d.iso)!) : undefined} label={`${s.fullName}, ${d.day}`} /></td>)}
                         <td className="px-2 text-right tnum">{p.present}</td>
                         <td className="px-2 text-right tnum">{p.late}</td>

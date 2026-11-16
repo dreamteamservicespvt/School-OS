@@ -188,7 +188,7 @@ const collectionChart: Widget<"panel"> = {
     return {
       slot: "main",
       panel: {
-        kind: "bars", title: "Fee collection", icon: "CreditCard",
+        kind: "bars", title: "Fees collected by month", icon: "CreditCard",
         // Each bar: share of the fees due so far that was collected by the end of that month.
         sub: year.due > ZERO ? `${formatRupeesShort(year.paid)} of ${formatRupeesShort(year.due)} due so far · ${Math.round(year.percent)}%` : `${c.year.name}: nothing due yet`,
         rows: months.map((m) => ({ key: m.key, label: m.label, value: pct(m.paidSoFar, m.dueSoFar) })),

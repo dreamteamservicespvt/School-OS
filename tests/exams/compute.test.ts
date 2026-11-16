@@ -4,7 +4,7 @@
 // final result with weights. Pure functions, no database.
 import { describe, expect, it } from "vitest";
 import { bandFor, checkBands, presetBands, type Band } from "@/lib/exams/grades";
-import { checkMark, examResult, finalResult, rankWithTies, subjectResult, typedTotal, type PaperInput, type PassRules } from "@/lib/exams/compute";
+import { checkMark, didNotPass, examResult, finalResult, isWeakResult, rankWithTies, subjectResult, typedTotal, type PaperInput, type PassRules } from "@/lib/exams/compute";
 import { checkValue } from "@/lib/exams/marks";
 
 const CBSE = presetBands("cbse")!;
@@ -180,5 +180,32 @@ describe("the total and grade shown while marks are typed (TEACHING-19)", () => 
     expect(typedTotal([{ name: "Marks", max: 20, value: 19 }], 20, CBSE)).toEqual({ total: 19, grade: "A1", valid: true });
     expect(typedTotal([{ name: "Theory", max: 80, value: 70 }, { name: "Internal", max: 20, value: 25 }], 100, CBSE).grade).toBe("");
     expect(typedTotal([{ name: "Theory", max: 80, value: 70 }, { name: "Internal", max: 20, value: 18.5 }], 100, CBSE)).toEqual({ total: 88.5, grade: "A2", valid: true });
+  });
+});
+
+// QA L6-31: grade-only papers (TELUGU A, A, B) were counted as 0%: the Dashboard said "below 50% or not
+// passing", and Results showed "average 0%" and "Passed 0 of 6". One rule (isWeakResult) for every screen.
+describe("grade-only results are never weak", () => {
+  const graded = (name: string, grade: string): PaperInput => ({ subjectId: name, name, max: 0, gradeOnly: true, marks: { total: null, absent: false, grade } });
+
+  it("a result of grade-only papers has no %, no outcome and is not weak", () => {
+    const r = examResult([graded("TELUGU", "A"), graded("SOCIAL", "B")], CBSE, RULES);
+    expect(r.complete).toBe(true);
+    expect(r.percent).toBeNull();
+    expect(r.outcome).toBeNull();
+    expect(isWeakResult(r)).toBe(false);
+    expect(didNotPass(r)).toBe(false);
+  });
+
+  it("marks below 50% or a fail are still weak; a grade-only paper beside marks does not change that", () => {
+    const low = examResult([paper("MATHS", 100, 40), graded("ART", "A")], CBSE, RULES);
+    expect(low.percent).toBe(40);
+    expect(isWeakResult(low)).toBe(true);
+    const good = examResult([paper("MATHS", 100, 80), graded("ART", "B")], CBSE, RULES);
+    expect(isWeakResult(good)).toBe(false);
+    const failed = examResult([paper("MATHS", 100, 20)], CBSE, RULES);
+    expect(failed.outcome).toBe("Fail");
+    expect(isWeakResult(failed)).toBe(true);
+    expect(didNotPass(failed)).toBe(true);
   });
 });

@@ -179,6 +179,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
             id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo, photoUrl: s.photoUrl, statusKey: s.statusKey, note: s.note,
             leave: s.leave ? { typeName: s.leave.typeName, halfDay: s.leave.halfDay, reason: s.leave.reason, note: leaveRowNote(s.leave, "leaves" in data ? data.leaves?.get(s.leave.id) : null) } : null,
             reason: s.reason ? { key: s.reason.key, label: s.reason.label, note: s.reason.note } : null,
+            leftEarly: s.leftEarly,
           }))}
           reasons={sheet.reasons}
           saved={sheet.saved}

@@ -113,6 +113,17 @@ export function subjectResult(p: PaperInput, bands: Band[], rules: PassRules): S
   return { ...base, marks, absent: false, grade: band?.grade ?? null, points: band?.points ?? null, percent, passed, grace, missing: false };
 }
 
+/**
+ * Below 50% or not passing: the one rule for "weak" used by the Dashboard card, Results ?weak=1,
+ * Analysis "need help" and Early Warnings (gap list G36). A result with no percentage (every paper
+ * grade-only, e.g. TELUGU A, A, B) is never weak: it has no marks to fall below 50% (QA L6-31).
+ */
+export const isWeakResult = (r: { outcome: string | null; percent: number | null }) =>
+  r.percent !== null && (r.outcome !== "Pass" || r.percent < 50);
+
+/** A worked-out result that did not pass (Fail or Compartment). Grade-only results have no outcome. */
+export const didNotPass = (r: { outcome: string | null }) => r.outcome !== null && r.outcome !== "Pass";
+
 /** A student's result for one exam. Incomplete results show what is missing and have no outcome. */
 export function examResult(papers: PaperInput[], bands: Band[], rules: PassRules): ExamResult {
   const subjects = papers.map((p) => subjectResult(p, bands, rules));

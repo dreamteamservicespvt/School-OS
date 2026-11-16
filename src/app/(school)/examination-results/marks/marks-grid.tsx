@@ -321,7 +321,7 @@ export function MarksGrid(props: Props) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className={cx("font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight", one && "max-md:text-[18px]")}>{head.title}</h1>
-                <span className={cx("contents", one && "max-md:hidden")}>{gradeOnly ? <Pill tone={allSubmitted ? "ok" : canEdit ? "warn" : "neutral"}><Words k="Graded" /></Pill> : cats.map(catPill)}</span>
+                <span className={cx("contents", one && "max-md:hidden")}>{gradeOnly ? <Pill tone={allSubmitted ? "ok" : canEdit ? "warn" : "neutral"}><Words k="Grade paper" /></Pill> : cats.map(catPill)}</span>
               </div>
               <p className={cx("text-[13.5px] text-ink3 mt-0.5", one && "max-md:hidden")}>{head.examTitle} <Words k="· paper" /> {screenMessage(t, head.paperOn)} · {t.any(head.teachers)} · {students.length === 1 ? t("1 student") : t("{n} students", { n: students.length })}{head.dueText ? ` · ${t("marks due {date}", { date: head.dueText })}` : ""}</p>
             </div>
@@ -345,8 +345,9 @@ export function MarksGrid(props: Props) {
                 Next fit on the first screen (layman loop 3). */}
             {view === "one" && <p className="md:hidden px-1 text-[13px] text-ink3 tnum">{gradeOnly ? <Words k="Graded {n} of {n2}" vars={{ n: done, n2: students.length }} /> : <Words k="Entered {n} of {n2}" vars={{ n: done, n2: students.length }} />} · AB {ab} · ML {ml}{canEdit && head.overdue ? <> · <b className="font-semibold text-bad"><Words k="Overdue" /></b></> : null}</p>}
             <Stats className={view === "one" ? "hidden md:block" : undefined} items={[
-              { label: gradeOnly ? "Graded" : "Entered", value: `${done} of ${students.length}`, tone: done === students.length ? "ok" : undefined, icon: ListChecks },
-              { label: "Absent (AB)", value: ab, sub: props.absentRule === "leave-out" ? "Left out of the total" : "Counted as 0 marks", icon: UserX },
+              { label: "Entered", value: `${done} of ${students.length}`, tone: done === students.length ? "ok" : undefined, icon: ListChecks },
+              // A grade paper has no marks: "Counted as 0 marks" was wrong there, and "Graded" also named the paper type (QA L6-51).
+              { label: "Absent (AB)", value: ab, sub: gradeOnly ? "Absent: no grade" : props.absentRule === "leave-out" ? "Left out of the total" : "Counted as 0 marks", icon: UserX },
               { label: "Medical (ML)", value: ml, sub: "Left out of the total", icon: Stethoscope },
               problems.length
                 ? { label: "Need a fix", value: problems.length, tone: "bad", icon: TriangleAlert }

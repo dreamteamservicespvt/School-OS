@@ -310,7 +310,8 @@ export async function restoreHomework(tx: Tx, s: HomeworkScope, id: string) {
 
 // ---------------------------------------------------------------- counts and lists
 
-export type Counts = { assigned: number; submitted: number; graded: number; toCheck: number; late: number; notIn: number; excused: number; left: number };
+/** notGiven: students in the class now who have no copy of a whole-class homework (joined after it was given; QA L6-37). */
+export type Counts = { assigned: number; submitted: number; graded: number; toCheck: number; late: number; notIn: number; excused: number; left: number; notGiven: number };
 
 /**
  * Submission counts per homework, all from the submissions table so the card and the table always agree (17 §9.3).
@@ -320,7 +321,12 @@ export type Counts = { assigned: number; submitted: number; graded: number; toCh
 export async function countsFor(tx: Tx, ids: string[]): Promise<Map<string, Counts>> {
   // campus: pinned to homework this person already read.
   const rows = ids.length ? await tx.submission.findMany({ where: { homeworkId: { in: ids }, archivedAt: null }, select: { homeworkId: true, studentId: true, status: true } }) : [];
-  const hws = rows.length ? await tx.homework.findMany({ where: { id: { in: ids } }, select: { id: true, sectionId: true, academicYearId: true } }) : [];
+  const hws = rows.length ? await tx.homework.findMany({ where: { id: { in: ids } }, select: { id: true, sectionId: true, academicYearId: true, givenTo: true } }) : [];
+  // campus: the sections of homework this person already read.
+  const classNow = hws.length ? await tx.enrolment.findMany({
+    where: { sectionId: { in: [...new Set(hws.map((h) => h.sectionId))] }, academicYearId: { in: [...new Set(hws.map((h) => h.academicYearId))] }, archivedAt: null, status: { not: "LEFT" }, student: { archivedAt: null } },
+    select: { studentId: true, sectionId: true, academicYearId: true },
+  }) : [];
   // campus: pinned to the students of those submissions.
   const enrolled = rows.length ? await tx.enrolment.findMany({
     where: { studentId: { in: [...new Set(rows.map((r) => r.studentId))] }, academicYearId: { in: [...new Set(hws.map((h) => h.academicYearId))] }, archivedAt: null, status: { not: "LEFT" }, student: { archivedAt: null } },
@@ -329,7 +335,7 @@ export async function countsFor(tx: Tx, ids: string[]): Promise<Map<string, Coun
   const inClass = new Set(enrolled.map((e) => `${e.studentId}|${e.sectionId}|${e.academicYearId}`));
   const hwById = new Map(hws.map((h) => [h.id, h]));
   const out = new Map<string, Counts>();
-  for (const id of ids) out.set(id, { assigned: 0, submitted: 0, graded: 0, toCheck: 0, late: 0, notIn: 0, excused: 0, left: 0 });
+  for (const id of ids) out.set(id, { assigned: 0, submitted: 0, graded: 0, toCheck: 0, late: 0, notIn: 0, excused: 0, left: 0, notGiven: 0 });
   for (const r of rows) {
     const c = out.get(r.homeworkId)!;
     const h = hwById.get(r.homeworkId);
@@ -341,6 +347,11 @@ export async function countsFor(tx: Tx, ids: string[]): Promise<Map<string, Coun
     if ((TO_CHECK as readonly string[]).includes(r.status)) c.toCheck += 1;
     if (r.status === "LATE") c.late += 1;
     if (r.status === "ASSIGNED" || r.status === "MISSING") c.notIn += 1;
+  }
+  const has = new Set(rows.map((r) => `${r.homeworkId}|${r.studentId}`));
+  for (const h of hws) {
+    if (h.givenTo === "STUDENTS") continue;
+    out.get(h.id)!.notGiven = classNow.filter((e) => e.sectionId === h.sectionId && e.academicYearId === h.academicYearId && !has.has(`${h.id}|${e.studentId}`)).length;
   }
   return out;
 }

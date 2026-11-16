@@ -81,9 +81,17 @@ const noStructure: Widget<"attention"> = {
     // Salary Structures (payrollCoverage): this month's payroll of each campus in reach, a structure for this month.
     const month = firstOfMonth(c.today);
     const campusIds = c.viewer.campusId ? [c.viewer.campusId] : (await c.tx.campus.findMany({ where: { archivedAt: null }, select: { id: true } })).map((x) => x.id);
-    const missing = (await Promise.all(campusIds.map((id) => payrollCoverage(c.tx, id, month)))).flatMap((x) => x.missing);
-    if (!missing.length) return null;
-    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of ${MONTH(month)} salary until one is added.`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
+    const all = (await Promise.all(campusIds.map((id) => payrollCoverage(c.tx, id, month)))).flatMap((x) => x.missing);
+    if (!all.length) return null;
+    // Count the staff on roll, as Staff & HR does ("6 staff on roll"); people who left this month are still on
+    // its payroll for their last days, so they are named apart, not added to the count (QA L6-56: 9 here, 6 on roll).
+    // campus: the ids come from payrollCoverage of the campuses in reach.
+    const onRoll = new Set((await c.tx.staff.findMany({ where: { id: { in: all.map((s) => s.id) }, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, select: { id: true } })).map((s) => s.id));
+    const missing = all.filter((s) => onRoll.has(s.id));
+    const leavers = all.length - missing.length;
+    const leftWords = leavers ? ` Also ${plural(leavers, "person", "people")} who left this month.` : "";
+    if (!missing.length) return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(leavers, "staff member")} who left this month ${leavers === 1 ? "has" : "have"} no salary structure`, detail: `${all.slice(0, 2).map((s) => s.fullName).join(", ")}${leavers > 2 ? ` and ${n(leavers - 2)} more` : ""}: their last salary for ${MONTH(month)} needs one.`, action: "Add", href: `${BASE}/structures`, value: String(leavers) };
+    return { id: "salary.no-structure", tone: "warn", icon: "FileWarning", title: `${plural(missing.length, "staff member")} ${missing.length === 1 ? "has" : "have"} no salary structure`, detail: `${missing.slice(0, 2).map((s) => s.fullName).join(", ")}${missing.length > 2 ? ` and ${n(missing.length - 2)} more` : ""}: left out of ${MONTH(month)} salary until one is added.${leftWords}`, action: "Add", href: `${BASE}/structures`, value: String(missing.length) };
   },
 };
 

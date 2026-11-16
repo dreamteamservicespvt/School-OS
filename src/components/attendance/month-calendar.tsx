@@ -7,6 +7,7 @@
 import { cx } from "@/components/ui/cx";
 import { MonthSelect } from "./month-select";
 import { englishT, type T } from "@/lib/i18n/t";
+import { HOLIDAY_MARK } from "@/lib/attendance/letters";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** "October 2026" with the month in the page's language. */
@@ -67,14 +68,14 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
             <div key={c.date} role="gridcell" title={title} aria-label={`${c.day}: ${title || t("Not yet")}`}
               className={cx("rounded-lg flex flex-col items-center justify-center tnum", compact ? "aspect-square text-[12.5px]" : "h-12 sm:h-14", cls, c.date === todayIso && "ring-2 ring-brand/50")}>
               <span className={compact ? "" : "text-[11px] opacity-80"}>{c.day}</span>
-              {!compact && <span className="text-[12.5px] font-bold leading-none mt-0.5">{holiday ? "H" : st && !c.off ? st.letter : ""}</span>}
+              {!compact && <span className="text-[12.5px] font-bold leading-none mt-0.5">{holiday ? HOLIDAY_MARK : st && !c.off ? st.letter : ""}</span>}
             </div>
           );
         })}
       </div>
       <ul aria-label={t("Colour legend")} className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-ink2">
         {legend.map((x) => <li key={x.key} className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("min-w-4 h-4 px-0.5 rounded grid place-items-center text-[9px] font-bold", calendarCell(x))}>{x.letter}</span>{statusName(x)}</li>)}
-        {view.cells.some((c) => c.off && c.off !== "Sunday") && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-4 h-4 rounded grid place-items-center text-[9px] font-bold bg-info/10 text-info">H</span>{t("School closed")}</li>}
+        {view.cells.some((c) => c.off && c.off !== "Sunday") && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-4 min-w-4 px-0.5 rounded grid place-items-center text-[9px] font-bold bg-info/10 text-info">{HOLIDAY_MARK}</span>{t("School closed")}</li>}
         {unmarked && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-4 h-4 rounded border border-dashed border-line" />{t("Not marked yet")}</li>}
       </ul>
       {note}

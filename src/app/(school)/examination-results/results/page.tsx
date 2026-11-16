@@ -10,7 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { plural, wordList } from "@/lib/academic/common";
 import { examKey, finalKey, PAPER_STATUS_TONE, PAPER_STATUS_WORDS, showMarks, showPercent } from "@/lib/exams/common";
 import { examSettings } from "@/lib/exams/settings";
-import { bandsFor, finalSheet, isWeakResult, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
+import { bandsFor, didNotPass, finalSheet, isWeakResult, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
 import { resultSubjects, teachesPaper } from "@/lib/exams/scope";
 import { sectionStudents } from "@/lib/exams/roster";
 import type { Band } from "@/lib/exams/grades";
@@ -139,10 +139,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const rows = allRows.filter((r) => (!q || r.name.toLowerCase().includes(q) || String(r.rollNo ?? "") === q) && (!weak || (r.complete && isWeakResult(r))));
   const name = (id: string | null) => data.people.find((p) => p.id === id)?.displayName ?? "";
   const complete = allRows.filter((r) => r.complete);
-  const pct = complete.map((r) => r.percent ?? 0);
-  const passed = complete.filter((r) => r.outcome === "Pass").length;
-  const best = [...complete].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
-  const failing = complete.filter((r) => r.outcome && r.outcome !== "Pass").length;
+  // Grade-only results (every paper graded A, B, C...) have no % and no pass or fail, so the
+  // average, "Passed" and "Did not pass" count only results with marks and always add up (QA L6-31).
+  const scored = complete.filter((r) => r.percent !== null);
+  const gradesOnly = complete.length > 0 && scored.length === 0;
+  const pct = scored.map((r) => r.percent!);
+  const passed = scored.filter((r) => r.outcome === "Pass").length;
+  const best = [...scored].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
+  const failing = scored.filter(didNotPass).length;
   const absentAny = allRows.filter((r) => Object.values(r.cells).some((c) => c.absent && !c.medical)).length;
   const studentsIn = (id: string) => data.roster.filter((x) => x === id).length;
   const publishSections = data.ready.map((r) => ({ id: r.sectionId, label: r.label, ready: r.ready, problems: r.problems, published: r.published, scheduled: r.scheduled ? formatDateTime(r.scheduled.publishOn, tz) : null, students: studentsIn(r.sectionId) || 0 }));
@@ -226,7 +230,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       : r.outcome === "Fail" ? { text: `Fail${failedIn.length ? ` · ${failedIn.join(", ")}` : ""}`, tone: "bad" as const }
       : { text: r.outcome ?? "", tone: "warn" as const };
     return {
-      id: r.studentId, roll: r.rollNo, name: r.name, cells, total: r.complete ? `${showMarks(r.total)}/${showMarks(r.maxTotal)}` : "—", percent: r.complete ? showPercent(r.percent) : "—",
+      id: r.studentId, roll: r.rollNo, name: r.name, cells, total: r.complete && r.maxTotal > 0 ? `${showMarks(r.total)}/${showMarks(r.maxTotal)}` : "—", percent: r.complete && r.percent !== null ? showPercent(r.percent) : "—",
       grade: r.complete ? r.grade : null, gradeTone: toneOf(r.grade, bands), rank: r.complete ? r.rank : null, result, profile: `/student-management/students/${r.studentId}`,
     };
   });
@@ -291,10 +295,14 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
           ]} />
         )}
 
-        {!only && complete.length > 0 && (
+        {!only && gradesOnly && (
+          <Card className="px-4 py-3 text-[14px] text-ink2 flex items-center gap-2"><CircleCheck size={18} className="text-ok shrink-0" aria-hidden="true" /><span><Words k="Grade-only papers: no marks, %, pass or fail. See each student's grades below." /> <span className="tnum">({complete.length} of {allRows.length} complete)</span></span></Card>
+        )}
+
+        {!only && scored.length > 0 && (
           <Stats items={[
             { label: "Class average", value: pct.length ? showPercent(Math.round((pct.reduce((a, b) => a + b, 0) / pct.length) * 10) / 10) : "—", sub: `${complete.length} of ${allRows.length} complete`, icon: Calculator },
-            { label: "Passed", value: `${passed} of ${complete.length}`, sub: `${data.settings.passPercentSubject}% in every subject`, tone: complete.length && passed === complete.length ? "ok" : undefined, icon: CircleCheck },
+            { label: "Passed", value: `${passed} of ${scored.length}`, sub: `${data.settings.passPercentSubject}% in every subject`, tone: scored.length && passed === scored.length ? "ok" : undefined, icon: CircleCheck },
             { label: "Highest", value: best ? showPercent(best.percent) : "—", sub: best?.name, tone: best ? "ok" : undefined, icon: Trophy },
             { label: "Did not pass", value: failing, sub: final ? "In the final result" : `${plural(absentAny, "student")} absent for a paper`, tone: failing ? "warn" : undefined, icon: failing ? TriangleAlert : CircleX },
           ]} />

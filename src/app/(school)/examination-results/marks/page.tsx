@@ -131,7 +131,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                     return (
                       <li key={`${r.entryId}-${r.sectionId}`}>
                         <Link href={href(r)} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-sunken/70 transition text-left">
-                          <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 font-semibold text-[13px]", TONE_SOFT[PAPER_STATUS_TONE[r.status]])}>{r.sectionLabel.replace(/^Class /, "")}</span>
+                          <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 font-semibold text-[13px] whitespace-nowrap", TONE_SOFT[PAPER_STATUS_TONE[r.status]])}>{/* "class 2 A" wrapped in the 44 px tile: the label is lower case now (QA L6-45). */ r.sectionLabel.replace(/^class /i, "")}</span>
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-[14.5px] truncate">{r.subjectName} · {r.sectionLabel}</p>
                             {/* Wraps, so "Overdue" is never cut off on a phone (layman test, 390 px). */}

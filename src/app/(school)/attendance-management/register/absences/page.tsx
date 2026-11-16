@@ -10,6 +10,7 @@ import { absentList, mayOpenAbsentList, reasonChoices, REASONS_FEATURE, SOURCE_W
 import { registerChoices } from "@/lib/attendance/register";
 import { dayText } from "@/lib/attendance/marks";
 import { staffDay } from "@/lib/attendance/staff";
+import { classWise } from "@/lib/attendance/classwise";
 import { dayInfo } from "@/lib/attendance/calendar";
 import { isoDay } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
@@ -69,7 +70,14 @@ export default async function AbsentListPage({ searchParams }: Props) {
       staffOut = all.filter((r) => r.mark?.statusKey === "absent" || (info.on && !r.mark && !r.onLeave))
         .map((r) => ({ id: r.staffId, name: r.name, designation: r.designation, marked: Boolean(r.mark) }));
     }
-    return { sections, rows, staffOut };
+    // Classes that have not taken attendance on this day come first: "Nobody absent" is only true for
+    // classes that are marked (QA L6-53: the principal was told everyone was present before any class marked).
+    const wanted = sectionId ? [sectionId] : sections.map((s) => s.id);
+    const cw = wanted.length && access.yearIds.length
+      ? await classWise(tx, current.ctx, { yearId: access.yearIds, from: date, to: date, today, sectionIds: wanted, campusId: access.campusId })
+      : null;
+    const notTaken = (cw?.sections ?? []).filter((x) => x.notMarked).map((x) => ({ id: x.sectionId, name: x.name, teacher: x.teacher?.name ?? null }));
+    return { sections, rows, staffOut, notTaken, marked: (cw?.sections ?? []).filter((x) => !x.notMarked).length };
   });
   const wantedReason = !on ? "" : reasonFilter === "none" ? "not-known" : reasonFilter;
   const rows = wantedReason ? data.rows.filter((r) => r.reason?.key === wantedReason) : data.rows;
@@ -104,6 +112,17 @@ export default async function AbsentListPage({ searchParams }: Props) {
               { label: "Absent", value: data.rows.length, sub: isToday ? "Today" : dayText(date), icon: UserX, tone: data.rows.length ? "bad" : undefined },
               ...(on ? [{ label: "Reason not known yet", value: notKnown, sub: "Call the family or wait for their reply", icon: CalendarX2, tone: notKnown ? "warn" as const : undefined }] : []),
             ]} />
+            {data.notTaken.length > 0 && (
+              <Card className="px-4 py-3 border-warn/40 bg-warn/8" role="status">
+                <p className="font-semibold text-[14.5px] flex items-center gap-2"><CalendarX2 size={18} className="text-warn shrink-0" aria-hidden="true" /><Words k="Attendance not taken yet" />: {data.notTaken.length}</p>
+                <ul className="mt-1.5 text-[14px] text-ink2 flex flex-col gap-0.5">
+                  {data.notTaken.map((x) => (
+                    <li key={x.id}><Words k="class" /> {x.name} · {x.teacher ?? <Words k="no class teacher" />}</li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[13px] text-ink3"><Words k="Students in these classes are not in the absent list until attendance is saved." /></p>
+              </Card>
+            )}
             <Card className="overflow-hidden">
               <DataList rows={rows} rowKey={(r) => r.studentId} caption={`Absent students, ${dayText(date)}`} minWidth={820}
                 columns={[
@@ -124,8 +143,8 @@ export default async function AbsentListPage({ searchParams }: Props) {
                     current={r.reason?.key ?? null} note={r.reason?.note ?? null} />
                 ) : null}
                 mobile={(r) => ({ avatar: r.name, title: r.name, sub: on ? `${r.className} · ${r.reason?.label ?? "Not known yet"}${r.reason?.note ? ` · ${r.reason.note}` : ""}` : `${r.className} · ${r.statusName}` })}
-                empty={<EmptyState bare title={reasonFilter ? "Nobody with this reason" : "Nobody absent"} Icon={UserX}>
-                  {reasonFilter ? "Choose Any reason to see everyone absent on this day." : `No student is marked absent on ${dayText(date)} in your classes.`}
+                empty={<EmptyState bare title={reasonFilter ? "Nobody with this reason" : data.notTaken.length && !data.marked ? "No class has taken attendance yet" : "Nobody absent"} Icon={UserX}>
+                  {reasonFilter ? "Choose Any reason to see everyone absent on this day." : data.notTaken.length && !data.marked ? "Who is absent shows here once classes save attendance." : data.notTaken.length ? `No student is marked absent on ${dayText(date)} in the classes that took attendance.` : `No student is marked absent on ${dayText(date)} in your classes.`}
                 </EmptyState>} />
             </Card>
             {data.staffOut && (

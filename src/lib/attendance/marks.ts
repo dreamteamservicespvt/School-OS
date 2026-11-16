@@ -145,6 +145,8 @@ export type SheetStudent = {
   leave: { id: string; typeName: string; halfDay: boolean; reason: string | null } | null;
   /** The absence reason as this person may see it (absence reasons on, absent marks only). */
   reason: ShownReason | null;
+  /** "4:48 PM": the child left early on a gate pass that day (QA L6-36), so the register is not "in all day". */
+  leftEarly: string | null;
 };
 
 export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { sectionId: string; date: Date; periodNo: number; now: Date; timeZone: string }) {
@@ -161,6 +163,17 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
     tx.attendanceSubmission.findFirst({ where: { sectionId: section.id, date: input.date, periodNo: input.periodNo, outcome: "saved" }, orderBy: { receivedAt: "desc" } }),
   ]);
   const leaves = await studentLeavesOn(tx, students.map((s) => s.studentId), input.date);
+  // campus: the students of this section (read above).
+  const passes = await tx.gatePass.findMany({
+    where: { studentId: { in: students.map((s) => s.studentId) }, status: "LEFT", leftAt: { gte: new Date(input.date.getTime() - 86_400_000), lt: new Date(input.date.getTime() + 2 * 86_400_000) }, outingType: null },
+    select: { studentId: true, leftAt: true }, orderBy: { leftAt: "asc" },
+  });
+  const day = input.date.toISOString().slice(0, 10);
+  const leftEarly = new Map<string, string>();
+  for (const g of passes) {
+    if (!g.leftAt || leftEarly.has(g.studentId) || g.leftAt.toLocaleDateString("en-CA", { timeZone: input.timeZone }) !== day) continue;
+    leftEarly.set(g.studentId, g.leftAt.toLocaleTimeString("en-IN", { timeZone: input.timeZone, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase());
+  }
   const byStudent = new Map(marks.map((m) => [m.studentId!, m]));
   const sheet: SheetStudent[] = students.map((s) => {
     const m = byStudent.get(s.studentId);
@@ -169,6 +182,7 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       photoUrl: settings.showPhotos && s.photoFileId ? fileLink(s.photoFileId, ctx.schoolId) : null,
       statusKey: m?.statusKey ?? null, note: m?.note ?? null, method: m?.method ?? null, leave: leaves.get(s.studentId) ?? null,
       reason: reasonsOn && m ? shownReason(m, access.seesFees) : null,
+      leftEarly: leftEarly.get(s.studentId) ?? null,
     };
   });
   const savedBy = lastSubmission?.submittedById ? await tx.userLogin.findUnique({ where: { id: lastSubmission.submittedById }, select: { displayName: true } }) : null;

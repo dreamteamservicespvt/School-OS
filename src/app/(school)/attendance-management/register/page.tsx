@@ -36,6 +36,7 @@ import { cellClass, Legend, type StatusView } from "../_components/status";
 import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { HOLIDAY_MARK } from "@/lib/attendance/letters";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Attendance Register") };
@@ -45,6 +46,8 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 const ym = (d: Date) => isoDay(d).slice(0, 7);
 const HOLIDAY_CELL = "bg-info/10 text-info";
+/** Fewer marked days than this: the % shows without red or amber. */
+const MIN_DAYS_FOR_COLOUR = 5;
 const CORE = ["present", "absent", "late", "leave"];
 
 export default async function RegisterPage({ searchParams }: Props) {
@@ -187,15 +190,17 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
   const legend = statuses.filter((s) => CORE.includes(s.key) || used.has(s.key));
   // On the register today (as Take Attendance and the Dashboard count); a status filter counts the rows it shows (LA3).
   const headCount = statusFilter ? grid.rows.length : grid.onRoll;
+  // Days with any mark: "94.3% present" over 12 school days read as a full month when only 3 were marked (QA L6-50).
+  const markedDays = shown.filter((d) => !d.off && grid.rows.some((r) => r.days[d.iso])).length;
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
         <div>
           <h2 className="font-semibold">{grid.label}</h2>
-          <p className="text-[13px] text-ink3">{grid.section.name} · {headCount} {headCount === 1 ? "student" : "students"} · {grid.workingDays} <Words k="school" /> {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} <Words k="present" /></p>
+          <p className="text-[13px] text-ink3">{grid.section.name} · {headCount} {headCount === 1 ? "student" : "students"} · {grid.workingDays} <Words k="school" /> {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""}{markedDays < grid.workingDays ? <> · <span className="text-warn"><Words k="{n} of {total} days marked" vars={{ n: markedDays, total: grid.workingDays }} /></span></> : null} · {percentText(grid.overall.percent)} <Words k="present" /></p>
         </div>
         <Legend statuses={legend} extra={<>
-          {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span><Words k="Holiday" /></li>}
+          {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("h-4 min-w-4 px-0.5 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>{HOLIDAY_MARK}</span><Words k="Holiday" /></li>}
           {anyNotKnown && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-warn" /><Words k="Reason not known yet" /></li>}
         </>} />
       </div>
@@ -225,6 +230,8 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
             <tbody>
               {grid.rows.map((r) => {
                 const p = r.summary.percent;
+                // Red only once enough days are marked: 50% from 2 marked days alarmed teachers (QA L6-50).
+                const enough = r.summary.markedDays >= MIN_DAYS_FOR_COLOUR;
                 return (
                   <tr key={r.id} className="group">
                     <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-1.5 font-medium text-left whitespace-nowrap border-b border-line/60 group-last:border-0">
@@ -233,7 +240,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
                     </th>
                     {shown.map((d) => {
                       const label = `${r.name}, ${d.day} ${grid.label}`;
-                      if (d.off) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={d.off} className={cx("inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold", HOLIDAY_CELL)}><span aria-hidden="true">H</span><span className="sr-only">{label}: {d.off}</span></span></td>;
+                      if (d.off) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={d.off} className={cx("inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold", HOLIDAY_CELL)}><span aria-hidden="true">{HOLIDAY_MARK}</span><span className="sr-only">{label}: {d.off}</span></span></td>;
                       const key = r.days[d.iso];
                       // Before the day they moved in, the student was in another section: nothing to mark here (self-test B7).
                       if (!key && r.from && d.iso < r.from) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={`${label}: not in this section yet`} className="inline-grid place-items-center w-7 h-7 text-ink3/60" aria-hidden="true">–</span><span className="sr-only">{label}: not in this section yet</span></td>;
@@ -251,7 +258,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
                         </td>
                       );
                     })}
-                    <td className={cx("px-4 text-right font-semibold tnum border-b border-line/60 group-last:border-0", p !== null && p < threshold ? "text-bad" : p !== null && p < 85 && "text-warn")}>{percentText(p)}</td>
+                    <td className={cx("px-4 text-right font-semibold tnum border-b border-line/60 group-last:border-0", !enough ? "text-ink2" : p !== null && p < threshold ? "text-bad" : p !== null && p < 85 && "text-warn")} title={!enough && p !== null ? `${r.summary.markedDays} days marked` : undefined}>{percentText(p)}{!enough && p !== null && <span className="block text-[11px] font-normal text-ink3"><Words k="{n} days marked" vars={{ n: r.summary.markedDays }} /></span>}</td>
                   </tr>
                 );
               })}
@@ -289,7 +296,7 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
             <p className="text-[13px] text-ink3">{sectionName} · {s.cal.label} <Words k="· Admission no." /> {s.row.admissionNo}</p>
           </div>
           <Legend statuses={statuses.filter((x) => CORE.includes(x.key) || s.cal.cells.some((c) => c.statusKey === x.key))}
-            extra={s.cal.cells.some((c) => c.off && c.off !== "Sunday") ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span><Words k="Holiday" /></li> : undefined} />
+            extra={s.cal.cells.some((c) => c.off && c.off !== "Sunday") ? <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("h-4 min-w-4 px-0.5 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>{HOLIDAY_MARK}</span><Words k="Holiday" /></li> : undefined} />
         </div>
         <div className="px-3 sm:px-5 pb-5">
           <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center" role="grid" aria-label={`${s.row.name}, ${s.cal.label}`}>
@@ -301,7 +308,7 @@ function StudentCalendar({ s, byKey, statuses, sectionName, yearName, cellHref, 
               const body = (
                 <>
                   <span className="text-[11.5px] opacity-80 tnum">{c.day}</span>
-                  <span className="text-[13px] font-bold">{c.off ? (c.off === "Sunday" ? "" : "H") : st ? st.letter : ""}</span>
+                  <span className="text-[13px] font-bold">{c.off ? (c.off === "Sunday" ? "" : HOLIDAY_MARK) : st ? st.letter : ""}</span>
                   <span className="sr-only">{c.off ? c.off : st ? st.name : c.future ? "Not yet" : "Not marked"}</span>
                 </>
               );

@@ -80,7 +80,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     // The list's Reject button only where the details page offers Reject (QA LC15).
     const rejectable = new Set<string>();
     for (const type of new Set(rows.filter((r) => decidable.has(r.id)).map((r) => r.type))) if (await mayReject(tx, current.ctx, type)) rejectable.add(type);
-    const ids = [...new Set(rows.flatMap((r) => [r.askedById, r.currentApproverId].filter((x): x is string => Boolean(x))))];
+    const ids = [...new Set(rows.flatMap((r) => [r.askedById, r.currentApproverId, r.decidedById].filter((x): x is string => Boolean(x))))];
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const roles = await schoolRoles(tx, current.ctx, { select: { key: true, name: true } });
     const jobs = await askerJobs(tx, rows.map((r) => r.askedById));
@@ -151,6 +151,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       askedByName: data.people.get(a.askedById) ?? current.user.displayName,
       asked: formatDateTime(a.createdAt, tz),
       status: statusWords(a.status, a.history),
+      // Who decided and when, on the list itself (QA L6-60: each request had to be opened to see who approved a refund).
+      decided: !open && a.decidedAt ? `by ${a.decidedById === current.user.id ? "you" : (a.decidedById && data.people.get(a.decidedById)) || "the approver"}, ${formatDateTime(a.decidedAt, tz)}` : null,
       // The reader who must decide is "you", whether it waits for them by name or by their role.
       waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? (decidable && myRoles.has(a.currentApproverRole) ? "you" : `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}`) : null) : null,
       decidable,

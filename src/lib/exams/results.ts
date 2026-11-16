@@ -501,11 +501,8 @@ export function resultsLink(key: string, sectionId?: string) {
 // ---------- Reading ----------
 
 export type SheetColumn = { id: string; name: string; max: number; gradeOnly: boolean; entryId: string | null };
-/**
- * Below 50% or not passing: the Dashboard's "students below 50% or not passing" card counts these
- * among complete results, and Results lists them with ?weak=1 (gap list G36).
- */
-export const isWeakResult = (r: { outcome: string | null; percent: number | null }) => r.outcome !== "Pass" || (r.percent ?? 0) < 50;
+/** Below 50% or not passing (one rule, in compute.ts; QA L6-31). */
+export { isWeakResult, didNotPass } from "./compute";
 
 export type SheetRow = {
   studentId: string; name: string; rollNo: number | null; admissionNo: string;

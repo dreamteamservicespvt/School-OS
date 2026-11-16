@@ -90,6 +90,17 @@ export function myStaff(c: DashContext) {
   return c.memo("staff", () => staffForUser(c.tx, c.viewer.ctx));
 }
 
+/**
+ * Staff on approved full-day leave today, read once (half-day leave keeps the day's duties). One rule for the
+ * teacher's own "you are on leave" items and the principal's "cover needed" ones (QA L6-32, L6-54).
+ */
+export function awayToday(c: DashContext) {
+  return c.memo("away-today", async () => new Set((await c.tx.leaveRequest.findMany({
+    where: { schoolId: c.viewer.ctx.schoolId, status: "APPROVED", archivedAt: null, halfDay: false, staffId: { not: null }, fromDate: { lte: c.today }, toDate: { gte: c.today } },
+    select: { staffId: true },
+  })).map((r) => r.staffId!)));
+}
+
 /** Sections the person teaches or is class teacher of, this year. */
 export function mySections(c: DashContext) {
   return c.memo("own-sections", async () => (c.year ? ownSectionIds(c.tx, c.viewer.ctx, c.year.id) : []));

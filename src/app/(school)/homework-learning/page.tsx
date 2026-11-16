@@ -52,7 +52,7 @@ async function giveSections(tx: Tx, p: HomeworkPage): Promise<GiveSection[]> {
     const subs = [];
     for (const x of subjects) {
       const next = await nextClassDay(tx, p.current.ctx, sec.id, x.id, p.today);
-      subs.push({ id: x.id, name: x.name, next: { date: iso(next.date), words: next.words } });
+      subs.push({ id: x.id, name: x.name, next: { date: iso(next.date), words: next.words, fromTimetable: next.fromTimetable } });
     }
     const tomorrow = await nextWorkingDay(tx, p.current.ctx, sec.id, p.today);
     // The section's own year: in a school with two campuses, each campus has its own.
@@ -126,9 +126,13 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     ? `${check === "piling" ? tr("Work to check of teachers with {n} or more pieces", { n: PILING_UP }) : tr("Work to check")} · ${pieces === 1 ? tr("1 piece in {what}", { what: hwCount }) : tr("{n} pieces in {what}", { n: pieces, what: hwCount })}`
     : `${tr("Showing: {what}", { what: perWords })}${range ? ` · ${range}` : ""} · ${hwCount}`;
   const subjectsTaught = [...new Set(data.all.filter((r) => mayWork(s, r)).map((r) => r.subject))];
-  const classesTaught = [...new Set(s.pairs.map((x) => data.all.find((r) => r.sectionId === x.sectionId)?.sectionLabel).filter(Boolean))];
+  // Classes are named only when every class the teacher teaches is known here: a class with no homework yet
+  // was left out, and "SOCIAL · 2 A" looked as if 1 A was missing (QA L6-52).
+  const pairSections = [...new Set(s.pairs.map((x) => x.sectionId))];
+  const classesTaught = pairSections.map((id) => data.all.find((r) => r.sectionId === id)?.sectionLabel);
+  const allKnown = classesTaught.length > 0 && classesTaught.every(Boolean);
   const sub = mine
-    ? `${subjectsTaught.length ? subjectsTaught.join(", ") : tr("Your subjects")}${classesTaught.length ? ` · ${classesTaught.join(", ")}` : ""} · ${tr("only your classes and subjects")}`
+    ? `${subjectsTaught.length ? subjectsTaught.join(", ") : tr("Your subjects")}${allKnown ? ` · ${classesTaught.join(", ")}` : ""} · ${tr("only your classes and subjects")}`
     : `${tr("Homework given across the school")} · ${perWords.toLowerCase()}`;
   const menu = (r: HomeworkRow) => (
     <CardMenu detail={`${BASE}/homework/${r.id}`} edit={editsHere && mayWork(s, r) && !r.archived ? here({ do: "edit", id: r.id }) : undefined} archive={editsHere && mayWork(s, r) && !r.archived ? here({ do: "archive", id: r.id }) : undefined} />
@@ -140,7 +144,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink>} />
       <Stack>
         <Band items={[
-          { label: `${tr("Current")} · ${perWords.toLowerCase()}`, big: String(t.given), foot: tr(t.classes === 1 ? "{n} pieces of work for 1 class" : "{n} pieces of work for {n2} classes", { n: t.assigned, n2: t.classes }) },
+          { label: `${tr("Current")} · ${perWords.toLowerCase()}`, big: String(t.given), foot: tr(t.classes === 1 ? "{n} students given homework in 1 class" : "{n} students given homework in {n2} classes", { n: t.assigned, n2: t.classes }) },
           // Each tile says which homework it counts: "0% handed in" (current work, not due yet) sat next to
           // "72 to check" (older work) with nothing to say why (layman loop 5).
           { label: "Handed in · current", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
@@ -195,6 +199,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                       </div>
                       <div>
                         <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> <Words k="assigned," /> <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> <Words k="submitted" /></span><span className="text-ink3 tnum">{r.counts.graded} <Words k="checked" />{r.counts.left ? <> · <Words k="{n} left the class" vars={{ n: r.counts.left }} /></> : null}</span></div>
+                        {r.counts.notGiven > 0 && <p className="text-[12.5px] text-warn mb-1"><Link href={`${BASE}/homework/${r.id}`} className="underline"><Words k="{n} joined later, not given this homework" vars={{ n: r.counts.notGiven }} /></Link></p>}
                         <Progress value={pct(r.counts.submitted, n)} tone={r.status === "Past due" && r.counts.submitted < n ? "warn" : "brand"} />
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-ink3">

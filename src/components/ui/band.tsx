@@ -58,7 +58,8 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
                 </p>
                 {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2"><Line text={m.foot} /></p>}
               </div>
-              {m.ring != null && <HeroRing value={m.ring} />}
+              {/* An empty ring at 0 looked like a loading spinner (QA L6-73): the number beside it says 0. */}
+              {m.ring != null && m.ring > 0 && <HeroRing value={m.ring} />}
             </>
           );
           const cls = cx("text-left p-4 md:p-6 min-w-0 border-white/15 flex items-center gap-4", CELL[count][i]);

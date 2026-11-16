@@ -1,5 +1,5 @@
 // QA (Chaitanya EM School audit), SIM-06: "Collected this year" on the
-// Dashboard ("Fee collection") and on the Fee Dashboard showed different
+// Dashboard ("Fees collected by month") and on the Fee Dashboard showed different
 // numbers under the same words (₹1.59 L of ₹1.05 Cr against ₹1.57 L of
 // ₹1.07 Cr). Both now use the Fee Management definition (fees/by-class.ts):
 // paid on the fees due so far (due up to 30 days ahead, plus anything older
@@ -41,7 +41,7 @@ describe("Collected this year", () => {
     expect(tiles.year.due).toBeGreaterThan(BigInt(0));
     const home = await buildHome(principal, { now });
     const panels: Panel[] = [...home.panels.first, ...home.panels.main, ...home.panels.side];
-    const chart = panels.find((p) => p.kind === "bars" && p.title === "Fee collection");
+    const chart = panels.find((p) => p.kind === "bars" && p.title === "Fees collected by month");
     expect(chart).toBeTruthy();
     // The Fee Dashboard tile: "Collected this year" ₹X, "of ₹Y due so far · Z%".
     const feeDashboard = `${formatRupeesShort(tiles.year.paid)} of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%`;

@@ -4,6 +4,9 @@
 import type { T } from "./t";
 import { dateRuns, dayWords } from "./dates";
 
+/** "class 1 A" with the word "class" in the screen's language; the class name stays as typed (QA L6-44). */
+const classWords = (t: T, section: string) => section.replace(/^class /, `${t("class")} `);
+
 const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^(.+) is needed\.$/, (t, m) => t("{field} is needed.", { field: t.any(m[1]) })],
   [/^(.+) can be at most (\d+) characters\.$/, (t, m) => t("{field} can be at most {n} characters.", { field: t.any(m[1]), n: m[2] })],
@@ -27,8 +30,15 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^(\d[\d,]*) students? in (.+) below 50% or not passing in (.+)$/, (t, m) => t("{n} students in {section} below 50% or not passing in {exam}", { n: m[1], section: m[2], exam: m[3] })],
   [/^(\d[\d,]*) students? below 50% or not passing in (.+)$/, (t, m) => t("{n} students below 50% or not passing in {exam}", { n: m[1], exam: m[2] })],
   [/^My class: (.+)$/, (t, m) => t("My class: {section}", { section: m[1] })],
-  [/^Take attendance for (.+)$/, (t, m) => t("Take attendance for {section}", { section: m[1] })],
-  [/^Attendance for (.+) was not taken$/, (t, m) => t("Attendance for {section} was not taken", { section: m[1] })],
+  [/^Take attendance for (.+)$/, (t, m) => t("Take attendance for {section}", { section: classWords(t, m[1]) })],
+  [/^Attendance for (.+) was not taken$/, (t, m) => t("Attendance for {section} was not taken", { section: classWords(t, m[1]) })],
+  // Layman loop 6 (QA L6-44, L6-32, L6-54): the lock time, leave-day cover and exam status lines.
+  [/^Locks at (\d{1,2}:\d{2} [AP]M)$/, (t, m) => t("Locks at {time}", { time: m[1] })],
+  [/^locks (\d{1,2}:\d{2} [AP]M)$/, (t, m) => t("locks {time}", { time: m[1] })],
+  [/^You are on leave today: (.+) attendance needs cover$/, (t, m) => t("You are on leave today: {section} attendance needs cover", { section: classWords(t, m[1]) })],
+  [/^(.+): class teacher on leave today$/, (t, m) => t("{section}: class teacher on leave today", { section: classWords(t, m[1]) })],
+  [/^(.+) is on approved leave\. Give today's attendance and periods to someone\.$/, (t, m) => t("{name} is on approved leave. Give today's attendance and periods to someone.", { name: m[1] })],
+  [/^(.+): marks being entered$/, (t, m) => t("{exam}: marks being entered", { exam: m[1] })],
   [/^Back on (.+)$/, (t, m) => t("Back on {day}", { day: dayWords(t, m[1]) })],
   [/^due (\w{3}(?: \d{1,2} \w{3})?)$/, (t, m) => t("due {day}", { day: dayWords(t, m[1]) })],
   [/^Holiday: (.+)$/, (t, m) => t("Holiday: {title}", { title: m[1] })],

@@ -71,6 +71,9 @@ const expiredPasses: Widget<"attention"> = {
   module: "front-office",
   kind: "attention",
   homes: ["leader", "receptionist", "gate"],
+  // Only for those who check visitors out (and the principal, who oversees the desk): on the accountant's
+  // "Needs your attention" it was Front Office noise above her money items (QA L6-17).
+  allowed: (v) => { const fv = foViewer(v as unknown as Parameters<typeof foViewer>[0]); return foCan(fv).checkOut || fv.level === "principal"; },
   async load(c) {
     const { scope } = await fo(c);
     const where = { AND: [{ archivedAt: null, timeOut: null, passExpiresAt: { lte: c.now } }, scope] };

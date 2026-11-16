@@ -85,12 +85,16 @@ export async function remindMarksDue(tx: Tx, ctx: SchoolContext, today: Date) {
       const allocs = await tx.teacherAllocation.findMany({ where: { sectionId: s.id, subjectId: e.subjectId, archivedAt: null }, select: { staffId: true } });
       const staff = await tx.staff.findMany({ where: { id: { in: allocs.map((a) => a.staffId) }, userLoginId: { not: null } }, select: { userLoginId: true } });
       for (const t of staff) {
+        // Once a day, as promised: the job runs more than once, and the same "due today" line showed twice
+        // in the bell (13 min and 6 h ago) once the merge window had passed (QA L6-48).
+        const groupKey = `marks-due:${e.id}:${s.id}:${isoDay(today)}`;
+        if (await tx.notification.findFirst({ where: { schoolId: ctx.schoolId, userLoginId: t.userLoginId!, groupKey }, select: { id: true } })) continue;
         await notify(tx, ctx, {
           to: t.userLoginId!, type: "marks-due",
           key: "{exam}: {subject} marks for {class} are due today. {done} of {students} entered.",
           values: { exam: e.exam.title, subject: subject.name, class: `${s.schoolClass.name} ${s.name}`, done, students: word(plural(sits.length, "student")) },
           link: `/examination-results/marks/${e.id}/${s.id}`,
-          groupKey: `marks-due:${e.id}:${s.id}:${isoDay(today)}`,
+          groupKey,
         });
         told++;
       }

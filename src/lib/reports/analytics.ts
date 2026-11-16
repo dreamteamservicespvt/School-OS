@@ -219,7 +219,8 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
       { key: "students.strength", title: "Strength over the years", sub: `Students on the rolls each year · ${year.name} today`, icon: "ChartColumn", kind: strength.length ? "bars" : "empty", bars: strength, ...niceAxis(Math.max(10, ...strength.map((s) => s.v))), values: true, data: tableOf([{ key: "year", label: "Year" }, { key: "n", label: "Students", kind: "number" }], strength.map((s) => ({ year: s.k, n: s.v }))), empty: "No earlier years yet." },
       {
         key: "students.attendance", title: "Attendance by class", sub: `${inp.range.label} · goal 90% · tap a class to see who was absent`, icon: "CalendarCheck2", kind: marked.length ? "hbars" : "empty",
-        hbars: marked.map((r) => ({ k: r.k, v: r.v! })), goal: 90, lowBelow: 90, drills: marked.map((r) => ({ label: r.k, drill: `att-class:${r.id}` })),
+        // "1" and "2" alone did not read as classes (QA L6-59).
+        hbars: marked.map((r) => ({ k: classWord(r.k), v: r.v! })), goal: 90, lowBelow: 90, drills: marked.map((r) => ({ label: classWord(r.k), drill: `att-class:${r.id}` })),
         data: tableOf([{ key: "cls", label: "Class" }, { key: "p", label: "Present %", kind: "percent" }], attRows.map((r) => ({ cls: r.name, p: r.v }))), empty: "Attendance is not marked in these dates.",
       },
       {
@@ -505,3 +506,8 @@ export async function pinnedCharts(tx: Tx, who: ReportViewer, keys: string[], se
 }
 
 export type { SchoolContext };
+
+/** A class named by a number alone ("1") reads as "Class 1". */
+function classWord(name: string) {
+  return /^\d/.test(name) ? `Class ${name}` : name;
+}

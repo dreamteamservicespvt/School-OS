@@ -19,7 +19,7 @@ import { classWise, registerWhole } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
 import { chronicFlags, type FlagKind } from "../../attendance/reports";
 import { reportAccess } from "../../reports/access";
-import { addDays, campusStudents, iso, longDay, moduleOpen, n, plural, reach, shortDate } from "../common";
+import { addDays, awayToday, campusStudents, iso, longDay, moduleOpen, myStaff, n, plural, reach, shortDate } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
@@ -253,6 +253,17 @@ const notTaken: Widget<"attention"> = {
     // The day's first mark for the section decides (once a day, or the first period).
     const first = (sectionId: string) => Math.min(...all.filter((y) => y.sectionId === sectionId).map((y) => y.periodNo));
     const mine = all.filter((x) => a.classSections.includes(x.sectionId) && !x.done && x.periodNo === first(x.sectionId));
+    // On approved leave today: the class needs cover, and the principal is told (coverNeeded), so the
+    // teacher is not asked to log in and take it (QA L6-32).
+    const me = await myStaff(c);
+    if (me && (await awayToday(c)).has(me.id)) {
+      return mine.map((x): AttentionItem => ({
+        id: `attendance.not-taken:${x.sectionId}`, tone: "info", icon: "CalendarDays",
+        title: `You are on leave today: ${x.name} attendance needs cover`,
+        detail: "The principal is told to give it to someone. Take it only if you are in school.",
+        action: "Open", href: attendanceTakeHref({ sectionId: x.sectionId, periodNo: x.periodNo, date: c.today }), value: iso(c.today),
+      }));
+    }
     return mine.map((x): AttentionItem => ({
       id: `attendance.not-taken:${x.sectionId}`, tone: lock.locked ? "bad" : "warn", icon: "ClipboardCheck",
       title: lock.locked ? `Attendance for ${x.name} was not taken` : `Take attendance for ${x.name}`,
@@ -261,6 +272,64 @@ const notTaken: Widget<"attention"> = {
     }));
   },
 };
+
+/**
+ * "class 1 A: class teacher on leave today" for the principal: classes not marked yet whose class teacher is on
+ * approved full-day leave, and today's invigilation duties of staff on leave, with a link to Substitutions
+ * (QA L6-54: "Staff on leave: KUSUMA" and "Not taken" showed, and nothing joined them).
+ */
+const coverNeeded: Widget<"attention"> = {
+  id: "attendance.cover-needed",
+  module: MODULE,
+  kind: "attention",
+  homes: ["leader", "academic-head"],
+  allowed: fullReach,
+  async load(c) {
+    const away = await awayToday(c);
+    if (!away.size) return [];
+    const a = await access(c);
+    const off = await schoolDayOff(c, a.campusId);
+    const out: AttentionItem[] = [];
+    if (off.on && a.yearIds.length) {
+      const cw = await classWise(c.tx, c.viewer.ctx, { yearId: a.yearIds, from: c.today, to: c.today, today: c.today, sectionIds: a.limitSections, campusId: a.campusId });
+      for (const x of cw.sections.filter((r) => r.notMarked && r.teacher && away.has(r.teacher.staffId))) {
+        out.push({
+          id: `attendance.cover-needed:${x.sectionId}`, tone: "warn", icon: "UserX",
+          title: `class ${x.name}: class teacher on leave today`,
+          detail: `${x.teacher!.name} is on approved leave. Give today's attendance and periods to someone.`,
+          action: "Give cover", href: SUBSTITUTIONS, value: iso(c.today),
+        });
+      }
+    }
+    // campus: duties of staff on approved leave today; the class and subject are only named.
+    const duties = await c.tx.datesheetEntry.findMany({
+      where: { invigilatorId: { in: [...away] }, archivedAt: null, date: c.today, exam: { archivedAt: null, status: { not: "DRAFT" } } },
+      select: { id: true, invigilatorId: true, subjectId: true, classId: true, startTime: true },
+    });
+    if (duties.length) {
+      // campus: the invigilators above, for their names.
+      const [people, subjects, classes] = await Promise.all([
+        c.tx.staff.findMany({ where: { id: { in: duties.map((d) => d.invigilatorId!) } }, select: { id: true, fullName: true, campusId: true } }),
+        c.tx.subject.findMany({ where: { id: { in: duties.map((d) => d.subjectId) } }, select: { id: true, name: true } }),
+        // campus: class names for the duties above.
+        c.tx.schoolClass.findMany({ where: { id: { in: duties.map((d) => d.classId) } }, select: { id: true, name: true } }),
+      ]);
+      for (const d of duties) {
+        const who = people.find((p) => p.id === d.invigilatorId);
+        if (!who || (a.campusId && who.campusId && who.campusId !== a.campusId)) continue;
+        out.push({
+          id: `attendance.cover-needed:inv:${d.id}`, tone: "warn", icon: "UserX",
+          title: `Invigilation needs cover: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, class ${classes.find((x) => x.id === d.classId)?.name ?? ""} at ${clock(d.startTime)}`.trim(),
+          detail: `${who.fullName} is on approved leave today. Give the duty to someone.`,
+          action: "Give cover", href: SUBSTITUTIONS, value: iso(c.today),
+        });
+      }
+    }
+    return out;
+  },
+};
+const SUBSTITUTIONS = "/academic-management/substitutions";
+const clock = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 
 /** "Attendance this week": % present by class, Monday to today. */
 const weekByClass: Widget<"panel"> = {
@@ -302,4 +371,4 @@ const weekByClass: Widget<"panel"> = {
   },
 };
 
-export const ATTENDANCE_WIDGETS: readonly Widget[] = [studentsPresent, staffPresent, takenToday, mySection, leaveWaiting, notTaken, absentStreak, belowThreshold, weekByClass];
+export const ATTENDANCE_WIDGETS: readonly Widget[] = [studentsPresent, staffPresent, takenToday, mySection, leaveWaiting, notTaken, coverNeeded, absentStreak, belowThreshold, weekByClass];

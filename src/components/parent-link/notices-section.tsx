@@ -70,7 +70,7 @@ export function NoticeList({ data, view }: { data: NoticeRow[]; view: GuardianVi
             <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
               <span className="min-w-0">
                 <span className="block font-semibold text-[14px]">{n.title}</span>
-                <span className="block text-[13px] text-ink2 mt-0.5 line-clamp-2 group-open:hidden">{n.body}</span>
+                <span className="text-[13px] text-ink2 mt-0.5 line-clamp-2 group-open:hidden">{n.body}</span>
                 <span className="block text-[12px] text-ink3 mt-1">
                   {n.publishedAt ? formatDate(n.publishedAt, view.timeZone) : ""}
                   {tag}

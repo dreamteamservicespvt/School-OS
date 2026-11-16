@@ -49,7 +49,7 @@ export function MessagesSection({ data, view }: { data: ParentMessages; view: Gu
                 <summary className="flex min-h-11 cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
                   <span className="min-w-0">
                     {head}
-                    <span className="block text-[13px] text-ink2 mt-1 line-clamp-2 group-open:hidden whitespace-pre-line break-words">{previewText(m.text)}</span>
+                    <span className="text-[13px] text-ink2 mt-1 line-clamp-2 group-open:hidden whitespace-pre-line break-words">{previewText(m.text)}</span>
                   </span>
                   <span aria-hidden className="mt-1 text-ink3 transition-transform group-open:rotate-180">▾</span>
                 </summary>

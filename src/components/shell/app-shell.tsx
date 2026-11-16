@@ -274,7 +274,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
           {/* Layman loop 15 Nov: "Attendance Managem…" was cut at 390 px. The bar says the short school word; the menu keeps the full name. */}
           {/* Telugu and Hindi page names are longer: two lines rather than "హోంవర్క్ & అభ్యా…" (layman loop 3). */}
           {/* With four icons on a 360 px phone one line left "Attendance Regis…": two lines in every language (PW-16). */}
-          <span className="block font-display font-semibold text-[14px] min-[400px]:text-[15px] leading-[1.15] line-clamp-2">{title || school.name}</span>
+          <span className="font-display font-semibold text-[14px] min-[400px]:text-[15px] leading-[1.15] line-clamp-2">{title || school.name}</span>
           <span className="block text-[11.5px] text-ink3 truncate">{school.name}{year ? ` · ${yearLabel(year.name)}` : ""}</span>
         </span>
       </Link>

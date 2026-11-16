@@ -117,7 +117,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today, threshold 
                       <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 text-[12.5px] font-bold", TONE_BG[t])} aria-hidden="true">{short(s.name)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[14.5px] leading-snug truncate">{s.name}</span>
-                        <span className="block text-[12.5px] text-ink3 line-clamp-2">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} <Words k="students" /></span>
+                        <span className="text-[12.5px] text-ink3 line-clamp-2">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} <Words k="students" /></span>
                       </span>
                       {s.marked > 0 && s.percent !== null
                         ? <span className={cx("font-display text-[20px] font-semibold tnum shrink-0", TONE_TEXT[t])}>{percentText(s.percent)}</span>

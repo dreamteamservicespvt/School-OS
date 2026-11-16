@@ -121,7 +121,7 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
                   <Link href={n.href} className="min-w-0 flex-1 flex items-center gap-1">
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-[14.5px] leading-snug">{screenLine(t, n.title)}</span>
-                      <span className="block text-[13px] text-ink3 line-clamp-2 sm:line-clamp-1">{screenLine(t, n.detail)}</span>
+                      <span className="text-[13px] text-ink3 line-clamp-2 sm:line-clamp-1">{screenLine(t, n.detail)}</span>
                     </span>
                     <I.ChevronRight size={20} className="sm:hidden shrink-0 text-ink3" aria-hidden="true" />
                   </Link>

@@ -232,7 +232,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                       <li key={e.id}>
                         <Link href={here({ m: ym(e.from < p.today ? p.today : e.from), d: e.from < p.today ? p.today : e.from })} scroll={false} className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-sunken/60 text-left">
                           <span className="w-11 shrink-0 text-center"><span className="block text-[11px] font-semibold text-ink3 uppercase">{MONTHS[Number(e.from.slice(5, 7)) - 1].slice(0, 3)}</span><span className="block font-display text-[18px] font-semibold tnum leading-none">{Number(e.from.slice(8))}</span></span>
-                          <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px] leading-snug line-clamp-2 break-words">{e.title}</span><span className="block text-[12.5px] text-ink3 truncate">{e.from !== e.to ? spanWords(e.from, e.to) : [e.time, e.where].filter(Boolean).join(" · ") || ENTRY_TYPES[e.type].label}</span></span>
+                          <span className="min-w-0 flex-1"><span className="font-semibold text-[14px] leading-snug line-clamp-2 break-words">{e.title}</span><span className="block text-[12.5px] text-ink3 truncate">{e.from !== e.to ? spanWords(e.from, e.to) : [e.time, e.where].filter(Boolean).join(" · ") || ENTRY_TYPES[e.type].label}</span></span>
                           <span className={cx("w-2 h-2 rounded-full shrink-0", ENTRY_TYPES[e.type].dot)} aria-hidden="true" />
                         </Link>
                       </li>

@@ -17,6 +17,7 @@ import type { FormState } from "@/lib/forms";
 import { FormProblems, useFieldProblem } from "./form-problems";
 import { HideWhileSaving } from "./form-message";
 import { isSummaryMessage } from "@/lib/form-problems";
+import { Words } from "@/lib/i18n/client";
 
 const CloseCtx = createContext<() => void>(() => {});
 const DiscardCtx = createContext<() => void>(() => {});
@@ -82,6 +83,11 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   const close = useCallback(() => router.replace(closeHref, { scroll: false }), [router, closeHref]);
   // Cancel is a choice: the typing goes. Escape, a tap outside or Back keep it as a draft.
   const cancel = () => { draft.discard(); close(); };
+  // Escape or a tap outside with something typed asks first (layman loop 6, L6-10: Esc pressed to
+  // close a list shut the whole visitor form). A second Escape, or Close, closes and keeps the draft.
+  const [asking, setAsking] = useState(false);
+  const typed = () => Boolean(draft.changed?.()) && !state?.ok;
+  useEffect(() => { if (asking) formRef.current?.querySelector<HTMLButtonElement>("[data-keep-typing]")?.focus(); }, [asking]);
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal();
@@ -123,7 +129,8 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
       <DiscardCtx.Provider value={draft.discard}>
       <ResultCtx.Provider value={state as FormState<unknown>}>
         <dialog ref={ref} aria-labelledby={titleId} onClose={close} className={sheetCls(wide)}
-          onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+          onCancel={(e) => { if (!asking && typed()) { e.preventDefault(); setAsking(true); } }}
+          onClick={(e) => { if (e.target === e.currentTarget) { if (!asking && typed()) setAsking(true); else close(); } }}>
           <form ref={formRef} action={formAction} noValidate className="flex max-h-[inherit] flex-col">
             <SheetHead titleId={titleId} title={title} sub={sub} onClose={close} />
             <div className="overflow-y-auto scroll-thin px-5 pb-5 flex flex-col gap-4">
@@ -134,6 +141,13 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
               <div ref={fieldsRef} className="contents"><FormProblems errors={state?.errors}>{children}</FormProblems></div>
               {showMessage && <HideWhileSaving><ProblemInView token={state}><Alert tone="danger">{state?.message}</Alert></ProblemInView></HideWhileSaving>}
             </div>
+            {asking ? (
+              <div role="alert" className="border-t border-line px-5 py-3.5 flex flex-wrap items-center gap-2 justify-end bg-warn/10">
+                <p className="mr-auto text-[14px] font-semibold"><Words k="Close this form? What you typed is kept." /></p>
+                <Button variant="ghost" onClick={close}>Close</Button>
+                <Button data-keep-typing variant="primary" onClick={() => setAsking(false)}>Keep typing</Button>
+              </div>
+            ) : (
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
               {extraButtons}
               <Button variant="ghost" onClick={cancel}>Cancel</Button>
@@ -141,6 +155,7 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
                 ? <Button variant={submitVariant} loading loadingText={pendingText}>{submitLabel}</Button>
                 : <SheetSubmit variant={submitVariant} pendingText={pendingText} disabled={submitDisabled}>{submitLabel}</SheetSubmit>}
             </div>
+            )}
           </form>
         </dialog>
       </ResultCtx.Provider>

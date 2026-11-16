@@ -5,7 +5,7 @@ import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { AdmissionProblem, collector, dateTimeOf, emailOf, id, maybe, mobileOf, need, needName, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
-import { admissionYear, openYears } from "@/lib/admission/settings";
+import { enquiryYear, openYears } from "@/lib/admission/settings";
 import { enquiryScope } from "@/lib/admission/access";
 import { personCampusId } from "@/lib/campus";
 import {
@@ -66,7 +66,7 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
       const cls = classId ? await w.tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null }, select: { campusId: true } }) : null;
       const campusId = cls?.campusId ?? chosenYear?.campusId ?? (await personCampusId(w.tx, w.ctx, w.v));
       if (!campusId) throw new AdmissionProblem("Add a campus in Settings first.");
-      const year = chosenYear ?? (await admissionYear(w.tx, w.ctx, w.s, campusId));
+      const year = chosenYear ?? (await enquiryYear(w.tx, w.ctx, w.s, campusId));
       if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
       return createEnquiry(w.tx, w.ctx, w.v, w.s, { ...input, customFields },

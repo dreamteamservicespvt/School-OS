@@ -5,7 +5,7 @@
 // instead of the desk: what is late, for how long, and Remind the librarian.
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AlertTriangle, ArrowRightLeft, BookOpen, BookmarkCheck, CalendarClock, CornerDownLeft, History, Search, UserRound } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, BookOpen, BookmarkCheck, CalendarClock, CornerDownLeft, History, LibraryBig, Search, UserRound } from "lucide-react";
 import { withSchool, type Tx, type SchoolContext } from "@/lib/db";
 import type { CampusLimit } from "@/lib/campus";
 import { campusFilter } from "@/lib/campus-scope";
@@ -32,6 +32,7 @@ import { overdueBuckets } from "@/lib/library/reports";
 import { groupWords, paiseToRupees, type CopyStatus, COPY_STATUS } from "@/lib/library/words";
 import type { LibrarySettings } from "@/lib/library/settings";
 import { LibHead } from "./_components/head";
+import { ModuleStart } from "@/components/ui/module-start";
 import { ScanBox, ActButton } from "./_components/client";
 import { IssueForm, ReturnForm } from "./_components/desk-forms";
 import { CancelReservationSheet } from "./_components/sheets";
@@ -60,6 +61,17 @@ type Raw = Record<string, string | string[] | undefined>;
 export default async function IssueReturnPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const p = await libGuard("issue");
+  // Switched on with no books yet: one card and one next step, not an empty desk (layman loop 6, L6-70).
+  const books = await withSchool(p.current.ctx, (tx) => tx.book.count({ where: { archivedAt: null } }));
+  if (books === 0) {
+    return (
+      <div>
+        <LibHead pageName="Issue & Return" href={BASE} mode={p.mode === "full" ? "full" : "view"} />
+        <ModuleStart icon={LibraryBig} title="The library is not set up yet" body="Start by adding your books. Then issue them to students and staff."
+          href={p.can.catalogue ? `${BASE}/books?open=add` : undefined} action="Add the first book" waiting="The librarian adds the books." />
+      </div>
+    );
+  }
   if (p.mode !== "full") return <OverdueWatch p={p} sp={sp} />;
   return <Desk p={p} sp={sp} />;
 }

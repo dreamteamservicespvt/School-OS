@@ -86,7 +86,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   const chosen = data.chosen;
   const keep = { staff: chosen && chosen.id !== data.staff[0]?.id ? chosen.id : null, day: isToday ? null : dayIso };
   const here = qs(HREF, keep);
-  const chips = data.staff.slice(0, 5);
+  // Every bookable person as a chip that wraps (L6-08: the 5th chip was cut off and the 6th only in "Someone else");
+  // the list below covers a big staff.
+  const chips = data.staff.slice(0, CHIP_MAX);
   if (chosen && !chips.some((c) => c.id === chosen.id)) chips.push(chosen);
   const sorted = [...data.appts].sort((a, b) => (SORT[a.status] ?? 9) - (SORT[b.status] ?? 9) || a.startMin - b.startMin);
   const live = data.appts.filter((a) => a.status !== "CANCELLED").length;
@@ -112,7 +114,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           <Card className="overflow-hidden">
             <div className="p-3 flex flex-col gap-3 border-b border-line">
               <div>
-                <Chips value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: `${t.any(s.designation)} · ${s.fullName}`, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
+                <Chips wrap value={chosen.id} label="Whose day" options={chips.map((s) => ({ value: s.id, label: `${t.any(s.designation)} · ${s.fullName}`, href: qs(HREF, { staff: s.id === data.staff[0]?.id ? null : s.id, day: keep.day }) }))} />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <SegLinks size="sm" value={dayIso} label="Day" options={[...nextDays.map((d) => ({ value: d, label: dayLabel(d), href: qs(HREF, { staff: keep.staff, day: d === p.todayStr ? null : d }) })),
@@ -123,7 +125,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                   <DateInput key={dayIso} id="ap-day" name="day" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
                   <button type="submit" className="h-9 px-3 rounded-xl border border-line text-[13px] font-semibold hover:bg-sunken"><Words k="Show" /></button>
                 </form>
-                {data.staff.length > 5 && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${t.any(s.designation)}` }))} />}
+                {data.staff.length > CHIP_MAX && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${t.any(s.designation)}` }))} />}
                 <span className="text-[12.5px] text-ink3">{t.any(chosen.designation)} · {t("{n}-minute slots", { n: p.settings.slotMinutes })}</span>
               </div>
             </div>
@@ -182,6 +184,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   );
 }
 
+/** Staff shown as chips on Appointments; a bigger staff also gets the "Someone else" list. */
+const CHIP_MAX = 10;
+
 type Appt = { id: string; status: string; staffId: string; date: Date };
 
 function apptItems(a: Appt, here: string, isToday: boolean, needsDesk: boolean): RowItem[] {
@@ -219,9 +224,14 @@ function Timeline({ t, plan, dayIso, today, minute, desk, bookHref }: { t: T; pl
   const rows: Row[] = [];
   const segs = plan.segments.filter((s) => s.end > plan.start && s.start < plan.end);
   let cur = plan.start;
+  // One row per hour, labelled by its first free time (L6-08: 10:00 to 12:45 sat under one "10:00 AM").
   const pushFree = (to: number) => {
     const slots = plan.free.filter((m) => m >= cur && m < to);
-    if (slots.length) rows.push({ at: slots[0], kind: "free", slots });
+    for (const m of slots) {
+      const last = rows[rows.length - 1];
+      if (last?.kind === "free" && Math.floor(last.slots[0] / 60) === Math.floor(m / 60)) last.slots.push(m);
+      else rows.push({ at: m, kind: "free", slots: [m] });
+    }
   };
   for (const s of segs) {
     if (s.start > cur) pushFree(s.start);

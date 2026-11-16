@@ -5,6 +5,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { momentWhere } from "@/lib/periods";
 import { callLogWhere, followUpsDue } from "@/lib/front-office/calls";
+import { followUpWords } from "@/lib/front-office/words";
 import { requestStatus } from "@/lib/front-office/desk";
 import { staffWithLogins } from "@/lib/front-office/people";
 import { addDaysIso, clockAt, dayMonth, localOf, whenWords } from "@/lib/front-office/time";
@@ -68,7 +69,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
     const [enqToday, callsToday, followUps, complaints, enquiries, calls, requests, logins] = await Promise.all([
       tx.enquiry.findMany({ where: { archivedAt: null, source: { in: ["walk-in", "phone"] }, createdAt: today }, select: { source: true } }),
       tx.callLogEntry.findMany({ where: { archivedAt: null, at: today }, select: { direction: true } }),
-      followUpsDue(tx, ctx, p.current, today.lt),
+      followUpsDue(tx, ctx, p.current, today),
       tx.callLogEntry.count({ where: { archivedAt: null, status: "QUERY", at: weekAgo } }),
       view === "enq" ? tx.enquiry.findMany({ where: enqWhere, orderBy: { createdAt: "desc" }, take: 300 }) : Promise.resolve([]),
       view === "calls" ? tx.callLogEntry.findMany({ where: callLogWhere({ from: span.gte, to: span.lt, purpose, q, phones }), orderBy: { at: "desc" }, take: 300 }) : Promise.resolve([]),
@@ -90,7 +91,8 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
   const sheetHref = qs(HREF, keep);
   const walkIn = data.enqToday.filter((e) => e.source === "walk-in").length;
   const incoming = data.callsToday.filter((c) => c.direction === "IN").length;
-  const followNames = [...new Set(data.followUps)];
+  const followAll = [...data.followUps.overdue, ...data.followUps.today];
+  const followNames = [...new Set(followAll)];
   const dayOf = (d: Date) => localOf(d, p.tz).slice(0, 10);
   const timeWords = (d: Date) => `${dayOf(d) === p.todayStr ? "" : `${dayMonth(new Date(`${dayOf(d)}T00:00:00Z`))}, `}${clockAt(d, p.tz)}`;
   const ph = (c: { phone: string; isParent: boolean }) => (c.isParent && !phones ? maskPhone(c.phone) : showPhone(c.phone));
@@ -107,7 +109,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
         <Stats items={[
           { label: "Enquiries today", value: String(data.enqToday.length), sub: data.enqToday.length ? t("{n} walk-in, {n2} phone", { n: walkIn, n2: data.enqToday.length - walkIn }) : t("None yet"), icon: UserPlus, href: qs(HREF, { period: "today" }), active: view === "enq" },
           { label: "Calls today", value: String(data.callsToday.length), sub: t("{n} incoming", { n: incoming }), icon: Phone, href: qs(HREF, { view: "calls" }), active: view === "calls" },
-          { label: "Follow-ups due today", value: String(data.followUps.length), sub: followNames.length ? (followNames.length > 2 ? t("{names} and {n} more", { names: followNames.slice(0, 2).join(", "), n: followNames.length - 2 }) : followNames.join(", ")) : t("Nothing due"), tone: data.followUps.length ? "warn" : undefined, icon: BellRing, href: qs(HREF, { view: "calls", period: "last30" }) },
+          { label: "Follow-ups due", value: String(followAll.length), sub: followAll.length ? `${followUpWords(t, { today: data.followUps.today.length, overdue: data.followUps.overdue.length })} · ${followNames.length > 2 ? t("{names} and {n} more", { names: followNames.slice(0, 2).join(", "), n: followNames.length - 2 }) : followNames.join(", ")}` : t("Nothing due"), tone: data.followUps.overdue.length ? "bad" : followAll.length ? "warn" : undefined, icon: BellRing, href: qs(HREF, { view: "calls", period: "last30" }) },
           { label: "Complaints sent as queries", value: String(data.complaints), sub: t("Last 7 days"), icon: MessageSquare, href: qs(HREF, { view: "calls", purpose: "Complaint", period: "last7" }) },
         ]} />
         <SegLinks value={view} label="Enquiries, calls or walk-in requests" className="self-start max-w-full overflow-x-auto" options={[

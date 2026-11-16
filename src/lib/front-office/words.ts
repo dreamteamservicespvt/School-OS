@@ -160,3 +160,12 @@ export function followUpStart(today: string, minute: number): { date: string; ti
   next.setUTCDate(next.getUTCDate() + 1);
   return { date: next.toISOString().slice(0, 10), time: "10:00" };
 }
+
+/** "1 follow-up due today · 2 overdue": the same split Admissions shows (QA L6-05). */
+export function followUpWords(t: T, f: { today: number; overdue: number }) {
+  if (!f.today && !f.overdue) return t("No follow-ups due today");
+  const parts: string[] = [];
+  if (f.today) parts.push(f.today === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: f.today }));
+  if (f.overdue) parts.push(t("{n} overdue", { n: f.overdue }));
+  return parts.join(" · ");
+}

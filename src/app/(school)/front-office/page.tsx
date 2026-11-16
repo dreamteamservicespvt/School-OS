@@ -8,6 +8,7 @@ import { loginsWithRole } from "@/lib/front-office/people";
 import { requestStatus } from "@/lib/front-office/desk";
 import { pickupsOn } from "@/lib/front-office/pickup";
 import { followUpsDue } from "@/lib/front-office/calls";
+import { followUpWords } from "@/lib/front-office/words";
 import { clockAt, shortDay, whenWords } from "@/lib/front-office/time";
 import { APPOINTMENT_STATUS, REQUEST_STATUS, clockOf, replyOf } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -46,7 +47,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
       tx.appointment.findMany({ where: { archivedAt: null, date: p.today, status: { not: "CANCELLED" } }, orderBy: { startMin: "asc" } }),
       tx.callLogEntry.count({ where: { archivedAt: null, at: day } }),
       tx.enquiry.count({ where: { archivedAt: null, createdAt: day, source: { in: ["walk-in", "phone"] } } }),
-      followUpsDue(tx, ctx, p.current, day.lt).then((names) => names.length),
+      followUpsDue(tx, ctx, p.current, day).then((f) => ({ today: f.today.length, overdue: f.overdue.length })),
       tx.walkInRequest.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 6 }),
       tx.frontOfficeNote.findMany({ where: { clearedAt: null }, orderBy: { createdAt: "asc" }, take: 20 }),
       pickupsOn(tx, day.gte, day.lt),
@@ -100,7 +101,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           { label: "In the building now", big: String(data.inside.length), foot: waiting ? t("{n} waiting to be called in", { n: waiting }) : data.inside.length ? t("None waiting to be called in") : t("Nobody inside"), href: `${BASE}/visitors?status=In` },
           { label: "Visitors today", big: String(data.todayCount), foot: avg != null ? t("Average {n} minutes inside", { n: avg }) : t("No visit closed yet"), href: `${BASE}/visitors` },
           { label: "Appointments today", big: String(data.appts.length), foot: next ? t("Next: {time}, {name}", { time: clockOf(next.startMin), name: next.visitorName }) : t("None left today"), href: p.may("appointments") ? `${BASE}/appointments` : undefined },
-          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] font-medium"> <Words k={data.calls === 1 ? "call" : "calls"} /></span> {data.enquiries}<span className="text-[0.55em] font-medium"> <Words k={data.enquiries === 1 ? "enquiry" : "enquiries"} /></span></>, foot: data.followUps ? (data.followUps === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: data.followUps })) : t("No follow-ups due today"), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
+          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] font-medium"> <Words k={data.calls === 1 ? "call" : "calls"} /></span> {data.enquiries}<span className="text-[0.55em] font-medium"> <Words k={data.enquiries === 1 ? "enquiry" : "enquiries"} /></span></>, foot: followUpWords(t, data.followUps), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
         ]} />
 
         {BIG.length > 0 && (

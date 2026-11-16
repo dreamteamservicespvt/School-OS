@@ -46,10 +46,11 @@ export function Stats({ items, className, label = "Summary" }: { items: StatItem
 
 /* ---------- Filter chips (like the class picker), each a link so filters live in the address ---------- */
 export type ChipOption = { value: string; label: React.ReactNode; count?: number | null; href: string };
-export function Chips({ value, options, className, label }: { value: string; options: ChipOption[]; className?: string; label: string }) {
+/** wrap: chips flow onto more lines instead of scrolling sideways, so none is cut off (layman loop 6, L6-08). */
+export function Chips({ value, options, className, label, wrap = false }: { value: string; options: ChipOption[]; className?: string; label: string; wrap?: boolean }) {
   return (
-    <nav aria-label={label} className={cx("-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto no-scrollbar", className)}>
-      <ul className="flex gap-2 w-max pb-1">
+    <nav aria-label={label} className={cx(wrap ? "" : "-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto no-scrollbar", className)}>
+      <ul className={cx("flex gap-2 pb-1", wrap ? "flex-wrap" : "w-max")}>
         {options.map((o) => {
           const on = value === o.value;
           return (

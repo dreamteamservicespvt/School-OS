@@ -173,13 +173,15 @@ const myAppointments: Widget<"agenda"> = {
     const me = await staffForUser(c.tx, c.viewer.ctx);
     if (!me) return [];
     const rows = await c.tx.appointment.findMany({
-      where: { archivedAt: null, staffId: me.id, date: c.today, status: { in: ["BOOKED", "ARRIVED"] }, startMin: { gte: c.minuteNow - 30 } },
-      orderBy: { startMin: "asc" }, take: 5,
+      // All of today's open meetings, not only those starting from half an hour ago: a teacher opening the
+      // Dashboard at 1 PM saw none of her 10:45 to 12:00 parent meetings that were still waiting (QA L6-47).
+      where: { archivedAt: null, staffId: me.id, date: c.today, status: { in: ["BOOKED", "ARRIVED"] } },
+      orderBy: { startMin: "asc" }, take: 6,
     });
     return rows.map((a): AgendaItem => ({
       id: `appointment:${a.id}`, time: clockOf(a.startMin).replace(/\s?[AP]M$/i, ""),
       title: `Appointment: ${a.visitorName}`, where: `${a.purpose} · ${a.lengthMin} min${a.status === "ARRIVED" ? " · arrived" : ""}`,
-      tone: a.status === "ARRIVED" ? "ok" : "info", sort: a.startMin,
+      tone: a.status === "ARRIVED" ? "ok" : a.startMin + a.lengthMin < c.minuteNow ? "warn" : "info", sort: a.startMin,
     }));
   },
 };

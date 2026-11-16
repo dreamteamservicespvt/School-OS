@@ -20,7 +20,7 @@ import { personCampusId } from "../campus";
 import { moduleOpen } from "../reports/access";
 import { classKey, readClass } from "../ask/questions";
 import { AdmissionProblem, checkMobile, instantToLocal, todayIn, zonedToInstant } from "../admission/act";
-import { admissionYear, live, loadSettings } from "../admission/settings";
+import { enquiryYear, live, loadSettings } from "../admission/settings";
 import { customFrom, type Work } from "../admission/server";
 import { createEnquiry, DuplicateProblem } from "../admission/enquiries";
 import type { AssistantLang } from "./language";
@@ -148,7 +148,7 @@ export async function confirmEnquiry(w: Work, plan: EnquiryPlan, lang: Assistant
     const cls = plan.classId ? await w.tx.schoolClass.findFirst({ where: { id: plan.classId, archivedAt: null }, select: { campusId: true } }) : null;
     const campusId = cls?.campusId ?? (await personCampusId(w.tx, w.ctx, w.v));
     if (!campusId) throw new AdmissionProblem("Add a campus in Settings first.");
-    const year = await admissionYear(w.tx, w.ctx, w.s, campusId);
+    const year = await enquiryYear(w.tx, w.ctx, w.s, campusId, now);
     if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
     // The school's own extra fields: a required one the card cannot fill stops here, and the form is offered.
     const customFields = await customFrom(w, "enquiry", new FormData(), {});

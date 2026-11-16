@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { can } from "../permissions";
 import { enquiryScope, viewerFor } from "../admission/access";
-import { admissionYear, CLOSED_STATUSES, loadSettings } from "../admission/settings";
+import { enquiryYear, CLOSED_STATUSES, loadSettings } from "../admission/settings";
 import { createEnquiry, defaultFollowUp } from "../admission/enquiries";
 import { ensureTopics, logQuery } from "../communication/queries";
 import { FrontOfficeProblem } from "./problem";
@@ -68,10 +68,10 @@ export async function deskEnquiry(tx: Tx, ctx: SchoolContext, current: Pick<Curr
   if (!input.classId) throw new FrontOfficeProblem("Choose the class wanted.", "classId");
   const v = await viewerFor(tx, ctx, current);
   const s = await loadSettings(tx, ctx);
-  const year = await admissionYear(tx, ctx, s);
-  if (!year) throw new FrontOfficeProblem("Admissions have no open year. Set the admission year in Admission Management, Settings (the School Admin can).");
   const campus = await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
   if (!campus) throw new FrontOfficeProblem("Add a campus in Settings first.");
+  const year = await enquiryYear(tx, ctx, s, campus.id, opts.now);
+  if (!year) throw new FrontOfficeProblem("Admissions have no open year. Set the admission year in Admission Management, Settings (the School Admin can).");
   const e = await createEnquiry(tx, ctx, v, s, {
     childName, parentName, phone: mobileDigits(input.phone), email: null, classId: input.classId, source: input.source, ownerStaffId: null,
     nextFollowUpAt: await defaultFollowUp(tx, ctx, opts.timeZone, opts.now, campus.id), nextAction: input.source === "phone" ? "Call back" : "Follow up on the visit",
@@ -213,12 +213,15 @@ export function callLogWhere(opts: { from: Date; to: Date; purpose: string; q: s
  * next follow-up, the enquiries read as Admissions reads them. The desk tiles counted calls only, so "0 due"
  * sat above an enquiry due today at 11:00 (layman loop 6, L6-05). Names in time order.
  */
-export async function followUpsDue(tx: Tx, ctx: SchoolContext, current: Current, before: Date): Promise<string[]> {
+export async function followUpsDue(tx: Tx, ctx: SchoolContext, current: Current, day: { gte: Date; lt: Date }): Promise<{ today: string[]; overdue: string[] }> {
   const viewer = await viewerFor(tx, ctx, current);
   const [calls, enquiries] = await Promise.all([
-    tx.callLogEntry.findMany({ where: { archivedAt: null, status: "FOLLOW_UP", followUpAt: { lt: before } }, select: { name: true, followUpAt: true } }),
-    tx.enquiry.findMany({ where: { AND: [enquiryScope(viewer)], archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: before } }, select: { childName: true, nextFollowUpAt: true }, take: 500 }),
+    tx.callLogEntry.findMany({ where: { archivedAt: null, status: "FOLLOW_UP", followUpAt: { lt: day.lt } }, select: { name: true, followUpAt: true } }),
+    tx.enquiry.findMany({ where: { AND: [enquiryScope(viewer)], archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: day.lt } }, select: { childName: true, nextFollowUpAt: true }, take: 500 }),
   ]);
-  return [...calls.map((c) => ({ name: c.name, at: c.followUpAt!.getTime() })), ...enquiries.map((e) => ({ name: e.childName, at: e.nextFollowUpAt!.getTime() }))]
-    .sort((a, b) => a.at - b.at).map((x) => x.name);
+  const all = [...calls.map((c) => ({ name: c.name, at: c.followUpAt!.getTime() })), ...enquiries.map((e) => ({ name: e.childName, at: e.nextFollowUpAt!.getTime() }))]
+    .sort((a, b) => a.at - b.at);
+  // Due today and overdue apart, as Admissions counts them (QA L6-05: the desk called 2 overdue and 1 today "3 due today").
+  const start = day.gte.getTime();
+  return { today: all.filter((x) => x.at >= start).map((x) => x.name), overdue: all.filter((x) => x.at < start).map((x) => x.name) };
 }

@@ -7,7 +7,7 @@
 // their own hostel; leaders read the roll calls and remind the warden.
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ClipboardList, Moon, Plus, Search, ShieldAlert, Sun } from "lucide-react";
+import { AlertTriangle, BedDouble, ClipboardList, Moon, Plus, Search, ShieldAlert, Sun } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
@@ -32,6 +32,7 @@ import { incidentCampusWhere, shownStudents } from "@/lib/hostel/scope";
 import { defaultSession, rollHistory, rollHref, rollSheet } from "@/lib/hostel/rollcall";
 import { INCIDENT_TYPE, SESSION, isoOf, minuteWords, plural, type IncidentType, type RollSession } from "@/lib/hostel/words";
 import { HostelHead } from "./_components/head";
+import { ModuleStart } from "@/components/ui/module-start";
 import { ActButton, RollCallForm, type RollRow } from "./_components/client";
 import { IncidentSheet, RaiseRequestSheet, type RequestPlaces } from "./_components/sheets";
 import { INVENTORY } from "@/lib/hostel/maintenance";
@@ -55,6 +56,16 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 export default async function RollCallPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const p = await hostelGuard("rollcall");
+  // Switched on with no hostel yet: one card and one next step, not an empty roll call (layman loop 6, L6-70).
+  if (p.hostels.length === 0) {
+    return (
+      <>
+        <HostelHead pageName="Roll Call & Incidents" href={BASE} mode={p.mode} />
+        <ModuleStart icon={BedDouble} title="The hostel is not set up yet" body="Start by adding your hostel. Then its rooms, beds and wardens."
+          href={p.can.hostels ? `${BASE}/rooms?add=hostel` : undefined} action="Add the hostel" waiting="The Principal or School Admin adds the hostel." />
+      </>
+    );
+  }
   return one(sp.view) === "incidents" ? <IncidentsView p={p} sp={sp} /> : <RollView p={p} sp={sp} />;
 }
 

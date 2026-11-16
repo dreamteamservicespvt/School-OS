@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
 import { History } from "lucide-react";
-import { boxText, DRAFT_MAX_AGE_MS, draftKey, fingerprint, isPrivateField, readDraft, writeDraft, type DraftValues } from "@/lib/form-draft";
+import { boxText, changedFrom, DRAFT_MAX_AGE_MS, draftKey, fingerprint, isPrivateField, readDraft, writeDraft, type DraftValues } from "@/lib/form-draft";
 import { Words } from "@/lib/i18n/client";
 
 type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -96,6 +96,8 @@ export type FormDraft = {
   done: () => void;
   /** Cancel pressed: forget what was typed and keep nothing (only a close by mistake keeps a draft). */
   discard: () => void;
+  /** True when the form now differs from how it opened (something was typed or picked). */
+  changed?: () => boolean;
 };
 
 const NONE: readonly string[] = [];
@@ -217,7 +219,12 @@ export function useFormDraft(formRef: RefObject<HTMLFormElement | null>, name: s
     setRestored(false);
   }, []);
 
-  return useMemo(() => ({ restored, clear, done, discard }), [restored, clear, done, discard]);
+  const changed = useCallback(() => {
+    const l = live.current;
+    return Boolean(l.form?.isConnected) && !l.stopped && Object.keys(changedFrom(l.start, readForm(l.form!))).length > 0;
+  }, []);
+
+  return useMemo(() => ({ restored, clear, done, discard, changed }), [restored, clear, done, discard, changed]);
 }
 
 /** Shown when a form opened with what was typed last time: carry on, or start new. */

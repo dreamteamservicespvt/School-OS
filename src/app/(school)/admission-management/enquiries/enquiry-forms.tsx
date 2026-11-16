@@ -28,6 +28,8 @@ export type EnquiryChoices = {
   defaultFollowUp: string;
   customFields: CustomFieldDef[];
   years: Option[];
+  /** "this" = the running year (the child joins mid-year), "next" = the coming year. */
+  yearKinds: Record<string, "this" | "next">;
   defaultYearId: string;
   ownerRule: string;
   ownerByClass: Record<string, string>;
@@ -82,6 +84,9 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const [classId, setClassId] = useState(saved?.classId ?? "");
   const [owner, setOwner] = useState("");
   const [source, setSource] = useState(c.defaultSource);
+  const [yearPicked, setYearPicked] = useState<string | null>(null);
+  // Say which year in plain words (L6-04): in November most enquiries are for next June.
+  const yearKind = c.yearKinds[yearPicked ?? state?.values?.yearId ?? c.defaultYearId];
   const [, start] = useTransition();
   const t = useT();
   const done = useRef(false);
@@ -129,7 +134,8 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} family={family} onFamily={setFamily} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
-        {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}
+        {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} onChange={(e) => setYearPicked(e.target.value)} error={err("yearId")}
+          help={yearKind === "next" ? "Next school year" : yearKind === "this" ? "This school year: joins mid-year" : undefined} /> : <div />}
       </div>
       {mode === "add" && (
         <>

@@ -26,6 +26,7 @@ import { RouteMessageSheet } from "./_components/route-sheets";
 import { remindAction } from "./actions";
 import { BASE, UUID, addQ, one, qs, trGuard, type SearchParams } from "./_lib/page";
 import { pageTitle } from "@/lib/i18n/server";
+import { ModuleStart } from "@/components/ui/module-start";
 import { DateInput } from "@/components/ui/date-input";
 import { Words } from "@/lib/i18n/client";
 
@@ -119,7 +120,11 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
   return (
     <div>
       <TrHead page="live" href={HREF} sub={<AutoRefresh seconds={s.locationIntervalSec} at={clockAt(p.now, p.tz)} />}
-        actions={<ButtonLink href={addQ(HREF, { do: "replay" })} scroll={false} icon={History}>Route history</ButtonLink>} />
+        actions={data.routes.length ? <ButtonLink href={addQ(HREF, { do: "replay" })} scroll={false} icon={History}>Route history</ButtonLink> : undefined} />
+      {data.routes.length === 0 && data.alerts.length === 0 ? (
+        <ModuleStart icon={Bus} title="Transport is not set up yet" body="Start with your first bus route. Then add its stops, the bus and the students."
+          href={can.routes ? `${BASE}/routes?do=route` : undefined} action="Add the first route" waiting="The Transport In-charge sets up the routes." />
+      ) : (
       <Stack>
         {openAlerts.length > 0 && (
           <Card className="overflow-hidden border-bad/30">
@@ -229,6 +234,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
           </section>
         </div>
       </Stack>
+      )}
 
       {msg && data.parents && (msg !== "emergency" || can.emergencyMessage) && (msg === "emergency" || can.live) && (
         <RouteMessageSheet closeHref={HREF} routes={data.parents.map((x) => ({ id: x.id, label: x.label, parents: x.parents }))}

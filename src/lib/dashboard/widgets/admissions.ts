@@ -67,7 +67,9 @@ const followUps: Widget<"attention"> = {
       c.tx.enquiry.count({ where: late }),
       c.tx.enquiry.count({ where: today }),
     ]);
-    const own = (await admissionView(c)).v.see !== "all";
+    const { v } = await admissionView(c);
+    // "Of yours" only when the person owns every one: an enquiry they added with "No owner" is not theirs (QA L6-05).
+    const own = v.see !== "all" && Boolean(v.staffId) && lateCount > 0 && (await c.tx.enquiry.count({ where: { AND: [late, { ownerStaffId: v.staffId }] } })) === lateCount;
     if (lateCount) {
       return {
         id: "admissions.follow-ups-late", tone: "warn", icon: "Clock",
@@ -80,7 +82,7 @@ const followUps: Widget<"attention"> = {
     return {
       id: "admissions.follow-ups-today", tone: "info", icon: "Clock",
       title: `${plural(todayCount, "enquiry follow-up call")} due today`,
-      detail: own ? "Enquiries you own or added" : "Every enquiry with a follow-up set for today",
+      detail: v.see !== "all" ? "Enquiries you own or added" : "Every enquiry with a follow-up set for today",
       action: "Call", href: `${BASE}/enquiries?quick=today`, value: String(todayCount),
     };
   },

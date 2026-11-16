@@ -19,6 +19,7 @@ import { RouteSheet } from "../_components/route-sheets";
 import { restoreRouteAction } from "../actions";
 import { BASE, addQ, one, qs, trGuard, type SearchParams } from "../_lib/page";
 import { crewOptions } from "../_lib/options";
+import { ModuleStart } from "@/components/ui/module-start";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -52,6 +53,10 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
     <div>
       <TrHead page="routes" sub={data.all.length ? `${plural(data.all.length, "route")} · ${plural(stops, "stop")} · ${plural(students, "student")}` : undefined}
         actions={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="primary" icon={Plus}>Add route</ButtonLink> : undefined} />
+      {data.all.length === 0 && data.archived.length === 0 && !q ? (
+        <ModuleStart icon={Bus} title="Transport is not set up yet" body="Start with your first bus route. Then add its stops, the bus and the students."
+          href={p.can.routes ? addQ(sheetHref, { do: "route" }) : undefined} action="Add the first route" waiting="The Transport In-charge sets up the routes." />
+      ) : (
       <Stack>
         <Card className="overflow-hidden">
           <Toolbar>
@@ -108,6 +113,7 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
           </Card>
         </div>
       </Stack>
+      )}
       {one(sp.do) === "route" && p.can.routes && data.options && <RouteSheet closeHref={sheetHref} start={null} {...data.options} />}
     </div>
   );

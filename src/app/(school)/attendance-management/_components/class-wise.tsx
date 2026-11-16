@@ -42,7 +42,8 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
             <span className="w-11 h-11 rounded-xl bg-warn/12 text-warn grid place-items-center shrink-0 text-[12.5px] font-bold" aria-hidden="true">{short(r.name)}</span>
             <Link href={`${BASE}/register?section=${r.sectionId}`} className="min-w-0 flex-1 group">
               <p className="font-semibold text-[14.5px] leading-snug truncate group-hover:text-brand">{r.teacher ?? "No class teacher"}</p>
-              <p className="text-[12.5px] text-ink3 truncate">{r.name} · {n(r.students)} {r.students === 1 ? "student" : "students"}{r.teacher ? " · class teacher" : ""}</p>
+              {/* Two lines rather than "16 stude…" (phone-width PW-22). */}
+              <p className="text-[12.5px] text-ink3 line-clamp-2">{r.name} · {n(r.students)} {r.students === 1 ? "student" : "students"}{r.teacher ? " · class teacher" : ""}</p>
             </Link>
             {canRemind && (r.teacherLogin
               ? <RemindButton className="shrink-0" done={r.remindedAt ? formatTime(r.remindedAt, tz) : null} run={remindNotMarkedAction.bind(null, [r.sectionId])} />
@@ -116,7 +117,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today, threshold 
                       <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 text-[12.5px] font-bold", TONE_BG[t])} aria-hidden="true">{short(s.name)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[14.5px] leading-snug truncate">{s.name}</span>
-                        <span className="block text-[12.5px] text-ink3 truncate">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} <Words k="students" /></span>
+                        <span className="block text-[12.5px] text-ink3 line-clamp-2">{s.teacher?.name ?? "No class teacher"} · {n(s.students)} <Words k="students" /></span>
                       </span>
                       {s.marked > 0 && s.percent !== null
                         ? <span className={cx("font-display text-[20px] font-semibold tnum shrink-0", TONE_TEXT[t])}>{percentText(s.percent)}</span>

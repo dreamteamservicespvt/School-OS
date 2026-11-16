@@ -45,7 +45,7 @@ function apaarWords(c: NonNullable<Profile["apaarConsent"]>, tz: string) {
 
 /** The small "Edit" link on a card (students.jsx EditBtn). */
 export function EditLink({ href, label = "Edit", icon: Icon = Pencil }: { href: string; label?: string; icon?: LucideIcon }) {
-  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-xl hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{label}</Link>;
+  return <Link href={href} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand h-8 px-2 rounded-xl hover:bg-brand/8 shrink-0"><Icon size={14} aria-hidden="true" />{tx(label)}</Link>;
 }
 const editLink = (href: string, section: string, can: StudentAbilities) => (can.manage ? <EditLink href={`${href}/edit/${section}`} /> : undefined);
 
@@ -112,7 +112,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             {today.length === 0 && <li className="flex gap-3 text-ink3"><CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><span><Words k="Nothing needs attention today." /></span></li>}
             {today.map((t) => {
               const look = t.label === "Birthday" ? { icon: Cake, cls: "text-brand" } : TODAY_TONE[t.tone ?? "neutral"];
-              const body = <><b className="font-semibold">{t.label}</b> · {t.value}</>;
+              const body = <><b className="font-semibold">{tx(t.label)}</b> · {tx(t.value)}</>;
               return (
                 <li key={t.label} className="flex gap-3">
                   <look.icon size={18} className={cx("shrink-0 mt-0.5", look.cls)} aria-hidden="true" />
@@ -151,7 +151,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             </ul>
             {p.apaarConsent && (
               <p className="px-5 pb-3 -mt-1 text-[13.5px] flex items-center justify-between gap-3">
-                <span className="min-w-0"><span className="block"><Words k="APAAR consent" /></span><span className="block text-[12.5px] text-ink3">{apaarWords(p.apaarConsent, tz)}</span></span>
+                <span className="min-w-0"><span className="block"><Words k="APAAR consent" /></span><span className="block text-[12.5px] text-ink3">{tx(apaarWords(p.apaarConsent, tz))}</span></span>
                 <Pill tone={p.apaarConsent.state === "GIVEN" ? "ok" : p.apaarConsent.state === "WITHDRAWN" || p.apaarConsent.state === "REFUSED" ? "bad" : "warn"}>{CONSENT_STATUS_LABEL[p.apaarConsent.state]}</Pill>
               </p>
             )}
@@ -261,7 +261,9 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
           {p.emergency.map((e, i) => (
             <li key={`${e.kind}-${e.id}`} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0 flex-wrap">
               <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum shrink-0">{i + 1}</span>
-              <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]"><Words k="Restricted" /></Pill>}</span>
+              {/* At least 10rem for the name: on a 360 px phone the phone number and the buttons wrap under it
+                  instead of crushing it to "Nar / esh" (phone-width PW-01). */}
+              <span className="flex-1 min-w-[10rem] text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]"><Words k="Restricted" /></Pill>}</span>
               {e.phone ? <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a> : <PhoneMissing className="text-[13.5px]" />}
               {can.manage && (
                 <span className="flex gap-0.5">

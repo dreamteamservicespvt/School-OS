@@ -14,6 +14,7 @@ import { UrlSelect } from "@/components/money/url-filters";
 import { Chips } from "@/components/ui/chips";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 const TXT = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 const BG = { ok: "bg-ok/12 text-ok", warn: "bg-warn/12 text-warn", bad: "bg-bad/10 text-bad" } as const;
@@ -75,7 +76,7 @@ export function ClassFees({ data, sort, group, href, classHref, today, all = fal
                       <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 text-[12.5px] font-bold", BG[tone])} aria-hidden="true">{short(s.name)}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[14.5px] leading-snug truncate">{s.name}</span>
-                        <span className="block text-[12.5px] text-ink3 truncate">{s.teacher ? `Class teacher ${s.teacher.name}` : s.classId ? "No class teacher" : "Left or not placed yet"}</span>
+                        <span className="block text-[12.5px] text-ink3 truncate">{tx(s.teacher ? `Class teacher ${s.teacher.name}` : s.classId ? "No class teacher" : "Left or not placed yet")}</span>
                       </span>
                       <span className={cx("font-display text-[20px] font-semibold tnum shrink-0", TXT[tone])}>{Math.round(s.percent)}%</span>
                     </span>

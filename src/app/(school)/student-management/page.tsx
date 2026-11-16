@@ -170,8 +170,10 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
         <Chips label="Students by class" value={f.section === "none" ? "none" : f.class ?? "all"} options={[
           // One class with students: "All" would be the same list under a second name, so only the class chip shows.
           ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: inClasses, href: href({ class: null, section: null }) }]),
-          ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
+          // "Not in a class" sits next to "All classes", so on a phone both counts show together and add up to
+          // the head count ("All classes 361" beside "363 studying" read as a mistake, phone-width PW-23).
           ...(noClass ? [{ value: "none", label: "Not in a class", count: noClass, href: href({ class: null, section: "none" }) }] : []),
+          ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
         ]} />
       )}
       {curClass && curClass.sections.length > 0 && (
@@ -186,7 +188,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
 
       <Card className="mt-4 overflow-hidden">
         <Toolbar>
-          <ListToolbar placeholder="Name, admission no., parent name or phone" showArchived={ab.manage}
+          <ListToolbar placeholder="Name, adm. no. or phone" showArchived={ab.manage}
             filters={seeFees ? [{ key: "fee", label: "Fees", allLabel: "Fees: everyone", options: [{ value: "dues", label: "Has dues" }, { value: "overdue", label: "Overdue" }] }] : []}
             more={[
               { key: "status", label: "Status", allLabel: "Status: studying", options: [...STUDENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })), { value: "all", label: "Every status" }] },

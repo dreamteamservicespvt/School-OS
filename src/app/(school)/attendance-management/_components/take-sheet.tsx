@@ -282,12 +282,13 @@ export function TakeSheet(p: Props) {
 
       {/* Counts + tools */}
       <div className="flex flex-col xl:flex-row gap-3 xl:items-center mb-4">
-        <div className="grid gap-2 flex-1 grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]">
+        {/* Phones: the counters stay one compact row, so the first student shows above the Save bar (phone-width PW-04). */}
+        <div className="grid gap-2 flex-1 grid-cols-[repeat(auto-fit,minmax(4.5rem,1fr))] sm:grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]">
           {tiles.map((t) => (
-            <div key={t.key} className="rounded-xl bg-surface border border-line px-3 py-2.5 min-w-0">
-              <p className={cx("font-display text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
+            <div key={t.key} className="rounded-xl bg-surface border border-line px-2 py-2 sm:px-3 sm:py-2.5 min-w-0">
+              <p className={cx("font-display text-[19px] sm:text-[22px] font-semibold tnum leading-none whitespace-nowrap", t.key === "none" ? "text-ink3" : STATUS_SOFT[byKey.get(t.key)?.tone ?? "neutral"])}>{t.value}</p>
               {/* The tile names the letter its button shows ("P · Present"): bare P, A, L had no meaning on screen (layman loop 5). */}
-              <p className="text-[12px] text-ink3 font-semibold mt-1 leading-tight">{byKey.get(t.key)?.letter ? `${byKey.get(t.key)!.letter} · ` : ""}{tr.any(t.label)}</p>
+              <p className="text-[11.5px] sm:text-[12px] text-ink3 font-semibold mt-1 leading-tight">{byKey.get(t.key)?.letter ? `${byKey.get(t.key)!.letter} · ` : ""}{tr.any(t.label)}</p>
             </div>
           ))}
         </div>
@@ -295,7 +296,7 @@ export function TakeSheet(p: Props) {
           <div className="relative flex-1 xl:w-56">
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Name or roll no.")} aria-label={tr("Find a student by name or roll number")}
-              className="h-11 w-full rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
+              className="h-11 w-full scroll-mb-40 rounded-xl bg-surface border border-line pl-9 pr-9 text-[14.5px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 [&::-webkit-search-cancel-button]:hidden" />
             {q && <button type="button" onClick={() => setQ("")} aria-label={tr("Clear search")} className="absolute right-1.5 top-1/2 -translate-y-1/2 size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
           </div>
           {!readOnly && <Button variant="secondary" icon={CheckCheck} className="h-11" disabled={!changed} onClick={() => setConfirmAll(true)}><Words k="All present" /></Button>}
@@ -347,15 +348,18 @@ export function TakeSheet(p: Props) {
               ) : (
                 // Every status is a button (no hidden long press). With more than P, A and L they take a line
                 // of their own on a phone, each at least 44 px wide.
-                <div className={cx("flex gap-1 shrink-0", many && "w-full sm:w-auto")} role="radiogroup" aria-label={tr("Attendance for {name}", { name: s.name })}>
+                /* Seven statuses on a 360 px phone: the buttons share the row (at least 40 px each) instead of
+                   cutting the last one in half (phone-width PW-02). */
+                <div className={cx("flex shrink-0", many ? "w-full gap-0.5 min-[400px]:gap-1 sm:w-auto" : "gap-1")} role="radiogroup" aria-label={tr("Attendance for {name}", { name: s.name })}>
                   {quick.map((k) => {
                     const sk = byKey.get(k)!;
                     const on = v === k;
                     return (
                       <button key={k} type="button" role="radio" aria-checked={on} aria-label={tr.any(sk.name)} title={tr.any(sk.name)}
                         onClick={() => set(s.id, { statusKey: k })}
-                        className={cx("min-w-11 h-11 px-1 rounded-xl border text-[13.5px] font-bold transition select-none", many && "flex-1 sm:flex-none",
-                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : "border-line text-ink3 hover:border-ink3/60 hover:text-ink")}>
+                        className={cx("h-11 px-1 rounded-xl border text-[13.5px] font-bold transition select-none", many ? "min-w-0 flex-1 sm:flex-none sm:min-w-11" : "min-w-11",
+                          // Unselected letters in ink2, not ink3: dim grey on near-black was hard to read in dark mode (PW-19).
+                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : "border-line text-ink2 hover:border-ink3/60 hover:text-ink")}>
                         {sk.letter}
                       </button>
                     );

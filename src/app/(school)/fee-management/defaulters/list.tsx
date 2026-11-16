@@ -146,7 +146,9 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
               <Avatar name={d.name} size={42} src={d.photo} />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{d.name}</p>
-                <p className="text-[13px] text-ink3 truncate">{d.cls} · {d.heads}</p>
+                {/* The fee items on their own line: "Class 7 B · Tuiti…" lost what is owed (phone-width PW-09). */}
+                <p className="text-[13px] text-ink3 truncate">{d.cls}</p>
+                <p className="text-[12.5px] text-ink3 line-clamp-2">{d.heads}</p>
                 {d.promise && <p className={cx("text-[12.5px] font-semibold truncate", d.promise.tone === "bad" ? "text-bad" : "text-info")}>{d.promise.words}</p>}
               </div>
               <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p>{d.ofAll && <p className="text-[11.5px] text-ink3 tnum">{tr.any(d.ofAll)}</p>}<Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></div>

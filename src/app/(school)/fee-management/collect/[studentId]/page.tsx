@@ -111,7 +111,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
             <div className="min-w-0 flex-1">
               {/* The page's heading (accessibility check: the page had no h1); the name still opens the profile. */}
               <h1 className="font-display font-semibold text-[19px] leading-tight"><Link href={`/student-management/students/${card.id}`} className="hover:underline">{card.name}</Link></h1>
-              <p className="text-[13px] text-ink3 truncate">{card.classSection}{card.rollNo != null ? ` · Roll ${card.rollNo}` : ""}<span className="hidden md:inline">{card.fatherName ? ` · ${card.fatherName}` : ""}{card.primaryGuardian?.phone ? <> · <span className="tnum">{card.primaryGuardian.phone}</span></> : null}</span></p>
+              <p className="text-[13px] text-ink3 truncate">{card.classSection}{card.rollNo != null ? <> · <Words k="Roll {n}" vars={{ n: card.rollNo }} /></> : ""}<span className="hidden md:inline">{card.fatherName ? ` · ${card.fatherName}` : ""}{card.primaryGuardian?.phone ? <> · <span className="tnum">{card.primaryGuardian.phone}</span></> : null}</span></p>
               <div className="flex gap-x-4 gap-y-0.5 mt-2 text-[13px] tnum flex-wrap">
                 <span><span className="text-ink3"><Words k="Year" /> </span><b className="font-semibold">{formatRupees(totals.total)}</b></span>
                 <span><span className="text-ink3"><Words k="Paid" /> </span><b className="font-semibold text-ok">{formatRupees(totals.paid)}</b></span>

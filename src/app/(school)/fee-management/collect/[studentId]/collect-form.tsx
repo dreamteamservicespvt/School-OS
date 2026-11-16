@@ -23,6 +23,7 @@ import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, receiptDelivery, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words, useT } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
 import { FormProblems, bringToBox } from "@/components/ui/form-problems";
 import { DateInput, DateTimeInput } from "@/components/ui/date-input";
 import { UTR_LENGTH, paymentRefProblem, upiTyping } from "@/lib/payment-ref";
@@ -199,7 +200,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
         {studentCard}
         <Card className="overflow-hidden">
           <CardHeader title="What is being paid" description={ticked.size ? "Due rows are ticked for you" : "Tick the rows being paid"}
-            action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} <Words k="paid" /></button> : null} />
+            action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 max-md:h-10 px-2 rounded-lg hover:bg-brand/8">{showPaid ? tr("Hide {n} paid", { n: paidCount }) : tr("Show {n} paid", { n: paidCount })}</button> : null} />
           {open.length === 0 ? (
             <Empty icon={PartyPopper} title="All fees paid for this year" body={`${firstName} has nothing due. ${nextDueText}`} />
           ) : (
@@ -214,10 +215,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                       {isPaid ? <span className="w-5 h-5 rounded-md bg-ok/15 text-ok grid place-items-center"><Check size={13} strokeWidth={3} aria-hidden="true" /></span>
                         : <Checkbox checked={on} onChange={() => toggle(r.id)} label={`${r.head} ${r.label}`} />}
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[14.5px]">{tr.any(r.head)} <span className="text-ink3 font-normal">· {tr.any(r.label)}</span></p>
+                        <p className="font-semibold text-[14.5px]">{tr.any(r.head)} <span className="text-ink3 font-normal">· {screenLine(tr, r.label)}</span></p>
                         {r.timeline && !isPaid
                           ? <>{r.paid > 0 && <p className="text-[12.5px] text-ink3 tnum">{tr.any(`${inr(r.paid)} already paid`)}</p>}<FeeTimelineLine t={r.timeline} className="!mt-0.5" /></>
-                          : <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>}
+                          : <p className="text-[12.5px] text-ink3">{tr("Due {date}", { date: r.due })}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>}
                       </div>
                       <Pill tone={DUE_WORD[r.status].tone} className="hidden sm:inline-flex">{DUE_WORD[r.status].label}</Pill>
                       <span className="w-24 text-right tnum">
@@ -301,7 +302,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               {/* The day the receipt carries: today unless changed under "Date or note". */}
               <button type="button" disabled={!counter.changeDate} onClick={() => { setMore(true); requestAnimationFrame(() => document.getElementById("pay-when")?.focus()); }}
                 className="h-11 px-3 rounded-xl border border-line text-[13px] font-semibold text-ink2 inline-flex items-center gap-1.5 enabled:hover:border-ink3/50 disabled:cursor-default tnum">
-                <CalendarDays size={15} aria-hidden="true" />{paidOn ? tr.any(`Paid on ${paidOn.slice(8, 10)}-${paidOn.slice(5, 7)}-${paidOn.slice(0, 4)}`) : tr.any(`Today, ${todayText ?? today}`)}
+                <CalendarDays size={15} aria-hidden="true" />{paidOn ? tr("Paid on {date}", { date: `${paidOn.slice(8, 10)}-${paidOn.slice(5, 7)}-${paidOn.slice(0, 4)}` }) : tr("Today, {date}", { date: todayText ?? today })}
               </button>
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
                 title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. Ask your School Admin to set it up with the School OS support team."}
@@ -347,7 +348,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             </button>
             <div className={cx("flex flex-col gap-3 mt-3", !more && "hidden")}>
               {counter.discount && (
-                <div className="grid grid-cols-[120px_1fr] gap-3">
+                /* Below 400 px the reason takes its own line, so its example is not cut ("Example: father’s", PW-10). */
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-[120px_1fr] gap-3">
                   <FieldShell label="Discount" id="pay-disc" error={serverErr("discount") || errDisc || undefined} help={`Up to ${limit}`}>
                     <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setHideFor(state); }} placeholder="₹ 0"
                       aria-invalid={Boolean(serverErr("discount") || errDisc) || undefined} className={cx(inputCls(serverErr("discount") || errDisc), "h-11 tnum")} />

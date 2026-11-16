@@ -147,7 +147,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
         <Card className="overflow-hidden">
           <Toolbar className="md:flex-wrap">
             <UrlSearch id="def-q" placeholder="Name or number" label="Search defaulters" />
-            <div className="grid grid-cols-2 gap-2.5 md:flex md:flex-wrap">
+            {/* One filter a row below 400 px: two a row cut their own words ("Any days lat", PW-09). */}
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2.5 md:flex md:flex-wrap">
               <UrlSelect id="def-cls" param="class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...all.classTotals.filter((c) => c.classId).map((c) => ({ value: c.classId!, label: c.className }))]} />
               <UrlSelect id="def-age" param="age" label="Days late" className="md:w-40" options={[{ value: "", label: "Any days late" }, ...all.ageingTotals.map((g) => ({ value: String(g.index), label: g.label }))]} />
               <UrlSelect id="def-amt" param="above" label="Amount" className="md:w-40" options={amounts} />

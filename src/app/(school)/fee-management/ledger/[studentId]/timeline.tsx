@@ -7,13 +7,15 @@ import { ArrowRight, BellOff } from "lucide-react";
 import type { FeeTimeline } from "@/lib/fees/timeline";
 import { cx } from "@/components/ui/cx";
 import { useT } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
 
 const DOT = { done: "bg-ink3", today: "bg-warn", ahead: "bg-surface border border-ink3/60" } as const;
 
 export function FeeTimelineLine({ t, className }: { t: FeeTimeline; className?: string }) {
   const tr = useT();
   // Each " · " part is said in the screen's language on its own ("Reminder 1 of 3", "3 days before", "sent").
-  const say = (text: string) => text.split(" · ").map((p) => tr.any(p)).join(" · ");
+  // screenLine also says "Due 10-04-2026" whole (phone-width PW-13: it stayed English on a Telugu screen).
+  const say = (text: string) => screenLine(tr, text);
   return (
     <div className={cx("mt-1 flex flex-col gap-1", className)}>
       <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] leading-5" aria-label={tr.any("Installment timeline")}>

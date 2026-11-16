@@ -88,7 +88,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pendi
             <p className="text-ink2"><Any text="A new WhatsApp card is ready for these: a title, the facts in bold, the school's name and buttons. Making them ready saves a new version; approved words keep going until WhatsApp approves the new one." /></p>
             <p className="text-[13px] text-ink3">{fixNames.join(", ")}</p>
             <div>
-              <Button variant="primary" icon={Sparkles} loading={busy} loadingText="Making ready…" onClick={makeReady} disabled={Boolean(sending)}>
+              <Button variant="primary" icon={Sparkles} loading={busy} loadingText="Making ready…" onClick={makeReady} disabled={Boolean(sending)} className="max-md:w-full">
                 {fixNames.length === 1 ? <Words k="Make 1 template ready for WhatsApp" /> : <Words k="Make {n} templates ready for WhatsApp" vars={{ n: fixNames.length }} />}
               </Button>
               {readyMsg && <p role="alert" className="mt-1 text-[13px] text-bad"><Any text={readyMsg} /></p>}
@@ -101,7 +101,8 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pendi
             <p className="text-ink2"><Words k="These have words WhatsApp accepts and have not been sent yet." /></p>
             {againNames.length > 0 && <p className="text-[13px] text-ink3"><Words k="Rejected by WhatsApp: wrong type. These go again as code messages: {names}" vars={{ names: againNames.join(", ") }} /></p>}
             <div>
-              <Button variant={fixable.length ? "secondary" : "primary"} icon={Send} loading={Boolean(sending)}
+              {/* Full width and two lines on a phone: one line was 339 px and made the page wider than the phone (PW-03). */}
+              <Button variant={fixable.length ? "secondary" : "primary"} icon={Send} loading={Boolean(sending)} className="max-md:w-full"
                 loadingText={sending ? t("Sending {i} of {n}…", { i: sending.at, n: sending.of }) : undefined} disabled={busy} onClick={sendAll}>
                 {sendCount === 1 ? <Words k="Send 1 template to WhatsApp for approval" /> : <Words k="Send {n} templates to WhatsApp for approval" vars={{ n: sendCount }} />}
               </Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Award, CalendarClock, EyeOff, History, Send, UserRound } from "lucide-react";
+import { Award, CalendarClock, EyeOff, History, MoveHorizontal, Send, UserRound } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Pill, type PillTone } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { cancelScheduledAction, publishAction, unpublishAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
 
 type Sec = { id: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: string | null; students: number };
@@ -169,6 +169,8 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
   const RES = { ok: "text-ok", bad: "text-bad", warn: "text-warn", info: "text-info", neutral: "text-ink3" };
   return (
     <>
+      {/* Phones see Student and three or four subjects; the rest is to the right (phone-width PW-06). */}
+      {!subjectOnly && <p className="md:hidden px-4 py-2 border-t border-line text-[12.5px] text-ink3 flex items-center gap-1.5"><MoveHorizontal size={14} className="shrink-0" aria-hidden="true" />{ranks ? <Words k="Swipe the table sideways for Total, Grade and Rank." /> : <Words k="Swipe the table sideways for Total and Grade." />}</p>}
       <div className="overflow-x-auto scroll-thin border-t border-line">
         <table className="text-[13.5px] min-w-full">
           <caption className="sr-only"><Words k="Class result sheet for" /> {section}<Words k=". Choose a student to see their marks by subject." /></caption>
@@ -203,7 +205,7 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
                     <td className="px-3 text-right tnum">{r.percent}</td>
                     <td className="px-3 text-center">{r.grade ? <Pill tone={r.gradeTone} className="!h-5 !text-[11px]">{r.grade}</Pill> : <span className="text-ink3">—</span>}</td>
                     {ranks && <td className="px-3 text-center tnum">{r.rank ?? "—"}</td>}
-                    <td className={cx("px-4 whitespace-nowrap font-semibold text-[13px]", RES[r.result.tone])}>{r.result.text}</td>
+                    <td className={cx("px-4 whitespace-nowrap font-semibold text-[13px]", RES[r.result.tone])}><Any text={r.result.text} /></td>
                   </>
                 )}
               </tr>

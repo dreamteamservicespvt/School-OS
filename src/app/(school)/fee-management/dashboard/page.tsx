@@ -34,6 +34,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -208,7 +209,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 <li key={m.mode} className="text-[13.5px]">
                   <div className="flex items-center gap-2 mb-1">
                     <ModeIcon mode={m.mode} />
-                    <span className="font-medium flex-1 min-w-0 truncate">{modeWord(m.mode)}</span>
+                    <span className="font-medium flex-1 min-w-0 truncate">{tx(modeWord(m.mode))}</span>
                     <span className="text-ink3 tnum text-[12.5px]">{m.count}</span>
                     <span className="font-semibold tnum w-20 text-right">{period === "today" ? formatRupees(m.amount) : formatRupeesShort(m.amount)}</span>
                   </div>
@@ -346,7 +347,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.student?.fullName ?? "Student"}</p><p className="text-[12.5px] text-ink3">{r.classLabel}</p></> },
                 { key: "head", label: "Fee heads", render: (r) => <span className="text-[13px] text-ink2">{r.heads || "—"}</span> },
                 { key: "amt", label: "Amount", align: "right", render: (r) => <span className={cx("font-semibold", r.status === "CANCELLED" && "line-through text-ink3")}>{formatRupees(r.amountPaise)}</span> },
-                { key: "mode", label: "Mode", nowrap: true, render: (r) => <span className="inline-flex items-center gap-1.5 text-[13px]"><ModeIcon mode={r.mode} />{modeWord(r.mode)}</span> },
+                { key: "mode", label: "Mode", nowrap: true, render: (r) => <span className="inline-flex items-center gap-1.5 text-[13px]"><ModeIcon mode={r.mode} />{tx(modeWord(r.mode))}</span> },
                 { key: "rcpt", label: "Receipt or reference", render: (r) => <span className="font-mono text-[12px] text-ink2">{r.receiptNo ?? r.reference ?? r.gatewayPaymentId ?? "—"}</span> },
                 { key: "status", label: "Status", render: (r) => <PayPill status={r.status} /> },
               ]}

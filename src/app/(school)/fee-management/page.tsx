@@ -36,7 +36,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
     <div>
       <FeeHead title="Collect fee" pageName="Collect Fee" href={BASE} />
       <div className="max-w-3xl">
-        <UrlSearch big id="fee-search" placeholder="Student name, admission no., application no. or parent phone" autoFocus label="Find a student" />
+        <UrlSearch big id="fee-search" placeholder="Name, adm. no., app. no. or phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">
           {q && list.length === 0 && applicants.length === 0 ? (
             <Empty icon={SearchX} title={`No student called “${q}”`} body="Try the admission number or the parent’s mobile number." />

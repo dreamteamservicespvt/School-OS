@@ -114,18 +114,22 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
             const Ic = icon(n.icon);
             return (
               <li key={n.id}>
-                <div className="flex items-center gap-3.5 px-3 py-3 rounded-xl hover:bg-sunken/70 transition group">
-                  <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_BG[n.tone])}><Ic size={19} aria-hidden="true" /></span>
-                  <Link href={n.href} className="min-w-0 flex-1">
-                    <p className="font-semibold text-[14.5px] leading-snug">{screenLine(t, n.title)}</p>
-                    <p className="text-[13px] text-ink3 truncate">{screenLine(t, n.detail)}</p>
+                {/* Phone (PW-15): tighter gaps and the arrow inside the row's own link, so the title gets the width
+                    instead of wrapping into a narrow column between two icons; the detail line may take two lines. */}
+                <div className="flex items-center gap-2.5 sm:gap-3.5 px-2 sm:px-3 py-3 rounded-xl hover:bg-sunken/70 transition group">
+                  <span className={cx("w-9 h-9 sm:w-10 sm:h-10 rounded-xl grid place-items-center shrink-0", TONE_BG[n.tone])}><Ic size={19} aria-hidden="true" /></span>
+                  <Link href={n.href} className="min-w-0 flex-1 flex items-center gap-1">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-[14.5px] leading-snug">{screenLine(t, n.title)}</span>
+                      <span className="block text-[13px] text-ink3 line-clamp-2 sm:line-clamp-1">{screenLine(t, n.detail)}</span>
+                    </span>
+                    <I.ChevronRight size={20} className="sm:hidden shrink-0 text-ink3" aria-hidden="true" />
                   </Link>
                   <button type="button" onClick={() => seen(n)} disabled={pending}
                     className="grid w-11 h-11 md:w-8 md:h-8 shrink-0 place-items-center rounded-lg text-ink3 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:bg-line/60 transition" aria-label={t("Mark as seen: {title}", { title: screenLine(t, n.title) })} title={t("Mark as seen")}>
                     <I.EyeOff size={16} aria-hidden="true" />
                   </button>
                   <ButtonLink href={n.href} size="sm" variant="secondary" className="hidden sm:inline-flex shrink-0">{t.any(n.action)}</ButtonLink>
-                  <Link href={n.href} className="sm:hidden w-9 h-9 grid place-items-center rounded-lg text-ink3 shrink-0" aria-label={t.any(n.action)}><I.ChevronRight size={20} aria-hidden="true" /></Link>
                 </div>
               </li>
             );

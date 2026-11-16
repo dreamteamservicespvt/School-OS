@@ -253,7 +253,7 @@ function Timeline({ t, plan, dayIso, today, minute, desk, bookHref }: { t: T; pl
               {r.slots.map((m) => {
                 const words = <>{clockOf(m).replace(/ (AM|PM)$/, "")} <span className="font-normal"><Words k="free" /></span></>;
                 return desk
-                  ? <Link key={m} href={bookHref(m)} scroll={false} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum transition border border-dashed border-line text-ink3 hover:border-brand hover:text-brand hover:bg-brand/5 inline-flex items-center gap-1" aria-label={t("Book {time}", { time: clockOf(m) })}>{words}</Link>
+                  ? <Link key={m} href={bookHref(m)} scroll={false} className="h-9 max-md:h-10 px-3 rounded-lg text-[12.5px] font-semibold tnum transition border border-dashed border-line text-ink3 hover:border-brand hover:text-brand hover:bg-brand/5 inline-flex items-center gap-1" aria-label={t("Book {time}", { time: clockOf(m) })}>{words}</Link>
                   : <span key={m} className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum border border-dashed border-line text-ink3 inline-flex items-center gap-1">{words}</span>;
               })}
             </div>

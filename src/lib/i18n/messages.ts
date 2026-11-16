@@ -2,7 +2,7 @@
 // language. Fixed messages come from the catalogue; the common ones with a name or a number in
 // them are matched here. A message the catalogue does not have stays in English, never blank.
 import type { T } from "./t";
-import { dateRuns, dayWords } from "./dates";
+import { dateLabel, dateRuns, dayWords } from "./dates";
 
 /** "Class 1 A" with the word "Class" in the screen's language; the class name stays as typed (QA L6-44, L6-16). */
 export const classWords = (t: T, section: string) => section.replace(/^class /i, (w) => `${t(w.startsWith("C") ? "Class" : "class")} `);
@@ -79,6 +79,20 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^choose a grade from (.+)\.$/, (t, m) => t("choose a grade from {grades}.", { grades: m[1] })],
   // A header part "Class teacher Ravi Teja" (Attendance), and "Your classes: 5 A, 5 B" (Students).
   [/^Class teacher (.+)$/, (t, m) => t("Class teacher {name}", { name: m[1] })],
+  // Fee rows on Collect Fee and the ledger (phone-width PW-13): a due date, a roll number and the plan's
+  // installment names ("Quarter 2 (Jul to Sep)", src/lib/fees/schedule.ts) with their month names.
+  [/^Due (\d{2}-\d{2}-\d{4})$/, (t, m) => t("Due {date}", { date: m[1] })],
+  [/^Roll (\d+)$/, (t, m) => t("Roll {n}", { n: m[1] })],
+  [/^Quarter (\d) \((\w+) to (\w+)\)$/, (t, m) => t("Quarter {n} ({from} to {to})", { n: m[1], from: dateLabel(t, m[2]), to: dateLabel(t, m[3]) })],
+  // Defaulters: the head line and the ageing groups (src/lib/fees/words.ts ageingLabel).
+  [/^(\d[\d,]*) students owe (₹[\d.,]+(?: Cr| L|k)?) past the due date$/, (t, m) => t("{n} students owe {amount} past the due date", { n: m[1], amount: m[2] })],
+  [/^1 student owes (₹[\d.,]+(?: Cr| L|k)?) past the due date$/, (t, m) => t("1 student owes {amount} past the due date", { amount: m[1] })],
+  [/^(\d[\d,]*) more than 30 days late$/, (t, m) => t("{n} more than 30 days late", { n: m[1] })],
+  [/^(\d+) to (\d+) days$/, (t, m) => t("{from} to {to} days", { from: m[1], to: m[2] })],
+  [/^Over (\d+) days$/, (t, m) => t("Over {n} days", { n: m[1] })],
+  [/^Send reminder to all (\d[\d,]*)…$/, (t, m) => t("Send reminder to all {n}…", { n: m[1] })],
+  [/^Send reminder to (\d[\d,]*)…$/, (t, m) => t("Send reminder to {n}…", { n: m[1] })],
+  [/^Half (\d) \((\w+) to (\w+)\)$/, (t, m) => t("Half {n} ({from} to {to})", { n: m[1], from: dateLabel(t, m[2]), to: dateLabel(t, m[3]) })],
   [/^Your classes: (.+)$/, (t, m) => t("Your classes: {classes}", { classes: m[1] })],
   // Dashboard card lines (src/lib/dashboard/widgets): short money ("₹48.17 L") and a year name in them.
   [/^(₹[\d.,]+(?: Cr| L|k)?) of (₹[\d.,]+(?: Cr| L|k)?) due so far$/, (t, m) => t("{paid} of {due} due so far", { paid: m[1], due: m[2] })],

@@ -528,3 +528,11 @@ Read-only, 19:43 IST, WhatsApp Chrome: opened the 7:03 PM "New notice" card from
 | Parent Link record page tab (Principal Chrome) | "Venkatesh · Parent Link · School OS": the record name is in front |
 | Closed messages on "What guardians see" (deploy 21) | The message's own lines kept, BUT rows were 117-136 px: `line-clamp-2` never cut (a `block` class won over its display) |
 | Same, after deploy 22 | Every closed row is 2 lines (39 px): "Dear Venkatesh, the exam results are ready." / "👤 Sri Lakshmi of Class 1 A" |
+
+## Deploy 23 (17 Nov 2026, 02:12 IST)
+
+| Check (Principal Chrome, live) | Result |
+|---|---|
+| Send Message first view | Template boxes hidden behind "Use a saved template (fees, attendance, results)"; "No one yet" in Who will get it |
+| "Use a saved template" | Opens Message type (General, Fees, Attendance, Exams and results) and the WhatsApp template box |
+| Old name "School OS support team" | Not on the page any more (DREAM TEAM) |

@@ -68,7 +68,7 @@ export async function saveTemplateAction(id: string | null, raw: unknown): Promi
   }
   const noDlt = saved.noDlt;
   await flash({
-    message: saved.changed.length ? `Template saved.${id ? " A new version was made for each changed language; messages already sent keep theirs." : ""}${noDlt ? " The School OS support team registers the new text on the DLT portal and adds its DLT template ID; SMS waits until then." : ""}` : "Nothing changed in the text, so no new version was made.",
+    message: saved.changed.length ? `Template saved.${id ? " A new version was made for each changed language; messages already sent keep theirs." : ""}${noDlt ? " DREAM TEAM registers the new text on the DLT portal and adds its DLT template ID; SMS waits until then." : ""}` : "Nothing changed in the text, so no new version was made.",
     tone: noDlt ? "info" : "success",
   });
   revalidatePath("/communication/templates");

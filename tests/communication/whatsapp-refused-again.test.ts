@@ -42,6 +42,6 @@ describe("texts WhatsApp refused, and the receipt PDF", () => {
     const known = await listWhatsappTemplates({ config: { businessAccountId: "123" }, secrets: { accessToken: "t" } });
     const note = known!.get("visitor_pass_v2|en")!.note!;
     expect(note).toBe("NO_REASON_GIVEN (filed as AUTHENTICATION)");
-    expect(rejectedWords(note)).toBe("WhatsApp refused it without giving a reason; it filed the text as Authentication. Plainer words usually pass, or ask the School OS support team.");
+    expect(rejectedWords(note)).toBe("WhatsApp refused it without giving a reason; it filed the text as Authentication. Plainer words usually pass, or ask DREAM TEAM.");
   });
 });

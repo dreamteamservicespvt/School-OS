@@ -96,10 +96,10 @@ async function afterReset(userLoginId: string, now: Date, device: { userAgent?: 
       return securityAlert(tx, school.id, userLoginId, {
         subject: "Your School OS password was changed",
         key: others === 0
-          ? "Your School OS password was changed on {when}. Not you? Tell your School Admin or the School OS support team at once."
+          ? "Your School OS password was changed on {when}. Not you? Tell your School Admin or DREAM TEAM at once."
           : others === 1
-            ? "Your School OS password was changed on {when} and 1 other device was signed out. Not you? Tell your School Admin or the School OS support team at once."
-            : "Your School OS password was changed on {when} and {n} other devices were signed out. Not you? Tell your School Admin or the School OS support team at once.",
+            ? "Your School OS password was changed on {when} and 1 other device was signed out. Not you? Tell your School Admin or DREAM TEAM at once."
+            : "Your School OS password was changed on {when} and {n} other devices were signed out. Not you? Tell your School Admin or DREAM TEAM at once.",
         values: { when: formatDateTime(now, zone?.timeZone), n: others },
         link: "/profile#password",
       });

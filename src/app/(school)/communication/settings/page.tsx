@@ -100,7 +100,7 @@ export default async function MessageSettingsPage() {
     ["WhatsApp Business number", data.setups.whatsapp.config.displayNumber || null, data.setups.whatsapp.isOn ? (data.setups.whatsapp.environment === "live" ? "Connected" : "Connected in test mode") : "Not switched on"],
     ...(SMS_OFFERED ? [
       ["SMS sender header", data.school.smsSenderHeader, data.setups.sms.isOn ? "Registered on the DLT portal" : "SMS is not switched on"],
-      ["DLT entity ID", data.school.smsDltEntityId, "Added by the School OS support team from the telecom DLT portal"],
+      ["DLT entity ID", data.school.smsDltEntityId, "Added by DREAM TEAM from the telecom DLT portal"],
     ] as [string, string | null, string][] : []),
     ["Email sender", data.setups.email.config.fromAddress || null, data.setups.email.isOn ? "Sends from this address" : "Email is not switched on"],
     ["Reply-to phone", data.school.phone, "Shown at the end of Parent Link"],
@@ -145,7 +145,7 @@ export default async function MessageSettingsPage() {
             </div>
           </Card>
           <Card>
-            <CardHeader title={SMS_OFFERED ? "Senders and DLT" : "Senders"} description="What parents see as the sender. The School OS support team sets these up." icon={BadgeCheck}
+            <CardHeader title={SMS_OFFERED ? "Senders and DLT" : "Senders"} description="What parents see as the sender. DREAM TEAM sets these up." icon={BadgeCheck}
               action={<ButtonLink href="/settings/messaging" size="sm" variant="ghost"><Words k="Connections" /></ButtonLink>} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               {senders.map(([t, v, sub]) => (
@@ -169,7 +169,7 @@ export default async function MessageSettingsPage() {
             <FeatureSwitches features={COMM_FEATURE_LIST.map((f) => ({
               key: f.key,
               label: f.label,
-              description: f.key === COMM_FEATURES.push && !pushConfigured() ? `${f.description} Not set up on this server yet: ask the School OS support team.` : f.description,
+              description: f.key === COMM_FEATURES.push && !pushConfigured() ? `${f.description} Not set up on this server yet: ask DREAM TEAM.` : f.description,
               on: data.features.some((x) => x.featureKey === f.key && x.isOn),
             }))} />
           </Card>

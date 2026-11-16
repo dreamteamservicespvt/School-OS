@@ -169,7 +169,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
             )}
             <p className="mt-6 border-t border-line pt-4 text-sm text-ink-2">
               <Words k="School group:" /> {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
-              {school.group ? " Settings shared by the group are set by the School OS support team when the group is set up; this school's own settings above always apply here." : ""}
+              {school.group ? " Settings shared by the group are set by DREAM TEAM when the group is set up; this school's own settings above always apply here." : ""}
             </p>
           </CardBody>
         </Card>

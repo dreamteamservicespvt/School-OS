@@ -40,5 +40,5 @@ export async function deliverCodeNow(ctx: SchoolContext, messageId: string | nul
 /** The office's words when a code could not go: what happened, and what to do instead. */
 export function codeFailedWords(channel: string, reason: string): string {
   const by = channel === "whatsapp" ? "WhatsApp" : channel === "sms" ? "SMS" : channel;
-  return `The code was not sent by ${by}: ${reason}. Nothing reached the phone. Tap Send code again, or ask the School OS support team to check the school's ${by}.`;
+  return `The code was not sent by ${by}: ${reason}. Nothing reached the phone. Tap Send code again, or ask DREAM TEAM to check the school's ${by}.`;
 }

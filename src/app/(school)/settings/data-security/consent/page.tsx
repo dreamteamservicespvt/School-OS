@@ -52,7 +52,7 @@ function DraftTranslations({ consentType, schoolEnglish }: { consentType: string
     <details>
       <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Any text="Hindi and Telugu: draft translations waiting for approval" /></summary>
       <div className="mt-2 space-y-3">
-        <p className="text-[13.5px] text-ink-2"><Any text="Parents still see the English text until the School OS support team approves these translations." /></p>
+        <p className="text-[13.5px] text-ink-2"><Any text="Parents still see the English text until DREAM TEAM approves these translations." /></p>
         {schoolEnglish && !isReadyEnglish(consentType, schoolEnglish) && (
           <p className="text-[13.5px] text-ink-2"><Any text="Your school changed the English text, so these drafts translate the built-in text, not yours." /></p>
         )}

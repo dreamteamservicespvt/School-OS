@@ -14,7 +14,7 @@ import { logActivity, type ConsoleActor } from "../console/activity";
 import { ConsoleProblem } from "../console/schools";
 
 /** What a School Admin sees instead of "Reset two-step login" for a group login. */
-export const GROUP_LOGIN_RESET_WORDS = "This login is used in more than one school. Ask School OS support to reset it.";
+export const GROUP_LOGIN_RESET_WORDS = "This login is used in more than one school. Ask DREAM TEAM support to reset it.";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,8 +66,8 @@ export async function resetGroupTwoStep(actor: ConsoleActor, schoolId: string, u
   for (const s of schools) {
     const ctx = { schoolId: s.id, userId: null };
     await withSchool(ctx, async (tx) => {
-      await writeAudit(tx, ctx, { action: "reset-two-step", recordType: "User Login", recordId: userLoginId, after: { reason, by: "School OS support", groupLogin: true }, actorNote: `School OS support: ${actor.name}` });
-      await notify(tx, ctx, { to: userLoginId, type: "security", key: "Your two-step login was reset by School OS support. You will set it up again at your next sign-in.", link: "/profile" });
+      await writeAudit(tx, ctx, { action: "reset-two-step", recordType: "User Login", recordId: userLoginId, after: { reason, by: "DREAM TEAM support", groupLogin: true }, actorNote: `DREAM TEAM support: ${actor.name}` });
+      await notify(tx, ctx, { to: userLoginId, type: "security", key: "Your two-step login was reset by DREAM TEAM support. You will set it up again at your next sign-in.", link: "/profile" });
     });
   }
   const here = schools.find((s) => s.id === schoolId)!;

@@ -147,7 +147,7 @@ const settingsAlerts: Widget<"attention"> = {
     ]);
     for (const g of gateways) out.push({
       id: `settings.gateway-test:${g.displayName}`, tone: "bad", icon: "CreditCard",
-      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Collect at the counter. Call the School OS support team.",
+      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Collect at the counter. Call DREAM TEAM.",
       action: "See details", href: "/settings/payment-gateways", value: "failed",
     });
     // SMS alerts are not shown while SMS is not offered (SMS_OFFERED, owner 15 Nov 2026).

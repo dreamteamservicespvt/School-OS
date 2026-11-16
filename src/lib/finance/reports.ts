@@ -324,7 +324,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "group", label: "Group" }, { key: "account", label: "Account" }, { key: "debit", label: "Debit", kind: "money" }, { key: "credit", label: "Credit", kind: "money" }],
         rows: tb.rows.map((r) => ({ group: r.account.group, account: r.account.name, debit: r.debit || null, credit: r.credit || null })),
         totals: { group: "Total", debit: tb.debit, credit: tb.credit },
-        note: tb.balanced ? undefined : "Debits and credits do not match. Tell School OS support.",
+        note: tb.balanced ? undefined : "Debits and credits do not match. Tell DREAM TEAM support.",
       };
     },
   },

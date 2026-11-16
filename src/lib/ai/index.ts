@@ -59,7 +59,7 @@ export type AiResult<T> = { ok: true; data: T; callId: string } | { ok: false; r
 const FAILED = "The AI service is not working right now. Carry on by hand; nothing was changed.";
 export const AI_REASON_WORDS: Record<AiReason, string> = {
   ...AI_OFF_WORDS,
-  "not-connected": "The AI service is not connected yet: the School OS support team connects it.",
+  "not-connected": "The AI service is not connected yet: DREAM TEAM connects it.",
   "daily-limit": "Your school has used today's AI requests. Carry on by hand, or try again tomorrow.",
   "restricted-data": "This needs private details that are never sent to the AI service.",
   refused: "The AI service did not answer this one. Carry on by hand; nothing was changed.",

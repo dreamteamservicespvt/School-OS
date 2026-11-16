@@ -99,7 +99,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const support: SupportItem[] = answersSupport(current)
     ? (await schoolSupportRequests(current.school.id, now, 8)).map((r) => ({
       id: r.id,
-      who: `${r.requestedByName} of the School OS support team`,
+      who: `${r.requestedByName} of DREAM TEAM`,
       reason: r.reason,
       length: lengthWords(r.lengthMinutes),
       asked: formatDateTime(r.createdAt, tz),

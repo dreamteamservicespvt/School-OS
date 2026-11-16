@@ -22,7 +22,7 @@ export function SupportBar({ schoolName, ends, endsAt, who }: { schoolName: stri
         <LifeBuoy size={17} className="shrink-0" aria-hidden="true" />
         <p className="flex-1 min-w-0">
           <b className="font-semibold">Support access for {schoolName}, ends {ends}.</b>{" "}
-          <span className="opacity-90">{who}, School OS support · looking only: nothing can be changed, exported or printed.</span>
+          <span className="opacity-90">{who}, DREAM TEAM support · looking only: nothing can be changed, exported or printed.</span>
         </p>
         <form method="post" action="/support/end">
           <button type="submit" className="h-8 px-3 rounded-lg bg-white/15 hover:bg-white/25 font-semibold transition">End now</button>

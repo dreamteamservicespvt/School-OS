@@ -119,7 +119,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, rejectedOwn, pendi
           </ul>
         )}
 
-        {rejectedOwn.length > 0 && <EditList rows={rejectedOwn} label={label} intro={<Any text="WhatsApp rejected these School OS texts. Its reason is below. Edit the words and send them again, or ask the School OS support team." />} />}
+        {rejectedOwn.length > 0 && <EditList rows={rejectedOwn} label={label} intro={<Any text="WhatsApp rejected these School OS texts. Its reason is below. Edit the words and send them again, or ask DREAM TEAM." />} />}
 
         {toEdit.length > 0 && <EditList rows={toEdit} label={label} intro={<Any text="Change these before sending. The school wrote or changed them, so School OS does not replace them." />} />}
       </div>

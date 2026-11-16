@@ -145,7 +145,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
         {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}><Words k="The code is never shown here. If it did not arrive, the person asks for a new one." /></Banner>}
         {system && <Banner tone="info" title="Sent by School OS."><Words k="This is" /> {systemWhatWords(system)}<Words k=". It also goes to people who opted out, because it is their own link." /></Banner>}
         {m.isEmergency && !isCode && !system && <Banner tone="bad" title="Emergency broadcast."><Words k="Sent also to parents who opted out." /></Banner>}
-        {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent."><Words k={"The channel is in test mode (the School OS support team has not connected it for real yet), so the"} /> {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} <Words k="marked “Test mode” below did not receive this message. It is only recorded." /></Banner>}
+        {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent."><Words k={"The channel is in test mode (DREAM TEAM has not connected it for real yet), so the"} /> {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} <Words k="marked “Test mode” below did not receive this message. It is only recorded." /></Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
             {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.

@@ -67,7 +67,7 @@ describe("messaging connections in the console", () => {
     expect((await withSchool(s.ctx, (tx) => channelSecrets(tx, s.ctx, "whatsapp"))).accessToken).toBe("EAAG-token-secret-4321");
     const audit = await withSchool(s.ctx, (tx) => tx.auditLogEntry.findFirstOrThrow({ where: { schoolId: s.school.id, recordType: "Messaging Channel" }, orderBy: { at: "desc" } }));
     expect(audit.userLoginId).toBeNull();
-    expect(audit.actorNote).toBe(`School OS support: ${people.ONBOARDING.name}`);
+    expect(audit.actorNote).toBe(`DREAM TEAM support: ${people.ONBOARDING.name}`);
     expect(JSON.stringify(audit)).not.toContain("EAAG-token-secret-4321");
     const line = await withConsole((tx) => tx.consoleActivityEntry.findFirstOrThrow({ where: { forSchoolId: s.school.id, type: "connect" }, orderBy: { at: "desc" } }));
     expect(line.text).toMatch(/^WhatsApp settings saved .* for /);
@@ -87,7 +87,7 @@ describe("messaging connections in the console", () => {
     const other = await makeCommSchool({ channelsOn: false });
     await withSchool(other.ctx, (tx) => tx.school.update({ where: { id: other.school.id }, data: { smsDltEntityId: null, smsSenderHeader: null } }));
     const errors = await withSchool(other.ctx, (tx) => saveChannelChoices(tx, other.ctx, "sms", { isOn: true, lowCreditAlert: 100 }));
-    expect(errors.isOn).toMatch(/School OS support team/);
+    expect(errors.isOn).toMatch(/DREAM TEAM/);
   });
 });
 

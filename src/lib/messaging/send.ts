@@ -408,7 +408,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   for (const ch of primary) {
     if (!on.has(ch)) problem(`${CHANNEL_LABEL[ch]} is switched off. Switch it on in Settings, SMS, WhatsApp & Email, or choose another channel.`);
   }
-  if (primary.includes("sms") && !smsReady) problem("SMS can be sent once the School OS support team adds the school’s DLT registration. Please tell the School OS support team.");
+  if (primary.includes("sms") && !smsReady) problem("SMS can be sent once DREAM TEAM adds the school’s DLT registration. Please tell DREAM TEAM.");
 
   // Templates chosen for each channel; SMS only from a template with a DLT template ID (rule 34).
   const chosen = new Map<Channel, { name: string; versions: UsableVersion[] }>();
@@ -423,7 +423,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     let versions = await currentVersions(tx, ctx, t.id);
     if (ch === "sms") {
       versions = versions.filter((v) => v.dltTemplateId);
-      if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID yet. The School OS support team adds it.`);
+      if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID yet. DREAM TEAM adds it.`);
     }
     // New words waiting for WhatsApp's approval: the last approved words go meanwhile.
     if (ch === "whatsapp" && live) versions = await withLastApproved(tx, ctx, t.id, versions);
@@ -493,7 +493,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     const versions = ch === "sms" ? all.filter((v) => v.dltTemplateId) : all.filter(isApproved);
     if (versions.length) return { ok: true, versions, carried: true };
     const name = t?.name ?? (kind === "guardian" ? "General announcement" : "Message to staff");
-    return no(ch === "sms" ? `a typed SMS goes only in the "${name}" template, which has no DLT template ID` : `WhatsApp has not approved the "${name}" message yet, so typed words cannot go by WhatsApp. Choose an approved WhatsApp template, or ask the School OS support team to get it approved`);
+    return no(ch === "sms" ? `a typed SMS goes only in the "${name}" template, which has no DLT template ID` : `WhatsApp has not approved the "${name}" message yet, so typed words cannot go by WhatsApp. Choose an approved WhatsApp template, or ask DREAM TEAM to get it approved`);
   };
   const routes = new Map<string, Route>();
   for (const ch of tried) for (const kind of ["guardian", "staff"] as const) routes.set(`${ch}:${kind}`, await routeFor(ch, kind));
@@ -854,7 +854,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
           // Only until the delivery job hands it to the provider.
           sealedCode: code && !noCredits ? sealCode(code.code) : null,
           status: noCredits ? "FAILED" as const : "QUEUED" as const,
-          failReason: noCredits ? "Not enough credits when it was sent. Buy more from the School OS support team, then retry." : null,
+          failReason: noCredits ? "Not enough credits when it was sent. Buy more from DREAM TEAM, then retry." : null,
           failedAt: noCredits ? now : null,
           credits: noCredits || testMode ? 0 : r.credits,
           history: [{ at, status: noCredits ? "FAILED" : "QUEUED", note: noCredits ? "Not enough credits" : scheduled ? "Scheduled" : null }],

@@ -65,7 +65,7 @@ export default async function GovernmentPage({ searchParams }: { searchParams: S
                 <Labelled label="Academic year">
                   <UrlSelect id="gv-year" param="year" label="Academic year" className="w-full" options={data.years.map((y) => ({ value: y.id === data.year?.id && !one(sp.year) ? "" : y.id, label: `${y.name}${y.status === "CLOSED" ? " (closed)" : ""}` }))} />
                 </Labelled>
-                <Labelled label="Format version" hint={old ? "An older format. The portal may not accept it." : "Latest, kept up to date by the School OS support team"}>
+                <Labelled label="Format version" hint={old ? "An older format. The portal may not accept it." : "Latest, kept up to date by DREAM TEAM"}>
                   <UrlSelect id="gv-ver" param="version" label="Format version" className="w-full" options={ret.versions.map((x, i) => ({ value: i === 0 ? "" : x, label: i === 0 ? `${x} (latest)` : x }))} />
                 </Labelled>
                 <Labelled label="Campus">

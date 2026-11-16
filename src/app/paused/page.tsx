@@ -43,9 +43,9 @@ export default async function PausedPage() {
             {i.payUrl && <a href={i.payUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center h-10 px-4 rounded-xl bg-brand text-brandink font-semibold text-[14px]">Pay now</a>}
           </div>
         ))}
-        {!closed && plan && plan.invoices.length === 0 && <p className="text-[14px] text-ink2">There is no invoice to pay online. Call the School OS support team to start School OS again.</p>}
+        {!closed && plan && plan.invoices.length === 0 && <p className="text-[14px] text-ink2">There is no invoice to pay online. Call DREAM TEAM to start School OS again.</p>}
         <ButtonLink href="/settings/data-security" variant="secondary" size="lg" className="w-full" icon={Download}>Download the school&apos;s data</ButtonLink>
-        {support && <ButtonLink href={`tel:${support.replace(/\s/g, "")}`} variant="secondary" size="lg" className="w-full" icon={PhoneCall}>Call School OS support, {support}</ButtonLink>}
+        {support && <ButtonLink href={`tel:${support.replace(/\s/g, "")}`} variant="secondary" size="lg" className="w-full" icon={PhoneCall}>Call DREAM TEAM support, {support}</ButtonLink>}
         <form action={signOut}><Button type="submit" variant="ghost" size="lg" className="w-full" icon={LogOut}>Sign out</Button></form>
         <p className="text-[12.5px] text-ink3">After a payment, School OS starts again within a few minutes and everyone can sign in as before.</p>
       </div>

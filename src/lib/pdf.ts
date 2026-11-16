@@ -216,7 +216,7 @@ export function pdfFallbackPage(html: string): string {
 
 const NO_PDF_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF not ready</title>
 <style>body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:48px 16px;background:#fff;color:#111}main{max-width:520px;margin:0 auto}h1{font-size:22px;margin:0 0 8px}a{color:#1D4ED8}</style></head>
-<body><main><h1>The PDF could not be made just now</h1><p>Please try again in a minute. If it keeps happening, tell the School OS support team.</p><p>Use your browser&rsquo;s Back button to return.</p></main></body></html>`;
+<body><main><h1>The PDF could not be made just now</h1><p>Please try again in a minute. If it keeps happening, tell DREAM TEAM.</p><p>Use your browser&rsquo;s Back button to return.</p></main></body></html>`;
 
 /** The response for a PDF that could not be made: the printable page, or a plain message. */
 export function pdfUnavailableResponse(e: PdfUnavailableError): Response {

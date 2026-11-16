@@ -112,7 +112,7 @@ async function runOne(jobId: string, schoolId: string) {
         await notify(tx, ctx, {
           to: job.requestedById,
           type: "job-failed",
-          key: "{task} did not finish after 3 tries. Nothing was half-done. Please try again, or ask the School OS support team if it keeps failing.",
+          key: "{task} did not finish after 3 tries. Nothing was half-done. Please try again, or ask DREAM TEAM if it keeps failing.",
           values: { task: word(def?.label ?? "A background task") },
           link: "/notifications",
         });

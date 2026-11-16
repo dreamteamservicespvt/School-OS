@@ -90,7 +90,7 @@ describe("console: a school's other connections", () => {
     expect(lines.map((l) => l.action)).toEqual(["connected-integration", "tested-integration", "disconnected-integration"]);
     for (const l of lines) {
       expect(l.userLoginId).toBeNull();
-      expect(l.actorNote).toBe(`School OS support: ${people.ONBOARDING.name}`);
+      expect(l.actorNote).toBe(`DREAM TEAM support: ${people.ONBOARDING.name}`);
     }
 
     const activity = await withConsole((tx) => tx.consoleActivityEntry.findMany({ where: { forSchoolId: school.id, type: "connect" }, orderBy: { at: "asc" } }));

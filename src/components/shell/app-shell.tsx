@@ -522,7 +522,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch, 
         </div>
         {support ? (
           <>
-            <p className="px-3 pb-2 text-[13px] text-ink2">{t("School OS support access, for looking only. It ends by itself at {time}.", { time: support.ends })}</p>
+            <p className="px-3 pb-2 text-[13px] text-ink2">{t("DREAM TEAM support access, for looking only. It ends by itself at {time}.", { time: support.ends })}</p>
             <div className="border-t border-line my-1" />
             <form method="post" action="/support/end">
               <button role="menuitem" type="submit" className={cx(row, "text-bad")}><I.LogOut size={18} aria-hidden="true" />{t("End support access now")}</button>

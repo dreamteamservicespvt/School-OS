@@ -155,12 +155,12 @@ export async function signIn(usernameInput: string, password: string, device: De
   }
 
   if (user.status !== "ACTIVE") {
-    return { ok: false, message: "This login is switched off. Ask your School Admin, or the School OS support team, to switch it on." };
+    return { ok: false, message: "This login is switched off. Ask your School Admin, or DREAM TEAM, to switch it on." };
   }
 
   const schools = await schoolsFor(user.id);
   if (schools.length === 0) {
-    return { ok: false, message: "Your login is not linked to any school yet. Ask your School Admin, or the School OS support team, to give you access." };
+    return { ok: false, message: "Your login is not linked to any school yet. Ask your School Admin, or DREAM TEAM, to give you access." };
   }
   const schoolId = schools[0].id;
 
@@ -291,7 +291,7 @@ export async function startSecondStep(userLoginId: string, schoolId: string, dev
 /** Also said when the mobile or email typed is on several logins: the username picks one (the same words, so it never tells which). */
 export const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or type your username instead. If it still does not work, ask your School Admin to send you a new sign-in link.";
 /** Said to a person whose role needs two-step login when a code alone cannot sign them in. */
-export const CODE_ALONE_WORDS = "For your safety, you need two codes to sign in without your password: one on your mobile and one by email. Your login does not have both yet. Ask your Principal or another School Admin for a new sign-in link, or call the School OS support team.";
+export const CODE_ALONE_WORDS = "For your safety, you need two codes to sign in without your password: one on your mobile and one by email. Your login does not have both yet. Ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM.";
 
 export type CodeSignInStart = { ok: true; token: string } | { ok: false; message: string };
 
@@ -317,7 +317,7 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
     only = "email";
   }
   const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only, confirmNow: opts.confirmNow, token: opts.token });
-  if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin or the School OS support team.` : started.message };
+  if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin or DREAM TEAM.` : started.message };
   return { ok: true, token: started.token };
 }
 
@@ -351,7 +351,7 @@ export async function afterRightCode(
   if (v.purpose === "code-sign-in" && (await needsTwoStepInAny(v.userLoginId, await schoolsFor(v.userLoginId)))) {
     const only = v.channel === "sms" ? "email" : "phone";
     const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only, confirmNow: opts.confirmNow });
-    if (!s.ok) return { kind: "problem", message: `${s.message} For your safety, you also need a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or the School OS support team.` };
+    if (!s.ok) return { kind: "problem", message: `${s.message} For your safety, you also need a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or DREAM TEAM.` };
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }
   const { token } = await completeSignIn(v.userLoginId, v.schoolId, device, now, { byCode: v.purpose !== "sign-in" });

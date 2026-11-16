@@ -135,7 +135,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
             <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span><Words k="Total on the invoice" /></span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
           {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a link to pay, valid 7 days. A sent message cannot be taken back." start onValue={setSend} />
-            : <p className="text-[13px] text-ink3"><Words k="Online payment is not set up, so the invoice is made without a payment link. The School OS support team connects Razorpay for the school; tell the School OS support team." /></p>}
+            : <p className="text-[13px] text-ink3"><Words k="Online payment is not set up, so the invoice is made without a payment link. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM." /></p>}
         </>
       )}
     </SheetForm>

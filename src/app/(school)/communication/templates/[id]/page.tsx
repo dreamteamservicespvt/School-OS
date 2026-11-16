@@ -110,12 +110,12 @@ export default async function TemplatePage({ params, searchParams }: { params: P
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
-        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="The School OS support team must add its DLT ID before it can send SMS." /></Banner>}
-        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once the School OS support team connects WhatsApp, they go to WhatsApp for real." /></Banner>}
+        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="DREAM TEAM must add its DLT ID before it can send SMS." /></Banner>}
+        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once DREAM TEAM connects WhatsApp, they go to WhatsApp for real." /></Banner>}
         {wrongType
           ? <Banner tone="warn" title="Rejected by WhatsApp: wrong type."><Words k="Send it for approval again. It now goes as a code message, in WhatsApp's own words." /></Banner>
           : v?.whatsappStatus === "REJECTED" && (ownRejected
-            ? <Banner tone="warn" title="WhatsApp rejected School OS's words for this template.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : <><Any text="Press Check approval status to see WhatsApp's reason." />{" "}</>}<Any text="Edit the words and send them again, or ask the School OS support team." /></Banner>
+            ? <Banner tone="warn" title="WhatsApp rejected School OS's words for this template.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : <><Any text="Press Check approval status to see WhatsApp's reason." />{" "}</>}<Any text="Edit the words and send them again, or ask DREAM TEAM." /></Banner>
             : <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? <><Any text={rejectedWords(v.whatsappNote)} />{" "}</> : null}<Words k="Change the wording with Edit and send it again." /></Banner>)}
         {/* A receipt card that went without its PDF says so whatever its status (live test 16 Nov: the note was only in the audit log). */}
         {v?.whatsappStatus !== "REJECTED" && v?.whatsappNote?.startsWith("Sent without the receipt PDF") && <Banner tone="info" title="The receipt PDF is not on this card."><Any text={v.whatsappNote} /></Banner>}

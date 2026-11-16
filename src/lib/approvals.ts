@@ -366,7 +366,7 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
 
   // Without a follow-up the request would say Approved while its record stays waiting: refuse, and change nothing.
   const followUp = await followUpFor(approval.type);
-  if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell the School OS support team.`);
+  if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell DREAM TEAM.`);
 
   // A request whose record cannot be found cannot move anything on (QA SEED-03): it is
   // not approved or sent back as if it had worked. Rejecting or withdrawing it only takes it off the list.

@@ -81,7 +81,7 @@ async function supportCurrent(e: SupportEntry) {
   if (!view) return null;
   const now = new Date();
   const user: UserLogin = {
-    id: SUPPORT_LOGIN_ID, username: "dream-team-support", displayName: `School OS support (${e.name})`, phone: null, email: null, passwordHash: null, status: "ACTIVE",
+    id: SUPPORT_LOGIN_ID, username: "dream-team-support", displayName: `DREAM TEAM support (${e.name})`, phone: null, email: null, passwordHash: null, status: "ACTIVE",
     inviteTokenHash: null, inviteExpiresAt: null, failedAttempts: 0, lockedUntil: null, lastSignInAt: null, passwordChangedAt: null, mustChangePassword: false, twoStepResetAt: null, twoStepChosen: false,
     notificationPrefs: {}, theme: "system", accent: "royal", textSize: "normal", language: null, createdAt: now, updatedAt: now, archivedAt: null,
   };
@@ -178,8 +178,8 @@ export class SupportLookOnlyError extends PermissionDeniedError {
     super(module);
     this.name = "SupportLookOnlyError";
     this.message = action === "export" || action === "print"
-      ? "School OS support access cannot export, print or download the school's data."
-      : "School OS support access is for looking only. Ask the school to make this change.";
+      ? "DREAM TEAM support access cannot export, print or download the school's data."
+      : "DREAM TEAM support access is for looking only. Ask the school to make this change.";
   }
 }
 

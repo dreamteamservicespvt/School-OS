@@ -128,7 +128,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           {mayEdit && !isSelf && (state === "DISABLED"
             ? <EnableButton userId={id} name={login.displayName} />
             : <DisableButton userId={id} name={login.displayName} devices={sessions.length} />)}
-          {/* A login used in more than one school: only School OS support resets it (owner decision 4, 15 Nov 2026). */}
+          {/* A login used in more than one school: only DREAM TEAM support resets it (owner decision 4, 15 Nov 2026). */}
           {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length === 0 && <TwoStepReset userId={id} name={login.displayName} />}
           {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length > 0 && (
             <p className="max-w-xs text-[13px] text-ink-3"><Words k={GROUP_LOGIN_RESET_WORDS} /></p>

@@ -30,7 +30,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   const expired = first && !user.mustChangePassword && Boolean(user.passwordHash);
   return (
     <AuthFrame eyebrow="Welcome to School OS" title={t("Hello, {name}", { name: user.displayName.split(" ")[0] })}
-      sub={<>{first && user.mustChangePassword ? `${t("You signed in with a temporary password from your school.")} ` : ""}{expired ? `${t("Your password is older than your school allows ({n} days).", { n: rules.expiryDays ?? 0 })} ` : ""}<Words k="Choose your own password. Your username is" /> <b className="font-semibold text-ink">{user.username}</b><Words k=". Nobody else, including the School OS support team, can see your password." /></>}>
+      sub={<>{first && user.mustChangePassword ? `${t("You signed in with a temporary password from your school.")} ` : ""}{expired ? `${t("Your password is older than your school allows ({n} days).", { n: rules.expiryDays ?? 0 })} ` : ""}<Words k="Choose your own password. Your username is" /> <b className="font-semibold text-ink">{user.username}</b><Words k=". Nobody else, including DREAM TEAM, can see your password." /></>}>
       <InviteForm token={token} minLength={rules.minLength} rulesWords={passwordRuleWords(rules)} />
     </AuthFrame>
   );

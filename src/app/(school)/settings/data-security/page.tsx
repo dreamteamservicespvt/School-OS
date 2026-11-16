@@ -75,7 +75,7 @@ export default async function DataSecurityPage() {
               <p className="text-xl font-semibold"><Words k="Last backup:" /> {backupWords(backup.at, tz)}</p>
             ) : (
               <Alert tone="info" title="Backups start before your real data goes in">
-                <Words k="The School OS support team switches on nightly copies for you." />
+                <Words k="DREAM TEAM switches on nightly copies for you." />
               </Alert>
             )}
             {data.files.setUp ? (
@@ -88,7 +88,7 @@ export default async function DataSecurityPage() {
             )}
             {data.files.setUp && (data.files.problems > 0 || data.files.lastRunFailed) && (
               <Alert tone="warning" title="Some files could not be copied at the last run">
-                {data.files.problems > 0 ? `${data.files.problems} file${data.files.problems === 1 ? "" : "s"} could not be copied. ` : ""}<Words k="The School OS support team is checking. Your files are safe; it tries again every hour." />
+                {data.files.problems > 0 ? `${data.files.problems} file${data.files.problems === 1 ? "" : "s"} could not be copied. ` : ""}<Words k="DREAM TEAM is checking. Your files are safe; it tries again every hour." />
               </Alert>
             )}
             {backup.restoreTestedAt ? (
@@ -96,7 +96,7 @@ export default async function DataSecurityPage() {
                 <p><Words k="Last restore test: passed on" /> {formatDate(backup.restoreTestedAt, tz)}{backup.restoreSchools !== null ? `. Every school's records${backup.restoreFiles !== null ? ` and ${backup.restoreFiles} files` : ""} were checked on the copy.` : "."}</p>
               ) : (
                 <Alert tone="warning" title={`The last restore test, on ${formatDate(backup.restoreTestedAt, tz)}, found a problem`}>
-                  <Words k="The School OS support team is fixing it. Your data is not affected." />
+                  <Words k="DREAM TEAM is fixing it. Your data is not affected." />
                 </Alert>
               )
             ) : (
@@ -106,7 +106,7 @@ export default async function DataSecurityPage() {
               <li><Words k="Records are backed up all the time; files every night." /></li>
               <li><Words k="Kept in a second place in India: last 7 days, nightly for 30 days, monthly for 1 year." /></li>
               <li><Words k="A restore is tested every month on a copy." /></li>
-              <li><Words k="To bring back old data, ask the School OS support team." /></li>
+              <li><Words k="To bring back old data, ask DREAM TEAM." /></li>
             </ul>
           </CardBody>
         </Card>

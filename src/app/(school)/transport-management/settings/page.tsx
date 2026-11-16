@@ -162,7 +162,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
         </SettingsSheet>
       )}
       {edit === "gps" && (
-        <SettingsSheet closeHref={HREF} title="GPS tracking provider" sub="Tell the School OS support team which company; they connect it" section="GPS tracking provider">
+        <SettingsSheet closeHref={HREF} title="GPS tracking provider" sub="Tell DREAM TEAM which company; they connect it" section="GPS tracking provider">
           <SText name="gpsProvider" label="GPS device company" start={s.gpsProvider} maxLength={60} placeholder="Empty when the driver app sends the location" />
         </SettingsSheet>
       )}

@@ -282,7 +282,7 @@ describe("inside the school, with access allowed", () => {
     const looked = await audit(school.id, "support looked");
     const line = looked.find((a) => a.recordId === "/fee-management/structure");
     expect(line?.userLoginId).toBeNull();
-    expect(line?.actorNote).toBe(`School OS support (${team.SUPPORT.name})`);
+    expect(line?.actorNote).toBe(`DREAM TEAM support (${team.SUPPORT.name})`);
     expect(await withConsole((tx) => tx.consoleActivityEntry.count({ where: { type: "support", actorId: team.SUPPORT.id, text: { contains: "/fee-management/structure" } } }))).toBe(1);
     await endSupportByToken(s.token);
   });
@@ -297,7 +297,7 @@ describe("inside the school, with access allowed", () => {
     // Cancelling a payment, through its own action.
     const cancel = (await cancelPaymentAction(null, form({ paymentId: randomUUID(), reason: "Wrong amount" }))) as { ok: boolean; message?: string };
     expect(cancel.ok).toBe(false);
-    expect(cancel.message).toMatch(/School OS support access/);
+    expect(cancel.message).toMatch(/DREAM TEAM support access/);
     // Deciding the school's own requests.
     expect(await decideAction(randomUUID(), "approve", null)).toMatch(/looking only/);
     // Answering or ending support from inside support.
@@ -307,7 +307,7 @@ describe("inside the school, with access allowed", () => {
     await expect(withSchool(current.ctx, (tx) => logExport(tx, current.ctx, { title: "Students", format: "csv", filters: "", rows: 1 }))).rejects.toThrow(/cannot export/);
     const refused = await audit(school.id, "support refused");
     expect(refused.filter((a) => a.recordId === s.id).length).toBeGreaterThanOrEqual(5);
-    expect(refused.every((a) => a.userLoginId === null && a.actorNote?.startsWith("School OS support ("))).toBe(true);
+    expect(refused.every((a) => a.userLoginId === null && a.actorNote?.startsWith("DREAM TEAM support ("))).toBe(true);
     await endSupportByToken(s.token);
   });
 
@@ -349,7 +349,7 @@ describe("inside the school, with access allowed", () => {
     const u = await openSupport(team.SUPPORT);
     expect(await endSupportByToken(u.token)).not.toBeNull();
     expect((await requestOf(u.id)).endedHow).toBe("support");
-    expect((await audit(school.id, "support access ended")).some((a) => a.recordId === u.id && a.actorNote === `School OS support (${team.SUPPORT.name})`)).toBe(true);
+    expect((await audit(school.id, "support access ended")).some((a) => a.recordId === u.id && a.actorNote === `DREAM TEAM support (${team.SUPPORT.name})`)).toBe(true);
 
     // End now from the console.
     const v = await openSupport(team.SUPPORT);

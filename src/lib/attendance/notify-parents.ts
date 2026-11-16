@@ -52,7 +52,7 @@ export async function absenceMessageView(tx: Tx, ctx: SchoolContext, sample: { s
 
 export type SendOutcome = { status: "waiting" | "sent" | "skipped"; note: string | null; messageRef?: string | null };
 
-const NO_CHANNEL = "No message channel is ready. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask the School OS support team to connect one.";
+const NO_CHANNEL = "No message channel is ready. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM to connect one.";
 
 /** Sends one attendance message to the student's parents through Communication. */
 export async function sendAttendanceMessage(tx: Tx, ctx: SchoolContext, alert: AttendanceAlert): Promise<SendOutcome> {

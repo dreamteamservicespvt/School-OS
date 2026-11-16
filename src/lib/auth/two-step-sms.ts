@@ -61,7 +61,7 @@ export async function sendCodeBySms(input: { schoolId: string; userLoginId: stri
   } catch (e) {
     // SMS is set up but this send failed (no credits, a template or provider problem): a passing
     // fault, never "no code can reach them", so two-step is not skipped (security audit 2026-10-31).
-    if (e instanceof MessagingProblem) return { sent: false, problem: "The sign-in code could not be sent by SMS just now. Try again later, or ask your School Admin or the School OS support team to check the school's SMS." };
+    if (e instanceof MessagingProblem) return { sent: false, problem: "The sign-in code could not be sent by SMS just now. Try again later, or ask your School Admin or DREAM TEAM to check the school's SMS." };
     throw e;
   }
 }

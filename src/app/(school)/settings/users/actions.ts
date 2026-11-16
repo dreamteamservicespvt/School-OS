@@ -135,7 +135,7 @@ export async function twoStepAction(_: FormState, fd: FormData): Promise<FormSta
   const userId = String(fd.get("userId") ?? "");
   const reason = String(fd.get("reason") ?? "");
   const checkDone = String(fd.get("checkDone") ?? "");
-  // A login used in more than one school: only School OS support resets it, from the console (owner decision 4, 15 Nov 2026).
+  // A login used in more than one school: only DREAM TEAM support resets it, from the console (owner decision 4, 15 Nov 2026).
   const group = await isGroupLogin(userId);
   const r = await runSettings(PAGE, "edit", (tx, current) => {
     if (group) throw new SettingsProblem(GROUP_LOGIN_RESET_WORDS);

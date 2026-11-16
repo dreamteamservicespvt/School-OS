@@ -305,7 +305,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 <CalendarDays size={15} aria-hidden="true" />{paidOn ? tr("Paid on {date}", { date: `${paidOn.slice(8, 10)}-${paidOn.slice(5, 7)}-${paidOn.slice(0, 4)}` }) : tr("Today, {date}", { date: todayText ?? today })}
               </button>
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
-                title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. Ask your School Admin to set it up with the School OS support team."}
+                title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM."}
                 className="h-11 px-3 rounded-xl border border-dashed border-line inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
                 {qrBusy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <QrCode size={16} aria-hidden="true" />}<Words k="Show QR" />
               </button>
@@ -408,8 +408,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             {tr.any(busy ? "Saving payment…" : amt > 0 ? `Collect ${inr(amt)} ${BY_MODE[mode] ?? ""}`.trim() : "Enter the amount")}
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
-            title={gateway ? undefined : "Online payment is not set up yet. Ask your School Admin to set it up with the School OS support team."}><Words k="Send payment link instead" /></Button>
-          {!gateway && <p className="text-[12.5px] text-ink3 text-center">{tr.any("Show QR and the payment link are off: online payment is not set up yet. Ask your School Admin to set it up with the School OS support team.")}</p>}
+            title={gateway ? undefined : "Online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM."}><Words k="Send payment link instead" /></Button>
+          {!gateway && <p className="text-[12.5px] text-ink3 text-center">{tr.any("Show QR and the payment link are off: online payment is not set up yet. Ask your School Admin to set it up with DREAM TEAM.")}</p>}
         </div>
       </Card>
       </FormProblems>

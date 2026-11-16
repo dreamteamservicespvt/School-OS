@@ -1,7 +1,8 @@
 // Sending WhatsApp cards on a real WhatsApp account (Meta's API stubbed):
 // - a card goes for approval with the school's name in the footer and its phone in "Call school",
 //   and the parts given to Meta are saved with the version;
-// - each link button gets the parent's own secret, at the button's own position;
+// - each link button gets the parent's own secret, at the button's own position, and the part of the
+//   Parent Link it lands on ("<token>~report-cards");
 // - a parent whose language version is not approved gets the approved English card, never plain text
 //   (live test 15 Nov 2026, item 7); with no approved version at all nothing is sent and the reason says why;
 // - a Front Office message goes in its own approved card, never as plain text.
@@ -77,7 +78,8 @@ describe("a card on a real WhatsApp account", () => {
     expect(m.template!.language.code).toBe("te");
     expect(m.template!.components).toEqual([
       { type: "body", parameters: [{ type: "text", text: "Padma Reddy" }, { type: "text", text: "Priya Reddy" }, { type: "text", text: expect.stringContaining("5") }, { type: "text", text: "Half Yearly Exam" }] },
-      { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: tokenFor(link.id) }] },
+      // "See results" lands on the report cards part (live test 16 Nov: it opened the page at the top).
+      { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: `${tokenFor(link.id)}~report-cards` }] },
     ]);
   });
 
@@ -111,6 +113,7 @@ describe("a card on a real WhatsApp account", () => {
     const button = m.template!.components.find((c) => c.type === "button") as { index: string; parameters: { text: string }[] };
     expect(button.index).toBe("1");
     expect(button.parameters[0].text).not.toBe(NO_LINK_SUFFIX);
+    expect(button.parameters[0].text).toMatch(/~exam-datesheet$/);
   });
 });
 

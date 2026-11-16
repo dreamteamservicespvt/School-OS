@@ -43,6 +43,24 @@ export function buttonSuffix(target: LinkTarget, value: string | null | undefine
   return NO_LINK_SUFFIX;
 }
 
+/**
+ * The part of the guardian's Parent Link a card's Parent Link button lands on, by the template's key:
+ * "See results" on the report cards, "Read the notice" on the notices (live test 16 Nov: both opened
+ * the page at the top). The approved button is https://<app>/p/{{1}} and only its end changes
+ * ("<token>~report-cards", ../parent-link/links.ts splitPart), so WhatsApp needs no new approval.
+ */
+export const PARENT_LINK_PART: Readonly<Record<string, string>> = {
+  result: "report-cards",
+  notice: "notices",
+  "exam-reminder": "exam-datesheet",
+  "consent-request": "consent",
+};
+
+/** A Parent Link button's end of address with the part to land on; a tap secret or no link is left as it is. */
+export function withPart(suffix: string, part: string | null | undefined): string {
+  return part && suffix !== NO_LINK_SUFFIX && !/[.~]/.test(suffix) ? `${suffix}~${part}` : suffix;
+}
+
 /** The payment a fee receipt placeholder in these values is for, or null. */
 export function receiptPaymentIn(values: Record<string, string>): { schoolId: string; paymentId: string } | null {
   for (const v of Object.values(values)) {

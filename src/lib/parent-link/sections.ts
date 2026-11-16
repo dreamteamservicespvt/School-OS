@@ -47,6 +47,10 @@ export type GuardianView = {
   academicYearId: string | null;
   /** The month a calendar section shows (?month=2026-08 in the page address); null for this month. */
   month?: string | null;
+  /** The phone confirmed for this link that opened the page (Parent Link Device); unset in a staff preview. */
+  deviceId?: string | null;
+  /** "Show older" on Messages from the school (?more=1 in the page address); unset for the latest only. */
+  more?: number | null;
 };
 
 export type SectionDef<T = unknown> = {

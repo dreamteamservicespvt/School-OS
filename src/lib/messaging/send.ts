@@ -24,11 +24,12 @@ import { PARENT_LINK_BLANK, parentLinkBlanks, usesParentLink } from "../parent-l
 import { blanksFor, unknownBlankWords, type BlankAudience } from "./blanks";
 import { inTestMode } from "./providers";
 import { countWithReason } from "./skip-words";
-import { BACKUP_TYPES, type BackupType } from "./settings";
+import { BACKUP_TYPES, messageSettings, type BackupType } from "./settings";
 import { CODE_MASK, codeSenderWords, hasCode, ONE_TIME_CODE, sealCode, withCode, type OneTimeCode } from "./one-time-code";
 import { SYSTEM_MESSAGE_SENT, systemSenderWords, type SystemPurpose } from "./system-message";
 import { isTranslationLanguage, TRANSLATED_CHANNELS, translationProblem, withTranslatedLabel, type TranslationLanguage, type Translations } from "./translation";
 import { aiConfirmedNote } from "../ai/audit";
+import { MESSAGES_SECTION } from "../parent-link/messages";
 
 export const MAX_TEXT = 1000;
 export const DELIVER_JOB = "messaging:deliver";
@@ -220,14 +221,22 @@ function baseValues(school: { name: string; phone: string | null; timeZone: stri
   return { ...v, ...studentValues(students) };
 }
 
-function addressFor(c: Candidate, channel: Channel, providersOn = true): { address: string } | { skip: string } {
+/** A parent with no active Parent Link: an app notice has nowhere to show for them. */
+export const NO_PARENT_LINK_YET = "Has no Parent Link yet, so app notices cannot reach them";
+/** Why an app notice cannot reach any parent (the school's Parent Link switches, Message Settings). */
+const PARENT_LINK_OFF = "Parent Link is switched off";
+const PARENT_LINK_NO_MESSAGES = "Parent Link does not show messages (Message Settings, Parent Link)";
+const NO_LINK_WHY = "the parent has no Parent Link yet";
+
+/**
+ * Where a row goes. An app notice reaches a staff member's login and a parent's own Parent Link, in its
+ * "Messages from the school" part (src/lib/parent-link/messages.ts): its address is the guardian, and only a
+ * guardian with an active link can get one (live test 16 Nov: "App notice" said "Staff logins and Parent
+ * Link", but parents got nothing).
+ */
+function addressFor(c: Candidate, channel: Channel, linked: ReadonlySet<string> = new Set()): { address: string } | { skip: string } {
   if (channel === "app") {
-    // With no WhatsApp, SMS or email connected, parents cannot get it at all: say so plainly.
-    // SMS is named only while it is offered (SMS_OFFERED).
-    if (c.type === "guardian") {
-      if (!SMS_OFFERED) return { skip: providersOn ? "Parents have no app; they get WhatsApp or email" : "Parents have no app, and WhatsApp and email are not connected, so they will not get it" };
-      return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
-    }
+    if (c.type === "guardian") return linked.has(c.id) ? { address: c.id } : { skip: NO_PARENT_LINK_YET };
     return c.userLoginId ? { address: c.userLoginId } : { skip: "No School OS login for app messages" };
   }
   if (c.type === "student") return { skip: "Students get app messages only" };
@@ -358,8 +367,8 @@ function notSentReason(whys: string[]) {
   const off = all.filter((w) => w.endsWith(" is not connected")).map((w) => w.replace(/ is not connected$/, ""));
   const rest = all.filter((w) => !w.endsWith(" is not connected"));
   const parts = [...(off.length ? [`${join(off)} ${off.length > 1 ? "are" : "is"} not connected`] : []), ...rest];
-  // Parents never have the app; that is only worth saying when nothing else is wrong.
-  const useful = parts.length > 1 ? parts.filter((p) => p !== "parents have no app") : parts;
+  // Why the Parent Link could not show it is only worth saying when nothing else is wrong.
+  const useful = parts.length > 1 ? parts.filter((p) => p !== PARENT_LINK_OFF && p !== PARENT_LINK_NO_MESSAGES && p !== NO_LINK_WHY) : parts;
   return `${NOT_SENT}${useful.join("; ")}`;
 }
 
@@ -383,7 +392,6 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   // goes by SMS by default or by accident. Sign-in and confirmation codes (oneTimeCode) keep their SMS path.
   const smsAllowed = SMS_OFFERED || Boolean(input.oneTimeCode);
   const on = new Set<Channel>(["app", ...PROVIDER_CHANNELS.filter((c) => setups[c].isOn && (c !== "sms" || smsAllowed))]);
-  const providersOn = on.has("whatsapp") || on.has("sms") || on.has("email");
   const live = whatsappIsLive(setups.whatsapp);
   const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
   const preferred = input.channels === "preferred";
@@ -450,12 +458,18 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     problem("Give the message a title. App notifications and emails show it first.");
   }
 
+  // An app notice reaches parents on their Parent Link, while the school shows Parent Link and its messages part.
+  const parentLinkShows = tried.includes("app") ? (await messageSettings(tx, ctx)).parentLink : null;
+
   // Which channel can carry this message, for parents and for staff.
   const routeFor = async (ch: Channel, kind: "guardian" | "staff"): Promise<Route> => {
     const no = (why: string): Route => ({ ok: false, why });
     const label = ch === "email" ? "email" : CHANNEL_LABEL[ch];
     if (!on.has(ch)) return no(`${label} is not connected`);
-    if (ch === "app" && kind === "guardian") return no("parents have no app");
+    if (ch === "app" && kind === "guardian") {
+      if (!parentLinkShows?.on) return no(PARENT_LINK_OFF);
+      if (parentLinkShows.shows[MESSAGES_SECTION] === false) return no(PARENT_LINK_NO_MESSAGES);
+    }
     if (ch === "sms" && !smsReady) return no("SMS needs the DLT entity ID and sender header (Settings, SMS, WhatsApp & Email)");
     const c = chosen.get(ch);
     if (c) {
@@ -514,6 +528,11 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   // {parent_link}: each parent's own Parent Link, or "Ask the school office for your Parent Link." (../parent-link/blank.ts).
   const linkBodies = [typed, ...[...chosen.values()].flatMap((c) => c.versions.map((v) => v.body)), ...backupVersions.map((v) => v.body)];
   const parentLinks = usesParentLink(...linkBodies) ? await parentLinkBlanks(tx, ctx, candidates.filter((c) => c.type === "guardian").map((c) => c.id)) : {};
+  // Parents an app notice can reach: those with an active Parent Link.
+  const guardianIds = candidates.filter((c) => c.type === "guardian").map((c) => c.id);
+  const linked = new Set<string>(parentLinkShows?.on && guardianIds.length
+    ? (await tx.parentLink.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, status: "ACTIVE" }, select: { guardianId: true } })).map((l) => l.guardianId)
+    : []);
   if (unknownTyped.length) {
     const kinds = [...new Set(candidates.map((c): BlankAudience => (c.type === "guardian" ? "parents" : c.type === "student" ? "students" : "staff")))];
     problem(unknownBlankWords(unknownTyped, blanksFor(kinds))!);
@@ -564,12 +583,22 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
           // Layman loop 15 Nov: with WhatsApp also ticked, "parents have no app, they get WhatsApp" hid the real
           // reason WhatsApp could not carry it, and the screen said nobody could be reached without saying why.
           if (ch === "app" && c.type === "guardian" && isPrimary) {
-            if (primary.length === 1) { const a = addressFor(c, ch, providersOn); if ("skip" in a) addressSkip ??= a.skip; }
+            if (primary.length === 1) addressSkip ??= `Is not reached: ${route.why}`;
           } else whys.push(route.why);
           return null;
         }
-        const addr = addressFor(c, ch, providersOn);
-        if ("skip" in addr) { addressSkip ??= addr.skip; return null; }
+        const addr = addressFor(c, ch, linked);
+        if ("skip" in addr) {
+          if (ch === "app" && c.type === "guardian" && addr.skip === NO_PARENT_LINK_YET) {
+            // A parent with no Parent Link yet, with other channels ticked too, gets those: their reasons are the useful ones.
+            // As a fallback (Preferred), it is one more reason the message could not go.
+            if (!isPrimary) whys.push(NO_LINK_WHY);
+            else if (primary.length === 1) addressSkip ??= addr.skip;
+            return null;
+          }
+          addressSkip ??= addr.skip;
+          return null;
+        }
         let version: UsableVersion | null = null;
         // A parent's own language version of the typed text, on a channel that carries free text (never SMS, never a template).
         const lang = c.type === "guardian" && TRANSLATED_CHANNELS.has(ch) && isTranslationLanguage(c.language) ? c.language : null;
@@ -628,7 +657,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
       if (whys.length) {
         // Kept on the message as Not sent, on the first connected channel, so it shows as not delivered.
         const ch = tried.find((x) => on.has(x) && x !== "app") ?? tried[0] ?? "app";
-        const a = addressFor(c, ch, providersOn);
+        const a = addressFor(c, ch, linked);
         const t = typed ? render(typed, values) : null;
         notSent.push({ candidate: c, rowKey, studentId: studentId ?? (c.students.length === 1 ? c.students[0].id : c.type === "student" ? c.id : null), channel: ch, address: "address" in a ? a.address : "", language: c.language, text: t?.ok ? t.text : typed, values, reason: notSentReason(whys) });
         personNotSent = true;

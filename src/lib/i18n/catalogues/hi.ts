@@ -17371,4 +17371,15 @@ export const hi: Catalogue = {
   "Add a title. The template puts it in the message (the notice title or the exam name).": "शीर्षक लिखें। टेम्पलेट इसे संदेश में डालता है (सूचना का शीर्षक या परीक्षा का नाम)।",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.": "शीर्षक लिखें। ईमेल और ऐप सूचनाएँ इसे सबसे ऊपर दिखाती हैं, और सूचना या परिणाम का टेम्पलेट इसे संदेश में डालता है।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Messages from the school": "स्कूल के संदेश",
+  "App notices sent to this parent, newest first, with a New mark until seen": "इस अभिभावक को भेजी गई ऐप सूचनाएँ, नई सबसे ऊपर, देखे जाने तक \"नया\" निशान के साथ",
+  "Message from the school": "स्कूल का संदेश",
+  "From {who}": "भेजने वाले: {who}",
+  "From the school": "स्कूल की ओर से",
+  "Show older": "पुराने देखें",
+  "Type the message. The template puts it in its {message} blank.": "संदेश लिखें। टेम्पलेट इसे अपने {message} खाली स्थान में डालता है।",
+  "Has no Parent Link yet, so app notices cannot reach them": "अभी Parent Link नहीं है, इसलिए ऐप सूचनाएँ उन तक नहीं पहुँच सकतीं",
+  "Is not reached: Parent Link is switched off": "नहीं पहुँचा: Parent Link बंद है",
+  "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "नहीं पहुँचा: Parent Link संदेश नहीं दिखाता (Message Settings, Parent Link)",
 };

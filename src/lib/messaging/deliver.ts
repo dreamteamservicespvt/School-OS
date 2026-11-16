@@ -22,7 +22,7 @@ import { currentVersions, render } from "./templates";
 import { linksIn, receiptKeyIn, withRealLinks } from "../parent-link/token";
 import { isCodeTemplate, variablesIn, whatsappParts } from "./blanks";
 import { cardBody, effectiveButtons, readCard, type SubmittedCard, type WhatsappCard } from "./card";
-import { buttonSuffix, NO_LINK_SUFFIX, receiptPaymentIn } from "./button-links";
+import { buttonSuffix, NO_LINK_SUFFIX, PARENT_LINK_PART, receiptPaymentIn, withPart } from "./button-links";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
 import { CODE_EXPIRED, CODE_MASK, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
 import { word } from "../notification-words";
@@ -51,6 +51,8 @@ type Context = {
   attachments: Map<string, { filename: string; content: Buffer; contentType: string }[]>;
   /** Receipt PDFs made in this run, by payment: made once and shared by all the payment's parents. */
   receipts: Map<string, Promise<{ content: Buffer; filename: string } | null>>;
+  /** The part of Parent Link each template's button lands on (./button-links.ts PARENT_LINK_PART), by template. */
+  parts: Map<string, string | null>;
 };
 
 async function loadContext(ctx: SchoolContext): Promise<Context> {
@@ -59,7 +61,7 @@ async function loadContext(ctx: SchoolContext): Promise<Context> {
     const providers: Context["providers"] = {};
     for (const c of ["whatsapp", "sms", "email"] as const) providers[c] = providerFor(setups[c], await channelSecrets(tx, ctx, c));
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
-    return { providers, dlt: { entityId: school.smsDltEntityId, header: school.smsSenderHeader }, versions: new Map(), attachments: new Map(), receipts: new Map() };
+    return { providers, dlt: { entityId: school.smsDltEntityId, header: school.smsSenderHeader }, versions: new Map(), attachments: new Map(), receipts: new Map(), parts: new Map() };
   });
 }
 
@@ -134,6 +136,15 @@ function tapSuffix(target: Parameters<typeof buttonSuffix>[0], raw: string | und
   return code && target === "parent-link" && raw?.includes(CODE_MASK) && suffix !== NO_LINK_SUFFIX ? `${suffix}.${code}` : suffix;
 }
 
+/** The part of Parent Link a template's button lands on, once per template in a run. */
+async function partOf(tx: Tx, c: Context, templateId: string): Promise<string | null> {
+  if (!c.parts.has(templateId)) {
+    const t = await tx.template.findUnique({ where: { id: templateId }, select: { key: true } });
+    c.parts.set(templateId, (t?.key && PARENT_LINK_PART[t.key]) || null);
+  }
+  return c.parts.get(templateId) ?? null;
+}
+
 /** code: a one-time code, put in only now, for the provider (QA SEC-01). */
 async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Prepared> {
   let v = r.templateVersionId ? c.versions.get(r.templateVersionId) : undefined;
@@ -167,7 +178,8 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
       } else if (card) {
         // A card: the same parts it was approved with. Each link button gets this person's own secret at its own position.
         const layout = layoutOf(v.body, card);
-        const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: tapSuffix(b.target, values[b.blank], code) }] : []));
+        const part = layout.buttons.some((b) => b.type === "URL" && "target" in b && b.target === "parent-link") ? await partOf(tx, c, v.templateId) : null;
+        const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: withPart(tapSuffix(b.target, values[b.blank], code), b.target === "parent-link" ? part : null) }] : []));
         out.whatsappTemplate = { name: v.whatsappName, language, params: variablesIn(cardBody(v.body, card)).map(fill), buttons };
         if (layout.header === "document") {
           // The receipt comes only from the card's own receipt button blank, never from other words (a typed

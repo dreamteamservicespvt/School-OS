@@ -3,10 +3,11 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, peekLimit, type LimitResult } from "@/lib/rate-limit";
-import { deviceCookieName, findLink, openLink, splitTap } from "@/lib/parent-link/links";
+import { deviceCookieName, findLink, openLink, splitPart, splitTap } from "@/lib/parent-link/links";
 import { tapView } from "@/lib/parent-link/tap";
 import { TapConfirm } from "@/components/parent-link/tap-confirm";
 import { loadGuardianView } from "@/lib/parent-link/view";
@@ -90,10 +91,15 @@ function Shell({ schoolName, schoolPhone, whatsappPhone, children, hello, name, 
   );
 }
 
-export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
+export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string; more?: string }> }) {
+  // "/p/<token>~<part>": a WhatsApp card's button ("See results", "Read the notice") lands on its part of the page
+  // (src/lib/messaging/button-links.ts). Only the token stays in the address; the part becomes the #anchor.
+  const raw = (await params).token;
+  const go = splitPart(raw);
+  if (go.part) redirect(`/p/${go.token}#pl-${go.part}`);
   // "/p/<token>.<secret>": the parent's own WhatsApp message to tap ("tap to confirm", src/lib/parent-link/tap.ts).
-  const { token, secret } = splitTap((await params).token);
-  const { child, month } = await searchParams;
+  const { token, secret } = splitTap(raw);
+  const { child, month, more } = await searchParams;
   const { device, limited, found, t, choices, school } = await openGate(token);
   if (!limited.ok) return <Shell schoolName={school?.name} schoolPhone={school?.phone} whatsappPhone={school?.parentWhatsapp} t={t} choices={choices} notice><Notice title={t("Please wait a moment")}>{waitWords(t, limited)}</Notice></Shell>;
 
@@ -146,7 +152,9 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
     const view = await loadGuardianView(tx, ctx, { linkId: state.linkId, guardianId: state.guardianId, childId: child ?? null, token, preview: false, lang: t.lang });
     if (!view) return null;
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { phone: true, parentWhatsapp: true } });
-    return { view, sections: await loadSections(tx, ctx, { ...view, month: typeof month === "string" ? month : null }), phone: school.phone, whatsapp: school.parentWhatsapp };
+    // Messages from the school show only on this confirmed phone (src/lib/parent-link/messages.ts).
+    const shown = { ...view, month: typeof month === "string" ? month : null, deviceId: state.deviceId, more: typeof more === "string" ? Number(more) || 0 : 0 };
+    return { view: shown, sections: await loadSections(tx, ctx, shown), phone: school.phone, whatsapp: school.parentWhatsapp };
   });
   if (!result) {
     return <Shell schoolName={state.schoolName} t={t} choices={choices} notice><Notice title={t("No children to show")} icon={<UserX size={24} />}>{t("None of your children is studying in the school right now. Please call the school if this is wrong.")}</Notice></Shell>;

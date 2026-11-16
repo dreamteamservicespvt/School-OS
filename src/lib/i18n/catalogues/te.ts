@@ -17371,4 +17371,15 @@ export const te: Catalogue = {
   "Add a title. The template puts it in the message (the notice title or the exam name).": "శీర్షిక రాయండి. టెంప్లేట్ దాన్ని సందేశంలో చేరుస్తుంది (నోటీసు శీర్షిక లేదా పరీక్ష పేరు).",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.": "శీర్షిక రాయండి. ఈమెయిల్, యాప్ నోటీసులు దాన్ని పైభాగంలో చూపిస్తాయి, నోటీసు లేదా ఫలితాల టెంప్లేట్ దాన్ని సందేశంలో చేరుస్తుంది.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Messages from the school": "పాఠశాల నుండి సందేశాలు",
+  "App notices sent to this parent, newest first, with a New mark until seen": "ఈ తల్లిదండ్రులకు పంపిన యాప్ నోటీసులు, కొత్తవి ముందు, చూసే వరకు \"కొత్తది\" గుర్తుతో",
+  "Message from the school": "పాఠశాల నుండి సందేశం",
+  "From {who}": "పంపినవారు: {who}",
+  "From the school": "పాఠశాల నుండి",
+  "Show older": "పాతవి చూడండి",
+  "Type the message. The template puts it in its {message} blank.": "సందేశం టైప్ చేయండి. టెంప్లేట్ దాన్ని తన {message} ఖాళీలో పెడుతుంది.",
+  "Has no Parent Link yet, so app notices cannot reach them": "ఇంకా Parent Link లేదు, కాబట్టి యాప్ నోటీసులు వారికి చేరవు",
+  "Is not reached: Parent Link is switched off": "చేరలేదు: Parent Link ఆఫ్ చేయబడింది",
+  "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "చేరలేదు: Parent Link సందేశాలను చూపదు (Message Settings, Parent Link)",
 };

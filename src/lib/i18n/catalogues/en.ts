@@ -17929,6 +17929,17 @@ export const EN = [
   "Add a title. The template puts it in the message (the notice title or the exam name).",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Messages from the school",
+  "App notices sent to this parent, newest first, with a New mark until seen",
+  "Message from the school",
+  "From {who}",
+  "From the school",
+  "Show older",
+  "Type the message. The template puts it in its {message} blank.",
+  "Has no Parent Link yet, so app notices cannot reach them",
+  "Is not reached: Parent Link is switched off",
+  "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -1,4 +1,5 @@
-// Communication's own sections on Parent Link: Critical notices, notices and
+// Communication's own sections on Parent Link: Critical notices, messages from
+// the school (app notices sent to this guardian, ./messages.ts), notices and
 // consent forms. Fee Management, Attendance and Examination add theirs the
 // same way (see ./sections.ts).
 import "server-only";
@@ -9,6 +10,8 @@ import { consentWording, currentConsentTexts, standingConsents, type ConsentText
 import { maskPhone } from "./links";
 import { formatDate } from "../format";
 import { CriticalNotices, NoticeList, type NoticeRow } from "@/components/parent-link/notices-section";
+import { MessagesSection } from "@/components/parent-link/messages-section";
+import { MESSAGES_SECTION, messagesForGuardian, type ParentMessages } from "./messages";
 import { ConsentForm } from "@/components/parent-link/consent-form";
 import type { SchoolContext, Tx } from "../db";
 import { Check, FileSignature, ShieldCheck, X } from "lucide-react";
@@ -58,6 +61,17 @@ registerSection<NoticeRow[]>({
     return rows.length ? rows : null;
   },
   Render: CriticalNotices,
+});
+
+// App notices sent to this guardian, newest first; on by default (a missing switch is on).
+registerSection<ParentMessages>({
+  key: MESSAGES_SECTION,
+  label: "Messages from the school",
+  description: "App notices sent to this parent, newest first, with a New mark until seen",
+  order: 10,
+  scope: "family",
+  load: (tx, ctx, view) => messagesForGuardian(tx, ctx, view),
+  Render: MessagesSection,
 });
 
 registerSection<NoticeRow[]>({

@@ -336,6 +336,21 @@ export function splitTap(raw: string): { token: string; secret: string | null } 
   return TAP_SECRET.test(secret) ? { token: raw.slice(0, dot), secret } : { token: raw, secret: null };
 }
 
+/** A part of the guardian's page a link may land on ("/p/<token>~report-cards"): a section key. */
+const PART = /^[a-z][a-z-]{1,39}$/;
+
+/**
+ * "/p/<token>~<part>" from a WhatsApp card's button: the link's own token and the part of the page to
+ * land on (a section key, shown as the #pl-<key> anchor). A part only when it has the right shape;
+ * the token's own letters (base64url) never hold "~".
+ */
+export function splitPart(raw: string): { token: string; part: string | null } {
+  const at = raw.indexOf("~");
+  if (at < 0) return { token: raw, part: null };
+  const part = raw.slice(at + 1);
+  return PART.test(part) ? { token: raw.slice(0, at), part } : { token: raw, part: null };
+}
+
 /** The parent's words when no code could go: call the school office (on its number, when the school has one). */
 export function callSchoolWords(schoolPhone: string | null | undefined) {
   return schoolPhone ? `The school could not send your code. Please call the school office on ${schoolPhone}.` : PARENT_CODE_NOT_SENT;

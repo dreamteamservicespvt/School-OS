@@ -2,20 +2,22 @@
 
 // The buttons and sheets on an application (design: ApplicationDetail,
 // ReviewSheet): review or send back, move to a step, withdraw, the
-// application fee (Razorpay link or counter), consent with a one-time code,
-// and the papers exception. Only shown to people who may do them; the server
+// application fee (Razorpay link or counter), consent with a one-time code or
+// from a signed paper form (decision 23: the way while no code can reach the
+// parent's phone), and the papers exception. Only shown to people who may do them; the server
 // checks again.
 
 import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
-import { Ban, Banknote, ChevronRight, CircleCheck, ClipboardCheck, FolderOpen, Gavel, Hourglass, IndianRupee, Pencil, Printer, Send, ShieldCheck } from "lucide-react";
+import { Ban, Banknote, Camera, ChevronRight, CircleCheck, ClipboardCheck, FileSignature, FileText, FolderOpen, Gavel, Hourglass, IndianRupee, Pencil, Printer, Send, ShieldCheck, Upload } from "lucide-react";
 import { ButtonLink, Button } from "@/components/ui/button";
 import { MoreMenu, type MenuItem } from "@/components/ui/more-menu";
-import { CheckboxField, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
+import { CheckboxField, FieldShell, inputCls, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
+import { cx } from "@/components/ui/cx";
 import { Segmented } from "@/components/ui/controls";
-import { ActionButton, FormSheet } from "../../_components/forms";
+import { ActionButton, FormSheet, type FormHelpers } from "../../_components/forms";
 import {
-  cancelPaymentAction, confirmConsentAction, counterPaymentAction, exceptionAction, moveAction, remindAction,
+  cancelPaymentAction, confirmConsentAction, counterPaymentAction, exceptionAction, moveAction, paperConsentAction, remindAction,
   reviewAction, sendBackAction, sendCodeAction, sendFeeLinkAction, withdrawAction,
 } from "../actions";
 import { Words } from "@/lib/i18n/client";
@@ -125,23 +127,60 @@ export function ExceptionButton({ id }: { id: string }) {
   );
 }
 
-export function ConsentButtons({ id, phone, texts, parent }: { id: string; phone: string; texts: { type: string; title: string; text: string; version: number; required: boolean }[]; parent: string }) {
-  const [open, setOpen] = useState(false);
+type ConsentText = { type: string; title: string; text: string; version: number; required: boolean };
+
+function ConsentTicks({ texts, f }: { texts: ConsentText[]; f: FormHelpers }) {
+  return texts.map((t) => (
+    <div key={t.type} className="rounded-xl border border-line p-3">
+      <CheckboxField label={`${t.title}${t.required ? " (needed for admission)" : " (optional)"}`} name={`consent_${t.type}`} defaultChecked={f.val(`consent_${t.type}`) === "on"} help={<span className="whitespace-pre-wrap">{t.text}{t.version ? ` (version ${t.version})` : ""}</span>} />
+      {f.err(`consent_${t.type}`) && <p className="mt-1 text-[12.5px] text-bad">{f.err(`consent_${t.type}`)}</p>}
+    </div>
+  ));
+}
+
+/**
+ * Consent at the counter: a one-time code to the parent's phone, or a consent form the
+ * parent signed on paper. While no code can reach the phone (codeCanGo false: no SMS,
+ * WhatsApp never carries codes to +91 numbers), the paper form comes first.
+ */
+export function ConsentButtons({ id, phone, texts, parent, codeCanGo }: { id: string; phone: string; texts: ConsentText[]; parent: string; codeCanGo: boolean }) {
+  const [open, setOpen] = useState<null | "code" | "paper">(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const close = () => { setOpen(null); setFileName(null); };
+  const paperButton = <Button key="paper" size="sm" variant={codeCanGo ? "ghost" : "primary"} icon={FileSignature} onClick={() => setOpen("paper")}><Words k="Parent signed a paper consent form" /></Button>;
   return (
     <div className="flex flex-wrap gap-2">
-      <ActionButton action={sendCodeAction} hidden={{ id }} icon={Send} variant="soft" busyLabel="Sending…"><Words k="Send code to" /> {phone}</ActionButton>
-      <Button size="sm" variant="primary" icon={ShieldCheck} onClick={() => setOpen(true)}><Words k="Enter code" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} wide title="Consent on the application" sub="Tick only what the guardian agrees to." action={confirmConsentAction} hidden={{ id }} submitLabel="Record consent" submitIcon={ShieldCheck}>
+      {!codeCanGo && paperButton}
+      <ActionButton action={sendCodeAction} hidden={{ id }} icon={Send} variant={codeCanGo ? "soft" : "ghost"} busyLabel="Sending…"><Words k="Send code to" /> {phone}</ActionButton>
+      <Button size="sm" variant={codeCanGo ? "primary" : "ghost"} icon={ShieldCheck} onClick={() => setOpen("code")}><Words k="Enter code" /></Button>
+      {codeCanGo && paperButton}
+      <FormSheet open={open === "code"} onClose={close} wide title="Consent on the application" sub="Tick only what the guardian agrees to." action={confirmConsentAction} hidden={{ id }} submitLabel="Record consent" submitIcon={ShieldCheck}>
         {(f) => (
           <>
-            {texts.map((t) => (
-              <div key={t.type} className="rounded-xl border border-line p-3">
-                <CheckboxField label={`${t.title}${t.required ? " (needed for admission)" : " (optional)"}`} name={`consent_${t.type}`} defaultChecked={f.val(`consent_${t.type}`) === "on"} help={<span className="whitespace-pre-wrap">{t.text}{t.version ? ` (version ${t.version})` : ""}</span>} />
-                {f.err(`consent_${t.type}`) && <p className="mt-1 text-[12.5px] text-bad">{f.err(`consent_${t.type}`)}</p>}
-              </div>
-            ))}
+            <ConsentTicks texts={texts} f={f} />
             <TextField label="Guardian giving consent" name="givenByName" required maxLength={120} defaultValue={f.val("givenByName", parent)} error={f.err("givenByName")} />
             <TextField label="One-time code" name="code" required inputMode="numeric" autoComplete="one-time-code" maxLength={6} defaultValue={f.val("code")} error={f.err("code")} help="6 digits. Works for 10 minutes." className="tnum tracking-widest" />
+          </>
+        )}
+      </FormSheet>
+      <FormSheet open={open === "paper"} onClose={close} wide title="Consent on a signed paper form" sub="Tick only what the parent signed for on the form." action={paperConsentAction} hidden={{ id }} submitLabel="Record consent" busyLabel="Saving…" submitIcon={FileSignature}>
+        {(f) => (
+          <>
+            <ConsentTicks texts={texts} f={f} />
+            <TextField label="Parent's name as signed" name="signedName" required maxLength={120} defaultValue={f.val("signedName", parent)} error={f.err("signedName")} />
+            <FieldShell label="Photo of the signed form" id="paper-consent-file" error={f.err("file")} help="Optional. PDF, JPG or PNG, up to 5 MB. Keep the paper form in the file too.">
+              <div className="grid grid-cols-2 gap-2">
+                <label className={cx(inputCls(f.err("file")), "h-11 flex items-center justify-center gap-2 font-semibold cursor-pointer")}>
+                  <Camera size={17} aria-hidden="true" /><Words k="Take photo" />
+                  <input type="file" name="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
+                </label>
+                <label className={cx(inputCls(f.err("file")), "h-11 flex items-center justify-center gap-2 font-semibold cursor-pointer")}>
+                  <Upload size={17} aria-hidden="true" /><Words k="Choose file" />
+                  <input id="paper-consent-file" type="file" name="file" accept="application/pdf,image/jpeg,image/png" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
+                </label>
+              </div>
+              {fileName && <p className="flex items-center gap-2 text-[13.5px] font-semibold mt-1"><FileText size={16} className="text-ink3" aria-hidden="true" />{fileName}</p>}
+            </FieldShell>
           </>
         )}
       </FormSheet>

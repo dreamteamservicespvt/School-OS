@@ -16,7 +16,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ fileId:
   const found = await withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);
     if (v.see !== "all") return null;
-    const doc = await tx.applicationDocument.findFirst({ where: { fileId, application: applicationScope(v) }, select: { id: true } });
+    const doc = await tx.applicationDocument.findFirst({ where: { fileId, application: applicationScope(v) }, select: { id: true } })
+      // The photo of a signed paper consent form (decision 23).
+      ?? await tx.admissionConsent.findFirst({ where: { paperFileId: fileId, application: applicationScope(v) }, select: { id: true } });
     if (!doc) return null;
     return tx.storedFile.findFirst({ where: { id: fileId, archivedAt: null } });
   });

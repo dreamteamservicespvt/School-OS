@@ -10,7 +10,7 @@ import { counterConsent, readApplicationForm } from "@/lib/admission/application
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { markOriginalSeen, recordPapersException, rejectDocument, remindMissing, uploadDocument, verifyDocument } from "@/lib/admission/documents";
-import { admissionConsentTexts, confirmConsentAtCounter, confirmOtpSent, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
+import { admissionConsentTexts, confirmConsentAtCounter, confirmOtpSent, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, recordPaperConsent, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
 import { applicationScope, requireFull } from "@/lib/admission/access";
 import { cancelPayment, recordCounterPayment } from "@/lib/admission/fee";
 import { sendFeeLink } from "@/lib/admission/public";
@@ -159,6 +159,15 @@ export async function confirmConsentAction(_: FormState<unknown>, fd: FormData) 
     if (!types.includes(DATA_CONSENT)) throw new AdmissionProblem("Data consent is needed for the admission. Tick it once the guardian agrees.", `consent_${DATA_CONSENT}`);
     return confirmConsentAtCounter(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application"), { code: str(fd, "code"), types, givenByName: need(fd, "givenByName", "Guardian's name", 120) });
   }, () => "Consent recorded, confirmed by the one-time code.");
+}
+
+/** At the counter, when no code can go (decision 23): the parent signed a paper consent form. */
+export async function paperConsentAction(_: FormState<unknown>, fd: FormData) {
+  return admissionAct("edit", fd, (w) => {
+    // Every consent the sheet shows (data, photo and any other the school asks on admission).
+    const types = [...new Set([...fd.keys()].filter((k) => k.startsWith("consent_") && str(fd, k) === "on").map((k) => k.slice("consent_".length)))];
+    return recordPaperConsent(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application"), { types, signedName: need(fd, "signedName", "Parent's name as signed", 120), file: file(fd, "file") });
+  }, () => "Consent recorded from the signed paper form.", { timeout: 60_000 });
 }
 
 export async function counterPaymentAction(_: FormState<unknown>, fd: FormData) {

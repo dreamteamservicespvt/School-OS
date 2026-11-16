@@ -3,11 +3,18 @@
 // one-time code sent to their mobile; photo consent is its own type. Each
 // consent keeps the version of the text agreed to. The code is stored only
 // as a hash, works for 10 minutes and for 5 tries.
+// Decision 23 (16 November 2026): WhatsApp never delivers one-time codes to
+// Indian (+91) numbers and SMS is off, so at the counter the office can also
+// record a consent form the parent signed on paper (recordPaperConsent), with
+// who recorded it and a photo or scan of the form. Parent Link (tap) is apart.
 import "server-only";
 
 import { createHash, randomInt } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { DOCUMENT_TYPES, FileProblem, saveFile } from "../files";
+import { codeChannels } from "../messaging/channels";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { consentLabel, READY_TEXTS } from "../data-security/consent";
 import { AdmissionProblem } from "./act";
@@ -24,6 +31,27 @@ export const OTP_TTL_MS = 10 * 60 * 1000;
 export const OTP_MAX_TRIES = 5;
 /** Codes sent to one phone in 15 minutes, at most. */
 export const OTP_MAX_SENDS = 5;
+/** howGiven for a consent form the parent signed on paper at the counter (decision 23). */
+export const PAPER_HOW = "admission-paper-form";
+/** A photo or scan of the signed form is at most 5 MB, like admission papers. */
+export const MAX_PAPER_BYTES = 5 * 1024 * 1024;
+
+/** A consent that stands: not withdrawn, and confirmed by a one-time code or given on a signed paper form. */
+export const CONSENT_STANDS = { withdrawnAt: null, OR: [{ otpVerifiedAt: { not: null } }, { howGiven: PAPER_HOW }] } satisfies Prisma.AdmissionConsentWhereInput;
+
+export function consentStands(c: { withdrawnAt: Date | null; otpVerifiedAt: Date | null; howGiven: string }) {
+  return !c.withdrawnAt && (c.otpVerifiedAt !== null || c.howGiven === PAPER_HOW);
+}
+
+/**
+ * Can a one-time code reach a parent's phone from the counter? Only by SMS that is on
+ * and not in Test mode: WhatsApp never delivers codes to +91 numbers (WHATSAPP_NO_CODES),
+ * and Test mode only records the message. While it cannot, the signed paper form is the way.
+ */
+export async function counterCodeCanGo(tx: Tx, ctx: SchoolContext) {
+  const can = await codeChannels(tx, ctx);
+  return can.has("sms") && !(await channelInTestMode(tx, ctx, "sms"));
+}
 
 export type ConsentTextView = { type: string; label: string; title: string; text: string; version: number; required: boolean };
 
@@ -145,23 +173,40 @@ export async function verifyOtp(tx: Tx, input: { purpose: string; phone: string;
   return true;
 }
 
-/** Saves the consents given, with the text version agreed to. Data consent is required. */
-export async function recordConsents(tx: Tx, ctx: SchoolContext, app: { id: string; phone: string }, input: { types: string[]; givenByName: string; howGiven: "admission-form-counter" | "admission-form-online"; texts: ConsentTextView[]; verifiedAt: Date }) {
+type Paper = { recordedById: string | null; recordedByName: string; fileId: string | null };
+
+/**
+ * Saves the consents given, with the text version agreed to. Data consent is required.
+ * Confirmed by a one-time code, or (PAPER_HOW) given on a signed paper form the office recorded.
+ */
+export async function recordConsents(tx: Tx, ctx: SchoolContext, app: { id: string; phone: string }, input: { types: string[]; givenByName: string; howGiven: "admission-form-counter" | "admission-form-online" | typeof PAPER_HOW; texts: ConsentTextView[]; verifiedAt: Date; paper?: Paper }) {
+  const paper = input.howGiven === PAPER_HOW ? input.paper ?? { recordedById: ctx.userId, recordedByName: "Staff", fileId: null } : null;
   if (!input.types.includes(DATA_CONSENT)) throw new AdmissionProblem("The data consent is needed for admission. The guardian must agree to it.", "consent_data-processing");
-  if (input.givenByName.trim().length < 2) throw new AdmissionProblem("Give the name of the guardian giving consent.", "givenByName");
+  if (input.givenByName.trim().length < 2) throw new AdmissionProblem(paper ? "Type the parent's name as signed on the form." : "Give the name of the guardian giving consent.", paper ? "signedName" : "givenByName");
+  // A code-confirmed consent keeps no paper details; a paper one has no code time.
+  const how = paper
+    ? { howGiven: PAPER_HOW, otpVerifiedAt: null, recordedById: paper.recordedById, paperFileId: paper.fileId }
+    : { howGiven: input.howGiven, otpVerifiedAt: input.verifiedAt, recordedById: null, paperFileId: null };
   const saved: string[] = [];
   for (const type of input.types) {
     const t = input.texts.find((x) => x.type === type);
     if (!t) continue;
     const existing = await tx.admissionConsent.findUnique({ where: { applicationId_consentType: { applicationId: app.id, consentType: type } } });
     if (existing && !existing.withdrawnAt) continue;
-    if (existing) await tx.admissionConsent.update({ where: { id: existing.id }, data: { version: t.version, givenByName: input.givenByName.trim(), phone: app.phone, howGiven: input.howGiven, givenAt: input.verifiedAt, otpVerifiedAt: input.verifiedAt, withdrawnAt: null } });
-    else await tx.admissionConsent.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, consentType: type, version: t.version, givenByName: input.givenByName.trim(), phone: app.phone, howGiven: input.howGiven, givenAt: input.verifiedAt, otpVerifiedAt: input.verifiedAt } });
+    if (existing) await tx.admissionConsent.update({ where: { id: existing.id }, data: { version: t.version, givenByName: input.givenByName.trim(), phone: app.phone, givenAt: input.verifiedAt, withdrawnAt: null, ...how } });
+    else await tx.admissionConsent.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, consentType: type, version: t.version, givenByName: input.givenByName.trim(), phone: app.phone, givenAt: input.verifiedAt, ...how } });
     saved.push(type);
   }
   if (saved.length) {
-    await activity(tx, ctx, app.id, "consent", `Consent given by ${input.givenByName.trim()}, confirmed by a one-time code: ${saved.map((t) => `${consentLabel(t)} (version ${input.texts.find((x) => x.type === t)?.version || "ready text"})`).join("; ")}.`);
-    await writeAudit(tx, ctx, { action: "consent-given", recordType: "Application", recordId: app.id, after: { types: saved, versions: saved.map((t) => input.texts.find((x) => x.type === t)?.version ?? 0), givenBy: input.givenByName.trim(), how: input.howGiven } });
+    const list = saved.map((t) => `${consentLabel(t)} (version ${input.texts.find((x) => x.type === t)?.version || "ready text"})`).join("; ");
+    const versions = saved.map((t) => input.texts.find((x) => x.type === t)?.version ?? 0);
+    if (paper) {
+      await activity(tx, ctx, app.id, "consent", `Consent given on a signed paper form, recorded by ${paper.recordedByName}: ${list}. Signed by ${input.givenByName.trim()}.${paper.fileId ? " A photo of the form is kept." : ""}`, { how: PAPER_HOW, types: saved, fileId: paper.fileId });
+      await writeAudit(tx, ctx, { action: "consent-given", recordType: "Application", recordId: app.id, after: { types: saved, versions, givenBy: input.givenByName.trim(), how: PAPER_HOW, recordedBy: paper.recordedById, fileId: paper.fileId } });
+    } else {
+      await activity(tx, ctx, app.id, "consent", `Consent given by ${input.givenByName.trim()}, confirmed by a one-time code: ${list}.`);
+      await writeAudit(tx, ctx, { action: "consent-given", recordType: "Application", recordId: app.id, after: { types: saved, versions, givenBy: input.givenByName.trim(), how: input.howGiven } });
+    }
   }
   return saved;
 }
@@ -183,9 +228,41 @@ export async function confirmConsentAtCounter(tx: Tx, ctx: SchoolContext, v: Vie
   return recordConsents(tx, ctx, app, { types: input.types, givenByName: input.givenByName, howGiven: "admission-form-counter", texts, verifiedAt: new Date() });
 }
 
+/** The staff member's name for "recorded by": their staff record, else their login's name. */
+async function staffNameOf(tx: Tx, userId: string | null) {
+  if (!userId) return "Staff";
+  const staff = await tx.staff.findFirst({ where: { userLoginId: userId }, select: { fullName: true } });
+  if (staff) return staff.fullName;
+  return (await tx.userLogin.findUnique({ where: { id: userId }, select: { displayName: true } }))?.displayName ?? "Staff";
+}
+
+/**
+ * At the counter, when no code can go (decision 23): the parent signed a paper consent
+ * form. The office ticks what the parent agreed to, types the name as signed and may add
+ * a photo or scan of the form. Recorded like a code-confirmed consent, marked paper form.
+ */
+export async function recordPaperConsent(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, applicationId: string, input: { types: string[]; signedName: string; file: File | null }) {
+  requireFull(v, "consent");
+  const app = await loadApplication(tx, applicationId, v);
+  if (!input.types.includes(DATA_CONSENT)) throw new AdmissionProblem("Data consent is needed for the admission. Tick it once the parent has signed for it.", `consent_${DATA_CONSENT}`);
+  if (input.signedName.trim().length < 2) throw new AdmissionProblem("Type the parent's name as signed on the form.", "signedName");
+  const texts = await admissionConsentTexts(tx, schoolName);
+  const standing = await tx.admissionConsent.findMany({ where: { applicationId: app.id, consentType: { in: input.types }, withdrawnAt: null }, select: { consentType: true } });
+  const todo = input.types.filter((t) => texts.some((x) => x.type === t) && !standing.some((s) => s.consentType === t));
+  if (!todo.length) throw new AdmissionProblem("These consents are already given on this application.");
+  // Data consent already stands: the rest are added without it.
+  const types = todo.includes(DATA_CONSENT) ? todo : [DATA_CONSENT, ...todo];
+  let fileId: string | null = null;
+  if (input.file) {
+    if (input.file.size > MAX_PAPER_BYTES) throw new FileProblem(`This file is ${(input.file.size / 1024 / 1024).toFixed(1)} MB. The photo of the form can be at most 5 MB. Take a smaller photo or scan at a lower size.`);
+    fileId = (await saveFile(tx, ctx, { file: input.file, purpose: "admission-consent-form", allowed: DOCUMENT_TYPES, maxImageWidth: 2000 })).id;
+  }
+  return recordConsents(tx, ctx, app, { types, givenByName: input.signedName, howGiven: PAPER_HOW, texts, verifiedAt: new Date(), paper: { recordedById: ctx.userId, recordedByName: await staffNameOf(tx, ctx.userId), fileId } });
+}
+
 /** The purpose of the code for a new application at the counter: one per staff member, so two desks never mix codes. */
 export const counterFormPurpose = (userId: string | null) => `counter-form:${userId ?? "none"}`;
 
 export async function hasDataConsent(tx: Tx, applicationId: string) {
-  return Boolean(await tx.admissionConsent.findFirst({ where: { applicationId, consentType: DATA_CONSENT, withdrawnAt: null, otpVerifiedAt: { not: null } } }));
+  return Boolean(await tx.admissionConsent.findFirst({ where: { applicationId, consentType: DATA_CONSENT, ...CONSENT_STANDS } }));
 }

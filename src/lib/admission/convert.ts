@@ -32,13 +32,13 @@ import { namesAlike } from "../students/name-match";
 import { refreshBalances } from "../fees/dues";
 import { sendLinksOnAdmission } from "../parent-link/links";
 import { MessagingProblem, sendAutomatic } from "../messaging";
-import { AdmissionProblem } from "./act";
+import { AdmissionProblem, todayIn } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, feeSettled, loadApplication } from "./applications";
 import { classRule, loadSettings, stageOn } from "./settings";
 import { carryPapers } from "./papers";
 import { progressOf } from "./documents";
-import { hasDataConsent } from "./consent";
+import { CONSENT_STANDS, hasDataConsent, PAPER_HOW } from "./consent";
 import { seatsFor } from "./seats";
 import { systemStatus } from "./enquiries";
 
@@ -72,7 +72,7 @@ export async function blockers(tx: Tx, ctx: SchoolContext, app: Application) {
   const s = await loadSettings(tx, ctx);
   const out: string[] = [];
   if (app.stage !== "APPROVED") out.push(app.stage === "ADMITTED" ? "Already admitted." : "The application is not approved yet.");
-  if (!(await hasDataConsent(tx, app.id))) out.push("Data consent is not given yet. The guardian must agree, confirmed by a one-time code.");
+  if (!(await hasDataConsent(tx, app.id))) out.push("Data consent is not given yet. The guardian must agree, confirmed by a one-time code or on a signed paper form.");
   const rule = await classRule(tx, app.classId);
   const docs = await tx.applicationDocument.findMany({ where: { applicationId: app.id } });
   const p = progressOf(docs, rule.documents);
@@ -258,12 +258,23 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
 
   // The consent given on the application becomes each guardian's Consent Records, with the text version agreed to.
   const consentRecordIds: string[] = [];
-  const consents = await tx.admissionConsent.findMany({ where: { applicationId: app.id, withdrawnAt: null, otpVerifiedAt: { not: null } } });
+  const consents = await tx.admissionConsent.findMany({ where: { applicationId: app.id, ...CONSENT_STANDS } });
+  const schoolTz = consents.some((c) => c.howGiven === PAPER_HOW) ? (await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } }))?.timeZone ?? "Asia/Kolkata" : "Asia/Kolkata";
   for (const c of consents) {
     const text = (c.version > 0 ? await tx.consentText.findFirst({ where: { consentType: c.consentType, version: c.version } }) : null)
       ?? await tx.consentText.findFirst({ where: { consentType: c.consentType, isCurrent: true } });
     if (!text) continue;
     for (const guardianId of guardianIds) {
+      if (c.howGiven === PAPER_HOW) {
+        // Signed on paper at the counter (decision 23): the student's Consent Record says so,
+        // dated the day it was signed, with who recorded it (like paper forms in Student Management).
+        const row = await tx.consentRecord.create({
+          data: { schoolId: ctx.schoolId, guardianId, studentId: student.id, consentType: c.consentType, consentTextId: text.id, textVersion: text.version, givenAt: new Date(`${todayIn(schoolTz, c.givenAt)}T00:00:00Z`), how: "paper-form", createdById: c.recordedById ?? ctx.userId },
+        });
+        await writeAudit(tx, ctx, { action: "consent-given", recordType: "Consent Record", recordId: row.id, after: { consentType: c.consentType, version: text.version, method: "paper-form", from: "admission application" } });
+        consentRecordIds.push(row.id);
+        continue;
+      }
       const row = await recordConsentGiven(tx, ctx, { guardianId, studentId: student.id, consentType: c.consentType, method: "admission-form", consentTextId: text.id });
       consentRecordIds.push(row.id);
     }

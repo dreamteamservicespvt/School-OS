@@ -31,7 +31,7 @@ import { createSession } from "@/lib/auth/sessions";
 import type { FormState } from "@/lib/forms";
 import { withSchool, type SchoolContext } from "@/lib/db";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";
-import { DATA_CONSENT } from "@/lib/admission/consent";
+import { DATA_CONSENT, PAPER_HOW } from "@/lib/admission/consent";
 import { familyQuestion, type Conversion } from "@/lib/admission/convert";
 import { rejectDocument, uploadDocument, verifyDocument } from "@/lib/admission/documents";
 import { feeStatus, recordCounterPayment } from "@/lib/admission/fee";
@@ -403,5 +403,22 @@ describe("Undo admission takes the fee plan back, and only while nothing else ha
     const r = await undoAction(START, form({ id: app.id }));
     expect(r?.message).toMatch(/Attendance is already recorded for this student/);
     expect(await run((tx) => tx.studentFeeDue.count({ where: { studentId, state: "OPEN" } }))).toBe(4);
+  });
+});
+
+describe("consent on a signed paper form at the counter (decision 23)", () => {
+  it("becomes the student's Consent Record marked paper form, dated the day signed, with who recorded it", async () => {
+    await signIn(t.counsellor.id);
+    if (!(await run((tx) => tx.consentText.count({ where: { consentType: DATA_CONSENT, isCurrent: true } })))) {
+      await run((tx) => tx.consentText.create({ data: { schoolId: t.school.id, consentType: DATA_CONSENT, title: "Data consent", version: 1, isCurrent: true, text: { en: "We keep your child's data for school work." } } }));
+    }
+    const app = await approved();
+    // Signed on paper at 22:00 IST on 20 March 2027 (16:30 UTC): the form's day is 20 March.
+    await run((tx) => tx.admissionConsent.updateMany({ where: { applicationId: app.id }, data: { howGiven: PAPER_HOW, otpVerifiedAt: null, recordedById: t.counsellor.id, givenAt: new Date("2027-03-20T16:30:00Z") } }));
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    const studentId = (await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).studentId!;
+    const records = await run((tx) => tx.consentRecord.findMany({ where: { studentId, consentType: DATA_CONSENT } }));
+    expect(records.length).toBeGreaterThan(0);
+    for (const r of records) expect(r).toMatchObject({ how: "paper-form", createdById: t.counsellor.id, givenAt: day("2027-03-20"), withdrawnAt: null });
   });
 });

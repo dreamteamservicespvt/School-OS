@@ -14,7 +14,7 @@ import { CLOSED_STAGES, movableTo, OPEN_STAGES, stageLabel } from "@/lib/admissi
 import { DOC_STATUS_LABEL, progressOf } from "@/lib/admission/documents";
 import { CANCEL_REASONS, COUNTER_MODES, activeRazorpay, feeStatus, modeLabel } from "@/lib/admission/fee";
 import { feePageAllowedFor } from "@/lib/fees/access";
-import { admissionConsentTexts, DATA_CONSENT } from "@/lib/admission/consent";
+import { admissionConsentTexts, consentStands, counterCodeCanGo, DATA_CONSENT, PAPER_HOW } from "@/lib/admission/consent";
 import { outcomeLabel } from "@/lib/admission/tests";
 import { blockers } from "@/lib/admission/convert";
 import { admissionYear, classRule, docLabel, stageOn } from "@/lib/admission/settings";
@@ -65,7 +65,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       },
     });
     if (!app) return null;
-    const [cls, year, rule, consents, texts, enquiry, sibling, student, seats, staff, users, fields, block, approval, online, admitting] = await Promise.all([
+    const [cls, year, rule, consents, texts, enquiry, sibling, student, seats, staff, users, fields, block, approval, online, admitting, codeCanGo] = await Promise.all([
       tx.schoolClass.findUnique({ where: { id: app.classId }, select: { name: true } }),
       tx.academicYear.findUnique({ where: { id: app.academicYearId }, select: { name: true, status: true } }),
       classRule(tx, app.classId),
@@ -83,8 +83,13 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       app.feeDuePaise ? activeRazorpay(tx).then(Boolean) : Promise.resolve(false),
       // The admission year of the application's own campus (each campus has its own years).
       admissionYear(tx, current.ctx, settings, app.campusId),
+      // Can a consent code reach the parent's phone? If not, the signed paper form comes first (decision 23).
+      counterCodeCanGo(tx, current.ctx),
     ]);
-    return { admitting, app, cls, year, rule, consents, texts, enquiry, sibling, student, seat: seats.get(app.classId), staff, users, fields: visibleFields(fields, current.roles), block, approval, online };
+    // Who recorded a signed paper consent form (their login is not always in the history).
+    const recorders = consents.map((c) => c.recordedById).filter((x): x is string => Boolean(x) && !users.some((u) => u.id === x));
+    if (recorders.length) users.push(...await tx.userLogin.findMany({ where: { id: { in: [...new Set(recorders)] } }, select: { id: true, displayName: true } }));
+    return { codeCanGo, admitting, app, cls, year, rule, consents, texts, enquiry, sibling, student, seat: seats.get(app.classId), staff, users, fields: visibleFields(fields, current.roles), block, approval, online };
   });
   if (!data) {
     return (
@@ -117,7 +122,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   const t = app.tests[0];
   const iv = app.interviews.find((i) => !i.cancelledAt);
   const testsOn = stageOn(settings, "test") || stageOn(settings, "interview");
-  const dataConsent = data.consents.find((c) => c.consentType === DATA_CONSENT && !c.withdrawnAt && c.otpVerifiedAt);
+  const dataConsent = data.consents.find((c) => c.consentType === DATA_CONSENT && consentStands(c));
   const seatsLeft = data.seat ? data.seat.free : null;
 
   const parents = [
@@ -169,8 +174,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           <Banner tone="warn" title="Before the admission can be confirmed:">{data.block.join(" ")}</Banner>
         )}
         {full && !closed && !dataConsent && (
-          <Banner tone="warn" icon={ShieldCheck} title="Data consent is not given yet." action={<ConsentButtons id={app.id} phone={`+91 ${phoneWords(app.phone)}`} texts={data.texts} parent={parent} />}>
-            <Words k="It is needed before the admission. The guardian confirms with a one-time code." />
+          <Banner tone="warn" icon={ShieldCheck} title="Data consent is not given yet." action={<ConsentButtons id={app.id} phone={`+91 ${phoneWords(app.phone)}`} texts={data.texts} parent={parent} codeCanGo={data.codeCanGo} />}>
+            {data.codeCanGo ? <Words k="It is needed before the admission. The guardian confirms with a one-time code." /> : <Words k="It is needed before the admission. No code can reach the parent's phone just now, so record the consent form the parent signs on paper." />}
           </Banner>
         )}
 
@@ -312,15 +317,18 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               <CardHeader title="Consent" description="DPDP Act 2023" icon={ShieldCheck} />
               <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
                 {data.texts.map((tx) => {
-                  const c = data.consents.find((x) => x.consentType === tx.type && !x.withdrawnAt && x.otpVerifiedAt);
+                  const c = data.consents.find((x) => x.consentType === tx.type && consentStands(x));
                   return (
                     <li key={tx.type} className="flex gap-3">
                       {c ? <CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /> : <CircleX size={18} className={cx("shrink-0 mt-0.5", tx.required ? "text-warn" : "text-ink3")} aria-hidden="true" />}
                       <span>
                         <b className="font-semibold">{tx.label} {c ? "given" : "not given"}</b>
                         <span className="block text-[12.5px] text-ink3">
-                          {c ? `${c.version ? `Version ${c.version} · ` : ""}${c.givenByName} · one-time code to +91 ${phoneWords(app.phone)} · ${formatDateTime(c.givenAt, tz)}` : tx.required ? "Needed before the admission" : "Separate consent, optional"}
+                          {c ? (c.howGiven === PAPER_HOW
+                            ? `${c.version ? `Version ${c.version} · ` : ""}Signed paper form, signed by ${c.givenByName} · recorded by ${who(c.recordedById)} · ${formatDateTime(c.givenAt, tz)}`
+                            : `${c.version ? `Version ${c.version} · ` : ""}${c.givenByName} · one-time code to +91 ${phoneWords(app.phone)} · ${formatDateTime(c.givenAt, tz)}`) : tx.required ? "Needed before the admission" : "Separate consent, optional"}
                         </span>
+                        {c?.paperFileId && viewer.see === "all" && <a href={`${BASE}/files/${c.paperFileId}`} target="_blank" rel="noopener" className="block text-[12.5px] text-brand hover:underline"><Words k="View signed form" /></a>}
                       </span>
                     </li>
                   );

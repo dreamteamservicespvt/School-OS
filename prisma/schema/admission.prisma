@@ -444,10 +444,14 @@ model AdmissionConsent {
   version       Int
   givenByName   String    @map("given_by_name")
   phone         String
-  /// admission-form-counter | admission-form-online
+  /// admission-form-counter | admission-form-online (both confirmed by a one-time code) | admission-paper-form (decision 23, 16 November 2026: the parent signed a paper consent form at the counter)
   howGiven      String    @map("how_given")
   givenAt       DateTime  @default(now()) @map("given_at")
   otpVerifiedAt DateTime? @map("otp_verified_at")
+  /// The staff login who recorded a signed paper form (empty for code-confirmed consent).
+  recordedById  String?   @map("recorded_by_id") @db.Uuid
+  /// The photo or scan of the signed paper form (a Stored File), when the office added one.
+  paperFileId   String?   @map("paper_file_id") @db.Uuid
   guardianId    String?   @map("guardian_id") @db.Uuid
   studentId     String?   @map("student_id") @db.Uuid
   withdrawnAt   DateTime? @map("withdrawn_at")

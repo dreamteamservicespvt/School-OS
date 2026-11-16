@@ -190,12 +190,12 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                 return (
                   <li key={it.key}>
                     <Link href={landing[it.key] ?? href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-0.5 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-1.5 lg:-ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight tracking-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );
@@ -214,12 +214,12 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                 return (
                   <li key={it.href}>
                     <Link href={it.href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-0.5 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-1.5 lg:-ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight tracking-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );

@@ -96,7 +96,8 @@ describe("Resend to unread (COMM-03, COMM-07)", () => {
     expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(0);
     await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/sent it in test mode, so nobody received it/);
     // As if a real WhatsApp account had sent it.
-    await withSchool(s.ctx, (tx) => tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { provider: "meta-cloud" } }));
+    // (Test mode marks copies delivered; real WhatsApp, with no delivery reports, leaves them at Sent.)
+    await withSchool(s.ctx, (tx) => tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { provider: "meta-cloud", status: "SENT", deliveredAt: null } }));
     // Sent to WhatsApp with no delivery report: nobody is known to have missed it, so no "Resend to unread" (L6-41).
     expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(0);
     await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/do not tell us who read/);

@@ -62,7 +62,7 @@ export function AddHeadSheet({ closeHref, groups }: { closeHref: string; groups:
         <Segmented label="Type" value={kind} onChange={(v) => setKind(v as "INCOME" | "EXPENSE")} className="w-full" options={[{ value: "INCOME", label: "Income" }, { value: "EXPENSE", label: "Expense" }]} />
       </div>
       <SText name="name" label="Name" required placeholder={kind === "EXPENSE" ? "Science fair" : "Summer camp fees"} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SText name="code" label="Code" required inputMode="numeric" maxLength={4} placeholder={kind === "EXPENSE" ? "5350" : "4280"} help={`4 digits, starting with ${kind === "INCOME" ? 4 : 5}`} />
         <SSelect key={kind} name="group" label="Group" required options={opts(kind)} start={groups[kind][0]} />
       </div>

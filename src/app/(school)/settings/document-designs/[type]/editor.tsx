@@ -152,7 +152,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
 
         {family === "card" && (
           <Section title="ID card layout" help="Several to an A4 sheet.">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="col-span-2 block text-sm font-medium"><Words k="Size" />
                 <select className={`${input} mt-1`} value={o.card.size} disabled={!canEdit} onChange={(e) => setCard("size", e.target.value as DesignOptions["card"]["size"])}>
                   {CARD_SIZES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}

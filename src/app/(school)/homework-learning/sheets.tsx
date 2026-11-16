@@ -116,7 +116,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <KeepSelect id="gh-class" value={section.id} onChange={(e) => pick(e.target.value)} className={cx(inputCls(), "h-11")} aria-label="Class">
               {sections.map((c) => <option key={c.id} value={c.id}>Class {c.label} · {c.students}</option>)}
             </KeepSelect>

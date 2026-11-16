@@ -81,7 +81,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         {reg && consent && (audience === "school" || audience === "classes") && <input type="hidden" name="consentOn" value="on" />}
         {reg && consent && (audience === "school" || audience === "classes") && <SDate name="consentBy" label="Reply by" help="Parents who have not answered get one reminder" start={start.consentBy} />}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SText name="fee" label="Fee per student" help={start.feeLocked ? "Students already have this fee; it cannot change now" : "Added to the student’s fees"} placeholder="None" inputMode="decimal" start={start.fee} className="tnum" readOnly={start.feeLocked} />
         <SSelect name="reminder" label="Reminder" options={reminders} start={start.reminder ?? "1d"} />
       </div>

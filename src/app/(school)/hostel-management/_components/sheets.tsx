@@ -44,7 +44,7 @@ export function AddRoomSheet({ closeHref, hostels, startHostel, plans }: { close
   const plan = plans.find((p) => (!p.hostelId || p.hostelId === hid) && (!p.roomType || p.roomType === type));
   return (
     <SheetForm title="Add a room" sub="The beds are made and numbered for you." closeHref={closeHref} action={addRoomAction} submitLabel={`Add room with ${beds} bed${beds === 1 ? "" : "s"}`} pendingText="Adding…">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {hostels.length > 1 ? (
           <FieldShell label="Hostel" id="ar-h" required error={h.error}>
             <select key={h.key} id="ar-h" name="hostelId" defaultValue={hid} onChange={(e) => setHid(e.target.value)} className={cx(inputCls(h.error), "h-11")}>
@@ -75,7 +75,7 @@ export function AddRoomSheet({ closeHref, hostels, startHostel, plans }: { close
 export function EditRoomSheet({ closeHref, room }: { closeHref: string; room: { id: string; roomNo: string; roomType: string | null; beds: number; where: string } }) {
   return (
     <SheetForm title={`Room ${room.roomNo}`} sub={room.where} closeHref={closeHref} action={updateRoomAction} submitLabel="Save room" hidden={{ roomId: room.id }}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SText name="beds" label="Beds" required type="number" min={1} max={12} start={room.beds} help="New beds are added at the end. Only free beds at the end can be taken away." />
         <SSelect name="roomType" label="Room type" options={[{ value: "", label: "No type" }, ...ROOM_TYPES.map((x) => ({ value: x, label: x }))]} start={room.roomType ?? ""} />
       </div>

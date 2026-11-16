@@ -55,7 +55,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
           </KeepSelect>
           {cat.error && <p className="text-[12.5px] text-bad">{cat.error}</p>}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SSelect name="unit" label="Unit" required start={start?.unit ?? "piece"} options={units.map((u) => ({ value: u, label: u }))} />
           <SText name="size" label="Size" maxLength={20} start={start?.size} placeholder="M, 28" help="Uniforms" />
         </div>
@@ -127,7 +127,7 @@ export function StockInSheet({ closeHref, items, stores, start, today }: { close
         </select>
         {it.error && <p className="text-[12.5px] text-bad">{it.error}</p>}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="locationId" label="Store" required start={start.locationId} options={stores} />
         <SText name="qty" label="Quantity" required inputMode="numeric" />
       </div>
@@ -174,7 +174,7 @@ export function StockOutSheet({ closeHref, items, stores, batches, start, today 
         </select>
         {it.error && <p className="text-[12.5px] text-bad">{it.error}</p>}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="out-store" className="text-[13px] font-semibold text-ink2"><Words k="Store" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <select key={loc.key} id="out-store" name="locationId" defaultValue={loc.value} onChange={(e) => setLocId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">

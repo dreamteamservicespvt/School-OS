@@ -70,7 +70,7 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
             <Segmented value={when} onChange={(v) => setWhen(v as "now" | "later")} options={[{ value: "now", label: "Now" }, { value: "later", label: "Date and time" }]} className="w-full" label="Publish on" />
           </div>
           {when === "later" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Date" /><DateInput value={date} min={today} onChange={(e) => setDate(e.target.value)} className={cx(inputCls(), "h-11 tnum")} /></label>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Time" />
                 <select value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(), "h-11")}>{TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>

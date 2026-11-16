@@ -77,7 +77,7 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
   return (
     <SheetForm title="New concession" sub={`Amount or percentage off the fees of ${student.name}${student.classLabel ? `, ${student.classLabel}` : ""}`}
       closeHref={closeHref} action={newConcessionAction} submitLabel="Apply concession" pendingText="Saving…" hidden={{ studentId: student.id, mode: unit }}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="type" label="Type" required options={TYPES} start={type} onChange={(e) => setType(e.target.value)} />
         <SSelect name="period" label="Period" required options={PERIODS} start={period} onChange={(e) => setPeriod(e.target.value)} />
       </div>

@@ -36,7 +36,7 @@ export function StructureSheet({ closeHref, mode, title, sub, staff, staffId, co
   return (
     <SheetForm title={title} sub={sub} closeHref={closeHref} action={saveStructureAction} submitLabel={mode === "revise" ? "Save new version" : "Save structure"} pendingText="Saving…" hidden={{ mode }}>
       {mode === "revise" ? <input type="hidden" name="staffId" value={staffId} /> : <SSelect name="staffId" label="Staff member" required options={staff} start={t.value} placeholder="Choose" />}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {mode === "add" && templates.length > 0 && (
           <SelectField label="Start from" name="template" value={tpl} onChange={(e) => { setTpl(e.target.value); setTyped({}); }}
             options={[{ value: "", label: "No template" }, ...templates.map((x) => ({ value: x.id, label: `${x.name} template` }))]} />

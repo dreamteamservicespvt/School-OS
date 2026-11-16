@@ -24,7 +24,7 @@ export function PostalSheet({ closeHref, received, forOptions }: { closeHref: st
       <SegField name="itemType" label="Type" required start={received ? "COURIER" : "LETTER"} options={[{ value: "LETTER", label: "Letter" }, { value: "COURIER", label: "Courier" }, { value: "PARCEL", label: "Parcel" }]} />
       <SText name="party" label={received ? "From" : "To"} required maxLength={150} placeholder={received ? "For example: CBSE Regional Office, Chennai" : "For example: District Educational Officer, Medchal"} />
       <SSelect name="for" label={received ? "For" : "From"} required placeholder="Choose staff or department" options={forOptions} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="courier" label="Courier" required={!received} placeholder="Choose" options={COURIERS.map((c) => ({ value: c, label: c }))} />
         <SText name="trackingNo" label="Tracking number" maxLength={40} placeholder="EK419277833IN" className="[&_input]:font-mono [&_input]:uppercase" autoComplete="off" />
       </div>

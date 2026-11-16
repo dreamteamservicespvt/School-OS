@@ -87,7 +87,7 @@ export function ScheduleInterviewButton({ applicants, staff, defaultInterviewer,
         {(f) => (
           <>
             <SelectField label="Applicant" name="applicationId" required options={applicants.map((a) => ({ value: a.id, label: `${a.name} · ${a.meta}` }))} placeholder="Choose" defaultValue={f.val("applicationId", startFor ?? undefined)} error={f.err("applicationId")} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FieldShell label="Interviewer" id="si-w" required>
                 <KeepSelect id="si-w" name="interviewerStaffId" value={who} onChange={(e) => setWho(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>
                   {staff.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}

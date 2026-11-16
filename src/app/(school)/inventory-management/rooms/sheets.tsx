@@ -138,7 +138,7 @@ export type ExperimentStart = { id: string; classId: string; subject: string; ti
 export function ExperimentSheet({ closeHref, start, classes, labs }: { closeHref: string; start: ExperimentStart | null; classes: Opt[]; labs: Opt[] }) {
   return (
     <SheetForm title={start ? "Change the experiment" : "Add an experiment"} closeHref={closeHref} action={saveExperimentAction} submitLabel={start ? "Save" : "Add"} hidden={start ? { experimentId: start.id } : undefined}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="classId" label="Class" required options={classes} start={start?.classId ?? ""} placeholder="Choose" />
         <SText name="subject" label="Subject" required maxLength={60} start={start?.subject} placeholder="Physics" />
       </div>
@@ -152,7 +152,7 @@ export function ExperimentSheet({ closeHref, start, classes, labs }: { closeHref
 export function SafetyCheckSheet({ closeHref, labs, lab, today, checklist }: { closeHref: string; labs: Opt[]; lab: string; today: string; checklist: readonly string[] }) {
   return (
     <SheetForm title="Record a lab safety check" sub="Untick what is not fine and say what is wrong. The store keeper is told." closeHref={closeHref} action={safetyCheckAction} submitLabel="Save check">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="labId" label="Lab" required options={labs} start={lab} placeholder="Choose" />
         <SDate name="date" label="Date" required start={today} max={today} />
       </div>

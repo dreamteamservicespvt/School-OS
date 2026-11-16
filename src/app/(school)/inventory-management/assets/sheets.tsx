@@ -79,7 +79,7 @@ export function AssetSheet({ closeHref, doneHref, types, vendors, places, start,
         <SDate name="warrantyEnd" label="Warranty ends" start={start?.warrantyEnd} help="Needed for reminders" />
         <SDate name="amcEnd" label="AMC ends" start={start?.amcEnd} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="condition" label="Condition" required options={["Good", "Fair", "Poor"].map((c) => ({ value: c, label: c }))} start={start?.condition ?? "Good"} />
         {!editing ? <SText name="serialNo" label="Serial number" maxLength={60} placeholder={n > 1 ? "Leave empty for many" : "Optional"} /> : <SText name="depreciationRate" label="Depreciation rate %" inputMode="decimal" start={start!.rate} help="Empty: the type's rate in Inventory Settings" />}
       </div>
@@ -102,7 +102,7 @@ export function RepairSheet({ closeHref, assetId, words, vendors, today }: { clo
   return (
     <SheetForm title="Log a repair" sub={words} closeHref={closeHref} action={addRepairAction} submitLabel="Log repair" hidden={{ assetId }}>
       <SArea name="problem" label="Problem" required maxLength={300} placeholder="For example: lamp not switching on" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SDate name="date" label="Date" required start={today} max={today} />
         <SSelect name="vendorId" label="Repaired by (vendor)" options={vendors} placeholder="Not yet" />
       </div>
@@ -150,7 +150,7 @@ export function DisposeSheet({ closeHref, assetId, words, today }: { closeHref: 
             <SMoney name="sale" label="Sale amount" required />
             <SText name="buyer" label="Buyer" maxLength={120} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SSelect name="saleMode" label="Received by" options={[{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }]} start="CASH" />
             <SText name="saleRef" label="Reference" maxLength={60} placeholder="Optional" />
           </div>

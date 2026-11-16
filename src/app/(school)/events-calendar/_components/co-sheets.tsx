@@ -95,7 +95,7 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
     <SheetForm title="Record achievement" sub="For a whole team or class, pick several students." closeHref={closeHref} action={achievementAction} submitLabel="Record" hidden={{ level, result, certificate: cert ? "on" : "" }}>
       <StudentPicker students={students} start={start?.studentIds} />
       <SText name="activity" label="Activity or competition" required maxLength={120} placeholder="For example: Inter-school quiz" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SSelect name="kind" label="Kind of activity" required options={kinds.map((k) => ({ value: k, label: k }))} start={kinds[0]} />
         <SDate name="date" label="Date" required start={today} max={today} />
       </div>
@@ -109,7 +109,7 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
       </div>
       {result === "won" && <SText name="position" label="Position or result" maxLength={60} placeholder="1st, Winners, Gold medal…" />}
       {(teams.length > 0 || events.length > 0) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {events.length > 0 && <SSelect name="eventId" label="School event" options={[{ value: "", label: "Not a school event" }, ...events]} start={""} />}
           {teams.length > 0 && <SSelect name="teamId" label="Team" options={[{ value: "", label: "No team" }, ...teams]} start={start?.teamId ?? ""} />}
         </div>

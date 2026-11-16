@@ -98,7 +98,7 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
       extraButtons={<Button type="submit" name="intent" value="draft" variant="secondary"><Words k="Save draft" /></Button>}>
       <Text name="title" label="Title" required maxLength={160} start={start?.title} placeholder="Simple equations: practice 2" />
       {!start && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldShell label="Class and section" id="cq-cls" required>
             <KeepSelect id="cq-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
               {sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}

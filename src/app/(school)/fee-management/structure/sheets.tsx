@@ -43,7 +43,7 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn, firstHead = 
         <KeepCheck type="checkbox" name="taxable" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className="size-5 accent-[var(--color-brand)]" aria-label="Taxable (GST)" />
       </div>
       {taxable && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SSelect name="gstRate" label="GST rate" required start={head?.gstRate || "18"} options={[{ value: "5", label: "5%" }, { value: "12", label: "12%" }, { value: "18", label: "18%" }, { value: "28", label: "28%" }]} />
           <SText name="sacCode" label="SAC or HSN code" start={head?.sacCode} help="Printed on the tax invoice" inputMode="numeric" />
         </div>
@@ -102,7 +102,7 @@ export function RowSheet({ closeHref, yearId, classId, category, className, head
       sub={draft ? "Saved in the draft. Students’ fees change only when you publish." : "Saved in a new draft version. Students’ fees change only when you publish it."}
       submitLabel="Save in draft" draft={false} hidden={{ yearId, classId, category, ...(row ? { wasHeadId: row.feeHeadId } : {}) }}>
       <SelectField name="feeHeadId" label="Fee head" required value={head} onChange={(e) => setHead(e.target.value)} options={heads} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <TextField name="total" label="Amount for the year" required inputMode="decimal" value={total} className="tnum"
           onChange={(e) => { setTotal(e.target.value); setInst(make(freq, e.target.value)); }} placeholder="₹ 0" />
         <SelectField name="frequency" label="Frequency" required value={freq} onChange={(e) => { const f = e.target.value as FrequencyValue; setFreq(f); setInst(make(f, total)); }} options={FREQUENCIES.map((f) => ({ value: f.value, label: f.label }))} />

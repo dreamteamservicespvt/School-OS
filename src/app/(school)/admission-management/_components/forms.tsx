@@ -197,7 +197,7 @@ export function WhenField({ name, label, defaultValue, error, required, timeLabe
   const id = useId();
   const times = TIMES.some((t) => t.value === time) ? TIMES : [...TIMES, { value: time, label: time }].sort((a, b) => a.value.localeCompare(b.value));
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <FieldShell label={label} id={`${id}-d`} error={error} required={required}>
         <DateInput id={`${id}-d`} value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
       </FieldShell>

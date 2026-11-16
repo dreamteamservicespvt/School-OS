@@ -32,7 +32,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
   return (
     <SheetForm title="Schedule an online class" sub="Paste the meeting link from Google Meet, Zoom or another app" closeHref={closeHref} action={scheduleClassAction}
       hidden={{ sectionId: section?.id ?? "", subjectId }} submitLabel={<><CalendarPlus size={16} aria-hidden="true" /><Words k="Schedule" /></>} pendingText="Scheduling…">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldShell label="Class and section" id="oc-cls" required>
           <KeepSelect id="oc-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
             {sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
@@ -45,7 +45,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
         </FieldShell>
       </div>
       <Text name="title" label="Title" maxLength={160} placeholder="Half Yearly revision: geometry" help="Optional. Left empty, it is the subject and class." />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldShell label="Date and time" id="oc-when" required error={when.error}><DateTimeInput id="oc-when" name="startsAt" defaultValue={when.value} key={when.key} className={cx(inputCls(when.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Length" id="oc-len" required error={len.error}>
           <select id="oc-len" name="lengthMin" defaultValue={len.value} key={len.key} className={cx(inputCls(len.error), "h-11")}>{[30, 40, 45, 60, 90].map((m) => <option key={m} value={m}>{m} min</option>)}</select>

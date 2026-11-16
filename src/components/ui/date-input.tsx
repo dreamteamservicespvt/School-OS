@@ -675,8 +675,9 @@ export function DateTimeInput(props: PickerProps & { timePlaceholder?: string })
   const sameDay = (edge: string) => (edge && parts.date === edge.slice(0, 10) ? edge.slice(11, 16) : undefined);
   const label = rest["aria-label"];
   return (
-    // The time half keeps at least 7.5rem: on a 360 px phone "9:30 AM" showed as "9:30 AI" (phone-width PW-10).
-    <div className={cx("grid grid-cols-[minmax(0,3fr)_minmax(7.5rem,2fr)] gap-2", wrapperClassName)}>
+    // Below 400 px the day and the time take a line each: side by side, "9:30 AM" showed as "9:30 AI" and,
+    // with the time widened, "DD-MM-YYYY" was cut instead (phone-width PW-10).
+    <div className={cx("grid grid-cols-1 min-[400px]:grid-cols-[minmax(0,3fr)_minmax(7.5rem,2fr)] gap-2", wrapperClassName)}>
       {/* A day without a time (or a time without a day) was sent empty and lost (layman test LC1): each half needs the other. */}
       <DateInput {...rest} id={id} placeholder={placeholder} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.time)}
         aria-label={label ? `${label}: ${t.any("Date")}` : undefined}

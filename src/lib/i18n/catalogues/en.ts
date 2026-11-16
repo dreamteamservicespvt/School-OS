@@ -17925,6 +17925,8 @@ export const EN = [
   // Layman loop 15 Nov: shorter words (less-text pass).
   "{n} texts, one for each language",
   "The guardian confirms before release: a tap on WhatsApp, or a code by SMS",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Add a title. The template puts it in the message (the notice title or the exam name).",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

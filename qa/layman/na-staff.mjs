@@ -1,0 +1,24 @@
+import { asRole, close, txt, snap, log, go, sleep } from "./na-h.mjs";
+const p = await asRole("admin");
+const flat = async (n = 8000) => (await txt(p, n)).replace(/\n/g, " | ");
+await go(p, "/staff-hr-management/add");
+const m = p.locator("main");
+await m.locator('input[name="fullName"]').pressSequentially("NA-Academic Head 01");
+await m.locator('input[name="phone"]').pressSequentially("9848077701");
+await m.locator('select[name="designation"]').selectOption({ label: "Academic Head" });
+const jd = m.locator('input[id$="-joiningDate"]');
+await jd.click(); await jd.press("Control+a"); await jd.press("Backspace"); await jd.pressSequentially("16-11-2026"); await jd.press("Tab");
+await m.getByRole("button", { name: /^Next$/ }).click(); await sleep(2000);
+const gl = m.locator('input[name="giveLogin"]');
+log("giveLogin checked by default: " + await gl.isChecked().catch(() => "?") + " ; any role ticked: " + await m.locator('input[name="roleKeys"]:checked').count());
+await m.getByRole("button", { name: /^Next$/ }).click(); await sleep(1500);
+log("STEP2 Next with nothing: " + (await txt(p, 8000)).split("\n").filter((l) => /role|pick|choose|need/i.test(l)).slice(0, 6).join(" | ") + " url=" + p.url());
+await snap(p, "staff-step2-empty");
+if (await gl.isChecked().catch(() => false)) { await m.getByText("Give a login to School OS").click(); await sleep(800); }
+log("giveLogin after click: " + await gl.isChecked().catch(() => "?"));
+await m.getByRole("button", { name: /^Next$/ }).click(); await sleep(2000);
+log("STEP3: " + await flat());
+await snap(p, "staff-step3");
+const fields = await m.evaluate((el) => [...el.querySelectorAll("input,select")].filter((e) => e.offsetParent).map((e) => `${e.tagName}:${e.name}:${e.type}${e.tagName === "SELECT" ? ":" + [...e.options].map((o) => o.text).slice(0, 12).join("|") : ""}`));
+log("STEP3 fields: " + fields.join(", "));
+await close();

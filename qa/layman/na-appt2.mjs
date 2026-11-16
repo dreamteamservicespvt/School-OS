@@ -1,0 +1,26 @@
+import { asRole, close, txt, snap, log, go, sleep } from "./na-h.mjs";
+const p = await asRole("reception");
+const open = async () => { await go(p, "/front-office/appointments"); await p.getByRole("link", { name: /Book appointment/ }).first().click(); await sleep(2500); return p.locator('[role="dialog"]:visible, dialog[open]').last(); };
+let d = await open();
+await d.locator("#bk-date").selectOption({ label: "Mon 16" }); await sleep(2000);
+await d.getByRole("button", { name: "10:00 AM", exact: true }).click();
+await d.locator("#bk-phone").pressSequentially("12345");
+await d.locator('input[name="visitorName"]').pressSequentially("NA-శ్రీనివాస్ Parent 01");
+await d.locator('input[name="purpose"]').pressSequentially("NA- TC enquiry");
+await d.getByRole("button", { name: /^Book$/ }).click(); await sleep(2500);
+log("BAD PHONE: " + (await d.innerText().catch(() => "closed")).split("\n").filter((l) => /phone|digit|need|number/i.test(l)).join(" | "));
+log("phone box now: " + await d.locator("#bk-phone").inputValue().catch(() => "?") + " ; selected time kept? " + await d.evaluate((el) => [...el.querySelectorAll("button[aria-pressed=true],button[data-state=on],button[aria-checked=true]")].map(b=>b.innerText).join(",")).catch(()=>"?"));
+await snap(p, "appt-badphone");
+await d.locator("#bk-phone").fill(""); await d.locator("#bk-phone").pressSequentially("9848012399");
+const t0 = Date.now();
+await d.getByRole("button", { name: /^Book$/ }).dblclick(); await sleep(4000);
+log(`BOOK after ${Date.now() - t0} ms; dialog visible=${await d.isVisible().catch(() => false)}; url=${p.url()}`);
+log("after book text: " + (await txt(p, 3000)).replace(/\n/g, " | ").slice(0, 1500));
+await snap(p, "appt-booked");
+// same slot again
+d = await open();
+await d.locator("#bk-date").selectOption({ label: "Mon 16" }); await sleep(2000);
+const b10 = d.getByRole("button", { name: "10:00 AM", exact: true });
+log("10:00 AM slot after booking: count=" + await b10.count() + " disabled=" + (await b10.count() ? await b10.isDisabled() : "n/a"));
+await snap(p, "appt-again");
+await close();

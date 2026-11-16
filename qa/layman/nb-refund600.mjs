@@ -1,0 +1,17 @@
+import { asRole, go, sleep, snap, log, flat } from "./nb-h.mjs";
+const L = log("refund");
+const p = await asRole("accountant");
+const dlg = () => p.getByRole("dialog").last();
+await go(p, "/fee-management/concessions"); await sleep(1000);
+await p.getByRole("button", { name: "New refund" }).or(p.getByRole("link", { name: "New refund" })).first().click(); await sleep(2500);
+await dlg().getByPlaceholder("Name, admission no. or phone").pressSequentially("Vihaan Kumar", { delay: 40 }); await sleep(3000);
+await dlg().getByText("Vihaan Kumar").first().click(); await sleep(2500);
+L("FORM2", flat(await dlg().innerText()).slice(0, 900));
+const amt = dlg().locator("input[name=amount]");
+await dlg().locator("textarea[name=reason]").fill("NB- check only");
+await amt.fill("600"); await sleep(500);
+L("TYPED 600", flat(await dlg().innerText()).match(/Amount \*[\s\S]{0,200}/)?.[0]);
+await dlg().getByRole("button", { name: "Send for approval" }).click(); await sleep(3000);
+L("SENT 600", flat(await dlg().innerText()).match(/Amount \*[\s\S]{0,200}/)?.[0]);
+await snap(p, "refund-600", false);
+process.exit(0);

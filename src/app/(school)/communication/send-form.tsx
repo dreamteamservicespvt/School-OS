@@ -199,7 +199,9 @@ export function SendForm({ data }: { data: SendFormData }) {
   const templatesFor = (ch: Channel) => data.templates.filter((t) => t.channel === ch && t.usable && (typeInfo.category ? t.category === typeInfo.category || t.category === "General" : !typeCategories.includes(t.category)));
   const chosen = channels.map((c) => data.templates.find((t) => t.id === tpl[c])).filter(Boolean) as Template[];
   const needsText = channels.some((c) => c !== "sms" && !tpl[c]);
-  const needsTitle = channels.some((c) => (c === "app" || c === "email") && !tpl[c]);
+  // A chosen template with {title} or {exam_name} takes it from the Title box (src/lib/messaging/send.ts).
+  const tplTakesTitle = chosen.some((t) => /\{(title|exam_name)\}/.test(t.body));
+  const needsTitle = tplTakesTitle || channels.some((c) => (c === "app" || c === "email") && !tpl[c]);
   const backupOk = type !== "general";
   // No SMS backup box while SMS is not used (SMS_OFFERED, owner 15 Nov 2026).
   const backupShown = SMS_OFFERED && channels.some((c) => c === "whatsapp" || c === "app") && !channels.includes("sms");
@@ -243,7 +245,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (aud === "group" && !groupId) e.who = "Choose a saved group.";
     if (!channels.length) e.channels = "Choose at least one way to send.";
     if (channels.includes("sms") && !tpl.sms) e.sms = "An SMS can only be sent from a template with a DLT template ID. Pick a template, or untick SMS.";
-    if (needsTitle && !title.trim()) e.title = "Add a title. Email and app notices show it at the top.";
+    if (needsTitle && !title.trim()) e.title = tplTakesTitle ? "Add a title. The template puts it in the message (the notice title or the exam name)." : "Add a title. Email and app notices show it at the top.";
     if (needsText && !text.trim()) e.text = "Type the message, or choose a template.";
     if (text.length > 1000) e.text = `Keep it under 1,000 characters. It has ${fmt(text.length)}.`;
     if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }

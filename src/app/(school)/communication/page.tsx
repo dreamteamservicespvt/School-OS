@@ -91,7 +91,8 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       const left = chosenIds.length - reachable.length;
       if (left > 0) initialNote = `${left} chosen student${left === 1 ? " is" : "s are"} left out: not studying this year${scope.sectionIds === "all" ? "" : ", or not in your classes"}.`;
     }
-    const fillable = new Set([...fillableBlanks(scope.staff ? ["parents", "students", "staff"] : ["parents", "students"]), PARENT_LINK_BLANK]);
+    // {title} and {exam_name} come from the Title box (src/lib/messaging/send.ts), so "New notice" and "Results published" can go.
+    const fillable = new Set([...fillableBlanks(scope.staff ? ["parents", "students", "staff"] : ["parents", "students"]), PARENT_LINK_BLANK, "title", "exam_name"]);
     const wa = setups.whatsapp;
     const sms = setups.sms;
     const email = setups.email;

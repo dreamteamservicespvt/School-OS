@@ -532,6 +532,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         ...asTyped,
         ...baseValues(school, c, students),
         ...(c.type === "guardian" && parentLinks[c.id] ? { [PARENT_LINK_BLANK]: parentLinks[c.id] } : {}),
+        // The typed Title fills a template's {title} and {exam_name} (Send Message to one person: "New notice"
+        // and "Results published" could not go, live test 16 Nov); values given by the module win.
+        ...(input.title?.trim() ? { title: input.title.trim(), exam_name: input.title.trim() } : {}),
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
         ...(input.perPerson?.[c.id] ?? {}),

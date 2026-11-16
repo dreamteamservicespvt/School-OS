@@ -1,0 +1,12 @@
+import { asRole, close, txt, snap, log, go, sleep } from "./na-h.mjs";
+const p = await asRole("reception");
+await go(p, "/front-office/enquiries"); await p.getByRole("link", { name: /New enquiry/ }).first().click(); await sleep(2500);
+const d = p.locator('[role="dialog"]:visible, dialog[open]').last();
+await d.locator('input[name="childName"]').pressSequentially("NA-Phone Check 02");
+await d.locator('input[name="parentName"]').pressSequentially("NA-Parent Kumar");
+await d.locator("#en-phone").pressSequentially("98480");
+await d.locator('select[name="classId"]').selectOption({ label: "Class 3" });
+await d.getByRole("button", { name: /Send to Admissions/ }).click(); await sleep(3000);
+log(`ENQ short phone: dialog visible=${await d.isVisible().catch(() => false)} text=${(await d.innerText().catch(() => "")).replace(/\n/g, " | ").slice(0, 400)}`);
+await snap(p, "enq-shortphone");
+await close();

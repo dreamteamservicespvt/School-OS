@@ -1,0 +1,12 @@
+import { asRole, close, txt, snap, log, go, sleep } from "./na-h.mjs";
+const p = await asRole("reception");
+const flat = async () => (await txt(p, 4000)).replace(/\n/g, " | ");
+await go(p, "/front-office/appointments");
+await p.getByText("Mon 16", { exact: true }).first().click(); await sleep(3000);
+log("url after Mon16 click: " + p.url());
+log("datebox: " + await p.locator("main input").evaluateAll((es) => es.map((e) => e.value).join(",")));
+log("MON16 before Show: " + await flat());
+await snap(p, "appt-mon16-noshow");
+await p.getByRole("button", { name: "Show" }).click().catch(() => {}); await sleep(3000);
+log("url after Show: " + p.url());
+await close();

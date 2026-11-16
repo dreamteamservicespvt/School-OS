@@ -1,0 +1,17 @@
+import { asRole, go, sleep, close, snap, one, timed, watch } from "./nc-h.mjs";
+const p = watch(await asRole("teacher"));
+await go(p, "/examination-results/marks/17468ebc-6920-41ac-8327-16458ca0a0fa/47cfe8fa-64c4-4d99-8225-91808e82644c"); await sleep(1500);
+await p.locator("main button", { hasText: /^13$/ }).first().click(); await sleep(1500);
+const dlg = p.locator("dialog[open]").last();
+const sub = dlg.locator("button[type=submit]").last();
+const num = dlg.locator("input[name='part:Marks']");
+await dlg.locator("textarea[name=reason]").fill("NC- re-check asked by parent");
+await num.fill("30"); await sub.click(); await sleep(1500);
+console.log("30+reason ->", one(await dlg.innerText(), 800).split("|").slice(-4).join("|"), " box:", await num.inputValue());
+await num.fill("abc"); await sub.click(); await sleep(1500);
+console.log("abc ->", one(await dlg.innerText(), 800).split("|").slice(-4).join("|"), " box:", await num.inputValue(), " reason:", await dlg.locator("textarea[name=reason]").inputValue());
+await num.fill("14"); const t0 = Date.now(); await sub.dblclick(); await sleep(3000);
+console.log("14 ->", Date.now() - t0, p.url(), one(await p.locator("body").innerText(), 2000).match(/(Sent|sent|waiting|Waiting|approval)[^|]*/g)?.slice(0, 5));
+await snap(p, "marks-correct-sent");
+console.log("PROBLEMS", p.problems);
+await close();

@@ -1,0 +1,11 @@
+import { asRole, go, sleep, close, snap, one, timed, watch } from "./nc-h.mjs";
+const p = watch(await asRole("teacher"));
+await go(p, "/examination-results/marks"); await sleep(800);
+await p.locator("main a", { hasText: "Mathematics · Class 6 A" }).first().click();
+await p.waitForLoadState("networkidle").catch(() => {}); await sleep(1500);
+console.log("URL", p.url());
+console.log(one(await p.locator("main").innerText(), 3500));
+console.log("INPUTS", (await p.locator("main input").evaluateAll(es => es.slice(0, 12).map(e => `${e.id}|${e.name}|${e.getAttribute("aria-label")}|${e.value}`))).join(" ; "));
+console.log("BUTTONS", (await p.locator("main button").allInnerTexts()).join(" / ").slice(0, 600));
+await snap(p, "marks-grid");
+await close();

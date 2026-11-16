@@ -1,0 +1,10 @@
+import { asRole, close, txt, snap, log, go, sleep } from "./na-h.mjs";
+const p = await asRole("reception");
+await go(p, "/front-office/postal?q=NA-");
+await p.getByRole("link", { name: /Hand over/ }).first().click(); await sleep(2500);
+const d = p.locator('[role="dialog"]:visible, dialog[open]').last();
+log("HANDOVER dlg: " + (await d.innerText()).replace(/\n/g, " | "));
+await snap(p, "postal-hand");
+await d.getByRole("button", { name: /hand over|save|done/i }).last().click(); await sleep(1500);
+log("HANDOVER empty: " + (await d.innerText().catch(() => "closed")).replace(/\n/g, " | "));
+await close();

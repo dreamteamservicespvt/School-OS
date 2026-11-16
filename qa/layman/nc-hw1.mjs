@@ -1,0 +1,13 @@
+import { asRole, go, sleep, close, snap, one, timed, watch } from "./nc-h.mjs";
+const p = watch(await asRole("teacher"));
+await go(p, "/dashboard");
+await p.getByRole("link", { name: "Check work" }).first().click();
+await p.waitForLoadState("networkidle").catch(() => {}); await sleep(1500);
+console.log("CHECK WORK ->", p.url()); console.log(one(await p.locator("main").innerText(), 2500));
+await snap(p, "hw-checkwork");
+await go(p, "/homework-learning?do=give"); await sleep(1500);
+const d = p.getByRole("dialog").last();
+console.log("SHEET", one(await d.innerText(), 2500));
+console.log("FIELDS", (await d.evaluate((el) => [...el.querySelectorAll("input,select,textarea,button")].map(e => `${e.tagName}#${e.id}[${e.name||""}]:${e.type} "${(e.labels?.[0]?.innerText||e.innerText||e.placeholder||"").slice(0,40).replace(/\n/g," ")}" ${e.tagName==="SELECT"?[...e.options].map(o=>o.text).join("/").slice(0,200):""}`))).join("\n"));
+await snap(p, "hw-give-sheet");
+await close();

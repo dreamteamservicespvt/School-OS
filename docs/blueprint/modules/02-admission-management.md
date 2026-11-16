@@ -107,7 +107,7 @@ Duplicate warning: if the phone or email matches an open enquiry, application or
 | Sibling in this school | No | Detected automatically from the parent's phone | Links the sibling for sibling priority |
 | Category | No | | Only when quota or category seats are on |
 | More details | No | | Email, occupation, Aadhaar-related fields (restricted), religion, mother tongue and any extra fields the school adds in Settings, Forms & Approvals |
-| Data consent (DPDP Act 2023) | Yes | Not given | The guardian agrees to the school's consent text for the child's data. At the counter or online, a one-time code goes to the guardian's mobile to confirm it. The Consent Record keeps the version of the text agreed to (decided 9 October 2026) |
+| Data consent (DPDP Act 2023) | Yes | Not given | The guardian agrees to the school's consent text for the child's data. At the counter or online, a one-time code goes to the guardian's mobile to confirm it. At the counter the office can instead record a signed paper consent form (who signed, who recorded it, an optional photo of the form); this is the main way while no code can reach the parent (WhatsApp never delivers code messages to +91 numbers, decided 16 November 2026, decision 23). The Consent Record keeps the version of the text agreed to and how it was given (decided 9 October 2026) |
 | Photo consent | No | Not given | A separate consent type: may the child's photo be used in the gallery and on social media. Same one-time code (decided 9 October 2026) |
 
 Consent texts and their versions are kept in Settings, Data Backup & Security, Privacy (inferred: where they live). An application cannot be confirmed as an admission until data consent is given (inferred).
@@ -441,3 +441,4 @@ Other records (inferred): **Enquiry Activity** (note, call, follow-up, reassignm
 - D4 (decided 9 October 2026): no parent app or password login, but each guardian gets a Parent Link when the admission is confirmed.
 - D7 (decided 9 October 2026): open enquiries can be imported when a school switches from old software (workflow 15).
 - D8a (decided 9 October 2026): data consent, with photo consent as its own type, is given on the application form and confirmed by a one-time code.
+- D23 (decided 16 November 2026): at the counter a signed paper consent form may be recorded instead of a code; one-time codes never go by WhatsApp (Meta does not deliver them to +91 numbers).

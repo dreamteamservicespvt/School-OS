@@ -86,7 +86,7 @@ The gate pass made here is a **Gate Pass** of the kind **Pickup**: only guardian
 
 **Actions**
 
-- **Release a student:** choose the person collecting from the authorised list; verify them (photo match, and a one-time code sent to the guardian's registered phone if the school switches it on, inferred); record reason and time; issue a **gate pass** of kind Pickup (printed or shown on screen), which Gate Security checks at the gate. The class teacher is told the student has left (inferred), and the attendance for the rest of the day is marked as the school sets (inferred: for example half-day).
+- **Release a student:** choose the person collecting from the authorised list; verify them (photo match, and, if the school switches the pickup check on, a one-time code by SMS to the guardian's registered phone or, on WhatsApp, the guardian's own approval with one tap in the school's message, decided 16 November 2026, decision 21; one-time codes never go by WhatsApp, which does not deliver them to +91 numbers); record reason and time; issue a **gate pass** of kind Pickup (printed or shown on screen), which Gate Security checks at the gate. The class teacher is told the student has left (inferred), and the attendance for the rest of the day is marked as the school sets (inferred: for example half-day).
 - Someone not on the list cannot be selected. The desk can call the registered guardian; adding a person to the list is done in Student Management by someone allowed, never at the gate (inferred).
 
 **Form fields: Release student**

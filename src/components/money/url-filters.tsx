@@ -45,7 +45,7 @@ export function UrlSearch({ param = "q", placeholder, id, className, big, autoFo
     timer.current = setTimeout(() => set({ [param]: v.trim() || null }), 250);
   };
   return (
-    <div className={cx("relative flex-1 min-w-0", className)} role="search">
+    <div className={cx("relative flex-1 min-w-0 md:min-w-[12rem]", className)} role="search">
       <label htmlFor={id} className="sr-only">{tr.any(label)}</label>
       <Search size={big ? 22 : 18} className={cx("absolute top-1/2 -translate-y-1/2 text-ink3", big ? "left-4" : "left-3.5")} aria-hidden="true" />
       <input id={id} type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={tr.any(placeholder)} autoComplete="off" autoFocus={autoFocus}

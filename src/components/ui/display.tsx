@@ -40,7 +40,7 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 /** A page's title block: optional crumbs, a big display title, one line under it, actions on the right. */
 export function PageHead({ title, sub, actions, crumbs, className }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode; crumbs?: React.ReactNode; className?: string }) {
   return (
-    <div className={cx("flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5", className)}>
+    <div className={cx("flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-5", className)}>
       <div className="min-w-0">
         {crumbs && <div className="text-[13px] text-ink3 mb-1 flex items-center gap-1.5 flex-wrap">{crumbs}</div>}
         <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{tx(title)}</h1>

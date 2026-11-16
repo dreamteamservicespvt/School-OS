@@ -114,10 +114,10 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
             const Ic = icon(n.icon);
             return (
               <li key={n.id}>
-                {/* Phone (PW-15): tighter gaps and the arrow inside the row's own link, so the title gets the width
-                    instead of wrapping into a narrow column between two icons; the detail line may take two lines. */}
+                {/* Phone (PW-15): no type icon below 400 px, tighter gaps and the arrow inside the row's own link, so the
+                    title gets the width instead of wrapping into a narrow column; the detail line may take two lines. */}
                 <div className="flex items-center gap-2.5 sm:gap-3.5 px-2 sm:px-3 py-3 rounded-xl hover:bg-sunken/70 transition group">
-                  <span className={cx("w-9 h-9 sm:w-10 sm:h-10 rounded-xl grid place-items-center shrink-0", TONE_BG[n.tone])}><Ic size={19} aria-hidden="true" /></span>
+                  <span className={cx("hidden min-[400px]:grid w-10 h-10 rounded-xl place-items-center shrink-0", TONE_BG[n.tone])}><Ic size={19} aria-hidden="true" /></span>
                   <Link href={n.href} className="min-w-0 flex-1 flex items-center gap-1">
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-[14.5px] leading-snug">{screenLine(t, n.title)}</span>

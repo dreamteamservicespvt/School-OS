@@ -40,7 +40,7 @@ export function UrlSearch({ placeholder, id, param = "q", className }: { placeho
     else timer.current = setTimeout(() => go({ [param]: v.trim() || null }), 300);
   };
   return (
-    <div className={cx("relative flex-1 min-w-0", className)} role="search">
+    <div className={cx("relative flex-1 min-w-0 md:min-w-[12rem]", className)} role="search">
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
       <label htmlFor={id} className="sr-only">{tr.any(placeholder)}</label>
       <input id={id} type="search" value={q} onChange={(e) => set(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); set(q, true); } }}

@@ -31,7 +31,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
           const Ic = m.icon;
           const inner = (
             <>
-              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
+              <p className="text-[12px] text-ink3 font-semibold flex items-start gap-1.5 leading-snug">{Ic && <Ic size={14} className="shrink-0 mt-px" aria-hidden="true" />}<span className="min-w-0 line-clamp-2">{tx(m.label)}</span></p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone ? TONE_TEXT[m.tone] : "")}>{m.value}</p>
               {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
             </>

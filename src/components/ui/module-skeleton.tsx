@@ -6,7 +6,7 @@ import { Skel } from "./skeleton";
 function Head({ tabs = 6 }: { tabs?: number }) {
   return (
     <>
-      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2.5"><Skel className="h-8 w-44" /><Skel className="h-4 w-72 max-w-full" /></div>
         <div className="flex gap-2"><Skel className="h-11 w-28 rounded-xl" /><Skel className="h-11 w-36 rounded-xl" /></div>
       </div>

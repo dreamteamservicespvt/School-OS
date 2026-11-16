@@ -33,8 +33,9 @@ export function Tabs({ tabs, label, className }: { tabs: Tab[]; label: string; c
     }
   }, [pathname]);
   const slide = (dir: 1 | -1) => row.current?.scrollBy({ left: dir * Math.max(160, row.current.clientWidth * 0.6), behavior: calmScroll() });
-  // 32 px circle, 44 px to tap (before:-inset-1.5, phone-width PW-18).
-  const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 before:absolute before:-inset-1.5 before:rounded-full place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
+  // 32 px circle, 44 px to tap (phone-width PW-18). The extra area grows up, down and toward the tabs only,
+  // never past the screen edge (that made the page 6 px wider).
+  const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 before:absolute before:-inset-y-1.5 place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
   return (
     <nav aria-label={t.any(label)} className={cx("relative -mx-4 px-4 md:mx-0 md:px-0 mb-5", className)}>
       {/* On a phone the right edge fades, so a tab cut at the edge reads as "more this way" (layman loop 3). */}
@@ -56,9 +57,9 @@ export function Tabs({ tabs, label, className }: { tabs: Tab[]; label: string; c
         })}
       </ul>
       <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => slide(-1)}
-        className={cx(arrow, "left-0 pointer-fine:peer-data-[more=left]:grid pointer-fine:peer-data-[more=both]:grid")}><ChevronLeft size={16} /></button>
+        className={cx(arrow, "left-0 before:left-0 before:-right-3 pointer-fine:peer-data-[more=left]:grid pointer-fine:peer-data-[more=both]:grid")}><ChevronLeft size={16} /></button>
       <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => slide(1)}
-        className={cx(arrow, "right-0 pointer-fine:peer-data-[more=right]:grid pointer-fine:peer-data-[more=both]:grid")}><ChevronRight size={16} /></button>
+        className={cx(arrow, "right-0 before:right-0 before:-left-3 pointer-fine:peer-data-[more=right]:grid pointer-fine:peer-data-[more=both]:grid")}><ChevronRight size={16} /></button>
     </nav>
   );
 }

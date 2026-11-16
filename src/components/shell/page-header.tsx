@@ -46,15 +46,17 @@ export function PageHeader({ title, href, userId, sub, crumbs, children, pinLabe
   }, [userId, label, href]);
   return (
     <>
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-5">
       <div className="min-w-0">
         {crumbs ? <div className="text-[13px] text-ink3 mb-1 flex items-center gap-1.5 flex-wrap">{crumbs}</div>
           : moduleName && moduleName.toLowerCase() !== title.trim().toLowerCase() ? <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(moduleName)}</p> : null}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{t.any(title)}{badge}</h1>
+        {/* The pin stays beside the title; the actions sit under it below lg (phone-width PW-07: on a 768 px tablet
+            "Examination & Results" took two lines and the pin a third). */}
+        <div className="flex items-start gap-1.5">
+          <h1 className="min-w-0 font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{t.any(title)}{badge}</h1>
           <button type="button" onClick={toggle}
             aria-pressed={pinned} aria-label={pinned ? t("Unpin {page}", { page: t.any(label) }) : t("Pin {page} to Search", { page: t.any(label) })} title={pinned ? t("Pinned to Search") : t("Pin to Search")}
-            className={cx("grid size-9 max-md:size-11 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
+            className={cx("grid size-9 max-md:size-11 shrink-0 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
             <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
           </button>
         </div>

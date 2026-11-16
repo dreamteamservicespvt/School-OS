@@ -34,7 +34,7 @@ export function UrlSearch({ placeholder, param = "q", className, label }: { plac
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   return (
-    <div className={cx("relative flex-1 min-w-0", className)} role="search">
+    <div className={cx("relative flex-1 min-w-0 md:min-w-[12rem]", className)} role="search">
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
       <input type="search" value={q} placeholder={tr.any(placeholder)} aria-label={tr.any(label ?? placeholder)}
         onChange={(e) => {

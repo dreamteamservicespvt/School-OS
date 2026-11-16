@@ -157,7 +157,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
   return (
     /* Tablet (md): each icon carries its short name under it. A touch tablet has no hover tooltip, so icons
        alone left "Fees" and "Finance" or "Hostel" and "Transport" to guesswork (phone-width PW-14). */
-    <aside className="hidden md:flex flex-col shrink-0 sticky top-0 h-dvh border-r border-line bg-surface w-[84px] lg:w-[268px] z-30 no-print">
+    <aside className="hidden md:flex flex-col shrink-0 sticky top-0 h-dvh border-r border-line bg-surface w-[92px] lg:w-[268px] z-30 no-print">
       <button type="button" onClick={multi ? onSwitch : undefined} title={multi ? t("Switch school or campus") : school.name}
         className={cx("h-16 flex items-center gap-3 px-[18px] shrink-0 text-left", !multi && "cursor-default")}>
         <Logo />
@@ -177,7 +177,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
         </div>
       )}
       <div className="relative flex-1 min-h-0 flex flex-col">
-      <nav ref={navRef} className="flex-1 overflow-y-auto scroll-thin px-3 pb-4 scroll-pb-20" aria-label={t("Main menu")}>
+      <nav ref={navRef} className="flex-1 overflow-y-auto scroll-thin px-1.5 lg:px-3 pb-4 scroll-pb-20" aria-label={t("Main menu")}>
         {groups.map((g, gi) => (
           <div key={gi} className="pt-2">
             {g.group && <p className="eyebrow text-ink3 px-3 pb-1.5 hidden lg:block">{t.any(g.group)}</p>}
@@ -192,10 +192,10 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                     <Link href={landing[it.key] ?? href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
                       className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
-                      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
+                      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-1.5 lg:-ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="lg:hidden max-w-full text-center text-[10.5px] leading-tight font-semibold line-clamp-2 break-words">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );
@@ -216,10 +216,10 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                     <Link href={it.href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
                       className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
-                      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
+                      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-1.5 lg:-ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="lg:hidden max-w-full text-center text-[10.5px] leading-tight font-semibold line-clamp-2 break-words">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10px] leading-tight font-semibold line-clamp-2">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );

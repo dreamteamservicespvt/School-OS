@@ -292,7 +292,8 @@ export function TakeSheet(p: Props) {
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
+        {/* Search and "All present" come first below xl: under the counters the fixed Save bar covered them (PW-04). */}
+        <div className="flex gap-2 order-first xl:order-none">
           <div className="relative flex-1 xl:w-56">
             <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Name or roll no.")} aria-label={tr("Find a student by name or roll number")}

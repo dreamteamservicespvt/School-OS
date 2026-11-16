@@ -39,7 +39,7 @@ export function BackLink({ href, label, sub }: { href: string; label: string; su
 /** The big title block of a record page: title, one line or pills under it, and actions. */
 export function RecordHead({ title, sub, actions }: { title: React.ReactNode; sub?: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
+    <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
       <div className="min-w-0">
         <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight break-words">{tx(title)}</h1>
         {sub && <div className="text-[14px] text-ink3 mt-1 flex items-center gap-2 flex-wrap">{tx(sub)}</div>}

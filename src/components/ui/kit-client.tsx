@@ -42,7 +42,7 @@ export function UrlSearch({ placeholder, name = "q", className, label }: { place
     timer.current = setTimeout(() => go({ [name]: v.trim() || null }), 300);
   };
   return (
-    <div className={cx("relative flex-1 min-w-0", className)}>
+    <div className={cx("relative flex-1 min-w-0 md:min-w-[12rem]", className)}>
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
       <input type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={tr.any(placeholder)} aria-label={tr.any(label ?? placeholder)}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />

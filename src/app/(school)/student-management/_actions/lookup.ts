@@ -13,7 +13,7 @@ import { todayIn } from "@/lib/staff/dates";
 import { classSection } from "@/lib/class-name";
 
 /** `due` only for people who may see fees, and only for students in their fee reach (adopt item 8). */
-export type PickedStudent = { id: string; name: string; admissionNo: string; cls: string; due?: DueChip };
+export type PickedStudent = { id: string; name: string; admissionNo: string; cls: string; due?: DueChip; parent?: string };
 
 type Tx = Parameters<Parameters<typeof withSchool>[1]>[0];
 type Who = Awaited<ReturnType<typeof studentAction>>["current"];
@@ -33,14 +33,31 @@ async function shape(tx: Parameters<Parameters<typeof withSchool>[1]>[0], yearId
   return rows.map((r) => ({ id: r.id, name: r.fullName, admissionNo: r.admissionNo, cls: r.enrolments[0] ? label.get(r.enrolments[0].sectionId) ?? "" : "" }));
 }
 
+/** One parent's name per student, so two children with the same name can be told apart in a search
+ *  (layman loop 2: "which Rahul?"): the primary guardian, else the father, else the first one. */
+async function parentNames(tx: Tx, ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  // campus: the ids are the person's own search results (findStudents already kept them to their scope).
+  const links = await tx.studentGuardian.findMany({
+    where: { studentId: { in: ids }, archivedAt: null, guardian: { archivedAt: null } },
+    select: { studentId: true, relationship: true, isPrimary: true, emergencyOrder: true, guardian: { select: { name: true } } },
+  });
+  const score = (l: (typeof links)[number]) => (l.isPrimary ? 0 : /father/i.test(l.relationship) ? 1 : 2) * 100 + (l.emergencyOrder ?? 99);
+  const best = new Map<string, (typeof links)[number]>();
+  for (const l of links) { const b = best.get(l.studentId); if (!b || score(l) < score(b)) best.set(l.studentId, l); }
+  return new Map([...best].map(([id, l]) => [id, l.guardian.name]));
+}
+
 export async function searchStudents(q: string, opts: { anyStatus?: boolean } = {}): Promise<PickedStudent[]> {
   const { current, yearIds } = await studentAction("view");
   const text = q.trim().slice(0, 60);
   if (text.length < 2) return [];
   return withSchool(current.ctx, async (tx) => {
     const scope = await studentScope(tx, current, yearIds);
-    const hits = await findStudents(tx, text, { scope, yearId: yearIds, statuses: opts.anyStatus ? "any" : STUDYING, byParent: abilities(current).seeParents, take: 15 });
-    return withDue(tx, current, hits.map((h) => ({ id: h.id, name: h.name, admissionNo: h.admissionNo, cls: h.classSection ?? "" })));
+    const seeParents = abilities(current).seeParents;
+    const hits = await findStudents(tx, text, { scope, yearId: yearIds, statuses: opts.anyStatus ? "any" : STUDYING, byParent: seeParents, take: 15 });
+    const parents = seeParents ? await parentNames(tx, hits.map((h) => h.id)) : new Map<string, string>();
+    return withDue(tx, current, hits.map((h) => ({ id: h.id, name: h.name, admissionNo: h.admissionNo, cls: h.classSection ?? "", parent: (h.parent ?? parents.get(h.id)) || undefined })));
   });
 }
 

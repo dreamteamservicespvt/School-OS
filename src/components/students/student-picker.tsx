@@ -80,7 +80,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
                 <li key={s.id}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1">
                     <KeepCheck type={multiple ? "checkbox" : "radio"} checked={has(s)} onChange={() => toggle(s)} className="size-5 accent-brand" />
-                    <span className="min-w-0 flex-1">{s.name} <span className="text-[13.5px] text-ink2">{s.cls} · {s.admissionNo}</span></span>
+                    <span className="min-w-0 flex-1">{s.name} <span className="text-[13.5px] text-ink2">{s.cls} · {s.admissionNo}{s.parent ? <> · <Words k="Parent" /> {s.parent}</> : null}</span></span>
                     {s.due && <DueChipView due={s.due} />}
                   </label>
                 </li>

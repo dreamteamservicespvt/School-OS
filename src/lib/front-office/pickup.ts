@@ -23,6 +23,7 @@ import { CODE_MASK } from "../messaging/one-time-code";
 import { codeChannels, WHATSAPP_NO_CODES } from "../messaging/channels";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
+import { pickupTapCarrier, TAP_CHECK, spendApproval } from "./pickup-tap";
 import { word } from "../notification-words";
 import type { MessageKey } from "../i18n/t";
 
@@ -167,15 +168,21 @@ export function pickupLockWords(lock: PickupCodeLock, first: string, timeZone: s
 }
 
 /**
- * Whether the pickup code check really applies: switched on, and a code can go (SMS, or WhatsApp in
- * Test mode). On a real WhatsApp account no code can go to a +91 number (live test 16 Nov), and with
- * the check on no child could be released at all; the photo, ID or call check stands, and the desk
- * is told why.
+ * How the pickup check applies when it is switched on:
+ * - on: the 4-digit code, when SMS can carry it;
+ * - tap: else, approval in the guardian's own WhatsApp (./pickup-tap.ts, owner decision 21), when
+ *   WhatsApp and Parent Link are on and (on a real account) WhatsApp approved the card; a guardian
+ *   with no Parent Link is checked by photo, ID or a call;
+ * - on: else the code by WhatsApp in Test mode (nothing reaches a phone there).
+ * On a real WhatsApp account no code can go to a +91 number (live test 16 Nov); with neither, the
+ * photo, ID or call check stands, and the desk is told why.
  */
-export async function pickupCodeCheckFor(tx: Tx, ctx: SchoolContext, switchedOn: boolean): Promise<{ on: boolean; why: string | null }> {
-  if (!switchedOn) return { on: false, why: null };
+export async function pickupCodeCheckFor(tx: Tx, ctx: SchoolContext, switchedOn: boolean): Promise<{ on: boolean; tap: boolean; why: string | null }> {
+  if (!switchedOn) return { on: false, tap: false, why: null };
   const can = await codeChannels(tx, ctx);
-  return can.has("whatsapp") || can.has("sms") ? { on: true, why: null } : { on: false, why: `Pickup code check is on, but ${WHATSAPP_NO_CODES}. Check the photo, ID proof or call a guardian instead.` };
+  if (can.has("sms")) return { on: true, tap: false, why: null };
+  if (await pickupTapCarrier(tx, ctx)) return { on: false, tap: true, why: null };
+  return can.has("whatsapp") ? { on: true, tap: false, why: null } : { on: false, tap: false, why: `Pickup code check is on, but ${WHATSAPP_NO_CODES}. Check the photo, ID proof or call a guardian instead.` };
 }
 
 /** Sends a one-time 4-digit code to the guardian's registered mobile (kept only as a hash). */
@@ -282,8 +289,11 @@ async function tellLeaders(tx: Tx, ctx: SchoolContext, who: PickupWho, opts: { l
 
 export type ReleaseInput = { studentId: string; guardianId: string; photoMatch: boolean; otherCheck?: NoPhotoCheck | null; code: string | null; reason: string; otherReason: string | null; minute: number | null };
 
-/** Releases a student to a person on the approved list and makes the Pickup gate pass (16 Done when 3, 4, 12). */
-export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; now?: Date }): Promise<Released | KeptRefusal> {
+/**
+ * Releases a student to a person on the approved list and makes the Pickup gate pass (16 Done when 3, 4, 12).
+ * codeCheck: the 4-digit code; tapCheck: the guardian's approval on WhatsApp, checked and used here (./pickup-tap.ts).
+ */
+export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; tapCheck?: boolean; now?: Date }): Promise<Released | KeptRefusal> {
   const now = opts.now ?? new Date();
   const day = todayIso(opts.timeZone, now);
   const today = new Date(`${day}T00:00:00Z`);
@@ -323,6 +333,10 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   if (opts.codeCheck) {
     const refused = await checkCode(tx, ctx, { studentId: input.studentId, first: info.student.first, name: info.student.name, classSection: info.student.classSection, guardianId: person.guardianId }, code, opts.timeZone, now);
     if (refused) return new KeptRefusal(refused, "code");
+  } else if (opts.tapCheck) {
+    // Checked last, like the code, and used once; a guardian with no Parent Link was checked by photo, ID or a call.
+    const used = await spendApproval(tx, ctx, { studentId: input.studentId, guardianId: person.guardianId, first, student: info.student.first, timeZone: opts.timeZone }, now);
+    if (used) checks.push(TAP_CHECK);
   }
   const passNo = formatNumber(`GP-${day.slice(0, 4)}-`, await nextNumber(tx, ctx, `gate-pass-${day.slice(0, 4)}`), 4);
   if (opts.codeCheck) checks.push("code");

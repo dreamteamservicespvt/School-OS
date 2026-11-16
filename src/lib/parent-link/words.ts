@@ -32,6 +32,11 @@ export const PARENT_BROWSER_WORDS: readonly string[] = [
   "You are saying yes for “{title}”. Tap Confirm to record it.",
   "You are removing your consent for “{title}”. Tap Confirm to record it.",
   "This confirmation has run out or was already used. Please open your Parent Link and ask again.",
+  // A pickup the front desk asks the guardian to approve (src/lib/front-office/pickup-tap.ts).
+  "Approve: {person} takes {student} home now?",
+  "The front desk is asking. Tap Approve only if you know about this.",
+  "Approve",
+  "No, call the school",
   "Open your Parent Link",
   "This link is being opened on a new phone. To confirm it’s you, we will send your Parent Link to your WhatsApp ({phone}).",
   "Send to my WhatsApp",

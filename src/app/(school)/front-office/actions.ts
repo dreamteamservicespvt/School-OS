@@ -13,6 +13,8 @@ import { FrontOfficeProblem } from "@/lib/front-office/problem";
 import { addGateEntry, checkOutVisitor, closeEarlierPasses, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
 import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, pickupCodeCheckFor, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
+import { askPickupApproval, pickupApprovals, type PickupApproval } from "@/lib/front-office/pickup-tap";
+import { deliverCodeNow } from "@/lib/messaging/code-now";
 import { findStudents } from "@/lib/students/find";
 import { inCampus } from "@/lib/campus";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
@@ -150,13 +152,47 @@ export async function sendCodeAction(_: S, fd: FormData): Promise<S> {
   }, (r, t) => ({ message: r.testMode ? codeNotSentWords({ to: r.to, channel: r.channel, inLog: r.inLog }) : t("Code sent to {name}. Ask them to read out the 4 digits.", { name: r.to }), tone: "info" }));
 }
 
+/**
+ * "Ask {guardian} to approve on WhatsApp" (src/lib/front-office/pickup-tap.ts): the request is handed to
+ * WhatsApp at once, so the desk is told if it could not go.
+ */
+export async function askApprovalAction(_: S, fd: FormData): Promise<S> {
+  try {
+    const r = await inFrontOffice("edit", async (w) => {
+      need(w.can.release, "release students");
+      return { sent: await askPickupApproval(w.tx, w.ctx, { studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting") }), ctx: w.ctx, t: foT(w.current) };
+    });
+    const { sent, t } = r;
+    if (sent.testMode) return { ok: true, message: `Test mode, not sent: no request went to ${sent.to}, because the school's WhatsApp is in Test mode (Settings, SMS, WhatsApp & Email).${sent.inLog ? " On this computer the link to tap is in the server log." : ""}`, data: { testMode: true } };
+    const out = await deliverCodeNow(r.ctx, sent.messageId);
+    if (out.state === "failed") return { ok: false, message: t("The request did not reach WhatsApp: {reason}. Check the photo, ID proof or call the guardian instead.", { reason: out.reason }) };
+    return { ok: true, message: t("Sent to {name} on WhatsApp. Ask them to tap Approve.", { name: sent.name }), data: { testMode: false } };
+  } catch (e) {
+    return problemState(e, fd);
+  }
+}
+
+/** Where the approval stands now, for the desk's quiet check every few seconds. Null when it cannot be read. */
+export async function approvalNowAction(studentId: string, guardianId: string): Promise<PickupApproval | null> {
+  if (!UUID_RE.test(studentId) || !UUID_RE.test(guardianId)) return null;
+  try {
+    return await inFrontOffice("view", async (w) => {
+      if (!w.can.release) return null;
+      return (await pickupApprovals(w.tx, w.ctx, studentId, [guardianId], w.tz))[guardianId] ?? null;
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function releaseAction(_: S, fd: FormData): Promise<S> {
   const r = await foAction("create", fd, async (w) => {
     need(w.can.release, "release students");
+    const check = await pickupCodeCheckFor(w.tx, w.ctx, (await w.tx.frontOfficeSetting.findUnique({ where: { schoolId: w.ctx.schoolId } }))?.pickupCodeCheck ?? false);
     return releaseStudent(w.tx, w.ctx, {
       studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting"), photoMatch: str(fd, "photoMatch") === "on",
       otherCheck: ((c) => (isNoPhotoCheck(c) ? c : null))(str(fd, "otherCheck")), code: str(fd, "code") || null, reason: str(fd, "reason"), otherReason: str(fd, "otherReason") || null, minute: hhmm(fd, "time", "time"),
-    }, { timeZone: w.tz, codeCheck: (await pickupCodeCheckFor(w.tx, w.ctx, (await w.tx.frontOfficeSetting.findUnique({ where: { schoolId: w.ctx.schoolId } }))?.pickupCodeCheck ?? false)).on });
+    }, { timeZone: w.tz, codeCheck: check.on, tapCheck: check.tap });
   }, (r, t) => r.classTeacher ? t("{student} released to {name}. {teacher} told.", { student: r.student.first, name: r.person.name, teacher: r.classTeacher }) : t("{student} released to {name}.", { student: r.student.first, name: r.person.name }));
   if (!r?.ok || !r.data) return r as S;
   const d = r.data as { pass: { id: string }; student: { id: string } };

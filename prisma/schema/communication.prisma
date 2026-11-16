@@ -496,7 +496,7 @@ model ParentLinkCode {
   id           String    @id @default(uuid()) @db.Uuid
   schoolId     String    @map("school_id") @db.Uuid
   parentLinkId String    @map("parent_link_id") @db.Uuid
-  /// device or consent.
+  /// device, consent or pickup (the front desk asks the guardian to approve a pickup on WhatsApp).
   purpose      String
   codeHash     String    @map("code_hash")
   /// For consent: { consentTextId, studentIds, action }.
@@ -508,6 +508,11 @@ model ParentLinkCode {
   usedAt       DateTime? @map("used_at")
   messageId    String?   @map("message_id") @db.Uuid
   createdAt    DateTime  @default(now()) @map("created_at")
+  /// pickup: the guardian's answer, "approved" or "declined", and when it was given.
+  answer       String?
+  answeredAt   DateTime? @map("answered_at")
+  /// pickup: when the desk used the approval to release the child (used once).
+  releasedAt   DateTime? @map("released_at")
 
   parentLink ParentLink @relation(fields: [parentLinkId], references: [id])
 

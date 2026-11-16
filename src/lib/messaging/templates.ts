@@ -272,6 +272,8 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   wa("visitor-pass"),
   wa("walk-in-number"),
   wa("gate-pass"),
+  // Pickup approval in the guardian's own WhatsApp (src/lib/front-office/pickup-tap.ts): a card, not a code template.
+  wa("pickup-approve"),
   { key: "pickup-code", name: "Pickup code", category: "front-office", channel: "whatsapp", texts: {
     en: "Your one-time code to collect your child from {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },

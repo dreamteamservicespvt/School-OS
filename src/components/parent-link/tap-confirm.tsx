@@ -1,10 +1,11 @@
 "use client";
 
 // "Tap to confirm" (src/lib/parent-link/tap.ts): the parent opened their own Parent Link message from
-// WhatsApp with a one-time secret in it. The page says what it confirms (this phone, or the consent they
-// asked for); this button records it. Opening the page alone changes nothing.
+// WhatsApp with a one-time secret in it. The page says what it confirms (this phone, the consent they
+// asked for, or a pickup the front desk asks them to approve); this button records it. Opening the page
+// alone changes nothing.
 import { useActionState } from "react";
-import { Check, Link2Off, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Check, DoorOpen, Link2Off, PhoneCall, ShieldAlert, ShieldCheck } from "lucide-react";
 import { confirmTapped, type GuardianState } from "@/app/p/[token]/actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { PhoneCard } from "./phone-shell";
@@ -27,13 +28,30 @@ export function TapConfirm({ token, secret, view }: { token: string; secret: str
   }
 
   if (state?.ok && state.step === "done") {
+    const no = state.pickup === "declined";
     return (
       <PhoneCard>
-        <div role="status" className="rounded-2xl p-3.5 flex items-start gap-3 bg-ok/10">
-          <span className="w-9 h-9 rounded-full grid place-items-center shrink-0 bg-ok/15 text-ok"><Check size={18} strokeWidth={2.6} aria-hidden="true" /></span>
+        <div role="status" className={`rounded-2xl p-3.5 flex items-start gap-3 ${no ? "bg-warn/10" : "bg-ok/10"}`}>
+          <span className={`w-9 h-9 rounded-full grid place-items-center shrink-0 ${no ? "bg-warn/15 text-warn" : "bg-ok/15 text-ok"}`}>{no ? <PhoneCall size={18} aria-hidden="true" /> : <Check size={18} strokeWidth={2.6} aria-hidden="true" />}</span>
           <p className="min-w-0 text-[14px] font-semibold">{state.message}</p>
         </div>
         {open}
+      </PhoneCard>
+    );
+  }
+
+  if (view.kind === "pickup") {
+    // The front desk asked: someone is there to take the child home now. Never taken as a yes without a tap.
+    return (
+      <PhoneCard>
+        <span className="w-12 h-12 rounded-2xl bg-brand/10 text-brand grid place-items-center"><DoorOpen size={22} aria-hidden="true" /></span>
+        <h2 className="font-display text-[22px] font-semibold leading-tight mt-3">{t("Approve: {person} takes {student} home now?", { person: view.person, student: view.student })}</h2>
+        <p className="text-[14px] text-ink2 mt-1">{t("The front desk is asking. Tap Approve only if you know about this.")}</p>
+        <form action={act} className="mt-4 flex flex-col gap-3">
+          {state && !state.ok && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{state.message}</p>}
+          <SubmitButton name="answer" value="approve" size="lg" className="w-full !h-14 !text-[16px]" pendingText={t("Checking")}>{t("Approve")}</SubmitButton>
+          <SubmitButton name="answer" value="decline" variant="danger-outline" size="lg" className="w-full !h-14 !text-[16px]" pendingText={t("Checking")}>{t("No, call the school")}</SubmitButton>
+        </form>
       </PhoneCard>
     );
   }

@@ -235,6 +235,17 @@ export const READY_WHATSAPP: ReadyWhatsapp[] = [
   { key: "gate-pass", name: "Pickup gate pass", category: "front-office",
     card: { header: { en: "🚸 Pickup noted" } },
     texts: { en: lines("Dear {visitor_name}, the school has noted that *{student_name}* leaves with you at {time} today.", "", "🗂️ School record {pass_no}", "", "If you did not ask for this, please call the school.") } },
+  // Pickup "tap to approve" (owner decision 21, src/lib/front-office/pickup-tap.ts): WhatsApp never delivers one-time
+  // codes to +91 numbers, so the guardian approves in their own WhatsApp. The button is their own Parent Link with a
+  // one-time secret; {visitor_name} is the person at the desk. Plain facts only: no "code", "verify" or "OTP" (Meta
+  // refused credential-like words as not Utility).
+  { key: "pickup-approve", name: "Pickup request", category: "front-office",
+    card: { header: { en: "🚸 Pickup request", hi: "🚸 बच्चे को ले जाने का अनुरोध", te: "🚸 పిల్లలను తీసుకెళ్లే అభ్యర్థన" }, buttons: [parentLink(OPEN_PL, "link")] },
+    texts: {
+      en: lines("Dear {guardian_name}, {visitor_name} is at the school front desk to take *{student_name}* home now.", "", "If you agree, tap the button below. If you do not know about this, please call the school.", "{link}"),
+      hi: lines("नमस्ते {guardian_name} जी, {visitor_name} आपके बच्चे *{student_name}* को अभी घर ले जाने के लिए स्कूल के फ़्रंट डेस्क पर हैं।", "", "अगर आप सहमत हैं, तो नीचे दिया बटन दबाएँ। अगर आपको इसकी जानकारी नहीं है, तो कृपया स्कूल को फ़ोन करें।", "{link}"),
+      te: lines("నమస్కారం {guardian_name} గారు, *{student_name}* ను ఇప్పుడు ఇంటికి తీసుకెళ్లడానికి {visitor_name} పాఠశాల ఫ్రంట్ డెస్క్ వద్ద ఉన్నారు.", "", "మీకు సమ్మతమైతే, కింది బటన్ నొక్కండి. దీని గురించి మీకు తెలియకపోతే, దయచేసి పాఠశాలకు కాల్ చేయండి.", "{link}"),
+    } },
   // The WhatsApp test from Settings (src/lib/messaging/channel-admin.ts): a template always arrives, plain text only within 24 hours.
   { key: "connection-test", name: "WhatsApp connection test", category: "general",
     card: { header: { en: "✅ WhatsApp is working" } },

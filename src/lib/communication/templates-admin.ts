@@ -61,6 +61,7 @@ const SYSTEM_USES: Record<string, string> = {
   "walk-in-number": "Front Office (walk-in request number)",
   "gate-pass": "Front Office (pickup gate pass)",
   "pickup-code": "Front Office (pickup code)",
+  "pickup-approve": "Front Office (pickup approval on WhatsApp)",
   "connection-test": "Settings (WhatsApp test)",
 };
 

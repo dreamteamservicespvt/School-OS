@@ -8,6 +8,7 @@ import { fileLink } from "@/lib/files";
 import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
 import { openPickupPass, pickupCodeCheckFor, pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
+import { pickupApprovals } from "@/lib/front-office/pickup-tap";
 import { clockAt, shortDay } from "@/lib/front-office/time";
 import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -66,12 +67,14 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
       // Already released today and waiting at the gate: no second release (live test 16 Nov: the button looked ready).
       studentId && canRelease ? openPickupPass(tx, studentId, p.tz, p.now) : Promise.resolve(null),
     ]);
+    // Approval on WhatsApp (owner decision 21): where each allowed person's request stands.
+    const approvals = info && codeCheck.tap && canRelease && !openPass ? await pickupApprovals(tx, ctx, info.student.id, info.people.filter((x) => x.allowed).map((x) => x.guardianId), p.tz, p.now) : {};
     const passMore = pass ? await Promise.all([
       tx.student.findFirst({ where: { id: pass.studentId }, select: { fullName: true, photoFileId: true } }),
       pass.guardianId ? tx.guardian.findFirst({ where: { id: pass.guardianId }, select: { photoFileId: true } }) : null,
       pass.issuedById ? tx.userLogin.findUnique({ where: { id: pass.issuedById }, select: { displayName: true } }) : null,
     ]) : null;
-    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck, openPass };
+    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck, openPass, approvals };
   });
 
   const info = data.info;
@@ -137,7 +140,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 {canRelease && data.openPass ? (
                   <Banner tone="warn" title={t("{name} already has gate pass {pass} waiting at the gate.", { name: info.student.first, pass: data.openPass.passNo })} />
                 ) : canRelease ? (
-                  <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={data.codeCheck.on}
+                  <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={data.codeCheck.on} tapCheck={data.codeCheck.tap} approvals={data.approvals}
                     codeLock={data.lock ? pickupLockWords(data.lock, info.student.first, p.tz) : null}
                     releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}
                     photoBase={abilities(p.current).manage ? "/student-management/guardians/" : null} />
@@ -192,7 +195,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
             <p className="font-semibold text-[14.5px] flex items-center gap-2"><ShieldCheck size={17} className="text-brand" aria-hidden="true" /><Words k="How pickup stays safe" /></p>
             <ul className="mt-2.5 flex flex-col gap-2 text-[13.5px] text-ink2">
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="Only people on the approved list can be chosen." /></li>
-              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{data.codeCheck.on ? t("Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone.") : t("Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian.")}</li>
+              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{data.codeCheck.on ? t("Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone.") : data.codeCheck.tap ? t("Photo match (no photo on record: ID proof or a call to a guardian), and the guardian approves on WhatsApp.") : t("Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian.")}</li>
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><Words k="The gate checks the pass before the child leaves." /></li>
               <li className="flex gap-2"><Ban size={16} className="text-bad shrink-0 mt-0.5" aria-hidden="true" /><Words k="The list is changed only in Student Management, never at the desk or gate." /></li>
             </ul>

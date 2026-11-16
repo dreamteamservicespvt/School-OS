@@ -3,13 +3,14 @@
 // Student Pickup at the desk (16 §2, mod-frontoffice.jsx Release): choose the
 // person collecting from the approved list (red ones cannot be chosen), match
 // the photo (or, with no photo on record, check ID proof or call a guardian),
-// the code to the guardian's phone when the school uses it, the reason and the
-// time; then the Pickup gate pass is made on the server.
+// the code to the guardian's phone when the school uses it (or, where no code
+// can go, the guardian's approval on WhatsApp: src/lib/front-office/pickup-tap.ts),
+// the reason and the time; then the Pickup gate pass is made on the server.
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, Camera, CircleCheck, DoorOpen, Hand, PhoneCall, ScanLine, Send, TriangleAlert, UserX } from "lucide-react";
+import { Ban, Camera, CircleCheck, DoorOpen, Hand, Loader2, MessageCircle, PhoneCall, ScanLine, Send, TriangleAlert, UserX } from "lucide-react";
 import type { FormState } from "@/lib/forms";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -19,7 +20,8 @@ import { SheetForm } from "@/components/ui/url-sheet";
 import { SText } from "@/components/ui/sheet-fields";
 import { cx } from "@/components/ui/cx";
 import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
-import { refusedAction, releaseAction, sendCodeAction } from "../actions";
+import type { PickupApproval } from "@/lib/front-office/pickup-tap";
+import { approvalNowAction, askApprovalAction, refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
 import { useT, Words } from "@/lib/i18n/client";
 import { TimeInput } from "@/components/ui/date-input";
@@ -146,10 +148,17 @@ const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (t: ReturnType<typeof useT
   { value: "call", title: (t) => t("A parent or guardian confirmed on a call"), sub: "Call a number on the student’s record and ask who is collecting." },
 ];
 
-export function ReleaseForm({ student, people, codeCheck, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
+/** How often the desk checks quietly for the guardian's answer on WhatsApp. */
+const APPROVAL_POLL_MS = 4000;
+
+export function ReleaseForm({ student, people, codeCheck, tapCheck = false, approvals = {}, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
   student: { id: string; first: string };
   people: PickupChoice[];
   codeCheck: boolean;
+  /** No code can go: the guardian approves on WhatsApp instead (owner decision 21); with no Parent Link, the photo, ID or call check stands. */
+  tapCheck?: boolean;
+  /** Where each allowed person's approval stands, by guardian id. */
+  approvals?: Record<string, PickupApproval>;
   /** Code checks are locked after too many wrong codes: why and until when (gap list G04). */
   codeLock?: string | null;
   releasedBy: string;
@@ -165,6 +174,9 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
   const [check, setCheck] = useState<NoPhotoCheck | "">("");
   const [code, setCode] = useState("");
   const [codeFor, setCodeFor] = useState<string | null>(null);
+  const [askState, ask, asking] = useActionState<S, FormData>(askApprovalAction, null);
+  const [askFor, setAskFor] = useState<string | null>(null);
+  const [live, setLive] = useState<Record<string, PickupApproval>>({});
   const [reason, setReason] = useState(state?.values?.reason ?? "");
   const [other, setOther] = useState(state?.values?.otherReason ?? "");
   const g = people.find((p) => p.guardianId === who) ?? null;
@@ -173,7 +185,30 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
   const codeSent = codeState?.ok && codeFor === who;
   // A photo on record is matched with the face; without one, ID proof or a call to a guardian instead.
   const verified = g ? (g.photo ? photo : Boolean(check)) : false;
-  const ready = Boolean(g && verified && (!codeCheck || (code.length === 4 && !codeLock)) && why);
+  // The guardian's answer on WhatsApp; checked again and used once on the server when the child is released.
+  const approval: PickupApproval | null = g && tapCheck ? live[g.guardianId] ?? approvals[g.guardianId] ?? { state: "no-link" } : null;
+  const tapNeeded = Boolean(approval && approval.state !== "no-link");
+  const approved = !tapNeeded || approval?.state === "approved";
+  const ready = Boolean(g && verified && (!codeCheck || (code.length === 4 && !codeLock)) && approved && why);
+  const askedId = askState?.ok ? askFor : null;
+  useEffect(() => {
+    // Just asked: read where it stands now (waiting, or ended at once by Test mode).
+    if (!askedId) return;
+    let stop = false;
+    void approvalNowAction(student.id, askedId).then((r) => { if (!stop && r) setLive((m) => ({ ...m, [askedId]: r })); });
+    return () => { stop = true; };
+  }, [askState, askedId, student.id]);
+  const waitingFor = g && approval?.state === "waiting" ? g.guardianId : null;
+  useEffect(() => {
+    // While the guardian has not answered, check quietly every few seconds.
+    if (!waitingFor) return;
+    let stop = false;
+    const h = setInterval(() => {
+      if (document.hidden) return;
+      void approvalNowAction(student.id, waitingFor).then((r) => { if (!stop && r) setLive((m) => ({ ...m, [waitingFor]: r })); });
+    }, APPROVAL_POLL_MS);
+    return () => { stop = true; clearInterval(h); };
+  }, [waitingFor, student.id]);
   const err = state && !state.ok ? state.errors ?? {} : {};
   const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); };
   const t = useT();
@@ -253,6 +288,31 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
               </div>
             )}
             {err.code && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.code}</p>}
+            {approval && (approval.state === "no-link" ? (
+              <p className="mt-2 text-[12.5px] text-ink3 flex gap-1.5"><PhoneCall size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{t("{name} has no Parent Link, so approval cannot be asked on WhatsApp. Check the photo, ID proof or call a guardian instead.", { name: gFirst })}</p>
+            ) : (
+              <div className={cx("rounded-xl border p-3 mt-2 flex flex-col gap-2", approval.state === "declined" ? "border-bad/50 bg-bad/[.05]" : approval.state === "approved" ? "border-ok/50 bg-ok/[.06]" : err.approval ? "border-bad" : "border-line")}>
+                <span className="text-[14px]"><b className="font-semibold block"><Words k="Approval on WhatsApp" /></b><span className="text-[12.5px] text-ink3">{t("Switched on by the school. Sent to {name}’s own WhatsApp.", { name: gFirst })}</span></span>
+                {approval.state === "approved" ? (
+                  <p role="status" className="text-[13.5px] font-semibold text-ok flex gap-1.5"><CircleCheck size={17} className="shrink-0 mt-0.5" aria-hidden="true" />{t("Approved by {name} on WhatsApp at {time}", { name: approval.by || g.name, time: approval.at })}</p>
+                ) : approval.state === "declined" ? (
+                  <p role="alert" className="text-[13.5px] font-semibold text-bad flex gap-1.5"><Ban size={16} className="shrink-0 mt-0.5" aria-hidden="true" />{t("{name} said no on WhatsApp at {time}. Do not release {student}. Call {name}, or ask again.", { name: gFirst, time: approval.at, student: student.first })}</p>
+                ) : approval.state === "waiting" ? (
+                  <p role="status" className="text-[13px] text-ink2 flex items-center gap-1.5"><Loader2 size={15} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("Waiting for {name} to tap Approve on WhatsApp…", { name: gFirst })}</p>
+                ) : approval.state === "expired" ? (
+                  <p role="status" className="text-[12.5px] text-warn"><Words k="No answer came in time. Ask again." /></p>
+                ) : null}
+                {approval.state !== "approved" && (
+                  <div className="flex flex-col items-start gap-1">
+                    <Button type="submit" formAction={ask} formNoValidate variant={approval.state === "none" ? "secondary" : "ghost"} size={approval.state === "none" ? "md" : "sm"} icon={MessageCircle} loading={asking} onClick={() => setAskFor(who)}>
+                      {approval.state === "none" ? t("Ask {name} to approve on WhatsApp", { name: gFirst }) : t("Ask again")}
+                    </Button>
+                    {askState && askFor === who && approval.state !== "waiting" && <span className={cx("text-[12px] max-w-[320px]", askState.ok ? "text-warn" : "text-bad")} role={askState.ok ? "status" : "alert"}>{t.any(askState.message ?? "")}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+            {err.approval && <p className="mt-1 text-[12.5px] text-bad" role="alert">{t.any(err.approval)}</p>}
           </div>
           <FieldShell label="Reason" id="rl-reason" required error={err.reason || err.otherReason}>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("Reason")}>
@@ -273,7 +333,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
           </div>
           {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{t.any(state.message ?? "")}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? t("Making gate pass…") : ready ? t("Release {name} and make gate pass", { name: student.first }) : !verified ? (g.photo ? t("Check the photo first") : t("Check ID proof or call first")) : codeCheck && codeLock ? t("Code checks are locked: read the red note above") : codeCheck && code.length !== 4 ? (codeSent ? t("Enter the code from the guardian") : t("Send the code first")) : t("Choose a reason")}
+            {pending ? t("Making gate pass…") : ready ? t("Release {name} and make gate pass", { name: student.first }) : !verified ? (g.photo ? t("Check the photo first") : t("Check ID proof or call first")) : codeCheck && codeLock ? t("Code checks are locked: read the red note above") : codeCheck && code.length !== 4 ? (codeSent ? t("Enter the code from the guardian") : t("Send the code first")) : !approved ? (approval?.state === "declined" ? t("{name} said no: do not release", { name: gFirst }) : approval?.state === "waiting" ? t("Waiting for {name} to approve", { name: gFirst }) : t("Ask {name} to approve on WhatsApp first", { name: gFirst })) : t("Choose a reason")}
           </Button>
         </div>
       ) : (

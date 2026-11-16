@@ -692,6 +692,18 @@ HI: `नमस्ते {visitor_name} जी, स्कूल में आप�
 TE: `నమస్కారం {visitor_name} గారు, పాఠశాలలో మీ అపాయింట్‌మెంట్ ఖరారైంది.` / `👤 ఎవరితో: *{staff_name}*` / `📅 తేదీ: *{date}*` / `⏰ సమయం: *{time}*` / `వచ్చినప్పుడు దయచేసి ఈ సందేశాన్ని ఫ్రంట్ డెస్క్ వద్ద చూపించండి.`
 Buttons: 0 PHONE "Call school" · 1 QUICK_REPLY (phase 2) "Need to change it". The reminder and cancellation messages follow the same pattern: `⏰ Appointment reminder` with "This is a reminder of your appointment tomorrow.", and `❌ Appointment cancelled` with "Your appointment has been cancelled. Please call the school to choose a new time." Visitor pass, walk-in number and pickup gate pass work the same way. The pickup code stays AUTHENTICATION.
 
+#### `pickup-approve` · Pickup request · UTILITY (owner decision 21, 16 Nov 2026)
+WhatsApp never delivers one-time codes (Authentication) to +91 numbers, so with "Pickup code check" on the pickup code could not go. The front desk now asks the guardian collecting to approve in their own WhatsApp (`src/lib/front-office/pickup-tap.ts`). `{visitor_name}` is the person at the desk. Plain facts only: no "code", "verify" or "OTP" (Meta refused credential-like words as not Utility).
+Header: 🚸 Pickup request / 🚸 बच्चे को ले जाने का अनुरोध / 🚸 పిల్లలను తీసుకెళ్లే అభ్యర్థన
+```
+Dear {guardian_name}, {visitor_name} is at the school front desk to take *{student_name}* home now.
+
+If you agree, tap the button below. If you do not know about this, please call the school.
+```
+HI: `नमस्ते {guardian_name} जी, {visitor_name} आपके बच्चे *{student_name}* को अभी घर ले जाने के लिए स्कूल के फ़्रंट डेस्क पर हैं।` / `अगर आप सहमत हैं, तो नीचे दिया बटन दबाएँ। अगर आपको इसकी जानकारी नहीं है, तो कृपया स्कूल को फ़ोन करें।`
+TE: `నమస్కారం {guardian_name} గారు, *{student_name}* ను ఇప్పుడు ఇంటికి తీసుకెళ్లడానికి {visitor_name} పాఠశాల ఫ్రంట్ డెస్క్ వద్ద ఉన్నారు.` / `మీకు సమ్మతమైతే, కింది బటన్ నొక్కండి. దీని గురించి మీకు తెలియకపోతే, దయచేసి పాఠశాలకు కాల్ చేయండి.`
+Buttons: 0 URL "Open Parent Link" → `/p/{{1}}`: the guardian's own Parent Link with a one-time secret after a dot (`/p/<token>.<secret>`), put in only when the message is handed to WhatsApp. The page shows "Approve: {person} takes {student} home now?" with Approve and "No, call the school"; the release checks the answer on the server and uses it once.
+
 #### `connection-test` · School connection test · UTILITY (new template)
 Today, `sendTestMessage` (`channel-admin.ts`) sends free text. That works only within 24 hours of the person messaging the number. A template always works.
 Header: ✅ WhatsApp is working

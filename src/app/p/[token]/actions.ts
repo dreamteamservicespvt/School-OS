@@ -25,7 +25,7 @@ import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
  * channel: what carried the code ("on WhatsApp", "by SMS"). callSchool: no code could go; the page says to call the school.
  * tap: WhatsApp carried the parent's own Parent Link to tap ("tap to confirm", src/lib/parent-link/tap.ts), not a code to type.
  */
-export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean; tap?: boolean } | null;
+export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean; tap?: boolean; pickup?: "approved" | "declined" } | null;
 
 const GONE = ACCESS_WORDS.gone;
 
@@ -178,15 +178,17 @@ async function confirmConsentCodeEn(token: string, form: FormData): Promise<Guar
 
 /**
  * The tap on the parent's own WhatsApp message ("tap to confirm"): this browser
- * is confirmed (then the page opens), or the consent the parent asked for is
- * recorded. The page with the secret only shows what it confirms; this is the tap.
+ * is confirmed (then the page opens), the consent the parent asked for is
+ * recorded, or the guardian's answer to a pickup request at the front desk
+ * (the button pressed: answer "approve" or "decline"). The page with the
+ * secret only shows what it confirms; this is the tap.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form action passes these; nothing is read from them
-export async function confirmTapped(token: string, secret: string, _prev: GuardianState, _form: FormData): Promise<GuardianState> {
-  return inPageLanguage(token, await confirmTappedEn(token, secret));
+export async function confirmTapped(token: string, secret: string, _prev: GuardianState, form: FormData): Promise<GuardianState> {
+  const a = form.get("answer");
+  return inPageLanguage(token, await confirmTappedEn(token, secret, a === "approve" ? "approved" : a === "decline" ? "declined" : null));
 }
 
-async function confirmTappedEn(token: string, secret: string): Promise<GuardianState> {
+async function confirmTappedEn(token: string, secret: string, pickup: "approved" | "declined" | null): Promise<GuardianState> {
   const device = await deviceInfo();
   if (!TAP_SECRET.test(secret)) return { ok: false, message: TAP_GONE };
   const found = await findLink(token);
@@ -194,13 +196,18 @@ async function confirmTappedEn(token: string, secret: string): Promise<GuardianS
   const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${found.linkId}`, 20, 600]]);
   if (limited) return { ok: false, message: limited };
   const key = newDeviceKey();
-  const r = await confirmTap(found, secret, key, device);
+  const r = await confirmTap(found, secret, key, device, new Date(), pickup);
   if (!r.ok) return { ok: false, message: r.message };
   if (r.kind === "device") {
     await setDeviceCookie(found.linkId, key, r.days);
     redirect(`/p/${token}`);
   }
   const t = await parentLinkWords(token);
+  if (r.kind === "pickup") {
+    return { ok: true, step: "done", pickup: r.answer, message: r.answer === "approved"
+      ? t("Thank you. The front desk can now let {person} take {student} home.", { person: r.person, student: r.student })
+      : t("Thank you. {student} stays at school. Please call the school now.", { student: r.student }) };
+  }
   const title = t.any(r.title);
   return { ok: true, step: "done", message: r.kind === "consent" && r.action === "withdraw" ? t("Your consent for “{title}” is removed.", { title }) : t("Thank you. Your consent for “{title}” is recorded.", { title }) };
 }

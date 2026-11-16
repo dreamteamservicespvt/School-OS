@@ -237,7 +237,8 @@ export async function findLink(token: string): Promise<LinkFound | null> {
 export const deviceCookieName = (linkId: string) => `pl_${linkId.replace(/-/g, "").slice(0, 12)}`;
 export const newDeviceKey = () => randomBytes(32).toString("base64url");
 
-const codeHash = (code: string, linkId: string) => createHash("sha256").update(`${linkId}:${code}`).digest("hex");
+/** How a code or tap secret is kept: only its hash, tied to the link. */
+export const codeHash = (code: string, linkId: string) => createHash("sha256").update(`${linkId}:${code}`).digest("hex");
 
 /** A short description of a phone for the staff screen ("Android phone, Chrome"). */
 export function deviceLabel(ua: string | null | undefined) {
@@ -400,15 +401,16 @@ export function codeSentWords(r: { testMode: boolean; inLog: boolean }, sent: st
 export const TAP_GONE = "This confirmation has run out or was already used. Please open your Parent Link and ask again.";
 
 /**
- * What a tapped confirmation is for, before it is used: a new phone, or a
- * consent (a consent form or an event), with its detail; null when the secret
- * does not match an unused one. Only reads.
+ * What a tapped confirmation is for, before it is used: a new phone, a
+ * consent (a consent form or an event), or a pickup the front desk asked the
+ * guardian to approve (../front-office/pickup-tap.ts), with its detail; null
+ * when the secret does not match an unused one. Only reads.
  */
 export async function tapRequest(tx: Tx, linkId: string, secret: string, now = new Date()) {
   if (!TAP_SECRET.test(secret)) return null;
-  const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(secret, linkId) }, select: { purpose: true, detail: true, keyHash: true, createdAt: true } });
+  const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(secret, linkId) }, select: { id: true, purpose: true, detail: true, keyHash: true, createdAt: true } });
   if (!row || (row.detail as { via?: string } | null)?.via !== "tap") return null;
-  return { purpose: row.purpose as "device" | "consent", detail: (row.detail ?? {}) as Record<string, unknown>, keyHash: row.keyHash, askedAt: row.createdAt };
+  return { id: row.id, purpose: row.purpose as "device" | "consent" | "pickup", detail: (row.detail ?? {}) as Record<string, unknown>, keyHash: row.keyHash, askedAt: row.createdAt };
 }
 
 export type CodeCheck = { ok: true; code: { id: string; detail: unknown } } | { ok: false; message: string };

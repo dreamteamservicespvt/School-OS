@@ -7,7 +7,7 @@ import { qrSvg } from "@/lib/students/codes";
 import { fileLink } from "@/lib/files";
 import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
-import { pickupCodeCheckFor, pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
+import { openPickupPass, pickupCodeCheckFor, pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
 import { clockAt, shortDay } from "@/lib/front-office/time";
 import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -53,7 +53,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
 
   const data = await withSchool(ctx, async (tx) => {
     const codeCheck = await pickupCodeCheckFor(tx, ctx, p.settings.pickupCodeCheck);
-    const [results, info, list, pass, check, school, lock] = await Promise.all([
+    const [results, info, list, pass, check, school, lock, openPass] = await Promise.all([
       q ? searchStudents(tx, ctx, q, 8, p.current) : Promise.resolve([]),
       studentId ? pickupStudent(tx, ctx, studentId, p.today) : Promise.resolve(null),
       (async () => { const m = momentWhere(range, p.tz); return pickupsOn(tx, m.gte, m.lt); })(),
@@ -62,13 +62,15 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
       tx.school.findUnique({ where: { id: ctx.schoolId }, select: { phone: true } }),
       // Too many wrong pickup codes lock code checks for a while (gap list G04).
       studentId && codeCheck.on && canRelease ? pickupCodeLock(tx, studentId, ctx.userId, p.now) : Promise.resolve(null),
+      // Already released today and waiting at the gate: no second release (live test 16 Nov: the button looked ready).
+      studentId && canRelease ? openPickupPass(tx, studentId, p.tz, p.now) : Promise.resolve(null),
     ]);
     const passMore = pass ? await Promise.all([
       tx.student.findFirst({ where: { id: pass.studentId }, select: { fullName: true, photoFileId: true } }),
       pass.guardianId ? tx.guardian.findFirst({ where: { id: pass.guardianId }, select: { photoFileId: true } }) : null,
       pass.issuedById ? tx.userLogin.findUnique({ where: { id: pass.issuedById }, select: { displayName: true } }) : null,
     ]) : null;
-    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck };
+    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck, openPass };
   });
 
   const info = data.info;
@@ -130,8 +132,10 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                     {t("Release {name} only if they are at school today, for example for an event or a special class.", { name: info.student.first })}{hostelOn ? ` ${t("Boarders going out use a Hostel Outing pass in Hostel Management.")}` : ""}
                   </Banner>
                 )}
-                {canRelease && data.codeCheck.why && <Banner tone="info" title={t.any(data.codeCheck.why)} />}
-                {canRelease ? (
+                {canRelease && data.codeCheck.why && !data.openPass && <Banner tone="info" title={t.any(data.codeCheck.why)} />}
+                {canRelease && data.openPass ? (
+                  <Banner tone="warn" title={t("{name} already has gate pass {pass} waiting at the gate.", { name: info.student.first, pass: data.openPass.passNo })} />
+                ) : canRelease ? (
                   <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={data.codeCheck.on}
                     codeLock={data.lock ? pickupLockWords(data.lock, info.student.first, p.tz) : null}
                     releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}

@@ -17662,6 +17662,8 @@ export const EN = [
   "We send a message to {phone} to confirm it is you.",
   "Send to confirm",
   "Confirmed from your phone. Any fee is in fees due.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{name} already has gate pass {pass} waiting at the gate.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

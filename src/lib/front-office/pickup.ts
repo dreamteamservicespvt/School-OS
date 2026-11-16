@@ -116,6 +116,11 @@ export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: strin
   };
 }
 
+/** Today's pickup gate pass still waiting at the gate for this student, if any: a second release is refused (releaseStudent). */
+export async function openPickupPass(tx: Tx, studentId: string, timeZone: string, now = new Date()) {
+  return tx.gatePass.findFirst({ where: { studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: instantOf(todayIso(timeZone, now), 0, timeZone) } }, select: { passNo: true } });
+}
+
 const hashCode = (id: string, code: string) => createHash("sha256").update(`${id}:${code}`).digest("hex");
 const CODE_MINUTES = 10;
 

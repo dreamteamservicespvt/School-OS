@@ -17104,4 +17104,6 @@ export const hi: Catalogue = {
   "We send a message to {phone} to confirm it is you.": "यह पक्का करने के लिए कि यह आप ही हैं, हम {phone} पर एक संदेश भेजते हैं।",
   "Send to confirm": "पुष्टि के लिए भेजें",
   "Confirmed from your phone. Any fee is in fees due.": "आपके फ़ोन से पुष्टि हो गई। कोई फ़ीस हो तो वह बकाया फ़ीस में है।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{name} already has gate pass {pass} waiting at the gate.": "{name} का गेट पास {pass} पहले से गेट पर इंतज़ार में है।",
 };

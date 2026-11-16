@@ -17104,4 +17104,6 @@ export const te: Catalogue = {
   "We send a message to {phone} to confirm it is you.": "ఇది మీరేనని నిర్ధారించడానికి మేము {phone} కు ఒక సందేశం పంపుతాము.",
   "Send to confirm": "నిర్ధారణ కోసం పంపండి",
   "Confirmed from your phone. Any fee is in fees due.": "మీ ఫోన్ నుండి నిర్ధారించబడింది. ఏదైనా ఫీజు ఉంటే అది బకాయి ఫీజులో ఉంది.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "{name} already has gate pass {pass} waiting at the gate.": "{name} కు గేట్ పాస్ {pass} ఇప్పటికే గేట్ వద్ద వేచి ఉంది.",
 };

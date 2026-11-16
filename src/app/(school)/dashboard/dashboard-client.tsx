@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import * as I from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/controls";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { TextField, SelectField, TextArea, CheckboxField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cx } from "@/components/ui/cx";
@@ -238,12 +239,16 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
   const v = (k: string, d = "") => state?.values?.[k] ?? d;
   const askPast = Boolean((state?.data as { confirmPast?: boolean } | undefined)?.confirmPast);
   const me = people.find((p) => p.id === meId);
+  // The messages as the boxes show them, so a box's message goes once it holds a good value.
+  const errors = state?.errors;
+  const shownErrors = useMemo(() => errors && Object.fromEntries(Object.entries({ dueDate: errors.dueAt, ...errors }).filter(([, m]) => m).map(([k, m]) => [k, screenMessage(t, m!)])), [errors, t]);
   return (
     <Dialog open={open} onClose={onClose} title={task ? t("Edit task") : t("Add task")}>
-      <form action={action} className="space-y-4">
+      <form action={action} className="space-y-4" noValidate>
         {task && <input type="hidden" name="id" value={task.id} />}
         {askPast && <input type="hidden" name="confirmPast" value="1" />}
         {state && !state.ok && state.message && !askPast && <Alert tone="danger">{screenMessage(t, state.message)}</Alert>}
+        <FormProblems errors={shownErrors}>
         <TextField label={t("Task")} name="title" required maxLength={150} defaultValue={v("title", task?.title)} error={screenMessage(t, state?.errors?.title)} placeholder={t("For example, check PTM slots for Saturday")} autoFocus />
         <SelectField label={t("Assign to")} name="assignedToId" defaultValue={v("assignedToId", task?.assignedToId ?? meId)}
           help={access === "full" ? t("Only staff who can sign in are listed.") : t("You can give tasks only to yourself.")}
@@ -258,6 +263,7 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
         )}
         <CheckboxField label={t("Remind before it is due (the day before and on the morning)")} name="remind" defaultChecked={state?.values ? state.values.remind === "on" : task?.remind ?? true} />
         <TextArea label={t("More details")} name="details" rows={3} maxLength={2000} defaultValue={v("details", task?.details)} />
+        </FormProblems>
         <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={onClose}>{t("Cancel")}</Button>
           <SubmitButton pendingText={t("Saving…")}>{askPast ? t("Save anyway") : task ? t("Save task") : t("Add task")}</SubmitButton>

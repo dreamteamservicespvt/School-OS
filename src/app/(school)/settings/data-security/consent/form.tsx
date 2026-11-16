@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { saveConsentAction } from "../actions";
@@ -26,6 +27,7 @@ export function ConsentForm({ types, languages, starts, initialType }: {
     <form action={action} className="space-y-4" noValidate>
       <ErrorSummary errors={state?.errors} />
       <FormMessage state={state?.message ? state : null} />
+      <FormProblems errors={state?.errors}>
       <div>
         <label htmlFor="consent-type" className="mb-1 block text-sm font-medium"><Words k="Consent type" /><span className="text-danger" aria-hidden="true"> *</span></label>
         <KeepSelect id="consent-type" name="consentType" value={type} onChange={(e) => setType(e.target.value)}
@@ -44,6 +46,7 @@ export function ConsentForm({ types, languages, starts, initialType }: {
       ))}
       <CheckboxField name="askedOnAdmission" label="Asked on the admission form" defaultChecked={v ? v.askedOnAdmission === "on" : start.askedOnAdmission} />
       </div>
+      </FormProblems>
       <p className="text-sm text-ink-2"><Words k="Saving makes a new version. Guardians who agreed keep their version; ask them again through Parent Link." /></p>
       <SubmitButton pendingText="Saving…"><Words k="Save new version" /></SubmitButton>
     </form>

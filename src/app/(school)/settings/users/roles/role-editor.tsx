@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 import { ErrorSummary, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -51,6 +52,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
         {copyFromId && <input type="hidden" name="copyFromId" value={copyFromId} />}
         <FormMessage state={state} />
         <ErrorSummary errors={state?.errors} />
+        <FormProblems errors={state?.errors}>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Role name" name="name" required value={roleName} disabled={nameLocked || readOnly} maxLength={60}
             onChange={(e) => { setRoleName(e.target.value); setNameError(null); }} onBlur={(e) => setNameError(e.target.value.trim() ? null : "Role name is needed.")}
@@ -61,6 +63,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
             <span><span className="font-medium"><Words k="Needs two-step login" /></span><span className="block text-sm text-ink-2"><Words k="A code at every sign-in. For roles that handle money or all records." /></span></span>
           </label>
         </div>
+        </FormProblems>
 
         <fieldset>
           <legend className="mb-1 font-medium"><Words k="Sensitive fields this role may see" /></legend>

@@ -15,6 +15,7 @@ import { Segmented, type SegOption } from "@/components/ui/controls";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { inputCls } from "@/components/ui/field";
 import { FormResultProvider, useTyped } from "@/components/ui/url-sheet";
+import { FormProblems } from "@/components/ui/form-problems";
 import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
@@ -262,7 +263,7 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
     <FormResultProvider value={(state?.ok ? null : state) as FormState<unknown>}>
     <form action={run} noValidate className={cx("flex flex-col gap-3", className)}>
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-      <div key={round} className="contents">{children(state, round)}</div>
+      <div key={round} className="contents"><FormProblems errors={state?.errors}>{children(state, round)}</FormProblems></div>
       {state && !state.ok && state.message && (fieldErrors === 0 || link) && (
         <ProblemInView token={state}><div className="rounded-xl bg-bad/10 text-bad px-3.5 py-2.5 text-[13.5px]" role="alert">
           {screenMessage(tr, state.message)} {link && <Link className="font-semibold underline" href={link.href}>{tr.any(link.label)}</Link>}

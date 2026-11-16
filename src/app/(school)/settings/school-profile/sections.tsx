@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ConfirmButton } from "@/components/ui/confirm";
@@ -59,8 +60,9 @@ export function BoardForm({ board, secondBoard }: { board: string; secondBoard: 
   const [chosen, setChosen] = useState(state?.values?.board ?? board);
   const [two, setTwo] = useState(Boolean(secondBoard));
   return (
-    <form action={action} className="max-w-xl space-y-4">
+    <form action={action} className="max-w-xl space-y-4" noValidate>
       <FormMessage state={state} />
+      <FormProblems errors={state?.errors}>
       <SelectField label="Board" name="board" required value={chosen} onChange={(e) => setChosen(e.target.value)} options={BOARDS} placeholder="Choose the board" error={state?.errors?.board} />
       {chosen && (
         <Alert tone="info" title="What this board sets">
@@ -74,6 +76,7 @@ export function BoardForm({ board, secondBoard }: { board: string; secondBoard: 
       {two && (
         <SelectField label="Second board" name="secondBoard" required defaultValue={state?.values?.secondBoard ?? secondBoard} options={BOARDS.filter((b) => b.value !== chosen)} placeholder="Choose the second board" error={state?.errors?.secondBoard} />
       )}
+      </FormProblems>
       <SubmitButton pendingText="Applying…">{chosen && chosen !== board ? `Apply ${chosen}` : "Save board"}</SubmitButton>
     </form>
   );
@@ -84,7 +87,7 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
   const [on, setOn] = useState<string[]>(languages);
   const [def, setDef] = useState(defaultLanguage);
   return (
-    <form action={action} className="space-y-5">
+    <form action={action} className="space-y-5" noValidate>
       <FormMessage state={state} />
       <fieldset>
         <legend className="mb-2 text-sm font-medium"><Words k="Screen and message languages" /> <span className="text-danger" aria-hidden="true">*</span></legend>
@@ -103,10 +106,12 @@ export function RegionForm({ languages, defaultLanguage, timeZone }: { languages
         </div>
         {state?.errors?.languages && <p className="mt-1 text-sm text-danger">{state.errors.languages}</p>}
       </fieldset>
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label="Default language" name="defaultLanguage" required value={def} onChange={(e) => setDef(e.target.value)} options={LANGUAGES.filter((l) => on.includes(l.value))} error={state?.errors?.defaultLanguage} help="For anyone who has not chosen their own language." />
         <SelectField label="Time zone" name="timeZone" required defaultValue={timeZone} options={TIME_ZONES} error={state?.errors?.timeZone} />
       </div>
+      </FormProblems>
       <dl className="grid gap-3 rounded-xl bg-surface-2 p-4 text-sm sm:grid-cols-3">
         <div><dt className="text-ink-2"><Words k="Dates" /></dt><dd className="font-medium"><Words k="DD-MM-YYYY, like 09-10-2026" /></dd></div>
         <div><dt className="text-ink-2"><Words k="Numbers and money" /></dt><dd className="font-medium"><Words k="Indian grouping, like ₹1,16,400" /></dd></div>
@@ -126,12 +131,14 @@ export function ComplianceForm({ initial, board }: { initial: Compliance; board:
     <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
       <ErrorSummary errors={state?.errors} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="UDISE+ code" name="udiseCode" inputMode="numeric" maxLength={11} defaultValue={v("udiseCode")} error={state?.errors?.udiseCode} help="11 digits, from the UDISE+ portal." />
         <TextField label={board ? `${board} school code` : "Board school code"} name="boardSchoolCode" defaultValue={v("boardSchoolCode")} error={state?.errors?.boardSchoolCode} />
         <TextField label="Society or trust registration number" name="registrationNumber" defaultValue={v("registrationNumber")} error={state?.errors?.registrationNumber} />
         <TextField label="PAN of the society or trust" name="panNumber" maxLength={10} defaultValue={v("panNumber")} error={state?.errors?.panNumber} style={{ textTransform: "uppercase" }} />
       </div>
+      </FormProblems>
       <SubmitButton pendingText="Saving…"><Words k="Save compliance details" /></SubmitButton>
     </form>
   );

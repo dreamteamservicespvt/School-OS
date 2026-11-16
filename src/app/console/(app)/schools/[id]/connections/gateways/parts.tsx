@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ErrorSummary, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
@@ -109,6 +110,7 @@ export function LinkedAccountForm({ schoolId, gatewayId }: { schoolId: string; g
       <input type="hidden" name="gatewayId" value={gatewayId} />
       <FormMessage state={state} />
       <ErrorSummary errors={e} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Account name" name="label" required defaultValue={v.label} error={e.label} placeholder="Trust account" help="The name the school office uses, shown on receipts." />
         <TextField label="Bank" name="bankName" required defaultValue={v.bankName} error={e.bankName} placeholder="State Bank of India" />
@@ -117,6 +119,7 @@ export function LinkedAccountForm({ schoolId, gatewayId }: { schoolId: string; g
         <TextField label="Razorpay linked account ID" name="linkedAccountId" required defaultValue={v.linkedAccountId} error={e.linkedAccountId} className="sm:col-span-2" spellCheck={false}
           placeholder="acc_XXXXXXXXXXXXXX" help="From Razorpay, Route, Linked Accounts, after Razorpay has verified the bank account." />
       </div>
+      </FormProblems>
       <div className="flex justify-end"><SubmitButton pendingText="Adding…">Add bank account</SubmitButton></div>
     </form>
   );

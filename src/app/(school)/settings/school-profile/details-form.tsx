@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { ErrorSummary, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { BRAND_PRESETS, HEX, checkGstin, inkOn } from "@/lib/settings/profile-rules";
@@ -23,6 +24,7 @@ export function DetailsForm({ initial, logoHref }: { initial: Details; logoHref:
       <div className="space-y-4">
         <FormMessage state={state} />
         <ErrorSummary errors={state?.errors} />
+        <FormProblems errors={state?.errors}>
         <TextField label="School name" name="name" required defaultValue={v("name")} error={err("name")} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
         <TextArea label="Address" name="address" required defaultValue={v("address")} error={err("address")} rows={2} autoComplete="street-address" />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -37,6 +39,7 @@ export function DetailsForm({ initial, logoHref }: { initial: Details; logoHref:
           help="Only if some fee heads are taxable. Printed on tax invoices."
           onBlur={(e) => setGstError(e.target.value.trim() ? checkGstin(e.target.value) : null)}
           onChange={() => gstError && setGstError(null)} style={{ textTransform: "uppercase" }} />
+        </FormProblems>
         <fieldset>
           <legend className="mb-1 block text-sm font-medium"><Words k="Brand colour" /></legend>
           <div className="flex flex-wrap items-center gap-2">

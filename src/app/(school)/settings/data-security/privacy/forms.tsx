@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { useRouter } from "next/navigation";
@@ -85,8 +86,10 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
         )}
         {state?.errors?.scope && <p className="text-sm text-danger">{state?.errors.scope}</p>}
       </fieldset>
+      <FormProblems errors={state?.errors}>
       <TextField label="Who asked" name="askedBy" required defaultValue={state?.values?.askedBy} error={state?.errors?.askedBy} help="For example: Father, by letter on 3 October." />
       <TextArea label="Reason" name="reason" required defaultValue={state?.values?.reason} error={state?.errors?.reason} help="The approver reads this." />
+      </FormProblems>
       <div>
         <label htmlFor="deletion-proof" className="mb-1 block text-sm font-medium"><Words k="The written request (optional)" /></label>
         <input id="deletion-proof" name="proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" aria-describedby="deletion-proof-help"

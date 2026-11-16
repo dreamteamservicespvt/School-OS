@@ -3,6 +3,7 @@
 // The forms on one person's page in Users & Permissions.
 import { useActionState, useRef, useState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm";
@@ -24,12 +25,14 @@ export function DetailsForm({ userId, name, phone, email, locked }: { userId: st
     <form action={action} className="space-y-4" noValidate>
       <input type="hidden" name="userId" value={userId} />
       <FormMessage state={state} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-3">
         <TextField label="Full name" name="displayName" required defaultValue={v("displayName", name)} error={state?.errors?.displayName} />
         <TextField label="Phone" name="phone" type="tel" inputMode="tel" defaultValue={v("phone", phone)} error={phoneError ?? state?.errors?.phone}
           onBlur={(e) => setPhoneError(e.target.value.trim() ? checkIndianMobile(e.target.value) : null)} onChange={() => phoneError && setPhoneError(null)} />
         <TextField label="Email" name="email" type="email" inputMode="email" defaultValue={v("email", email)} error={state?.errors?.email} />
       </div>
+      </FormProblems>
       <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save details" /></SubmitButton>
     </form>
   );
@@ -190,13 +193,15 @@ export function TwoStepReset({ userId, name }: { userId: string; name: string })
     <>
       <Button variant="secondary" onClick={() => setOpen(true)}><Words k="Reset two-step login" /></Button>
       <Dialog open={open && !done} onClose={() => setOpen(false)} title={`Reset ${name}'s two-step login`}>
-        <form action={action} className="space-y-4">
+        <form action={action} className="space-y-4" noValidate>
           <input type="hidden" name="userId" value={userId} />
           <FormMessage state={state} />
           <p className="text-sm text-ink-2"><Words k="Only do this after you have confirmed it is really" /> {name}<Words k=", in person or by a call to the number in their record. They set up two-step login again at their next sign-in." /></p>
+          <FormProblems errors={state?.errors}>
           <SelectField label="Reason" name="reason" required options={REASONS} placeholder="Choose the reason" defaultValue={state?.values?.reason ?? ""} error={state?.errors?.reason} />
           <TextArea label="How did you confirm it is them?" name="checkDone" required value={check} onChange={(e) => setCheck(e.target.value)} rows={2}
             placeholder="For example: in person at the office, with their staff ID card" error={state?.errors?.checkDone} help="At least 5 characters. Saved in the audit log." />
+          </FormProblems>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
             <SubmitButton pendingText="Resetting…"><Words k="Reset two-step login" /></SubmitButton>

@@ -17,6 +17,7 @@ import { ErrorSummary } from "@/components/ui/field";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -59,7 +60,7 @@ function SheetBody({ action, hidden, submitLabel, submitIcon = Check, submitVari
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <DraftHint draft={draft} />
       <FormProblem state={state} />
-      {children(f)}
+      <FormProblems errors={state?.errors}>{children(f)}</FormProblems>
       <div className="flex gap-2 justify-end pt-1">
         <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}>{cancelLabel}</Button>
         <SubmitButton variant={submitVariant} pendingText={pendingText ?? "Saving…"}>{Ic && <Ic size={17} strokeWidth={2.2} aria-hidden="true" />}{submitLabel}</SubmitButton>

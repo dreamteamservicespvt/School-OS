@@ -11,6 +11,7 @@ import { Pill } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { TextArea } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { cx } from "@/components/ui/cx";
@@ -103,9 +104,9 @@ export function TaskDetail({ task, access, people, meId, today, closeHref }: { t
             </ul>
           )}
           {!task.archived && (
-            <form ref={form} action={comment} className="flex flex-col gap-2">
+            <form ref={form} action={comment} className="flex flex-col gap-2" noValidate>
               <input type="hidden" name="id" value={task.id} />
-              <TextArea label="Add a comment" name="text" rows={2} maxLength={1000} error={state?.errors?.text ?? (state && !state.ok && !state.errors ? state.message : undefined)} />
+              <FormProblems errors={state?.errors}><TextArea label="Add a comment" name="text" rows={2} maxLength={1000} error={state?.errors?.text ?? (state && !state.ok && !state.errors ? state.message : undefined)} /></FormProblems>
               <div><SubmitButton size="sm" variant="secondary" pendingText="Adding…"><Words k="Add comment" /></SubmitButton></div>
             </form>
           )}

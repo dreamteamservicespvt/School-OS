@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ErrorSummary, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { campusAction, saveCampusAction } from "./actions";
@@ -25,12 +26,14 @@ function CampusForm({ campus, onDone }: { campus: CampusRow | null; onDone: () =
       <FormMessage state={state?.ok ? null : state} />
       <ErrorSummary errors={state?.errors} />
       {campus && <input type="hidden" name="id" value={campus.id} />}
+      <FormProblems errors={state?.errors}>
       <TextField label="Campus name" name="name" required defaultValue={v("name")} error={state?.errors?.name} placeholder="North Campus" autoFocus />
       <TextArea label="Address" name="address" defaultValue={v("address")} error={state?.errors?.address} rows={2} />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Campus head" name="headName" defaultValue={v("headName")} error={state?.errors?.headName} />
         <TextField label="Contact phone" name="phone" type="tel" inputMode="tel" defaultValue={v("phone")} error={state?.errors?.phone} />
       </div>
+      </FormProblems>
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
         <SubmitButton pendingText="Saving…">{campus ? "Save campus" : "Add campus"}</SubmitButton>

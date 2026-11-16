@@ -4,6 +4,7 @@ import { startTransition, useActionState, useMemo, useState } from "react";
 import { saveGateway, testDetails, type TestState } from "./actions";
 import type { FormState } from "@/lib/forms";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -58,6 +59,7 @@ export function GatewayForm({ schoolId, mode, id, providers, saved, webhookBase 
       <FormMessage state={state} />
       <ErrorSummary errors={errors} />
 
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         {mode === "new" ? (
           <SelectField label="Provider" name="provider" required value={provider} error={errors.provider}
@@ -136,6 +138,7 @@ export function GatewayForm({ schoolId, mode, id, providers, saved, webhookBase 
         <TextField label={`Type ${confirmWord} to confirm`} name="confirm" required autoComplete="off" error={errors.confirm}
           help={mode === "edit" ? "Changing gateway details affects how the school's parents pay. The name confirms it is the right gateway." : "Live mode takes real money from the school's parents."} />
       )}
+      </FormProblems>
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         {/* Not a form action: React empties a form after its action runs, and the admin

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -74,14 +75,16 @@ const ABOUT = [
 export function FormDetailsForm({ formId, name, description, aboutType }: { formId?: string; name: string; description: string; aboutType: string }) {
   const [state, action] = useActionState(formId ? formDetailsAction : createFormAction, null);
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4" noValidate>
       {formId && <input type="hidden" name="formId" value={formId} />}
       <FormMessage state={state} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Form name" name="name" required maxLength={80} defaultValue={state?.values?.name ?? name} error={state?.errors?.name} placeholder="For example: Teacher appraisal" />
         <SelectField label="The form is about" name="aboutType" required options={ABOUT} defaultValue={state?.values?.aboutType ?? aboutType} error={state?.errors?.aboutType} />
       </div>
       <TextArea label="Description" name="description" rows={2} maxLength={500} defaultValue={state?.values?.description ?? description} help="Shown at the top of the form. Optional." />
+      </FormProblems>
       <SubmitButton variant={formId ? "secondary" : "primary"} pendingText="Saving…">{formId ? "Save details" : "Create form"}</SubmitButton>
     </form>
   );

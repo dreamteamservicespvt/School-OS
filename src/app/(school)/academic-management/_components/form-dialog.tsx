@@ -12,6 +12,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { Words } from "@/lib/i18n/client";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 
 export type ServerFormAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -85,7 +86,7 @@ function DialogForm({ action, submitLabel, pendingText, hidden, children, onClos
       {Object.entries(hidden ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <DraftHint draft={draft} />
       {state && !state.ok && (Object.keys(state.errors ?? {}).length > 1 ? <ErrorSummary errors={state.errors} /> : <FormMessage state={state} />)}
-      {children(state)}
+      <FormProblems errors={state?.errors}>{children(state)}</FormProblems>
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={() => { draft.discard(); onClose?.(); }}><Words k="Cancel" /></Button>
         <SubmitButton pendingText={pendingText ?? "Saving…"} variant={danger ? "danger" : "primary"}>{submitLabel}</SubmitButton>

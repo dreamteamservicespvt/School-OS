@@ -4,6 +4,7 @@
 
 import { useActionState, useState } from "react";
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert } from "@/components/ui/alert";
 import { StaffDobField } from "../dob-field";
 import { KeepCheck } from "@/components/ui/keep-select";
@@ -186,7 +187,7 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
   }
   if (!open) return <Button size="sm" onClick={() => setOpen(true)}><Words k="Give a login" /></Button>;
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-3" noValidate>
       <input type="hidden" name="staffId" value={staffId} />
       {state?.message && <Alert tone="danger">{state.message}</Alert>}
       <fieldset>
@@ -201,6 +202,7 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
           ))}
         </div>
       </fieldset>
+      <FormProblems errors={state?.errors}>
       <TextField label="Username" name="username" placeholder={suggested} help="Leave empty to use the school's format." error={state?.errors?.username} />
       <SignInChoice error={state?.errors?.temporaryPassword} />
       <details className="rounded-xl border border-line p-3">
@@ -209,6 +211,7 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
           {modules.map((m) => <SelectField key={m.key} label={m.name} name={`perm:${m.key}`} defaultValue="" options={LEVEL_OPTIONS as { value: AccessLevel; label: string }[]} placeholder="As the role" />)}
         </div>
       </details>
+      </FormProblems>
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
         <SubmitButton pendingText="Making login…"><Words k="Make login" /></SubmitButton>

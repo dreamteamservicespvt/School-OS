@@ -6,6 +6,7 @@
 import { useActionState } from "react";
 import { FormMessage } from "@/components/ui/alert";
 import { TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { expectedAction } from "./actions";
@@ -27,8 +28,9 @@ export function ExpectedForm({ values, money }: { values: ExpectedValues; money?
   const v = (k: keyof ExpectedValues) => (state && !state.ok ? state.values?.[k] : undefined) ?? values[k] ?? "";
   const lines = MONEY_FIELDS.filter((f) => (f.finance ? money?.finance : money?.fees));
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-3" noValidate>
       <FormMessage state={state} />
+      <FormProblems errors={state?.errors}>
       <TextField label="Old software (or Excel, or paper registers)" name="oldSoftware" defaultValue={v("oldSoftware")} maxLength={100} />
       <div className="grid gap-3 sm:grid-cols-3">
         <TextField label="Students it shows" name="students" inputMode="numeric" defaultValue={v("students")} error={state?.errors?.students} />
@@ -41,6 +43,7 @@ export function ExpectedForm({ values, money }: { values: ExpectedValues; money?
         </div>
       )}
       <TextField label="Go-live date" name="goLiveDate" type="date" defaultValue={v("goLiveDate")} error={state?.errors?.goLiveDate} help="The first day School OS is your record. Fees due before it stay with the old software." />
+      </FormProblems>
       <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save and compare" /></SubmitButton>
     </form>
   );

@@ -19,6 +19,7 @@ import { FormProblem, MoreDetails, PhoneField, SegField, Submit, WhenField } fro
 import { addEnquiryAction, checkDuplicates, editEnquiryAction } from "./actions";
 import { useT, Words } from "@/lib/i18n/client";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 
 export type EnquiryChoices = {
   classes: Option[];
@@ -127,6 +128,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       {sibling && <input type="hidden" name="force" value="1" />}
       {pick === "sibling" && sibFamily?.kind === "enquiry" && <input type="hidden" name="siblingOfId" value={sibFamily.id} />}
       {pick === "sibling" && sibFamily?.kind === "parent" && <input type="hidden" name="siblingOfParentId" value={sibFamily.id} />}
+      <FormProblems errors={state?.errors}>
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
@@ -173,6 +175,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
           <CustomFieldInputs fields={c.customFields} values={state?.values ?? saved?.customFields} errors={Object.fromEntries(Object.entries(state?.errors ?? {}).filter(([k]) => k.startsWith("cf_")).map(([k, v]) => [k.slice(3), v]))} />
         )}
       </MoreDetails>
+      </FormProblems>
       <div className="flex gap-2 justify-end pt-1">
         <Button variant="ghost" onClick={() => { draft.discard(); onCancel(); }} disabled={pending}><Words k="Cancel" /></Button>
         <Submit busyLabel={mode === "add" ? "Adding…" : "Saving…"} disabled={blockedByMatch}>{mode === "add" ? "Add enquiry" : "Save changes"}</Submit>

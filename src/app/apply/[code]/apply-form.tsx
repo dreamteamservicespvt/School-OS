@@ -3,12 +3,13 @@
 // The online admission form a parent fills on their phone, without a login
 // (02 §2, §10). Their mobile is confirmed with a one-time code when they give
 // data consent; the school sees the application as "Submitted online".
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import { CircleCheck, IndianRupee, Send, ShieldCheck } from "lucide-react";
 import type { FormState } from "@/lib/forms";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SelectField, TextArea, TextField, inputCls } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { cx } from "@/components/ui/cx";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { FormProblem, PhoneField, SegField, SubHead, Submit } from "@/app/(school)/admission-management/_components/forms";
@@ -24,11 +25,13 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
 }) {
   const t = useT();
   const [raw, formAction] = useActionState(submitApplyAction.bind(null, code), null as FormState<unknown>);
-  // The form's problems in the page's language (src/lib/i18n/messages.ts).
+  // The form's problems in the page's language (src/lib/i18n/messages.ts), kept between renders for <FormProblems>.
+  const rawErrors = raw?.errors;
+  const errors = useMemo(() => rawErrors ? Object.fromEntries(Object.entries(rawErrors).map(([k, v]) => [k, screenMessage(t, v)])) : rawErrors, [rawErrors, t]);
   const state: FormState<unknown> = raw && {
     ...raw,
     message: screenMessage(t, raw.message),
-    errors: raw.errors ? Object.fromEntries(Object.entries(raw.errors).map(([k, v]) => [k, screenMessage(t, v)])) : raw.errors,
+    errors,
   };
   const [classId, setClassId] = useState(preset ?? "");
   const [phone, setPhone] = useState("");
@@ -65,6 +68,7 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
       <input type="hidden" name="yearId" value={yearId} />
       <input type="hidden" name="code" value={ready ? otp : ""} />
       <FormProblem state={state} />
+      <FormProblems errors={errors}>
 
       <Card className="p-4 md:p-5 flex flex-col gap-4">
         <SubHead>{t("Class")}</SubHead>
@@ -150,6 +154,7 @@ export function ApplyForm({ code, yearId, yearName, classes, preset, consents, c
           {err("code") && !msg && <p className="text-[13px] text-bad" role="alert">{err("code")}</p>}
         </div>
       </Card>
+      </FormProblems>
 
       {cls?.fee && (
         <p className="text-[13.5px] text-ink2 flex items-start gap-2 px-1"><IndianRupee size={16} className="shrink-0 mt-0.5 text-ink3" aria-hidden="true" />

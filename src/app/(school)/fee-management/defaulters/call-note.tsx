@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import type { FormState } from "@/lib/forms";
 import { callNoteAction } from "./actions";
 
@@ -17,8 +18,9 @@ export function CallNoteForm({ studentId, promise }: { studentId: string; promis
   useEffect(() => { if (state?.ok) ref.current?.reset(); }, [state]);
   const failed = state && !state.ok ? state : null;
   return (
-    <form ref={ref} action={action} className="flex flex-col gap-2">
+    <form ref={ref} action={action} className="flex flex-col gap-2" noValidate>
       <input type="hidden" name="studentId" value={studentId} />
+      <FormProblems errors={state?.errors}>
       <TextArea name="note" label={promise ? "Add a call note (optional with a promise)" : "Add a call note"} rows={2} placeholder="Example: Called parent, promised by 15-10-2026" error={failed?.errors?.note} defaultValue={failed?.values?.note} />
       <div className="flex flex-wrap gap-2">
         <TextField type="date" name="promisedOn" label="Promised to pay by" help={promise ? "Within 60 days. Reminders pause until then." : "Leave empty if no date was given"} error={failed?.errors?.promisedOn}
@@ -26,6 +28,7 @@ export function CallNoteForm({ studentId, promise }: { studentId: string; promis
         {promise && <TextField name="amount" label="Amount promised (₹)" inputMode="decimal" placeholder="All overdue" error={failed?.errors?.amount}
           defaultValue={failed?.values?.amount} className="max-w-[200px] tnum" />}
       </div>
+      </FormProblems>
       {failed?.message && !failed.errors?.note && !failed.errors?.promisedOn && !failed.errors?.amount && <p className="text-[12.5px] text-bad" role="alert">{failed.message}</p>}
       <Button type="submit" variant="secondary" className="self-start" loading={pending}>{promise ? "Save" : "Save note"}</Button>
     </form>

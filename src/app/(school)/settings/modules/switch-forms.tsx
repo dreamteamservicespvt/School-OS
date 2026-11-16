@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { SelectField, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,14 +127,16 @@ const ROLL = [{ value: "name", label: "By name (A to Z)" }, { value: "gender-nam
 export function PreferencesForm({ weekStart, rollNumberOrder, mayEdit }: { weekStart: string; rollNumberOrder: string; mayEdit: boolean }) {
   const [state, action] = useActionState(preferencesAction, null);
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label="First day of the week" name="weekStart" required options={WEEK} defaultValue={state?.values?.weekStart ?? weekStart} disabled={!mayEdit} error={state?.errors?.weekStart}
           help="Used by the Time Table, attendance and calendars." />
         <SelectField label="Roll number order" name="rollNumberOrder" required options={ROLL} defaultValue={state?.values?.rollNumberOrder ?? rollNumberOrder} disabled={!mayEdit} error={state?.errors?.rollNumberOrder}
           help="Used when roll numbers are given to a section." />
       </div>
+      </FormProblems>
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save preferences" /></SubmitButton>}
     </form>
   );
@@ -144,7 +147,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
   const [isOn, setIsOn] = useState(state?.values ? state.values.on === "on" : on);
   const [picked, setPicked] = useState<string[]>(state?.values?.aiRoles ? state.values.aiRoles.split(",") : chosen);
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
         <KeepCheck type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
@@ -166,9 +169,9 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
         </fieldset>
       )}
       {isOn && (
-        <TextField label="Most AI requests a day" name="aiDailyLimit" type="number" inputMode="numeric" min={1} max={platformLimit} className="max-w-xs"
+        <FormProblems errors={state?.errors}><TextField label="Most AI requests a day" name="aiDailyLimit" type="number" inputMode="numeric" min={1} max={platformLimit} className="max-w-xs"
           defaultValue={state?.values?.aiDailyLimit ?? (dailyLimit === null ? "" : String(dailyLimit))} placeholder={String(platformLimit)} disabled={!mayEdit}
-          error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most allowed.`} />
+          error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most allowed.`} /></FormProblems>
       )}
       {isOn && <CharacterChoice character={(state?.values?.assistantCharacter as MascotCharacter | undefined) ?? character} mayEdit={mayEdit} error={state?.errors?.assistantCharacter} />}
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save AI assistant" /></SubmitButton>}

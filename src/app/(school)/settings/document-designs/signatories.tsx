@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormState } from "@/lib/forms";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ErrorSummary, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { addSignatoryAction, archiveSignatoryAction } from "./actions";
@@ -18,10 +19,12 @@ export function SignatoryForm() {
     <form action={action} className="space-y-4" noValidate key={state?.ok ? state.message : "form"}>
       <FormMessage state={state} />
       <ErrorSummary errors={e} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Name" name="name" required maxLength={80} defaultValue={v.name} error={e.name} placeholder="Lakshmi Rao" />
         <TextField label="Designation" name="title" required maxLength={80} defaultValue={v.title} error={e.title} placeholder="Principal" />
       </div>
+      </FormProblems>
       <div>
         <label htmlFor="sig-image" className="mb-1 block text-sm font-medium"><Words k="Signature picture" /></label>
         <input id="sig-image" name="image" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="sig-help"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -84,6 +85,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
       <DraftHint draft={draft} />
       <FormMessage state={state} />
       <ErrorSummary errors={state?.errors} />
+      <FormProblems errors={state?.errors}>
       {staff.length > 0 && (
         <SelectField label="Belongs to a staff member" name="staffId" value={staffId} onChange={(e) => pickStaff(e.target.value)}
           options={staff.map((s) => ({ value: s.id, label: `${s.name}, ${s.designation}` }))} placeholder="Not linked (for example an admin from the trust)"
@@ -101,6 +103,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
         <TextField label="Email" name="email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} error={state?.errors?.email} help="Needed only to send the invite by email." />
       </div>
       <AccessFields roles={roles} campuses={campuses} roleIds={v("roleIds") ? v("roleIds").split(",") : [defaultRoleId].filter(Boolean)} scope={v("scope", "WHOLE_SCHOOL")} campusId={v("campusId")} errors={state?.errors} />
+      </FormProblems>
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
         <SubmitButton pendingText="Inviting…"><Words k="Send invite" /></SubmitButton>
         <Link href="/settings/users" onClick={() => draft.discard()} className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>

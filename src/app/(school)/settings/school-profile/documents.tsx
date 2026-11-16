@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { EmptyState } from "@/components/empty-state";
@@ -67,12 +68,14 @@ function DocForm({ doc, roles, onDone }: { doc: DocRow | null; roles: RoleChoice
       <FormMessage state={state?.ok ? null : state} />
       <ErrorSummary errors={state?.errors} />
       {doc && <input type="hidden" name="id" value={doc.id} />}
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label="Document type" name="docType" required defaultValue={v("docType", doc?.docType ?? "")} options={DOCUMENT_TYPES_VAULT.map((t) => ({ value: t, label: t }))} placeholder="Choose" error={state?.errors?.docType} />
         <TextField label="Title" name="title" required defaultValue={v("title", doc?.title ?? "")} placeholder="CBSE affiliation letter" error={state?.errors?.title} />
         <TextField label="Issue date" name="issuedOn" type="date" defaultValue={v("issuedOn", doc?.issuedOnIso ?? "")} error={state?.errors?.issuedOn} />
         <TextField label="Expiry date" name="expiresOn" type="date" defaultValue={v("expiresOn", doc?.expiresOnIso ?? "")} error={state?.errors?.expiresOn} help="Needed for renewal reminders, 30 days before." />
       </div>
+      </FormProblems>
       {!doc && <FileInput error={state?.errors?.file} />}
       <fieldset>
         <legend className="mb-1 text-sm font-medium"><Words k="Who can see it" /> <span className="text-danger" aria-hidden="true">*</span></legend>
@@ -107,10 +110,12 @@ function VersionForm({ doc, onDone }: { doc: DocRow; onDone: () => void }) {
       <FormMessage state={state?.ok ? null : state} />
       <input type="hidden" name="id" value={doc.id} />
       <FileInput error={state?.errors?.file} />
+      <FormProblems errors={state?.errors}>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="New issue date" name="issuedOn" type="date" defaultValue={state?.values?.issuedOn ?? ""} error={state?.errors?.issuedOn} />
         <TextField label="New expiry date" name="expiresOn" type="date" defaultValue={state?.values?.expiresOn ?? ""} error={state?.errors?.expiresOn} />
       </div>
+      </FormProblems>
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
         <SubmitButton pendingText="Uploading…"><Words k="Upload new version" /></SubmitButton>

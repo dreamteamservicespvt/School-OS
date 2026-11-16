@@ -8,6 +8,7 @@ import Link from "next/link";
 import { IndianRupee, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField, type Option } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { Banner } from "@/components/money/kit";
 import type { FormState } from "@/lib/forms";
 import { collectApplicationFeeAction, type ApplicationFeeTaken } from "./actions";
@@ -28,11 +29,13 @@ export function ApplicantFeeForm({ applicationId, left, modes }: { applicationId
         </Banner>
       )}
       {state && !state.ok && state.message && !state.errors && <Banner tone="bad">{state.message}</Banner>}
-      <form action={action} className="flex flex-col gap-3">
+      <form action={action} className="flex flex-col gap-3" noValidate>
         <input type="hidden" name="applicationId" value={applicationId} />
+        <FormProblems errors={state?.errors}>
         <TextField label="Amount received (₹)" name="amount" required inputMode="decimal" className="tnum" defaultValue={val("amount", left.replace(/[^\d.]/g, ""))} error={err("amount")} key={`a-${done?.paymentId ?? ""}`} />
         <SelectField label="Paid by" name="mode" required options={modes} defaultValue={val("mode", "cash")} error={err("mode")} />
         <TextField label="Reference" name="reference" maxLength={80} defaultValue={val("reference")} error={err("reference")} help="UTR, cheque or card number. Not for cash." onInput={upiOnly} key={`r-${done?.paymentId ?? ""}`} />
+        </FormProblems>
         <p className="text-[13px] text-ink3"><Words k="A receipt is made only after the money is received." /></p>
         <div><Button type="submit" variant="primary" icon={IndianRupee} loading={pending} loadingText="Saving…"><Words k="Record payment" /></Button></div>
       </form>

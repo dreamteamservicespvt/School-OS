@@ -3,6 +3,7 @@
 // Add or change one field: a custom field on a record, or a field of a custom form.
 import { useActionState, useEffect, useState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { FormMessage } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -58,6 +59,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
       {mode === "record" ? <input type="hidden" name="recordType" value={owner} /> : <input type="hidden" name="formId" value={owner} />}
       {field && (mode === "record" ? <input type="hidden" name="id" value={field.id} /> : <input type="hidden" name="fieldKey" value={field.key} />)}
       <FormMessage state={state?.ok ? null : state} />
+      <FormProblems errors={state?.errors}>
       <TextField label="Label" name="label" required value={label} maxLength={80} error={errors.label} onChange={(e) => setLabel(e.target.value)}
         onBlur={() => setChecked((c) => ({ ...c, label: checkFieldDefinition(draft(), others.filter((o) => o.key !== field?.key)).label ?? "" }))} />
       <SelectField label="Type" name="fieldType" required value={type} disabled={Boolean(field)} options={FIELD_TYPES} onChange={(e) => setType(e.target.value)} error={errors.fieldType}
@@ -92,6 +94,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
           </div>
         )}
       </fieldset>
+      </FormProblems>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
         <SubmitButton pendingText="Saving…">{field ? "Save field" : "Add field"}</SubmitButton>

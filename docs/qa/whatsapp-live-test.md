@@ -520,3 +520,11 @@ Read-only, 19:43 IST, WhatsApp Chrome: opened the 7:03 PM "New notice" card from
 - PASS: no one-time code, pickup request or "Your Parent Link" message in the list.
 - Notes for a parent: the results row is titled "Unit Test 1" (not "Results are out"); "From the school" on Fee received vs "From School Admin" on the rest; collapsed rows run the emoji text on one line.
 - Screenshot: `deploy20-parent-inbox.jpg`.
+
+## Deploys 21-22 (16 Nov 2026, 23:27 and 23:45 IST)
+
+| Check | Result |
+|---|---|
+| Parent Link record page tab (Principal Chrome) | "Venkatesh · Parent Link · School OS": the record name is in front |
+| Closed messages on "What guardians see" (deploy 21) | The message's own lines kept, BUT rows were 117-136 px: `line-clamp-2` never cut (a `block` class won over its display) |
+| Same, after deploy 22 | Every closed row is 2 lines (39 px): "Dear Venkatesh, the exam results are ready." / "👤 Sri Lakshmi of Class 1 A" |

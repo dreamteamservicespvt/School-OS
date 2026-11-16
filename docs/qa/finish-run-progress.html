@@ -1,0 +1,76 @@
+<title>School OS Finishing Run</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow column; summary first (now doing, clock, main bar), then one row per mindset round */
+:root{--bg:#f4f7f6;--card:#ffffff;--fg:#14211d;--muted:#55665f;--line:#dbe3df;--accent:#0f7a5c;--ok:#13824b;--run:#1f5fd1;--chk:#a15c00;--wait:#6b7280;--warn:#b42318;
+--display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c1311;--card:#141d1a;--fg:#e6efeb;--muted:#9bada6;--line:#26332e;--accent:#3fc79a;--ok:#3ccf86;--run:#6f97ff;--chk:#f0a43a;--wait:#9aa4b8;--warn:#ff7a6e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0c1311;--card:#141d1a;--fg:#e6efeb;--muted:#9bada6;--line:#26332e;--accent:#3fc79a;--ok:#3ccf86;--run:#6f97ff;--chk:#f0a43a;--wait:#9aa4b8;--warn:#ff7a6e;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-size:1.5rem;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0}
+.now{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-weight:600}
+.now span{color:var(--accent)}
+.clock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.box b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.box .v{font-family:var(--display);font-size:1.2rem;font-variant-numeric:tabular-nums}
+.box small{color:var(--muted);display:block}
+.stuck{color:var(--warn);font-weight:600}
+.bar{height:12px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.main{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.main .bar{height:20px}
+.main .pct{font-family:var(--display);font-size:2rem;font-variant-numeric:tabular-nums}
+.counts{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.92rem}
+.counts b{color:var(--fg);font-variant-numeric:tabular-nums}
+.rows{display:flex;flex-direction:column;gap:10px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.name{font-weight:600}
+.tag{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid currentColor}
+.Done{color:var(--ok)}.Running{color:var(--run)}.Checking{color:var(--chk)}.Waiting{color:var(--wait)}
+.line{color:var(--muted);font-size:.92rem;min-width:0}
+.est{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.you{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:12px 14px}
+@media (max-width:520px){.clock{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+  <h1>School OS: finishing the open items after deploy 20</h1>
+  <p class="sub">The last items from the handoff: a tidier "Messages from the school" list on the Parent Link, the record name in the browser tab on more pages, then the full test suite, a deploy and a live check.</p>
+  <div class="now">Now doing: <span id="now"></span></div>
+  <div class="clock">
+    <div class="box"><b>Time spent</b><div class="v" id="spent">–</div><small>since 10:12 pm, Mon 16 Nov</small></div>
+    <div class="box"><b>Ready about</b><div class="v" id="ready">–</div><small id="left">–</small></div>
+    <div class="box"><b>Last update</b><div class="v" id="ago">–</div><small id="upd">–</small></div>
+  </div>
+  <div class="main">
+    <div class="pct" id="pct">0%</div>
+    <div class="bar"><i id="mainbar" style="width:0%"></i></div>
+    <div class="line" id="mainline"></div>
+    <div class="counts"><span>Items <b id="cq">0</b></span><span>Done <b id="cf">0</b></span><span>Blocked <b id="cx">0</b></span></div>
+  </div>
+  <div class="rows" id="rows"></div>
+  <div class="you"><b>Waiting on you:</b> <span id="you"></span></div>
+</div>
+<script>
+const DATA={"start": "2026-11-16T22:12:00+05:30", "updated": "2026-11-16T23:21:00+05:30", "readyAt": "2026-11-16T23:50:00+05:30", "pct": 80, "now": "Deploy 21 pushed (main 31a63468). Waiting for Vercel, then a live check of the Parent Link messages.", "mainline": "3 of 6 items done, deploy building, 1 live step waiting on a frozen Chrome, 1 blocked.", "asked": 6, "found": 3, "fixed": 1, "you": "Nothing needed for this run. The team-brain share needs the owner's GitHub login (this laptop is signed in as gouthambbr-bot).", "rows": [{"n": "Parent Link: closed messages keep their lines", "p": 100, "s": "Done", "l": "Closed rows now keep the message's own lines (2 shown) instead of one run-on line. 19 of 19 tests pass. Commit 4bb9fe85.", "e": "took 15 min"}, {"n": "Record name in the browser tab on 27 more pages", "p": 100, "s": "Done", "l": "23 pages now show the record name in the tab (approval, survey, homework, quiz, fee ledger, certificate, staff exit...). 4 other routes only redirect. Type check and lint clean. Commit ab6e8160.", "e": "took 20 min"}, {"n": "Full test suite + production build", "p": 100, "s": "Done", "l": "All 375 test files pass (3,574 tests). Two tests failed only under the 4-way load: the search limit test is fixed (clock pinned, commit 31a63468); the restore test passes alone (6 min). Lint 0 errors; production build passes.", "e": "took 45 min"}, {"n": "Deploy 21 and live check", "p": 40, "s": "Running", "l": "Pushed to main at 23:21; Vercel builds in about 5 min.", "e": "Est. 15 min"}, {"n": "Share 4 new design playbooks with the team brain", "p": 0, "s": "Waiting", "l": "Blocked: only the owner's GitHub account can push the brain; this laptop is signed in as gouthambbr-bot.", "e": "-"}, {"n": "Staff 'Change post' on live (School Admin Chrome)", "p": 0, "s": "Waiting", "l": "The School Admin Chrome did not respond (page froze, screenshots timed out). Retry after the deploy.", "e": "Est. 10 min"}]};
+const $=id=>document.getElementById(id);
+const fmt=d=>d.toLocaleString("en-IN",{weekday:"short",hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Kolkata"});
+function draw(){
+  const now=Date.now(),st=new Date(DATA.start),up=new Date(DATA.updated),rd=new Date(DATA.readyAt);
+  const m=Math.max(0,Math.round((now-st)/60000));$("spent").textContent=(m>=60?Math.floor(m/60)+" h ":"")+(m%60)+" min";
+  $("ready").textContent=fmt(rd);const left=Math.round((rd-now)/60000);
+  $("left").textContent=DATA.pct>=100?"finished":left>0?"about "+(left>=60?Math.floor(left/60)+" h ":"")+(left%60)+" min left (estimate)":"past the estimate";
+  const ago=Math.max(0,Math.round((now-up)/60000));$("ago").textContent=ago+" min ago";
+  $("upd").innerHTML=ago>15&&DATA.pct<100?'<span class="stuck">No update for '+ago+' min: may be stuck or waiting; check the chat</span>':"at "+fmt(up);
+}
+$("pct").textContent=DATA.pct+"%";$("mainbar").style.width=DATA.pct+"%";
+$("now").textContent=DATA.now;$("mainline").textContent=DATA.mainline;$("you").textContent=DATA.you;
+$("cq").textContent=DATA.asked;$("cf").textContent=DATA.found;$("cx").textContent=DATA.fixed;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+$("rows").innerHTML=DATA.rows.map(r=>`<div class="row"><div class="top"><span class="name">${esc(r.n)}</span><span class="tag ${r.s}">${r.s}</span></div><div class="bar"><i style="width:${r.p}%"></i></div><div class="top"><span class="line">${esc(r.l)}</span><span class="est">${esc(r.e)}</span></div></div>`).join("");
+draw();setInterval(draw,30000);
+</script>

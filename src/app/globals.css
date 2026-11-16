@@ -207,6 +207,9 @@ th > .sr-only { position: static; }
 .no-scrollbar[data-more="right"] { mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
 .no-scrollbar[data-more="left"] { mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
 .no-scrollbar[data-more="both"] { mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+/* A wide table that scrolls sideways fades at its right edge only: its left keeps the sticky first
+   column (Results: Total and Rank were off to the right with no sign, phone-width PW-06). */
+.overflow-x-auto.scroll-thin:not(.no-scrollbar):is([data-more="right"], [data-more="both"]) { mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); }
 @media (pointer: fine) {
   .no-scrollbar[data-more] { scrollbar-width: thin; scrollbar-color: rgb(var(--ink-3) / 0.45) transparent; padding-bottom: 2px; }
   .no-scrollbar[data-more]::-webkit-scrollbar { display: block; height: 6px; }

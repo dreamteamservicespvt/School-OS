@@ -4,26 +4,39 @@
 // v2 is drawn behind as the "due" or "target" bar; with `pair`, v2 stands next to v
 // in its own colour (tone2), like income and expenses. Hover or focus shows the numbers.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type BarTone = "brand" | "ok" | "warn" | "bad" | "info";
 export type BarDatum = { k: string; v: number; v2?: number | null; tone?: BarTone; tone2?: BarTone; tip?: string };
 
 export function Bars({ data, max, height = 170, ticks, tickLabel = (v: number) => String(v), ariaLabel, pair = false }: { data: BarDatum[]; max?: number; height?: number; ticks?: number[]; tickLabel?: (v: number) => string; ariaLabel: string; pair?: boolean }) {
-  const W = 360, H = height, padL = 30, padB = 22, top = 8;
+  // The drawing is as wide as its box, so 11 px labels stay 11 px: a 360-wide drawing shrunk into a phone
+  // card made them about 8 px (phone-width PW-20). The first paint is 360 wide, then it follows the box.
+  const box = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(360);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => { const w = Math.round(el.clientWidth); if (w > 0) setW(w); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = height, padL = 30, padB = 22, top = 8;
   const peak = Math.max(1, ...data.map((d) => Math.max(d.v, d.v2 ?? 0)));
   const mx = max ?? peak * 1.1;
   const y = (v: number) => top + (H - padB - top) * (1 - v / mx);
   const bw = (W - padL - 8) / Math.max(1, data.length);
   const tk = ticks ?? [0, mx / 3, (2 * mx) / 3].map((t) => Math.round(t));
+  // Narrow slots ("Sept Oct Nov" ran together on a phone): every other label, the first one kept.
+  const every = bw < 28 ? 2 : 1;
   const [hover, setHover] = useState<number | null>(null);
   return (
-    <div className="relative">
+    <div ref={box} className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={ariaLabel}>
         {tk.map((t) => (
           <g key={t}>
             <line x1={padL} x2={W - 4} y1={y(t)} y2={y(t)} style={{ stroke: "rgb(var(--line))" }} strokeDasharray={t ? "3 4" : ""} />
-            <text x={padL - 6} y={y(t) + 4} textAnchor="end" fontSize="10" style={{ fill: "rgb(var(--ink-3))" }}>{tickLabel(t)}</text>
+            <text x={padL - 6} y={y(t) + 4} textAnchor="end" fontSize="11" style={{ fill: "rgb(var(--ink-3))" }}>{tickLabel(t)}</text>
           </g>
         ))}
         {data.map((d, i) => {
@@ -45,7 +58,7 @@ export function Bars({ data, max, height = 170, ticks, tickLabel = (v: number) =
                   <rect x={x} y={y(d.v)} width={w} height={Math.max(0, y(0) - y(d.v))} rx="4" style={{ fill: `rgb(var(--${d.tone ?? "brand"}))`, opacity: fade }} />
                 </>
               )}
-              <text x={x + w / 2} y={H - 6} textAnchor="middle" fontSize="10.5" fontWeight="500" style={{ fill: "rgb(var(--ink-2))" }}>{d.k}</text>
+              {i % every === 0 && <text x={x + w / 2} y={H - 6} textAnchor="middle" fontSize="11" fontWeight="500" style={{ fill: "rgb(var(--ink-2))" }}>{d.k}</text>}
             </g>
           );
         })}

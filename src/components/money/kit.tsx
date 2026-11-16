@@ -333,8 +333,9 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
             <>
               {m.avatar ? <Avatar name={m.avatar} size={42} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] truncate">{tx(m.title)}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{tx(m.sub)}</p>}
+                {/* Two lines each before "…" (phone-width PW-22). */}
+                <p className="font-semibold text-[15px] leading-snug line-clamp-2">{tx(m.title)}</p>
+                {m.sub && <p className="text-[13px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}
@@ -366,7 +367,7 @@ export function Empty({ icon: Icon, title, body, action }: { icon: LucideIcon; t
     <div className="flex flex-col items-center text-center px-6 py-14 gap-3">
       <span className="w-14 h-14 rounded-2xl bg-sunken text-ink3 grid place-items-center" aria-hidden="true"><Icon size={26} /></span>
       <h3 className="font-semibold text-[15px]">{tx(title)}</h3>
-      {body && <div className="text-sm text-ink3 max-w-sm">{body}</div>}
+      {body && <div className="text-sm text-ink3 max-w-sm">{tx(body)}</div>}
       {action}
     </div>
   );

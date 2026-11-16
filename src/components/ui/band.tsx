@@ -50,8 +50,9 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
           const body = (
             <>
               <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">
-                  <span className="truncate"><Line text={m.label} /></span>{m.href && <ChevronRight size={14} className="opacity-60 shrink-0" aria-hidden="true" />}
+                {/* Two lines on a phone rather than "Fees collected to…" (phone-width PW-15). */}
+                <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1 leading-snug">
+                  <span className="min-w-0 line-clamp-2 md:line-clamp-1"><Line text={m.label} /></span>{m.href && <ChevronRight size={14} className="opacity-60 shrink-0" aria-hidden="true" />}
                 </p>
                 <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">
                   <Line text={m.big} />{m.of && <span className="text-[0.55em] opacity-90 font-medium"> {m.of}</span>}
@@ -80,7 +81,7 @@ export function HBars({ rows, goal, lowBelow, labelWidth = 64 }: { rows: { key: 
         const low = lowBelow != null && r.value < lowBelow;
         const inner = (
           <>
-            <span className="text-ink2 font-medium truncate"><DateLabel text={r.label} /></span>
+            <span className="text-ink2 font-medium leading-tight line-clamp-2 break-words"><DateLabel text={r.label} /></span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden">
               <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.max(0, Math.min(100, r.value))}%` }} />
               {goal != null && <span className="absolute inset-y-0 w-px bg-ink3/50" style={{ left: `${goal}%` }} />}

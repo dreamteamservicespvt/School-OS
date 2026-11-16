@@ -40,7 +40,8 @@ export function UrlSearch({ param = "q", placeholder, label, className, id }: { 
     timer.current = setTimeout(() => go({ [param]: v.trim() || null }), 300);
   };
   return (
-    <div className={cx("relative flex-1 min-w-0", className)}>
+    // At least 12rem once filters share its row (tablet and up): "Search homework" was squeezed to "Sear" (PW-07, PW-08).
+    <div className={cx("relative flex-1 min-w-0 md:min-w-[12rem]", className)}>
       <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
       <input id={id} type="search" value={q} onChange={(e) => change(e.target.value)} placeholder={placeholder} aria-label={label ?? placeholder}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />

@@ -23,7 +23,7 @@ export function HBars({ rows, max, goal, unit = "%", lowBelow, labelWidth = 64, 
         const low = lowBelow != null && r.v < lowBelow;
         return (
           <li key={r.k} className="grid items-center gap-3 text-[13px]" style={{ gridTemplateColumns: `${labelWidth}px 1fr 52px` }}>
-            <span className="text-ink2 font-medium truncate" title={r.k}>{r.k}</span>
+            <span className="text-ink2 font-medium leading-tight line-clamp-2 break-words" title={r.k}>{r.k}</span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
               <span className={cx("absolute inset-y-0 left-0 rounded-full", low ? "bg-warn" : "bg-brand")} style={{ width: `${Math.max(0, Math.min(100, (r.v / (top || 1)) * 100))}%` }} />
               {goal != null && <span className="absolute inset-y-0 w-px bg-ink3/50" style={{ left: `${Math.min(100, (goal / (top || 1)) * 100)}%` }} />}

@@ -33,7 +33,8 @@ export function Tabs({ tabs, label, className }: { tabs: Tab[]; label: string; c
     }
   }, [pathname]);
   const slide = (dir: 1 | -1) => row.current?.scrollBy({ left: dir * Math.max(160, row.current.clientWidth * 0.6), behavior: calmScroll() });
-  const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
+  // 32 px circle, 44 px to tap (before:-inset-1.5, phone-width PW-18).
+  const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 before:absolute before:-inset-1.5 before:rounded-full place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
   return (
     <nav aria-label={t.any(label)} className={cx("relative -mx-4 px-4 md:mx-0 md:px-0 mb-5", className)}>
       {/* On a phone the right edge fades, so a tab cut at the edge reads as "more this way" (layman loop 3). */}

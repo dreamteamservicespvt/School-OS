@@ -19,9 +19,11 @@ const VARIANTS: Record<ButtonVariant, string> = {
 
 const SIZES: Record<ButtonSize, string> = {
   // Phones and tablets: at least 44 px tall so a thumb hits it (accessibility check 2026-11-15).
-  sm: "h-8 max-md:min-h-11 px-3 text-[13px] gap-1.5 rounded-lg",
-  md: "h-10 max-md:min-h-11 px-4 text-sm gap-2 rounded-xl",
-  lg: "h-12 px-5 text-[15px] gap-2 rounded-xl",
+  // A long label wraps onto two lines there (h-auto) instead of running out of its card and making
+  // the whole page wider than the phone ("Send 8 templates to WhatsApp for approval", phone-width PW-03).
+  sm: "h-8 max-md:h-auto max-md:min-h-11 max-md:py-1.5 px-3 text-[13px] gap-1.5 rounded-lg",
+  md: "h-10 max-md:h-auto max-md:min-h-11 max-md:py-2 px-4 text-sm gap-2 rounded-xl",
+  lg: "h-12 max-md:h-auto max-md:min-h-12 max-md:py-2 px-5 text-[15px] gap-2 rounded-xl",
 };
 
 /** "inline-flex" unless the caller hides it (e.g. "hidden md:inline-flex"); two display classes would fight. */
@@ -30,7 +32,7 @@ const shown = (className?: string) => (/(^|\s)hidden(\s|$)/.test(className ?? ""
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = "") {
   return cx(
     // Pressed: a 2% shrink and a darker fill, so every tap is answered at once (owner 15 Nov, motion).
-    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition active:scale-[0.98] select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    shown(extra), "max-w-full [&>svg]:shrink-0 items-center justify-center font-semibold whitespace-nowrap max-md:whitespace-normal max-md:text-center max-md:leading-tight transition active:scale-[0.98] select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
     VARIANTS[variant], SIZES[size], extra,
   );
 }

@@ -27,7 +27,7 @@ export function SoundToggle({ on: initial, className, withHelp = false }: { on: 
   return (
     <div className={cx("flex items-center gap-3", className)}>
       <button type="button" role="switch" aria-checked={on} aria-label={t("Notification sound")} onClick={flip} disabled={pending}
-        className={cx("inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold hover:bg-sunken disabled:opacity-60", on ? "text-brand" : "text-ink2 hover:text-ink")}>
+        className={cx("inline-flex items-center gap-1.5 h-8 max-md:h-10 px-3 rounded-lg text-[13px] font-semibold whitespace-nowrap hover:bg-sunken disabled:opacity-60", on ? "text-brand" : "text-ink2 hover:text-ink")}>
         <Ic size={15} aria-hidden="true" />{on ? t("Sound on") : t("Sound off")}
       </button>
       {withHelp && <p className="text-[13px] text-ink3">{t("Short sounds for new alerts and saved work.")}</p>}

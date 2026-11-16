@@ -20,7 +20,8 @@ export function CardHeader({ title, description, action, id, icon: Icon, divided
           {description && <p className="text-[13px] text-ink3 mt-0.5">{tx(description)}</p>}
         </div>
       </div>
-      {action && <div className="ml-auto max-w-full min-w-0 flex flex-wrap justify-end gap-2 [&>div]:flex-wrap [&>div]:justify-end">{action}</div>}
+      {/* A small text link here ("Open", a count pill) gets a 44 px tap area on phones (phone-width PW-18). */}
+      {action && <div className="ml-auto max-w-full min-w-0 flex flex-wrap justify-end gap-2 [&>div]:flex-wrap [&>div]:justify-end max-md:[&>a]:relative max-md:[&>a]:before:absolute max-md:[&>a]:before:-inset-3">{action}</div>}
     </div>
   );
 }

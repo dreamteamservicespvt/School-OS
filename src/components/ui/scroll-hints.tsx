@@ -21,7 +21,11 @@
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-const SELECTOR = ".no-scrollbar";
+// Wide tables in a sideways-scrolling box (".overflow-x-auto.scroll-thin") get the edge mark too, so a
+// phone shows a fade where Total and Rank are off to the right (phone-width PW-06). A table keeps the
+// page's mouse wheel and is never scrolled to a ticked row.
+const SELECTOR = ".no-scrollbar, .overflow-x-auto.scroll-thin";
+const isRow = (el: HTMLElement) => el.classList.contains("no-scrollbar");
 const seen = new WeakSet<HTMLElement>();
 /** How long to keep looking again for rows React has not reached yet: every 100 ms, for up to 10 seconds. */
 const RETRY_MS = 100;
@@ -61,6 +65,7 @@ function watch(el: HTMLElement) {
   if (seen.has(el)) return;
   seen.add(el);
   el.addEventListener("scroll", () => mark(el), { passive: true });
+  if (!isRow(el)) return;
   el.addEventListener("wheel", (e) => {
     // Only a plain up/down wheel over a row that can still move that way.
     if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || el.scrollWidth <= el.clientWidth) return;
@@ -88,7 +93,7 @@ export function ScrollHints() {
         // Not yet React's (still streaming in): look again shortly; after 10 seconds, go ahead.
         if (!isHydrated(el, key) && retries < RETRIES) { waiting = true; continue; }
         watch(el);
-        if (!placed.has(el)) { placed.add(el); bringSelectedIntoView(el); }
+        if (!placed.has(el)) { placed.add(el); if (isRow(el)) bringSelectedIntoView(el); }
         mark(el);
       }
       if (waiting && !retry) {

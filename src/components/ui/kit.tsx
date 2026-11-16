@@ -169,8 +169,9 @@ export function DataList<Row>({ columns, rows, rowKey, href, mobile, empty, foot
               {tick(r)}
               {m.lead ?? (Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null)}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] truncate">{link ? <Link href={link} className="after:absolute after:inset-0">{m.title}</Link> : m.title}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{tx(m.sub)}</p>}
+                {/* Two lines each before "…" (phone-width PW-22). */}
+                <p className="font-semibold text-[15px] leading-snug line-clamp-2">{link ? <Link href={link} className="after:absolute after:inset-0">{m.title}</Link> : m.title}</p>
+                {m.sub && <p className="text-[13px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}

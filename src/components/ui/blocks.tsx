@@ -78,7 +78,8 @@ export function SegLinks({ value, options, size = "md", className, label }: { va
         return (
           <Link key={o.value} href={o.href} scroll={false} aria-current={on ? "true" : undefined}
             className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] whitespace-nowrap flex-1",
-              size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
+              // Phones: 40 px tall so a thumb hits "Today" or "Yesterday" (28 px before, phone-width PW-18).
+              size === "sm" ? "h-7 max-md:h-10 px-2.5 text-xs" : "h-9 max-md:h-10 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
             {tx(o.label)}
           </Link>

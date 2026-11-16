@@ -22,6 +22,7 @@ import { screenLine } from "@/lib/i18n/messages";
 import { LANGUAGE_OWN_NAME } from "@/lib/i18n/languages";
 import { BellWatch } from "./bell-watch";
 import { SoundToggle } from "./sound-toggle";
+import { MODULES } from "@/lib/modules";
 import { NAV_GROUPS, type BarItem, type IconName, type MineLink, type Quick } from "./nav-config";
 import { CommandPalette, OPEN_SEARCH_EVENT } from "./search-box";
 import type { PageLink } from "./nav-data";
@@ -154,7 +155,9 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
   const multi = schools.length > 1;
   return (
-    <aside className="hidden md:flex flex-col shrink-0 sticky top-0 h-dvh border-r border-line bg-surface w-[76px] lg:w-[268px] z-30 no-print">
+    /* Tablet (md): each icon carries its short name under it. A touch tablet has no hover tooltip, so icons
+       alone left "Fees" and "Finance" or "Hostel" and "Transport" to guesswork (phone-width PW-14). */
+    <aside className="hidden md:flex flex-col shrink-0 sticky top-0 h-dvh border-r border-line bg-surface w-[84px] lg:w-[268px] z-30 no-print">
       <button type="button" onClick={multi ? onSwitch : undefined} title={multi ? t("Switch school or campus") : school.name}
         className={cx("h-16 flex items-center gap-3 px-[18px] shrink-0 text-left", !multi && "cursor-default")}>
         <Logo />
@@ -187,12 +190,12 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                 return (
                   <li key={it.key}>
                     <Link href={landing[it.key] ?? href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full h-9 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="sr-only lg:hidden">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10.5px] leading-tight font-semibold line-clamp-2 break-words">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );
@@ -211,12 +214,12 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, onQuic
                 return (
                   <li key={it.href}>
                     <Link href={it.href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
-                      className={cx("group w-full h-9 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                      className={cx("group w-full min-h-12 py-1.5 lg:min-h-0 lg:py-0 lg:h-9 rounded-xl flex flex-col lg:flex-row items-center gap-0.5 lg:gap-3 px-1 lg:px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
                         on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
                       {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
                       <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
                       <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
-                      <span className="sr-only lg:hidden">{t.any(it.label)}</span>
+                      <span className="lg:hidden max-w-full text-center text-[10.5px] leading-tight font-semibold line-clamp-2 break-words">{t.any(it.label)}</span>
                     </Link>
                   </li>
                 );
@@ -263,14 +266,15 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
     void setAppearance(fd);
   };
   return (
-    <header className="sticky top-0 h-16 shrink-0 flex items-center gap-2 px-3 md:px-5 border-b border-line bg-surface/85 backdrop-blur-md z-20 no-print">
+    <header className="sticky top-0 h-16 shrink-0 flex items-center gap-1 min-[400px]:gap-2 px-3 md:px-5 border-b border-line bg-surface/85 backdrop-blur-md z-20 no-print">
       {/* Phone: logo and title */}
-      <Link href="/dashboard" className="md:hidden flex items-center gap-2.5 min-w-0 flex-1 text-left">
+      <Link href="/dashboard" className="md:hidden flex items-center gap-2 min-w-0 flex-1 text-left">
         <Logo size={34} />
         <span className="min-w-0">
           {/* Layman loop 15 Nov: "Attendance Managem…" was cut at 390 px. The bar says the short school word; the menu keeps the full name. */}
           {/* Telugu and Hindi page names are longer: two lines rather than "హోంవర్క్ & అభ్యా…" (layman loop 3). */}
-          <span className={cx("block font-display font-semibold text-[15px] leading-tight", t.lang === "en" ? "truncate" : "line-clamp-2 text-[14px]")}>{title ? title.replace(/ Management$/, "") : school.name}</span>
+          {/* With four icons on a 360 px phone one line left "Attendance Regis…": two lines in every language (PW-16). */}
+          <span className="block font-display font-semibold text-[14px] min-[400px]:text-[15px] leading-[1.15] line-clamp-2">{title || school.name}</span>
           <span className="block text-[11.5px] text-ink3 truncate">{school.name}{year ? ` · ${yearLabel(year.name)}` : ""}</span>
         </span>
       </Link>
@@ -445,16 +449,18 @@ function NotifPanel({ open, onClose, notes, total, sound }: { open: boolean; onC
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
       <div ref={ref} role="dialog" aria-modal="true" aria-label={t("Notifications")}
         className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[400px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet max-h-[85dvh] flex flex-col">
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <div>
+        {/* On a 360 px phone "Sound on" and "Mark all read" each broke onto two lines beside the title:
+            they keep one line each and move under the title when there is no room (phone-width PW-21). */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-5 pt-4 pb-2">
+          <div className="mr-auto">
             <h2 className="font-display font-semibold text-lg">{t("Notifications")}</h2>
             <p className="text-[13px] text-ink3">{unread ? t("{count} new", { count: unread }) : t("You are all caught up")}</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 -ml-3 min-[400px]:ml-0">
             {sound !== null && <SoundToggle on={sound} />}
             {unread > 0 && (
               <form action={markAllNotificationsRead}>
-                <button type="submit" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">
+                <button type="submit" className="inline-flex items-center gap-1.5 h-8 max-md:h-10 px-3 rounded-lg text-[13px] font-semibold text-ink2 whitespace-nowrap hover:bg-sunken hover:text-ink">
                   <I.CheckCheck size={15} aria-hidden="true" />{t("Mark all read")}
                 </button>
               </form>
@@ -579,7 +585,9 @@ const OWN_PAGES: { href: string; label: string }[] = [
 function phoneTitle(pathname: string, pages: { href: string; label: string }[]) {
   const path = (h: string) => h.split("?")[0];
   const match = [...pages, ...OWN_PAGES].sort((a, b) => path(b.href).length - path(a.href).length).find((p) => pathname === path(p.href) || pathname.startsWith(`${path(p.href)}/`));
-  return match?.label ?? "";
+  // A module's own page says the menu's short word: "Students", not "Student" cut from "Student Management" (PW-23).
+  const label = match?.label ?? "";
+  return MODULES.find((m) => m.name === label)?.short ?? label.replace(/ Management$/, "");
 }
 
 export function AppShell(props: ShellProps) {

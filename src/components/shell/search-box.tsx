@@ -242,7 +242,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
           <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} type="search"
             role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label={t("Search")}
             aria-activedescendant={results[sel] ? `cmdk-${sel}` : undefined}
-            placeholder={t("Search a student, parent, staff member, receipt or page")}
+            placeholder={t("Student, staff, receipt or page")}
             className="flex-1 bg-transparent outline-none text-[16px] placeholder:text-ink3 min-w-0 [&::-webkit-search-cancel-button]:hidden" />
           <button type="button" onClick={onClose} className="text-sm font-semibold text-ink2 px-2 h-8 rounded-lg hover:bg-sunken">
             <span className="md:hidden">{t("Cancel")}</span><span className="hidden md:inline"><Kbd>Esc</Kbd></span>

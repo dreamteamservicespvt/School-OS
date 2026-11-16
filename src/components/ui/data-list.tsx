@@ -141,8 +141,9 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
             <>
               {m.avatar ? <Avatar name={m.avatar} src={m.avatarSrc} size={44} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])} aria-hidden="true"><Ic size={19} /></span> : null}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] truncate">{m.title}</p>
-                {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
+                {/* Two lines each before "…": one line cut the part that matters ("Bonafide certificate for p…", PW-22). */}
+                <p className="font-semibold text-[15px] leading-snug line-clamp-2">{m.title}</p>
+                {m.sub && <p className="text-[13px] text-ink3 line-clamp-2">{m.sub}</p>}
                 {/* Pills come from helpers that often carry no key, so each gets its place as one. */}
                 {m.pills && m.pills.filter(Boolean).length > 0 && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills.filter(Boolean).map((p, i) => <Fragment key={i}>{p}</Fragment>)}</div>}
               </div>

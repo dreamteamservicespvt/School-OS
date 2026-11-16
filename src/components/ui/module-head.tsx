@@ -60,11 +60,13 @@ export function ModuleHead({ title, page, href, userId, sub, scope, actions, tab
   const moduleName = moduleNameFor(href);
   return (
     <>
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+      {/* Title and actions share a row from lg: on a 768 px tablet the actions squeezed "Examination & Results"
+          onto two lines with the pin on a third (phone-width PW-07). */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-5">
         <div className="min-w-0">
           {moduleName && moduleName.toLowerCase() !== title.trim().toLowerCase() && <p className="text-[13px] font-semibold text-ink3 mb-0.5">{t.any(moduleName)}</p>}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
+          <div className="flex items-start gap-1.5">
+            <h1 className="min-w-0 font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
               {t.any(title)}
               {scope === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
               {scope === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}

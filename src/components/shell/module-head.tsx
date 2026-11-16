@@ -46,7 +46,9 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
   }, [userId, page, href]);
   return (
     <>
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+      {/* Title and actions share a row from lg: on a 768 px tablet the actions squeezed "Examination & Results"
+          onto two lines with the pin on a third (phone-width PW-07). */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-5">
         <div className="min-w-0">
           {/* Layman loop 2 (15 Nov): the top bar said "Enquiries", the heading "Admissions". The page's own name is the
               heading, as in the top bar and Search; the module's name sits small above it. */}

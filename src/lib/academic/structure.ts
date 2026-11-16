@@ -191,7 +191,7 @@ export async function updateSection(tx: Tx, ctx: SchoolContext, sectionId: strin
   const name = input.name.trim();
   if (!name) throw new AcademicRuleError("Section name is needed.", "name");
   const clash = await tx.section.findFirst({ where: { classId: section.classId, academicYearId: section.academicYearId, name: { equals: name, mode: "insensitive" }, id: { not: sectionId }, archivedAt: null } });
-  if (clash) throw new AcademicRuleError(`${section.schoolClass.name} ${name} already exists.`, "name");
+  if (clash) throw new AcademicRuleError(`${classSection(section.schoolClass.name, name)} already exists.`, "name");
   if (input.seats < 1 || input.seats > 500) throw new AcademicRuleError("Seats must be between 1 and 500.", "seats");
   // The one-section rule is checked when the class teacher changes, so a school's earlier data keeps saving.
   await checkClassTeacher(tx, input.classTeacherId, section.academicYearId, sectionId, input.classTeacherId !== section.classTeacherId);

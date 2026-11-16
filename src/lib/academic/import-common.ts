@@ -20,6 +20,7 @@ import { classKey, plain } from "../move-in/tidy";
 import { namesAlike } from "../students/name-match";
 import { currentYears } from "./years";
 import { DAY_NAMES } from "./common";
+import { classSection } from "@/lib/class-name";
 import { classTitle } from "@/lib/class-name";
 
 export type ImportSection = { id: string; classId: string; className: string; sectionName: string; key: string | null; yearId: string; campusId: string; classTeacherId: string | null };
@@ -72,7 +73,7 @@ export function importRun(tx: Tx, ctx: SchoolContext, seen: Set<string>): Promis
 }
 
 /** "Class 7 A" as the school writes it. */
-export const sectionWords = (s: { className: string; sectionName: string }) => `${s.className} ${s.sectionName}`;
+export const sectionWords = (s: { className: string; sectionName: string }) => classSection(s.className, s.sectionName);
 
 /** This year's section a class and section in the file point to, or the problem in plain words. */
 export function sectionIn(run: ImportRun, rawClass: string, rawSection: string): { section: ImportSection } | { problem: string } {

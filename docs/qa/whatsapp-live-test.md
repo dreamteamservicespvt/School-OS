@@ -510,3 +510,13 @@ Screenshots (`qa/whatsapp-cards/`):
 Credits: **1** (New notice). The App notice was free.
 
 Left on the test school: one App notice "Test message on Parent Link" to Venkatesh (7:01 PM, read 7:05 PM) and one WhatsApp "Test notice from School OS" New notice (7:03 PM). Nothing changed in settings; no Notice Board notice published.
+
+## Deploy 20 Parent Link inbox (16 Nov)
+
+Read-only, 19:43 IST, WhatsApp Chrome: opened the 7:03 PM "New notice" card from +91 79896 17553, tapped "Read the notice" -> Venkatesh's Parent Link (#pl-notices). Nothing sent or changed.
+- PASS: "Test notice from School OS" is first, "7:03 PM · By WhatsApp · From School Admin", clean text (no ⟦ ⟧, no `*`); opened (▾) it keeps the WhatsApp line breaks.
+- PASS: "Test message on Parent Link" (7:01 PM · From School Admin, no "By …", as an app message) is second.
+- PASS: today's WhatsApp messages listed newest first: Unit Test 1 (results, 3:31 PM), Test (Class Teacher), Fee received x2, Consent request, general/homework test cards, Birthday wishes, PTM reminder, Arrived late, Absent today, Fee reminder, Fee received, approved-text fallback; then 15 Nov ones. 20 rows, then a "Show older" button.
+- PASS: no one-time code, pickup request or "Your Parent Link" message in the list.
+- Notes for a parent: the results row is titled "Unit Test 1" (not "Results are out"); "From the school" on Fee received vs "From School Admin" on the rest; collapsed rows run the emoji text on one line.
+- Screenshot: `deploy20-parent-inbox.jpg`.

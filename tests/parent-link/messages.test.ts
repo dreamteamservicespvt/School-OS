@@ -3,7 +3,7 @@
 // (channel "app") delivered at once; the guardian's own page shows it, newest first, with "New"
 // until seen, and seeing it on a confirmed phone marks it Read. Never another guardian's or
 // another school's, never on a phone not confirmed, never for opted-out parents, and never about
-// a child the guardian has a custody restriction for.
+// a child the guardian has a custody restriction for, alone or in one message with a brother or sister.
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }), headers: async () => new Headers() }));
@@ -155,8 +155,25 @@ describe("an app notice to a guardian", () => {
 });
 
 describe("custody and access restrictions", () => {
-  it("a guardian never sees a message about a child they have a restriction for; their other child's still show", async () => {
-    // Before the restriction: one message about Ravi, one about Sita (the father has both).
+  it("a page that leaves out one of the children (a one-campus preview) hides a message about both", async () => {
+    const both = await sendApp(s, { guardianIds: [s.father.id] }, "Both children", "Ravi and Sita: annual day photos.");
+    const [row] = await rowsOf(s, both.messageId);
+    expect(row.studentId).toBeNull();
+    expect([...row.studentIds].sort()).toEqual([s.ravi.id, s.sita.id].sort());
+    const l = links[s.father.id];
+    const titles = await withSchool({ schoolId: s.school.id, userId: null }, async (tx) => {
+      const ctx = { schoolId: s.school.id, userId: null };
+      const view = (await loadGuardianView(tx, ctx, { linkId: l.linkId, guardianId: s.father.id, token: "", preview: true }))!;
+      const sitaOnly = { ...view, children: view.children.filter((c) => c.id === s.sita.id), child: view.children.find((c) => c.id === s.sita.id)! };
+      const data = (await loadSections(tx, ctx, sitaOnly)).find((x) => x.def.key === "messages")?.data as ParentMessages | undefined;
+      return data?.rows.map((m) => m.title) ?? [];
+    });
+    expect(titles).not.toContain("Both children");
+    expect((await messagesOn(s, s.father.id))!.rows.map((m) => m.title)).toContain("Both children");
+  });
+
+  it("after a restriction on one child, the guardian sees no message about that child, alone or with a brother or sister; the other child's still show", async () => {
+    // Before the restriction: one message about Ravi, one about Sita, and "Both children" above (the father has both).
     const aboutRavi = await sendApp(s, { guardiansOf: [s.ravi.id] }, "Ravi's class", "Class 5 A goes to the zoo.");
     expect((await rowsOf(s, aboutRavi.messageId)).find((x) => x.guardianId === s.father.id)?.studentId).toBe(s.ravi.id);
     await sendApp(s, { guardiansOf: [s.sita.id] }, "Sita's class", "Class 5 B has a quiz.");
@@ -165,6 +182,9 @@ describe("custody and access restrictions", () => {
     const titles = (await messagesOn(s, s.father.id))!.rows.map((m) => m.title);
     expect(titles).toContain("Sita's class");
     expect(titles).not.toContain("Ravi's class");
+    // Rows naming both children (security review L1): hidden too.
+    expect(titles).not.toContain("Both children");
+    expect(titles).not.toContain("Sports day");
     // After it: a new message about Ravi does not reach him at all.
     const later = await sendApp(s, { guardiansOf: [s.ravi.id] }, "Ravi again", "Class 5 A sports kit.");
     expect((await rowsOf(s, later.messageId)).map((x) => x.guardianId)).not.toContain(s.father.id);

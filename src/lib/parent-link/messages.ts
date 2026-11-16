@@ -41,22 +41,24 @@ async function confirmedPhone(tx: Tx, ctx: SchoolContext, view: GuardianView, no
 export async function messagesForGuardian(tx: Tx, ctx: SchoolContext, view: GuardianView, now = new Date()): Promise<ParentMessages | null> {
   if (!view.preview && !(await confirmedPhone(tx, ctx, view, now))) return null;
   const take = messagesToShow(view.more);
-  const childIds = view.children.map((c) => c.id);
-  // campus: one guardian's own messages, about their own children only (view.children).
-  const rows = await tx.messageRecipient.findMany({
-    where: {
-      schoolId: ctx.schoolId,
-      guardianId: view.guardianId,
-      recipientType: "guardian",
-      channel: "app",
-      isBackup: false,
-      status: { in: ["SENT", "DELIVERED", "READ"] },
-      OR: [{ studentId: null }, { studentId: { in: childIds } }],
-    },
+  const childIds = new Set(view.children.map((c) => c.id));
+  // campus: one guardian's own messages, about their own children only (view.children, below).
+  const all = await tx.messageRecipient.findMany({
+    where: { schoolId: ctx.schoolId, guardianId: view.guardianId, recipientType: "guardian", channel: "app", isBackup: false, status: { in: ["SENT", "DELIVERED", "READ"] } },
     orderBy: [{ sentAt: { sort: "desc", nulls: "last" } }, { queuedAt: "desc" }],
-    take: take + 1,
-    select: { id: true, text: true, language: true, sentAt: true, queuedAt: true, readAt: true, message: { select: { title: true, sentById: true, translations: true } } },
+    select: { id: true, studentId: true, studentIds: true },
   });
+  // A row about several children (brothers and sisters in one message) shows only while every one of them is
+  // on this page: never after a custody or access restriction on one, or once one has left (security review L1).
+  const mine = all.filter((r) => (!r.studentId || childIds.has(r.studentId)) && r.studentIds.every((id) => childIds.has(id))).slice(0, take + 1);
+  const found = mine.length
+    ? await tx.messageRecipient.findMany({
+        where: { schoolId: ctx.schoolId, guardianId: view.guardianId, id: { in: mine.map((r) => r.id) } },
+        select: { id: true, text: true, language: true, sentAt: true, queuedAt: true, readAt: true, message: { select: { title: true, sentById: true, translations: true } } },
+      })
+    : [];
+  const byId = new Map(found.map((r) => [r.id, r]));
+  const rows = mine.map((r) => byId.get(r.id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
   if (!rows.length) return null;
   const shown = rows.slice(0, take);
 

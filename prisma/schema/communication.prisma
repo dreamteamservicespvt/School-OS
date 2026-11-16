@@ -167,6 +167,9 @@ model MessageRecipient {
   recipientType     String         @map("recipient_type")
   guardianId        String?        @map("guardian_id") @db.Uuid
   studentId         String?        @map("student_id") @db.Uuid
+  /// Every child a guardian's message is about (one row may name brothers and sisters); empty for none.
+  /// The Parent Link hides a row once the guardian may not see one of them (src/lib/parent-link/messages.ts).
+  studentIds        String[]       @default([]) @map("student_ids") @db.Uuid
   staffId           String?        @map("staff_id") @db.Uuid
   userLoginId       String?        @map("user_login_id") @db.Uuid
   name              String

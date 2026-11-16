@@ -843,6 +843,8 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
           messageId: message.id,
           ...person(r.candidate),
           studentId: r.studentId,
+          // Every child it is about, so the Parent Link can hide it once the guardian may not see one of them.
+          studentIds: [...new Set([...(r.students ?? []).map((x) => x.id), ...(r.studentId && r.candidate.type === "guardian" ? [r.studentId] : [])])],
           channel: r.channel,
           address: r.address,
           language: r.language,

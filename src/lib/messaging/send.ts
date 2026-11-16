@@ -439,6 +439,13 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   for (const ch of primary) {
     if (!chosen.has(ch) && ch !== "sms" && !typed) problem(`Type the message, or choose a ${CHANNEL_LABEL[ch]} template.`);
   }
+  // A chosen template with {message} ("New notice", "General announcement") takes the typed words; with none
+  // typed, every person would be left out as "has no message text", so the sender is told at once.
+  const givenMessage = [input.values, ...Object.values(input.perStudent ?? {}), ...Object.values(input.perPerson ?? {}), ...Object.values(input.perGuardianStudent ?? {})].some((v) => v && "message" in v);
+  if (!typed && !givenMessage) {
+    const takes = [...chosen.values()].find((c) => c.versions.some((v) => variablesIn(`${v.subject ?? ""} ${v.body}`).includes("message")));
+    if (takes) problem(`Type the message. The template "${takes.name}" puts it in its {message} blank.`);
+  }
   if (primary.some((c) => c === "app" || c === "email") && !chosen.size && !title) {
     problem("Give the message a title. App notifications and emails show it first.");
   }

@@ -162,6 +162,26 @@ export function fillableBlanks(kinds: BlankAudience[]): string[] {
   return [...new Set(kinds.flatMap((k) => TYPED_BLANKS[k]))];
 }
 
+/**
+ * Blanks Send Message fills from its own boxes, besides the person's: {title} and {exam_name} from the
+ * Title, {message} from the typed Message (./send.ts fill()), and each parent's own {parent_link}
+ * (live test 16 Nov: "New notice" and "General announcement" were not offered, as {message} was missing).
+ */
+export const SEND_BOX_BLANKS = ["title", "exam_name", "message", "parent_link"] as const;
+
+/** Every blank a template offered on Send Message may have, for a sender who may (or may not) message staff. */
+export function sendMessageBlanks(staff: boolean): Set<string> {
+  return new Set([...fillableBlanks(staff ? ["parents", "students", "staff"] : ["parents", "students"]), ...SEND_BOX_BLANKS]);
+}
+
+/** True when Send Message can fill every blank of every language version of a template (layman loop 6, L6-40). */
+export function offeredOnSend(versions: { subject?: string | null; body: string }[], blanks: ReadonlySet<string>): boolean {
+  return versions.every((v) => variablesIn(`${v.subject ?? ""} ${v.body}`).every((k) => blanks.has(k)));
+}
+
+/** A template that takes the typed Message in its {message} blank, so the Message box is needed with it. */
+export const takesTypedText = (body: string, subject?: string | null) => variablesIn(`${subject ?? ""} ${body}`).includes("message");
+
 /** Words people often type for a blank that has another name here. Only suggested, never filled by themselves. */
 const SAME_AS: Record<string, string> = {
   parent_name: "guardian_name", parent: "guardian_name", parents_name: "guardian_name", guardian: "guardian_name", father_name: "guardian_name", mother_name: "guardian_name", name_of_parent: "guardian_name",

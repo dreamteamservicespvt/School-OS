@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { checkOrSend, findPeople, livePreview, saveGroup, type SendState } from "./actions";
 import type { SendPreview } from "@/lib/communication/send-form";
-import { blanksFor, strayBlanks, unfitBlankWords, unknownBlankWords, unknownVariables, type BlankAudience } from "@/lib/messaging/blanks";
+import { blanksFor, strayBlanks, takesTypedText, unfitBlankWords, unknownBlankWords, unknownVariables, type BlankAudience } from "@/lib/messaging/blanks";
 import { countWithReason } from "@/lib/messaging/skip-words";
 import { offeredChannels, SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { EMERGENCY_EVENT } from "./send-head-actions";
@@ -198,7 +198,11 @@ export function SendForm({ data }: { data: SendFormData }) {
   const typeCategories = TYPES.map((x) => x.category).filter(Boolean);
   const templatesFor = (ch: Channel) => data.templates.filter((t) => t.channel === ch && t.usable && (typeInfo.category ? t.category === typeInfo.category || t.category === "General" : !typeCategories.includes(t.category)));
   const chosen = channels.map((c) => data.templates.find((t) => t.id === tpl[c])).filter(Boolean) as Template[];
-  const needsText = channels.some((c) => c !== "sms" && !tpl[c]);
+  // Typed words for a channel with no template; and a chosen template with {message} ("New notice",
+  // "General announcement") takes them from the Message box too (src/lib/messaging/send.ts fill()).
+  const freeText = channels.some((c) => c !== "sms" && !tpl[c]);
+  const tplTakesText = channels.some((c) => { const t = data.templates.find((x) => x.id === tpl[c]); return Boolean(t && takesTypedText(t.body, t.subject)); });
+  const needsText = freeText || tplTakesText;
   // A chosen template with {title} or {exam_name} takes it from the Title box (src/lib/messaging/send.ts).
   const tplTakesTitle = channels.some((c) => { const t = data.templates.find((x) => x.id === tpl[c]); return Boolean(t && /\{(title|exam_name)\}/.test(t.body)); });
   const needsTitle = tplTakesTitle || channels.some((c) => (c === "app" || c === "email") && !tpl[c]);
@@ -246,14 +250,14 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (!channels.length) e.channels = "Choose at least one way to send.";
     if (channels.includes("sms") && !tpl.sms) e.sms = "An SMS can only be sent from a template with a DLT template ID. Pick a template, or untick SMS.";
     if (needsTitle && !title.trim()) e.title = "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.";
-    if (needsText && !text.trim()) e.text = "Type the message, or choose a template.";
+    if (needsText && !text.trim()) e.text = freeText ? "Type the message, or choose a template." : "Type the message. The template puts it in its {message} blank.";
     if (text.length > 1000) e.text = `Keep it under 1,000 characters. It has ${fmt(text.length)}.`;
     if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }
     if (when === "later" && !at) e.scheduledAt = "Choose the date and time to send.";
     if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. The School OS support team adds DLT IDs; untick SMS backup for now.";
-    if (trBlock && needsText) e.translations = trBlock;
+    if (trBlock && freeText) e.translations = trBlock;
     return e;
-  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError, trBlock]);
+  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, freeText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError, trBlock]);
   const whoReady = !err.who;
   const live = whoReady ? liveRaw : null;
   const valid = Object.keys(err).length === 0;
@@ -575,7 +579,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
               {chosen.map((t) => (
                 <div key={t.id}>
-                  <p className="text-[13px] font-semibold text-ink2 mb-1.5">{chosen.length > 1 || needsText ? `${CH[t.channel].label} message` : "Message"}</p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-1.5">{chosen.length > 1 || freeText ? `${CH[t.channel].label} message` : "Message"}</p>
                   <div className="rounded-xl bg-sunken/70 border border-line p-3.5 text-[14.5px] leading-relaxed whitespace-pre-line break-words">
                     {t.body.split(/(\{[a-z_]+\})/g).map((part, i) => /^\{[a-z_]+\}$/.test(part) ? <span key={i} className="rounded bg-brand/12 px-1 text-brand font-semibold">{part}</span> : part)}
                   </div>
@@ -586,7 +590,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               ))}
               {needsText && (
-                <FieldShell label={chosen.length ? "Message for the other channels" : "Message"} id="send-text" required error={(blankError && !titleBlankError ? blankError : null) ?? (tried ? err.text : undefined)}
+                <FieldShell label={chosen.length && freeText ? "Message for the other channels" : "Message"} id="send-text" required error={(blankError && !titleBlankError ? blankError : null) ?? (tried ? err.text : undefined)}
                   help={`${fmt(text.length)} of 1,000 characters · ${blanksHint}`}>
                   <textarea id="send-text" name="text" rows={5} value={text} maxLength={1000} onChange={(e) => { setText(e.target.value); touch(); }}
                     aria-invalid={(blankError && !titleBlankError) || (tried && err.text) ? true : undefined} aria-describedby={blankError && !titleBlankError ? "send-text-error" : "send-text-help"}
@@ -612,7 +616,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
 
-              {!isStaff && data.translate && needsText && (
+              {!isStaff && data.translate && freeText && (
                 <div id="send-translations" tabIndex={-1}>
                   <TranslatePanel text={text} title={title} languages={live?.languages ?? []}
                     getForm={() => { if (!formRef.current) return null; const fd = new FormData(formRef.current); fd.delete("file"); return fd; }}
@@ -620,7 +624,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
               {!isStaff && (
-                <p className="text-[12.5px] text-ink3"><Words k="Each parent gets the template in their language, if it has one; typed text goes as written" />{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
+                <p className="text-[12.5px] text-ink3"><Words k="Each parent gets the template in their language, if it has one; typed text goes as written" />{data.translate && freeText ? ", unless you translate it above" : ""}.</p>
               )}
             </div>
           </Card>

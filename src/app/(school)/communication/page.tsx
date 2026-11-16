@@ -8,9 +8,8 @@ import { yearsFor } from "@/lib/academic/years";
 import { channelSetups, offeredChannels, preferredChannel, CHANNEL_LABEL, SMS_OFFERED, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { messageSettings } from "@/lib/messaging/settings";
-import { ensureReadyTemplates, categoryLabel, variablesIn } from "@/lib/messaging/templates";
-import { fillableBlanks } from "@/lib/messaging/blanks";
-import { PARENT_LINK_BLANK } from "@/lib/parent-link/blank";
+import { ensureReadyTemplates, categoryLabel } from "@/lib/messaging/templates";
+import { offeredOnSend, sendMessageBlanks } from "@/lib/messaging/blanks";
 import { sectionLabel } from "@/lib/people";
 import { Banner } from "@/components/ui/banner";
 import { aiReady } from "@/lib/ai";
@@ -91,8 +90,9 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       const left = chosenIds.length - reachable.length;
       if (left > 0) initialNote = `${left} chosen student${left === 1 ? " is" : "s are"} left out: not studying this year${scope.sectionIds === "all" ? "" : ", or not in your classes"}.`;
     }
-    // {title} and {exam_name} come from the Title box (src/lib/messaging/send.ts), so "New notice" and "Results published" can go.
-    const fillable = new Set([...fillableBlanks(scope.staff ? ["parents", "students", "staff"] : ["parents", "students"]), PARENT_LINK_BLANK, "title", "exam_name"]);
+    // {title} and {exam_name} come from the Title box and {message} from the Message box (src/lib/messaging/send.ts),
+    // so "New notice", "Results published" and "General announcement" can go (live test 16 Nov).
+    const fillable = sendMessageBlanks(scope.staff);
     const wa = setups.whatsapp;
     const sms = setups.sms;
     const email = setups.email;
@@ -116,7 +116,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
         .filter((t) => t.versions.length && !["parent-link", "parent-link-code", "staff-invite", "sign-in-code", "connection-test"].includes(t.key ?? ""))
         // Only templates whose every blank this sender's message can fill: bus, pass, salary and code templates
         // are sent by their own modules, and staff ones only to people who may message staff (layman loop 6, L6-40).
-        .filter((t) => t.versions.every((v) => variablesIn(`${v.subject ?? ""} ${v.body}`).every((k) => fillable.has(k))))
+        .filter((t) => offeredOnSend(t.versions, fillable))
         // SMS templates are kept, but not offered while SMS is not used (SMS_OFFERED).
         .filter((t) => SMS_OFFERED || t.channel !== "sms")
         .map((t) => {

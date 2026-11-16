@@ -38,15 +38,26 @@ export type EnquiryChoices = {
 export type SavedEnquiry = { id: string; childName: string; parentName: string; phone: string; email: string | null; classId: string | null; childDob: string | null; currentSchool: string | null; referredBy: string | null; customFields: CustomValues };
 
 /** pick: what the person chose for the match. "new" = a different family that shares the phone (as Add student offers). */
-function DuplicateBox({ matches, pick, onSibling, onNewFamily, onCancel, siblingLabel }: { matches: Match[]; pick: "sibling" | "new" | null; onSibling: () => void; onNewFamily?: () => void; onCancel: () => void; siblingLabel: string }) {
+function DuplicateBox({ matches, pick, onSibling, onNewFamily, onCancel, siblingLabel, family, onFamily }: { matches: Match[]; pick: "sibling" | "new" | null; onSibling: () => void; onNewFamily?: () => void; onCancel: () => void; siblingLabel: string; family: Match | null; onFamily: (m: Match) => void }) {
+  const tr = useT();
   if (matches.length === 0) return null;
+  // Two families on one phone: "Sibling of which family?" with one button each (layman loop 6, L6-01).
+  const families = matches.filter((m) => m.family && m.kind !== "application");
+  const asking = pick === "sibling" && families.length > 1 && !family;
   return (
     <div role="alert" className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 animate-rise">
       {matches.slice(0, 3).map((m) => (
         <p key={`${m.kind}-${m.id}`} className="font-semibold text-[14px] flex gap-2"><TriangleAlert size={17} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />{m.text}</p>
       ))}
-      {pick ? (
-        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" />{pick === "new" ? <Words k="Will be added as a new family." /> : <Words k="Will be added as a sibling enquiry, linked to the same family." />}</p>
+      {asking ? (
+        <div className="mt-3">
+          <p className="text-[13.5px] font-semibold"><Words k="Sibling of which family?" /></p>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            {families.map((m) => <Button key={`${m.kind}-${m.id}`} size="sm" variant="soft" icon={Users} onClick={() => onFamily(m)}>{m.family}</Button>)}
+          </div>
+        </div>
+      ) : pick ? (
+        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" />{pick === "new" ? <Words k="Will be added as a new family." /> : (family ?? families[0])?.family ? tr("Sibling of {family}", { family: (family ?? families[0])!.family! }) : <Words k="Will be added as a sibling enquiry, linked to the same family." />}</p>
       ) : (
         <div className="flex gap-2 mt-3 flex-wrap">
           <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open existing" /></Link>
@@ -66,6 +77,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const [state, formAction, pending] = useActionState(saved ? editEnquiryAction : addEnquiryAction, null);
   const [typed, setTyped] = useState<Match[] | null>(null);
   const [pick, setPick] = useState<"sibling" | "new" | null>(null);
+  const [family, setFamily] = useState<Match | null>(null);
   const sibling = pick !== null;
   const [classId, setClassId] = useState(saved?.classId ?? "");
   const [owner, setOwner] = useState("");
@@ -99,18 +111,22 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const live = c.sources.map((s) => s.value);
   const segSources = PRIMARY_SOURCES.filter((s) => live.includes(s));
   const others = c.sources.filter((s) => !segSources.includes(s.value));
-  const blockedByMatch = matches.length > 0 && !sibling;
+  // The family the sibling joins: the one picked, or the only one that matched.
+  const matchFamilies = matches.filter((m) => m.family && m.kind !== "application");
+  const sibFamily = family ?? (matchFamilies.length === 1 ? matchFamilies[0] : null);
+  const blockedByMatch = (matches.length > 0 && !sibling) || (pick === "sibling" && matchFamilies.length > 1 && !family);
   return (
     <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-4">
       {saved && <input type="hidden" name="id" value={saved.id} />}
       <DraftHint draft={draft} />
       {sibling && <input type="hidden" name="force" value="1" />}
-      {pick === "sibling" && matches.find((m) => m.kind === "enquiry") && <input type="hidden" name="siblingOfId" value={matches.find((m) => m.kind === "enquiry")!.id} />}
+      {pick === "sibling" && sibFamily?.kind === "enquiry" && <input type="hidden" name="siblingOfId" value={sibFamily.id} />}
+      {pick === "sibling" && sibFamily?.kind === "parent" && <input type="hidden" name="siblingOfParentId" value={sibFamily.id} />}
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
       <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We find a family already linked to this number" />
-      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
+      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} family={family} onFamily={setFamily} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
         {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}
@@ -124,11 +140,11 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
           ) : (
             <div className="flex flex-col gap-2">
               <SegField name={segSources.includes(source) ? "source" : "_source"} label="Source" required size="sm"
-                options={[...segSources.map((s) => ({ value: s, label: c.sources.find((x) => x.value === s)!.label })), { value: "_other", label: "Other" }]}
+                options={[...segSources.map((s) => ({ value: s, label: c.sources.find((x) => x.value === s)!.label })), { value: "_other", label: "More" }]}
                 defaultValue={segSources.includes(source) ? source : "_other"} onChange={(v) => setSource(v === "_other" ? others[0].value : v)}
                 help={segSources.includes(source) ? "Changing it later needs a reason." : undefined} />
               {!segSources.includes(source) && (
-                <SelectField label="Other source" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Changing it later needs a reason." />
+                <SelectField label="More sources" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Changing it later needs a reason." />
               )}
             </div>
           )}

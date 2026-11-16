@@ -15,7 +15,7 @@ export default async function SettingsHome() {
   return (
     <>
       <PageHeader title="Settings" href="/settings" userId={current.user.id} />
-      <p className="-mt-3 mb-5 text-ink-2">{t("School-wide settings. Each module keeps its own rules on its last page.")}</p>
+      <p className="-mt-3 mb-5 text-ink-2">{t("School-wide settings. Each module also has its own Settings tab, for example Fees > Fee Settings.")}</p>
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {settingsPagesFor(current).map((p) => (
           <li key={p.href}>

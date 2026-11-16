@@ -27,7 +27,7 @@ import { DataList } from "@/components/ui/data-list";
 import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
-import { MessageActions } from "./message-actions";
+import { MessageActions, RefreshWhileGoing } from "./message-actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -96,6 +96,9 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const skipped = (Array.isArray(m.skipped) ? m.skipped : []) as { reason: string; count: number; names?: string[] }[];
   const sent = m.status === "SENT" || m.status === "QUEUED";
 
+  // Only the app tells us who read a message, and only a delivery report says it arrived.
+  const noReports = !m.channels.includes("app") && counts.delivered === 0;
+  const sentCount = Math.max(0, counts.total - counts.failed - counts.queued - counts.testMode);
   const pct = (a: number) => (counts.total ? `${Math.round((a / counts.total) * 100)}%` : "");
   const sample = data.rows.find((r) => !r.isBackup) ?? data.rows[0];
   const statusCount = (st: string) => st === "backup" ? counts.backup : st === "test" ? counts.testMode : st === "FAILED" ? counts.failed : st === "READ" ? counts.read : st === "QUEUED" ? counts.queued : 0;
@@ -146,11 +149,18 @@ export default async function MessagePage({ params, searchParams }: Props) {
             {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.
           </Banner>
         )}
+        {(m.status === "QUEUED" || counts.queued > 0) && <RefreshWhileGoing />}
         <Stats items={[
           { label: "Recipients", value: counts.total.toLocaleString("en-IN"), icon: Users },
           ...(counts.testMode ? [{ label: "Test mode", value: counts.testMode.toLocaleString("en-IN"), tone: "warn" as const, icon: FlaskConical, sub: "Recorded, not sent" }] : []),
-          ...(!counts.testMode || counts.delivered ? [{ label: "Delivered", value: counts.delivered.toLocaleString("en-IN"), tone: "ok" as const, icon: CheckCheck, sub: pct(counts.delivered) }] : []),
-          { label: "Read", value: counts.read.toLocaleString("en-IN"), icon: Eye, sub: pct(counts.read) },
+          // No report can come back (WhatsApp delivery reports are not connected; SMS and email give none here):
+          // one honest "Sent" count, never "Delivered 0%" (layman loop 6, L6-41).
+          ...(noReports
+            ? [{ label: "Sent", value: sentCount.toLocaleString("en-IN"), tone: "ok" as const, icon: CheckCheck, sub: "No read reports" }]
+            : [
+                ...(!counts.testMode || counts.delivered ? [{ label: "Delivered", value: counts.delivered.toLocaleString("en-IN"), tone: "ok" as const, icon: CheckCheck, sub: pct(counts.delivered) }] : []),
+                { label: "Read", value: counts.read.toLocaleString("en-IN"), icon: Eye, sub: pct(counts.read) },
+              ]),
           { label: "Failed", value: counts.failed.toLocaleString("en-IN"), tone: counts.failed ? "bad" : undefined, icon: CircleAlert, sub: counts.backup ? `${counts.backup} also sent by SMS backup` : counts.failed ? "Retry or resend by another channel" : "None" },
           { label: "Credits", value: m.creditCost ? m.creditCost.toLocaleString("en-IN") : counts.testMode ? "None" : "Free", icon: Coins, sub: counts.testMode && !m.creditCost ? "Test mode uses no credits" : m.smsBackup ? "Includes SMS backup" : undefined },
         ]} />

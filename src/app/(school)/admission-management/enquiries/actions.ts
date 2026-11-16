@@ -70,7 +70,7 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
       if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
       return createEnquiry(w.tx, w.ctx, w.v, w.s, { ...input, customFields },
-        { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId") });
+        { yearId: year.id, campusId, today: todayIn(w.tz), force: str(fd, "force") === "1", siblingOfId: optionalId(fd, "siblingOfId"), siblingOfParentId: optionalId(fd, "siblingOfParentId") });
     });
     await flash({ message: `Enquiry added for ${e.childName}.`, link: { href: `${BASE}?do=add`, label: "Add another" } });
     revalidatePath("/", "layout");

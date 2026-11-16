@@ -88,7 +88,8 @@ export default async function TemplatePage({ params, searchParams }: { params: P
     details.push(["DLT template ID", v.dltTemplateId ? <span key="d" className="font-mono text-[13px]">{v.dltTemplateId}</span> : <Pill key="d" tone="bad"><Words k="Missing" /></Pill>]);
     details.push(["Length", `${smsParts(v.body)} SMS part${smsParts(v.body) > 1 ? "s" : ""} before blanks`]);
   }
-  if (isWa && v?.whatsappName) details.push(["WhatsApp name", <span key="w" className="font-mono text-[13px]">{v.whatsappName}</span>]);
+  // The technical WhatsApp name is for support, so it sits under "More details" (layman loop 6, L6-71).
+  const techName = isWa ? v?.whatsappName ?? null : null;
 
   return (
     <>
@@ -171,6 +172,12 @@ export default async function TemplatePage({ params, searchParams }: { params: P
             <Card>
               <CardHeader title="Details" icon={Info} />
               <DL cols={1} rows={details} />
+              {techName && (
+                <details className="px-5 pb-4 text-[13px] text-ink3">
+                  <summary className="cursor-pointer font-semibold text-brand"><Words k="More details" /></summary>
+                  <p className="mt-1"><Words k="WhatsApp name" /> <span className="font-mono">{techName}</span></p>
+                </details>
+              )}
             </Card>
             <Card>
               <CardHeader title="Versions" icon={HistoryIcon} description="Messages already sent keep the version they used" />

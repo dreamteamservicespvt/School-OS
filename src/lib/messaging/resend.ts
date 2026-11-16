@@ -4,6 +4,7 @@
 // and cost. Each person gets the values they had in the first message.
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { PREFERRED_ORDER, type Channel } from "./channels";
 import { planMessage, sendMessage, MessagingProblem, type SendInput } from "./send";
@@ -20,13 +21,19 @@ export type ResendWho = "unread" | "failed";
  * sandbox provider) was only recorded and never reached anyone, so it is not
  * "unread" either: a resend is only for people a real channel sent it to (COMM-07).
  */
-const UNREAD = ["SENT", "DELIVERED", "FAILED"] as const;
 const TEST_MODE_PROVIDER = "sandbox";
+/**
+ * "Not read" is only known where a channel tells us: a copy that reached Delivered (a report came back), a
+ * failed one, or an app message (the app sees it opened). A WhatsApp, SMS or email copy still at Sent gives
+ * no report at all (WhatsApp delivery reports are not connected, decision 15 Nov 2026), so it is never
+ * called unread: "Resend to 1 unread" seconds after a send doubled messages and credits (layman loop 6, L6-41).
+ */
+const UNREAD_WHERE = { OR: [{ status: { in: ["DELIVERED", "FAILED"] } }, { status: "SENT", channel: "app" }] } satisfies Prisma.MessageRecipientWhereInput;
 
 /** Which first-message recipients a resend is for. Unread: everyone sent it who is not yet at Read. */
 async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho) {
   const rows = await tx.messageRecipient.findMany({
-    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { in: [...UNREAD] }, OR: [{ provider: null }, { provider: { not: TEST_MODE_PROVIDER } }] }) },
+    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { AND: [UNREAD_WHERE, { OR: [{ provider: null }, { provider: { not: TEST_MODE_PROVIDER } }] }] }) },
     select: { recipientType: true, guardianId: true, studentId: true, staffId: true, userLoginId: true, values: true, status: true },
   });
   // Someone who read it on any channel has read it.
@@ -77,7 +84,7 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
     const testOnly = await tx.messageRecipient.count({ where: { schoolId: ctx.schoolId, messageId, isBackup: false, provider: TEST_MODE_PROVIDER, status: { in: ["SENT", "DELIVERED"] } } });
     throw new MessagingProblem(testOnly
       ? "The people who have not read it were sent it in test mode, so nobody received it and there is nothing to resend. Send a new message once the channel is live."
-      : "Everyone has read this message. There is nothing to resend.");
+      : "Nobody is known to have missed it: WhatsApp, SMS and email do not tell us who read a message. There is nothing to resend.");
   }
   const templates: Partial<Record<Channel, string>> = {};
   if (m.templateId) {

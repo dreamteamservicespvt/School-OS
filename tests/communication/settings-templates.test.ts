@@ -100,6 +100,9 @@ describe("Parent Link for staff", () => {
     expect(sum.active).toBe(1);
     expect(sum.revoked).toBe(1);
     expect(sum.never).toBe(1);
+    // "Opened in 30 days" is counted against every guardian, not against the links (L6-66).
+    expect(sum.guardians).toBe((await withSchool(s.ctx, (tx) => guardianIdsIn(tx, s.ctx, {}))).length);
+    expect(sum.guardians).toBeGreaterThan(sum.active);
   });
 
   it("picks guardians by section, and a consent request shows given, waiting and withdrawn", async () => {

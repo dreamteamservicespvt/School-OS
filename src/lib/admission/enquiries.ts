@@ -26,7 +26,8 @@ export async function nextEnquiryNo(tx: Tx, ctx: SchoolContext) {
 
 export const CALL_OUTCOMES = ["Talked", "No answer", "Busy", "Switched off", "Wrong number", "Call back later"] as const;
 
-export type Match = { kind: "enquiry" | "application" | "parent"; text: string; href: string; id: string };
+/** family: a short name for the family, used to ask "Sibling of which family?" when several match (layman loop 6, L6-01). */
+export type Match = { kind: "enquiry" | "application" | "parent"; text: string; href: string; id: string; family?: string };
 
 /**
  * "This phone already has an open enquiry for Arjun (class 2)" — matches on phone or email (02 §5).
@@ -61,7 +62,7 @@ export async function findDuplicates(tx: Tx, input: { phone?: string | null; ema
   const out: Match[] = [];
   for (const e of enquiries) {
     const c = cls(e.classId);
-    out.push({ kind: "enquiry", id: e.id, href: `/admission-management/enquiries/${e.id}`, text: `This ${phone && e.phone === phone ? "phone" : "email"} already has an open enquiry for ${e.childName}${c ? ` (${c})` : ""}, from ${e.parentName}.` });
+    out.push({ kind: "enquiry", id: e.id, href: `/admission-management/enquiries/${e.id}`, text: `This ${phone && e.phone === phone ? "phone" : "email"} already has an open enquiry for ${e.childName}${c ? ` (${c})` : ""}, from ${e.parentName}.`, family: `${e.childName} (${e.parentName})` });
   }
   for (const a of applications) {
     out.push({ kind: "application", id: a.id, href: `/admission-management/applications/${a.id}`, text: `This ${phone && a.phone === phone ? "phone" : "email"} is on application ${a.applicationNo} for ${a.fullName} (${cls(a.classId) ?? "class not set"}).` });
@@ -73,7 +74,7 @@ export async function findDuplicates(tx: Tx, input: { phone?: string | null; ema
       return `${sg.student.firstName}${sec ? `, ${sec.schoolClass.name.replace(/^Class\s+/i, "")} ${sec.name}` : ""}`;
     });
     if (kids.length === 0) continue;
-    out.push({ kind: "parent", id: g.id, href: `/student-management?q=${encodeURIComponent(g.phone ?? g.name)}`, text: `This ${phone && g.phone === phone ? "phone" : "email"} belongs to ${g.name}, parent of ${kids.join(" and ")}.` });
+    out.push({ kind: "parent", id: g.id, href: `/student-management?q=${encodeURIComponent(g.phone ?? g.name)}`, text: `This ${phone && g.phone === phone ? "phone" : "email"} belongs to ${g.name}, parent of ${kids.join(" and ")}.`, family: `${g.students.map((sg) => sg.student.firstName).slice(0, 3).join(", ")} (${g.name})` });
   }
   return out;
 }
@@ -188,7 +189,7 @@ async function checkClass(tx: Tx, classId: string | null, campusId?: string | nu
  * (each campus has its own years). A person limited to one campus adds
  * enquiries for that campus only.
  */
-export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, input: EnquiryInput, opts: { yearId: string; campusId: string; today: string; force?: boolean; siblingOfId?: string | null; importBatchId?: string | null; now?: Date }) {
+export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, input: EnquiryInput, opts: { yearId: string; campusId: string; today: string; force?: boolean; siblingOfId?: string | null; siblingOfParentId?: string | null; importBatchId?: string | null; now?: Date }) {
   if (v.change === "none") throw new AdmissionProblem("Your role cannot add enquiries.");
   checkSource(s, input.source);
   const cls = await checkClass(tx, input.classId);
@@ -206,6 +207,15 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
   if (opts.siblingOfId) {
     const sib = await tx.enquiry.findFirst({ where: { id: opts.siblingOfId, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) } });
     if (sib) siblingOfId = sib.id;
+  }
+  // The family chosen when the phone belongs to a parent already in School OS: named in the history.
+  let family: string | null = null;
+  if (siblingOfId) {
+    const sib = await tx.enquiry.findFirst({ where: { id: siblingOfId }, select: { childName: true, parentName: true } });
+    if (sib) family = `${sib.childName} (${sib.parentName})`;
+  } else if (opts.siblingOfParentId) {
+    const g = await tx.guardian.findFirst({ where: { id: opts.siblingOfParentId, archivedAt: null }, select: { name: true, students: { where: { archivedAt: null, student: { archivedAt: null } }, select: { student: { select: { firstName: true } } } } } });
+    if (g) family = `${g.students.map((x) => x.student.firstName).slice(0, 3).join(", ")} (${g.name})`;
   }
   let owner = input.ownerStaffId;
   if (owner) {
@@ -226,7 +236,7 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
     },
   });
   const ownerName = await staffName(tx, owner);
-  await activity(tx, ctx, e.id, "created", `Enquiry added. Source: ${label(s.sourceList, input.source)}. Owner: ${ownerName}.${siblingOfId ? " Added as a sibling enquiry." : ""}`, { data: { source: input.source, owner } });
+  await activity(tx, ctx, e.id, "created", `Enquiry added. Source: ${label(s.sourceList, input.source)}. Owner: ${ownerName}.${family ? ` Sibling of ${family}.` : siblingOfId ? " Added as a sibling enquiry." : ""}`, { data: { source: input.source, owner } });
   if (input.notes) await activity(tx, ctx, e.id, "note", input.notes);
   await tellOwner(tx, ctx, owner, "New enquiry assigned to you: {child} ({parent}). Follow up by {when}.", { child: e.childName, parent: e.parentName, when: formatDateTime(input.nextFollowUpAt) }, e.id);
   await writeAudit(tx, ctx, { action: "created", recordType: "Enquiry", recordId: e.id, after: { childName: e.childName, parentName: e.parentName, phone: e.phone, classId: e.classId, source: e.source, owner, nextFollowUpAt: e.nextFollowUpAt?.toISOString() ?? null } });

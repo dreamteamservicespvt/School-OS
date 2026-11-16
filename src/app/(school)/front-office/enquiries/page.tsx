@@ -4,7 +4,7 @@ import { BellRing, ClipboardList, ExternalLink, MessageSquare, Phone, PhoneCall,
 import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { momentWhere } from "@/lib/periods";
-import { callLogWhere } from "@/lib/front-office/calls";
+import { callLogWhere, followUpsDue } from "@/lib/front-office/calls";
 import { requestStatus } from "@/lib/front-office/desk";
 import { staffWithLogins } from "@/lib/front-office/people";
 import { addDaysIso, clockAt, dayMonth, localOf, whenWords } from "@/lib/front-office/time";
@@ -68,7 +68,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
     const [enqToday, callsToday, followUps, complaints, enquiries, calls, requests, logins] = await Promise.all([
       tx.enquiry.findMany({ where: { archivedAt: null, source: { in: ["walk-in", "phone"] }, createdAt: today }, select: { source: true } }),
       tx.callLogEntry.findMany({ where: { archivedAt: null, at: today }, select: { direction: true } }),
-      tx.callLogEntry.findMany({ where: { archivedAt: null, status: "FOLLOW_UP", followUpAt: { lt: today.lt } }, select: { name: true }, orderBy: { followUpAt: "asc" } }),
+      followUpsDue(tx, ctx, p.current, today.lt),
       tx.callLogEntry.count({ where: { archivedAt: null, status: "QUERY", at: weekAgo } }),
       view === "enq" ? tx.enquiry.findMany({ where: enqWhere, orderBy: { createdAt: "desc" }, take: 300 }) : Promise.resolve([]),
       view === "calls" ? tx.callLogEntry.findMany({ where: callLogWhere({ from: span.gte, to: span.lt, purpose, q, phones }), orderBy: { at: "desc" }, take: 300 }) : Promise.resolve([]),
@@ -90,7 +90,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
   const sheetHref = qs(HREF, keep);
   const walkIn = data.enqToday.filter((e) => e.source === "walk-in").length;
   const incoming = data.callsToday.filter((c) => c.direction === "IN").length;
-  const followNames = [...new Set(data.followUps.map((f) => f.name))];
+  const followNames = [...new Set(data.followUps)];
   const dayOf = (d: Date) => localOf(d, p.tz).slice(0, 10);
   const timeWords = (d: Date) => `${dayOf(d) === p.todayStr ? "" : `${dayMonth(new Date(`${dayOf(d)}T00:00:00Z`))}, `}${clockAt(d, p.tz)}`;
   const ph = (c: { phone: string; isParent: boolean }) => (c.isParent && !phones ? maskPhone(c.phone) : showPhone(c.phone));
@@ -126,14 +126,14 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
             </Toolbar>
             <DataList rows={data.enquiries} rowKey={(e) => e.id} minWidth={820} caption="Enquiries taken at the desk"
               rowHref={admSee ? (e) => `/admission-management/enquiries/${e.id}` : undefined}
-              footer={t("Owner and follow-up are set by Admissions as soon as the enquiry is saved")}
+              footer={t("Admissions gives each enquiry an owner and a follow-up")}
               columns={[
                 { key: "child", label: "Child", render: (e) => <div><p className="font-semibold leading-tight">{e.childName}</p><p className="text-[12px] text-ink3">{e.enquiryNo && <span className="font-mono">{e.enquiryNo} · </span>}{timeWords(e.createdAt)}</p></div> },
                 { key: "parent", label: "Parent", render: (e) => <div><p className="leading-tight">{e.parentName}</p><p className="text-[12px] text-ink3 tnum">{phones ? showPhone(e.phone) : maskPhone(e.phone)}</p></div> },
                 { key: "cls", label: "Class wanted", nowrap: true, render: (e) => t.any(data.classes.find((c) => c.id === e.classId)?.name ?? "") || <span className="text-ink3">—</span> },
                 { key: "src", label: "Source", render: (e) => <Pill tone={e.source === "phone" ? "info" : "brand"}>{t.any(SOURCE_WORDS[e.source] ?? e.source)}</Pill> },
-                { key: "owner", label: "Owner", render: (e) => <span className="text-[13.5px]">{data.owners.find((o) => o.id === e.ownerStaffId)?.fullName ?? <span className="text-ink3"><Words k="Not given yet" /></span>}</span> },
-                { key: "next", label: "Next follow-up", render: (e) => (e.nextFollowUpAt ? <span className={cx("text-[13px]", dayOf(e.nextFollowUpAt) <= p.todayStr && "text-warn font-semibold")}>{dayOf(e.nextFollowUpAt) === p.todayStr ? t("Today, {time}", { time: clockAt(e.nextFollowUpAt, p.tz) }) : whenWords(e.nextFollowUpAt, p.tz, now, t)}</span> : <span className="text-ink3">—</span>) },
+                { key: "owner", label: "Owner", render: (e) => <span className="text-[13.5px]">{data.owners.find((o) => o.id === e.ownerStaffId)?.fullName ?? <span className="text-ink3"><Words k="No owner" /></span>}</span> },
+                { key: "next", label: "Next follow-up", render: (e) => (e.nextFollowUpAt ? <span className={cx("text-[13px]", dayOf(e.nextFollowUpAt) < p.todayStr ? "text-bad font-semibold" : dayOf(e.nextFollowUpAt) === p.todayStr && "text-warn font-semibold")}>{dayOf(e.nextFollowUpAt) === p.todayStr ? t("Today, {time}", { time: clockAt(e.nextFollowUpAt, p.tz) }) : whenWords(e.nextFollowUpAt, p.tz, now, t)}</span> : <span className="text-ink3">—</span>) },
               ]}
               phone={(e) => ({ title: `${e.childName}${data.classes.find((c) => c.id === e.classId) ? ` · ${data.classes.find((c) => c.id === e.classId)!.name}` : ""}`, sub: `${e.parentName} · ${timeWords(e.createdAt)}`, avatar: e.childName, pills: <Pill tone={e.source === "phone" ? "info" : "brand"} className="!h-[22px] !text-[11.5px]">{t.any(SOURCE_WORDS[e.source] ?? e.source)}</Pill> })}
               empty={q ? <Empty icon={SearchX} title="No enquiry matches" body="Try the parent’s name or another date range." action={<ButtonLink href={HREF} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />

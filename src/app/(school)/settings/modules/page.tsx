@@ -103,7 +103,14 @@ export default async function ModulesPage() {
                   <li key={f.key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{f.label}</p>
-                      <p className="text-sm text-ink-2">{f.about}</p>
+                      <p className="text-sm text-ink-2"><Words k={f.short} /></p>
+                      {/* One line of benefit; the full detail behind "More" (layman loop 6, L6-69). */}
+                      {(f.about as string) !== f.short && (
+                        <details className="mt-1 text-sm text-ink-2">
+                          <summary className="cursor-pointer font-semibold text-brand"><Words k="More" /></summary>
+                          <p className="mt-1">{f.about}</p>
+                        </details>
+                      )}
                     </div>
                     <FeatureSwitch featureKey={f.key} label={f.label} on={featureOn.has(f.key)} assistantOn={assistantOn} mayEdit={mayEdit} ready={aiFeatureReady(f.key)} />
                   </li>

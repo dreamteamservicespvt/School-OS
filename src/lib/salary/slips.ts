@@ -116,7 +116,7 @@ export async function sendSlips(tx: Tx, ctx: SchoolContext, slipIds: string[], c
   const month = slips[0].run.month;
   const result = await sendMessage(tx, ctx, {
     to: { staffIds: slips.map((s) => s.staffId) }, channels: [channel], title: "Salary slip ready",
-    text: `Dear {staff_name}, your salary slip for ${monthName(month)} is ready. Open it in My profile.`,
+    text: `Dear {staff_name}, your salary slip for ${monthName(month)} is ready. Open it in My salary slips.`,
     trigger: "Salary slips", source: { type: "Payroll Run", id: slips[0].runId }, scope: undefined,
   });
   await tx.payslip.updateMany({ where: { id: { in: slips.map((s) => s.id) }, status: "MADE" }, data: { status: "SENT", sentAt: new Date() } });

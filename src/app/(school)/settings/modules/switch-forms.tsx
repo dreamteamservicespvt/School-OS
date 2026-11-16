@@ -148,7 +148,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
         <KeepCheck type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
-        <span><span className="font-medium"><Words k="AI assistant is on" /></span><span className="block text-sm text-ink-2"><Words k="The AI only suggests. A person always checks first." /></span></span>
+        <span><span className="font-medium"><Words k={isOn ? "AI assistant: On" : "AI assistant: Off"} /></span><span className="block text-sm text-ink-2"><Words k="The AI only suggests. A person always checks first." /></span></span>
       </label>
       {isOn && (
         <fieldset>

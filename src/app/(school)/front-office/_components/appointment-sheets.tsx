@@ -103,7 +103,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
         options={[15, 30, 45].map((n) => ({ value: String(n), label: t("{n} min", { n }) }))} />
       <div className="grid sm:grid-cols-2 gap-3">
         <PhoneBox id="bk-phone" name="visitorPhone" label="Visitor phone" required start={reschedule?.phone}
-          onPhone={async (v) => { const d = mobileDigits(v); if (d.length !== 10) { asked.current = ""; setKnown(null); return; } if (d === asked.current) return; asked.current = d; const k = await lookupPhone(d); setKnown(k ? `${k.name} · ${k.who}` : null); }} />
+          onPhone={async (v) => { const d = mobileDigits(v); if (d.length !== 10) { asked.current = ""; setKnown(null); return; } if (d === asked.current) return; asked.current = d; const k = await lookupPhone(d); setKnown(k ? `${k.name} · ${k.who}` : null); if (k) fillEmpty("bk-phone", "visitorName", k.name); }} />
         <SText name="visitorName" label="Visitor name" required maxLength={120} start={reschedule?.name} autoComplete="off" />
       </div>
       {known && <p className="text-[13px] text-ok -mt-2 flex items-center gap-1.5"><UserCheck size={15} aria-hidden="true" />{screenLine(t, known)}</p>}
@@ -111,4 +111,13 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
       <SSwitch name="confirm" title="Send confirmation to the visitor" sub={SMS_OFFERED ? "WhatsApp, with SMS backup" : "By WhatsApp"} start />
     </SheetForm>
   );
+}
+
+/** Fills an empty box of the same form with a found name, the way New visitor does (layman loop 6, L6-09). */
+function fillEmpty(fromId: string, name: string, value: string) {
+  const el = document.getElementById(fromId)?.closest("form")?.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+  if (!el || el.value.trim()) return;
+  // Through the native setter and an input event, so a box React keeps in state takes the name too.
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, value);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
 }

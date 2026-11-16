@@ -5,6 +5,8 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ConfirmButton } from "@/components/ui/confirm";
 import { ExternalLink, PhoneIncoming, PhoneOutgoing, Plus, Search, UserCheck, X } from "lucide-react";
 import { SheetForm, useSheetResult, useTyped } from "@/components/ui/url-sheet";
 import { SArea, SSelect, SText } from "@/components/ui/sheet-fields";
@@ -18,7 +20,7 @@ import type { FormState } from "@/lib/forms";
 import type { Match } from "@/lib/admission/enquiries";
 import type { KnownPhone } from "@/lib/front-office/calls";
 import { mobileDigits } from "@/lib/front-office/words";
-import { addNoteAction, callFollowUpAction, clearNoteAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
+import { addNoteAction, callFollowUpAction, clearNoteAction, closeEarlierPassesAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { useT, Words } from "@/lib/i18n/client";
@@ -79,7 +81,8 @@ function CallSubmit() {
 }
 
 function CallFields({ purposes, classes, staff, defaultWho, today, followAt, admissions }: { purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; followAt: { date: string; time: string }; admissions: boolean }) {
-  const purpose = useTyped("purpose", purposes.includes("Fee") ? "Fee" : purposes[0]);
+  // No purpose until one is chosen: a default "Fee" made fee calls of admission calls (layman loop 6, L6-14).
+  const purpose = useTyped("purpose", "");
   const name = useTyped("name", "");
   const fu = useTyped("followUp", "");
   const [why, setWhy] = useState(purpose.value);
@@ -116,6 +119,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
       </FieldShell>
       <FieldShell label="Purpose" id="cl-purpose" required error={purpose.error}>
         <KeepSelect id="cl-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
+          {!why && <option value="">{t("Choose the purpose")}</option>}
           {purposes.map((p) => <option key={p} value={p}>{t.any(p)}</option>)}
         </KeepSelect>
       </FieldShell>
@@ -227,6 +231,7 @@ function WalkInFields({ departments, nextNo, preset }: { departments: string[]; 
 /* ---------- Front-office notes ---------- */
 
 export function NoteAdd() {
+  const t = useT();
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(addNoteAction, null);
   const ref = useRef<HTMLFormElement>(null);
   const [text, setText] = useState("");
@@ -238,7 +243,7 @@ export function NoteAdd() {
   return (
     <form ref={ref} action={run} className="flex flex-col gap-1.5 p-5 pt-3">
       <div className="flex gap-2">
-        <input name="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a note" aria-label="New front-office note" maxLength={200} className={cx(inputCls(state && !state.ok), "h-10 text-[14px]")} />
+        <input name="text" value={text} onChange={(e) => setText(e.target.value)} placeholder={t("Add a note")} aria-label={t("New front-office note")} maxLength={200} className={cx(inputCls(state && !state.ok), "h-10 text-[14px]")} />
         <Button type="submit" variant="secondary" icon={Plus} loading={pending} disabled={!text.trim()}><Words k="Add" /></Button>
       </div>
       {state && !state.ok && <p className="text-[12.5px] text-bad" role="alert">{state.message}</p>}
@@ -254,5 +259,17 @@ export function NoteClear({ id }: { id: string }) {
       <IconButton type="submit" icon={X} label="Clear note" size={44} disabled={pending} />
       {state && !state.ok && <span className="sr-only" role="alert">{state.message}</span>}
     </form>
+  );
+}
+
+/** "Close all from earlier days": every pass left open before today, each at its pass end time, in one step (L6-15). */
+export function CloseEarlierPasses({ count }: { count: number }) {
+  const router = useRouter();
+  const t = useT();
+  return (
+    <ConfirmButton trigger={t("Close all from earlier days")} triggerVariant="ghost" title={t("Close {n} passes from earlier days?", { n: count })} confirmLabel={t("Close all")}
+      onConfirm={async () => { const r = await closeEarlierPassesAction(null, new FormData()); if (r?.ok) { router.refresh(); return; } return r?.message ?? t("Could not close them. Try again."); }}>
+      <Words k="Each is closed at the time its pass ended. Today's passes stay open." />
+    </ConfirmButton>
   );
 }

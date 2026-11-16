@@ -5,7 +5,7 @@
 /** "14 have no due amount", "1 has no mobile number", "2 opted out of messages". */
 export function countWithReason(count: number, reason: string) {
   let r = reason.charAt(0).toLowerCase() + reason.slice(1);
-  if (count === 1) r = r.replace(/^parents have /, "parent has ");
+  if (count === 1) r = r.replace(/^parents have /, "parent has ").replace(/^students get /, "student gets ");
   else r = r.replace(/^has /, "have ").replace(/^is /, "are ").replace(/^was /, "were ");
   return `${count.toLocaleString("en-IN")} ${r}`;
 }

@@ -102,7 +102,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
         {!pl.on && <Banner tone="warn" title="Parent Link is switched off."><Words k="Parents see “Parent Link is not available right now”. Switch it on under What parents see." /></Banner>}
         <Stats items={[
           { label: "Links active", value: s.active.toLocaleString("en-IN"), icon: Link2, sub: "One per guardian", href: quick({ status: "ACTIVE" }) },
-          { label: "Opened in last 30 days", value: s.opened30.toLocaleString("en-IN"), icon: Eye, tone: "ok", sub: `${pct(s.opened30, s.active)} of guardians`, href: quick({ status: "ACTIVE", opened: "30" }) },
+          { label: "Opened in last 30 days", value: s.opened30.toLocaleString("en-IN"), icon: Eye, tone: "ok", sub: `${s.opened30.toLocaleString("en-IN")} of ${s.guardians.toLocaleString("en-IN")} guardians · ${pct(s.opened30, s.guardians)}`, href: quick({ status: "ACTIVE", opened: "30" }) },
           { label: "Never opened", value: s.never.toLocaleString("en-IN"), icon: EyeOff, tone: s.never ? "warn" : undefined, sub: "Resend or call them", href: quick({ status: "ACTIVE", opened: "never" }) },
           { label: "Revoked", value: s.revoked.toLocaleString("en-IN"), icon: Ban, sub: "Lost phone, shared link", href: quick({ status: "REVOKED" }) },
           { label: "Families with no link", value: s.withoutLink.toLocaleString("en-IN"), icon: Users, tone: s.withoutLink ? "info" : undefined, sub: "Send them theirs", href: "/communication/parent-link/send" },
@@ -129,7 +129,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
                 return (
                   <li key={r.id} className="flex flex-col gap-2 pb-4 border-b border-line/70 last:border-0 last:pb-0">
                     <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0"><p className="font-semibold text-[14px] leading-snug">{t?.title ?? r.consentType}</p><p className="text-[12.5px] text-ink3">{r.audienceLabel} <Words k="· version" /> {t?.version ?? 1} <Words k="· reply by" /> {formatDate(r.replyBy, "UTC")}</p></div>
+                      <div className="flex-1 min-w-0"><p className="font-semibold text-[14px] leading-snug">{t?.title ?? r.consentType}</p><p className="text-[12.5px] text-ink3">{r.audienceLabel} <Words k="· version" /> {t?.version ?? 1} <Words k="· sent" /> {formatDate(r.createdAt, current.school.timeZone)} <Words k="· reply by" /> {formatDate(r.replyBy, "UTC")}</p></div>
                       {canEdit && open && waiting.length > 0 && <RemindButton id={r.id} count={waiting.length} />}
                     </div>
                     <span className="flex h-2 rounded-full overflow-hidden bg-sunken" aria-hidden="true">

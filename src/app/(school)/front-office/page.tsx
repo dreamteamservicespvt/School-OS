@@ -7,6 +7,7 @@ import { momentWhere } from "@/lib/periods";
 import { loginsWithRole } from "@/lib/front-office/people";
 import { requestStatus } from "@/lib/front-office/desk";
 import { pickupsOn } from "@/lib/front-office/pickup";
+import { followUpsDue } from "@/lib/front-office/calls";
 import { clockAt, shortDay, whenWords } from "@/lib/front-office/time";
 import { APPOINTMENT_STATUS, REQUEST_STATUS, clockOf, replyOf } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -17,7 +18,7 @@ import { MoreMenu } from "@/components/ui/more-menu";
 import { Band, Banner, Col, Empty, ListRow, Split, Stack } from "@/components/money/kit";
 import { FoHead } from "./_components/head";
 import { CommonSheets } from "./_components/common-sheets";
-import { NoteAdd, NoteClear } from "./_components/desk-sheets";
+import { CloseEarlierPasses, NoteAdd, NoteClear } from "./_components/desk-sheets";
 import { BASE, addQ, foPage, foTabs, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -45,7 +46,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
       tx.appointment.findMany({ where: { archivedAt: null, date: p.today, status: { not: "CANCELLED" } }, orderBy: { startMin: "asc" } }),
       tx.callLogEntry.count({ where: { archivedAt: null, at: day } }),
       tx.enquiry.count({ where: { archivedAt: null, createdAt: day, source: { in: ["walk-in", "phone"] } } }),
-      tx.callLogEntry.count({ where: { archivedAt: null, status: "FOLLOW_UP", followUpAt: day } }),
+      followUpsDue(tx, ctx, p.current, day.lt).then((names) => names.length),
       tx.walkInRequest.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 6 }),
       tx.frontOfficeNote.findMany({ where: { clearedAt: null }, orderBy: { createdAt: "asc" }, take: 20 }),
       pickupsOn(tx, day.gte, day.lt),
@@ -74,6 +75,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
   const deskWho = imAtDesk ? t("You are at the desk") : data.desk[0] ? t("{name} at the desk", { name: loginName(data.desk[0]) }) : null;
   const here = (extra: Record<string, string>) => addQ(BASE, extra);
   const firstExpired = data.expired[0];
+  const earlier = data.expired.filter((v) => !isToday(v.visitDate)).length;
   const enquiriesOk = p.can.desk && can(p.current.permissions, "admission-management", "create");
   const BIG = [
     { t: t("New visitor"), s: t("Name, phone, whom to meet"), Ic: IdCard, href: here({ do: "visitor" }), on: p.can.register },
@@ -98,7 +100,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           { label: "In the building now", big: String(data.inside.length), foot: waiting ? t("{n} waiting to be called in", { n: waiting }) : data.inside.length ? t("None waiting to be called in") : t("Nobody inside"), href: `${BASE}/visitors?status=In` },
           { label: "Visitors today", big: String(data.todayCount), foot: avg != null ? t("Average {n} minutes inside", { n: avg }) : t("No visit closed yet"), href: `${BASE}/visitors` },
           { label: "Appointments today", big: String(data.appts.length), foot: next ? t("Next: {time}, {name}", { time: clockOf(next.startMin), name: next.visitorName }) : t("None left today"), href: p.may("appointments") ? `${BASE}/appointments` : undefined },
-          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] font-medium"> <Words k="calls" /></span> {data.enquiries}<span className="text-[0.55em] font-medium"> <Words k="enquiries" /></span></>, foot: data.followUps ? (data.followUps === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: data.followUps })) : t("No follow-ups due today"), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
+          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] font-medium"> <Words k={data.calls === 1 ? "call" : "calls"} /></span> {data.enquiries}<span className="text-[0.55em] font-medium"> <Words k={data.enquiries === 1 ? "enquiry" : "enquiries"} /></span></>, foot: data.followUps ? (data.followUps === 1 ? t("1 follow-up due today") : t("{n} follow-ups due today", { n: data.followUps })) : t("No follow-ups due today"), href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
         ]} />
 
         {BIG.length > 0 && (
@@ -116,7 +118,10 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           <Col>
             {firstExpired && (
               <Banner tone="bad" title={notOutWords(t, data.expired.length, data.expired.every((v) => isToday(v.visitDate)))}
-                action={p.can.checkOut ? <Link href={here({ out: firstExpired.id })} scroll={false} className={buttonClass("secondary", "sm")}><LogOut size={15} aria-hidden="true" /><Words k="Close with the right time" /></Link> : undefined}>
+                action={p.can.checkOut ? <div className="flex flex-wrap gap-2">
+                  <Link href={here({ out: firstExpired.id })} scroll={false} className={buttonClass("secondary", "sm")}><LogOut size={15} aria-hidden="true" /><Words k="Close with the right time" /></Link>
+                  {earlier > 1 && <CloseEarlierPasses count={earlier} />}
+                </div> : undefined}>
                 {isToday(firstExpired.visitDate)
                   ? t("Pass {pass} ({name}) expired at {time} today.", { pass: firstExpired.passNo, name: firstExpired.name, time: clockAt(firstExpired.passExpiresAt, p.tz) })
                   : t("Pass {pass} ({name}) expired at {time} on {day}.", { pass: firstExpired.passNo, name: firstExpired.name, time: clockAt(firstExpired.passExpiresAt, p.tz), day: shortDay(firstExpired.visitDate, t) })}

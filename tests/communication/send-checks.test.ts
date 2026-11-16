@@ -79,6 +79,8 @@ describe("words for people left out (COMM-06)", () => {
     expect(countWithReason(14, "Has no parent name")).toBe("14 have no parent name");
     expect(countWithReason(1, "Has no parent name")).toBe("1 has no parent name");
     expect(countWithReason(2, "Opted out of messages")).toBe("2 opted out of messages");
+    expect(countWithReason(1, "Students get app messages only")).toBe("1 student gets app messages only");
+    expect(countWithReason(3, "Students get app messages only")).toBe("3 students get app messages only");
     expect(skippedWords([{ reason: "Has no due amount", count: 3, names: [] }, { reason: "Opted out of messages", count: 1, names: [] }])).toBe("3 have no due amount; 1 opted out of messages");
   });
 });
@@ -95,6 +97,11 @@ describe("Resend to unread (COMM-03, COMM-07)", () => {
     await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/sent it in test mode, so nobody received it/);
     // As if a real WhatsApp account had sent it.
     await withSchool(s.ctx, (tx) => tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { provider: "meta-cloud" } }));
+    // Sent to WhatsApp with no delivery report: nobody is known to have missed it, so no "Resend to unread" (L6-41).
+    expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(0);
+    await expect(withSchool(s.ctx, (tx) => planResend(tx, s.ctx, r.messageId, "unread", "whatsapp", SYSTEM_SCOPE))).rejects.toThrow(/do not tell us who read/);
+    // Once a delivery report says it arrived and it is not read, it is unread.
+    await withSchool(s.ctx, (tx) => tx.messageRecipient.updateMany({ where: { messageId: r.messageId }, data: { status: "DELIVERED", deliveredAt: new Date() } }));
     expect(await withSchool(s.ctx, (tx) => unreadCount(tx, s.ctx, r.messageId))).toBe(r.people);
     // Someone who read it is left out.
     await withSchool(s.ctx, async (tx) => {

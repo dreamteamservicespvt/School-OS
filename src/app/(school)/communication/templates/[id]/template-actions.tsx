@@ -52,7 +52,7 @@ export function ArchiveTemplate({ id, name, archived, usedBy }: { id: string; na
     );
   }
   return (
-    <ConfirmButton trigger="Archive" triggerVariant="danger-outline" title={`Archive "${name}"?`} confirmLabel="Archive" confirmVariant="danger"
+    <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive "${name}"?`} confirmLabel="Archive" confirmVariant="danger"
       onConfirm={async () => { const m = await archiveTemplateAction(id, true); if (!m) router.push("/communication/templates"); return m; }}>
       {usedBy.length ? `Automatic messages use it: ${usedBy.join(", ")}. They will use another template of the same kind, or stop until you choose one. ` : ""}
       <Words k="Messages already sent keep their text. You can restore it from the archived list." />

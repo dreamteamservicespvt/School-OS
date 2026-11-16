@@ -11,8 +11,8 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { can } from "../permissions";
-import { viewerFor } from "../admission/access";
-import { admissionYear, loadSettings } from "../admission/settings";
+import { enquiryScope, viewerFor } from "../admission/access";
+import { admissionYear, CLOSED_STATUSES, loadSettings } from "../admission/settings";
 import { createEnquiry, defaultFollowUp } from "../admission/enquiries";
 import { ensureTopics, logQuery } from "../communication/queries";
 import { FrontOfficeProblem } from "./problem";
@@ -206,4 +206,19 @@ export function callLogWhere(opts: { from: Date; to: Date; purpose: string; q: s
     if (d.length >= 3) or.push(opts.phones ? { phone: { contains: d } } : { phone: { contains: d }, isParent: false });
   }
   return { AND: [{ archivedAt: null, at: { gte: opts.from, lt: opts.to } }, opts.purpose && opts.purpose !== "all" ? { purpose: opts.purpose } : {}, or.length ? { OR: or } : {}] };
+}
+
+/**
+ * Follow-ups due by `before` (the end of today), overdue ones too: call follow-ups and open enquiries with a
+ * next follow-up, the enquiries read as Admissions reads them. The desk tiles counted calls only, so "0 due"
+ * sat above an enquiry due today at 11:00 (layman loop 6, L6-05). Names in time order.
+ */
+export async function followUpsDue(tx: Tx, ctx: SchoolContext, current: Current, before: Date): Promise<string[]> {
+  const viewer = await viewerFor(tx, ctx, current);
+  const [calls, enquiries] = await Promise.all([
+    tx.callLogEntry.findMany({ where: { archivedAt: null, status: "FOLLOW_UP", followUpAt: { lt: before } }, select: { name: true, followUpAt: true } }),
+    tx.enquiry.findMany({ where: { AND: [enquiryScope(viewer)], archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: before } }, select: { childName: true, nextFollowUpAt: true }, take: 500 }),
+  ]);
+  return [...calls.map((c) => ({ name: c.name, at: c.followUpAt!.getTime() })), ...enquiries.map((e) => ({ name: e.childName, at: e.nextFollowUpAt!.getTime() }))]
+    .sort((a, b) => a.at - b.at).map((x) => x.name);
 }

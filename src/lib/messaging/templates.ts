@@ -214,7 +214,7 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   wa("birthday-student"),
   wa("birthday-staff"),
   { key: "salary-slip", name: "Salary slip ready", category: "staff", channel: "app", subject: "Salary slip ready", texts: {
-    en: "Dear {staff_name}, your salary slip is ready. Open it in My profile.",
+    en: "Dear {staff_name}, your salary slip is ready. Open it in My salary slips.",
   } },
   wa("salary-slip"),
   wa("admission-welcome"),

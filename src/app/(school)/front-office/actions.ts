@@ -10,7 +10,7 @@ import { formValues } from "@/lib/forms";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { foAction, foT, inFrontOffice, need, problemState, str, id, optionalId, maybe, file, UUID_RE } from "@/lib/front-office/act";
 import { FrontOfficeProblem } from "@/lib/front-office/problem";
-import { addGateEntry, checkOutVisitor, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
+import { addGateEntry, checkOutVisitor, closeEarlierPasses, registerVisitor, remindDeskAboutPass, replyToVisitor, returningVisitor, type ReturningVisitor } from "@/lib/front-office/visitors";
 import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, pickupCodeCheckFor, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
 import { findStudents } from "@/lib/students/find";
@@ -21,7 +21,7 @@ import { arriveAppointment, bookAppointment, dayPlan, remindAppointment, setAppo
 import { handOver, recordPostal } from "@/lib/front-office/postal";
 import { addToList, isListKey, removeFromList, saveSettings } from "@/lib/front-office/settings";
 import { messageVisitor, sentWords } from "@/lib/front-office/notify";
-import { clockAt, instantOf } from "@/lib/front-office/time";
+import { clockAt, instantOf, todayDate } from "@/lib/front-office/time";
 import { clockOf, FRONT_OFFICE_FEATURES, isNoPhotoCheck, minutesOf, type ReplyKey } from "@/lib/front-office/words";
 import { withSchool } from "@/lib/db";
 import { requireCurrent } from "@/lib/current";
@@ -83,6 +83,14 @@ export async function checkOutAction(_: S, fd: FormData): Promise<S> {
     const r = await checkOutVisitor(w.tx, w.ctx, id(fd, "visitorId", "visitor"), { timeZone: w.tz, leftAtMinute: hhmm(fd, "timeOut", "time out"), atGate: w.v.level === "gate" });
     return { ...r, words: clockAt(r.at, w.tz) };
   }, (r, t) => ({ message: t("{name} checked out at {time}. Pass {pass} no longer works.", { name: r.visitor.name, time: r.words, pass: r.visitor.passNo }), undo: { kind: "fo-checkout", id: r.visitor.id } }));
+}
+
+/** Close all passes left open from earlier days, each at its pass end time (L6-15). */
+export async function closeEarlierPassesAction(_: S, fd: FormData): Promise<S> {
+  return foAction("edit", fd, async (w) => {
+    need(w.can.checkOut, "check visitors out");
+    return closeEarlierPasses(w.tx, w.ctx, { today: todayDate(w.tz) });
+  }, (n, t) => (n === 1 ? t("1 pass from earlier days closed at its end time.") : t("{n} passes from earlier days closed at their end time.", { n })));
 }
 
 /** Principal, School Admin, Vice Principal: remind the desk to close an expired pass (they do not do desk work themselves). */

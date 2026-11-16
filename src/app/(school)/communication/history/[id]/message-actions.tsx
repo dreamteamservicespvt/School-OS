@@ -2,7 +2,7 @@
 
 // Cancel, retry failed and resend (to unread or failed, by any channel) with
 // the usual preview of count and cost before it goes.
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquareText, RotateCcw, Send, X } from "lucide-react";
 import { ConfirmButton } from "@/components/ui/confirm";
@@ -13,6 +13,18 @@ import { cancelMessage, doResend, previewResend, retryMessage, type ResendPrevie
 import { Words } from "@/lib/i18n/client";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
+
+/** Reloads the message every few seconds while it is still going, so "Queued" turns to "Sent" by itself
+ *  (layman loop 6: it stayed "Queued" until the teacher reloaded). Stops after about two minutes. */
+export function RefreshWhileGoing() {
+  const router = useRouter();
+  useEffect(() => {
+    let n = 0;
+    const t = setInterval(() => { n += 1; if (n > 24) clearInterval(t); else router.refresh(); }, 5000);
+    return () => clearInterval(t);
+  }, [router]);
+  return <p className="sr-only" aria-live="polite"><Words k="This page updates by itself while the message goes." /></p>;
+}
 /** "preferred": for each person the first channel that can carry it now. */
 type Choice = Channel | "preferred";
 

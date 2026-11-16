@@ -1,6 +1,7 @@
 "use server";
 
 // Send Message: check (count, cost, preview), then send or schedule.
+import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -200,7 +201,7 @@ export async function saveGroup(_prev: SendState, form: FormData): Promise<SendS
 }
 
 /** People search for "individuals": parents, students and staff within the sender's scope. */
-export async function findPeople(q: string): Promise<{ type: "guardian" | "student" | "staff"; id: string; name: string; detail: string }[]> {
+export async function findPeople(q: string): Promise<{ type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string }[]> {
   const { current, scope } = await commAction("create");
   const term = q.trim().slice(0, 60);
   if (term.length < 2) return [];
@@ -221,12 +222,20 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
       take: 8, select: { id: true, name: true, phone: true, relationship: true, students: { where: { archivedAt: null }, select: { studentId: true, student: { select: { fullName: true } } } } },
     });
     const genrol = yearIds.length ? await tx.enrolment.findMany({ where: { academicYearId: { in: yearIds }, archivedAt: null, studentId: { in: guardians.flatMap((g) => g.students.map((s) => s.studentId)) } }, select: { studentId: true, sectionId: true, academicYearId: true } }) : [];
+    // A found student is offered first as "Parents of <name>": students get app messages only, so picking the
+    // student alone reached nobody on WhatsApp (layman loop 6, L6-39). The names show who will get it.
+    const links = students.length ? await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, studentId: { in: students.map((s) => s.id) }, ...OPEN_LINK, guardian: { archivedAt: null } }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { studentId: true, relationship: true, guardian: { select: { name: true } } } }) : [];
+    // The main contact, the one the message goes to (the same order the send uses).
+    const parentNames = (id: string) => { const l = links.find((x) => x.studentId === id); return l ? `${l.guardian.name} (${l.relationship})` : ""; };
     const staff = scope.staff ? await tx.staff.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, fullName: { contains: term, mode: "insensitive" }, ...(scope.campusId ? { campusId: scope.campusId } : {}) }, take: 6, select: { id: true, fullName: true, designation: true } }) : [];
     return [
       ...guardians
         .filter((g) => (scope.sectionIds === "all" && !scope.campusId) || g.students.some((s) => genrol.some((e) => e.studentId === s.studentId && inScope(e))))
         .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}` })),
-      ...students.map((s) => ({ type: "student" as const, id: s.id, name: s.name, detail: `Student · ${s.admissionNo}` })),
+      ...students.flatMap((s) => [
+        ...(parentNames(s.id) ? [{ type: "parentsOf" as const, id: s.id, name: `Parents of ${s.name}`, detail: `${parentNames(s.id)}${s.classSection ? ` · ${s.classSection}` : ""}` }] : []),
+        { type: "student" as const, id: s.id, name: s.name, detail: `Student, app only · ${s.admissionNo}` },
+      ]),
       ...staff.map((s) => ({ type: "staff" as const, id: s.id, name: s.fullName, detail: s.designation })),
     ];
   });

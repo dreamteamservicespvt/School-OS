@@ -36,7 +36,7 @@ export function QueryForm({ data }: { data: QueryFormData }) {
     setSearch(q);
     if (timer.current) clearTimeout(timer.current);
     if (q.trim().length < 2) { setFound([]); return; }
-    timer.current = setTimeout(async () => { try { setFound(await findPeople(q)); } catch { setFound([]); } }, 300);
+    timer.current = setTimeout(async () => { try { setFound((await findPeople(q)).filter((p): p is Person => p.type !== "parentsOf")); } catch { setFound([]); } }, 300);
   }
   async function choose(p: Person) {
     setFrom(p); setSearch(""); setFound([]); setTyped(false);

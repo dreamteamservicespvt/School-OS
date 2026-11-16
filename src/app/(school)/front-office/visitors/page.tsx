@@ -100,7 +100,8 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   const sheetHref = here({});
 
   // This week: visitors by day, by purpose, average time inside.
-  const days = Array.from({ length: Math.max(1, Math.min(7, dayDiff(weekStartIso, p.todayStr) + 1)) }, (_, i) => addDaysIso(weekStartIso, i));
+  // The whole school week, days still to come as empty bars: one "Mon" bar alone looked broken (layman loop 6, L6-12).
+  const days = Array.from({ length: Math.max(6, Math.min(7, dayDiff(weekStartIso, p.todayStr) + 1)) }, (_, i) => addDaysIso(weekStartIso, i));
   const byDay = days.map((d) => ({ k: weekdayOf(new Date(`${d}T00:00:00Z`), t), v: data.week.filter((w) => w.visitDate.toISOString().slice(0, 10) === d).length, tone: d === p.todayStr ? ("brand" as const) : undefined }));
   const purposeCount = new Map<string, number>();
   for (const w of data.week) purposeCount.set(w.purpose, (purposeCount.get(w.purpose) ?? 0) + 1);
@@ -108,7 +109,8 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   const closed = data.week.filter((w) => w.timeOut);
   const avgInside = closed.length ? Math.round(closed.reduce((s, w) => s + (w.timeOut!.getTime() - w.timeIn.getTime()), 0) / closed.length / 60_000) : null;
   const weekMax = Math.max(4, ...byDay.map((d) => d.v));
-  const weekTop = Math.ceil(weekMax / 5) * 5;
+  // An even top, so the middle line is a whole number too (no "2.5", no repeated labels).
+  const weekTop = Math.ceil(weekMax / 2) * 2;
 
   const statusChips = [
     { value: "all", label: "All", count: data.counts[0] },

@@ -88,7 +88,9 @@ export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Who, s
     defaultYearId: year?.id ?? "",
     ownerRule: s.ownerRule,
     ownerByClass: s.ownerRule === "class" ? Object.fromEntries(rules.filter((r) => r.ownerStaffId && staff.some((x) => x.id === r.ownerStaffId)).map((r) => [r.classId, r.ownerStaffId!])) : {},
-    defaultOwner: s.defaultOwnerStaffId && staff.some((x) => x.id === s.defaultOwnerStaffId) ? s.defaultOwnerStaffId : "",
+    // With no default owner the enquiry goes to the person adding it, so the box shows them: "Usually leave as is"
+    // is then true (layman loop 6, L6-02: an empty required box quietly became the adder).
+    defaultOwner: s.defaultOwnerStaffId && staff.some((x) => x.id === s.defaultOwnerStaffId) ? s.defaultOwnerStaffId : staff.find((x) => x.userLoginId && x.userLoginId === ctx.userId)?.id ?? "",
     turnNext,
   };
 }

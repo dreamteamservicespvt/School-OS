@@ -156,6 +156,12 @@ export function blanksFor(kinds: BlankAudience[]): string[] {
   return TYPED_BLANKS[list[0]].filter((k) => list.every((x) => TYPED_BLANKS[x].includes(k)));
 }
 
+/** Every blank a Send Message can fill for any of these kinds of person. A template with any other blank
+ *  ({bus}, {month}, {pass}) is filled only by the module that sends it, so Send Message does not offer it. */
+export function fillableBlanks(kinds: BlankAudience[]): string[] {
+  return [...new Set(kinds.flatMap((k) => TYPED_BLANKS[k]))];
+}
+
 /** Words people often type for a blank that has another name here. Only suggested, never filled by themselves. */
 const SAME_AS: Record<string, string> = {
   parent_name: "guardian_name", parent: "guardian_name", parents_name: "guardian_name", guardian: "guardian_name", father_name: "guardian_name", mother_name: "guardian_name", name_of_parent: "guardian_name",

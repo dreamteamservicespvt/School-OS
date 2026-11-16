@@ -26,7 +26,7 @@ import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from ".
 import { word } from "../notification-words";
 import type { MessageKey } from "../i18n/t";
 
-export type PickupStudent = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; classSection: string | null; rollNo: number | null };
+export type PickupStudent = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; classSection: string | null; rollNo: number | null; parent?: string | null };
 
 export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
   // Each student's class in their own campus's current year.
@@ -63,7 +63,7 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
   if (!ids) {
     // The one student search: name (one letter wrong allowed), admission or roll number, parent name or phone.
     const hits = await findStudents(tx, q, { scope: inCampus(limit), yearId: await currentYearIds(tx, ctx), statuses: ["ACTIVE"], take });
-    return hits.map((h) => ({ id: h.id, name: h.name, first: h.firstName, admissionNo: h.admissionNo, photoFileId: h.photoFileId, classSection: h.classSection?.replace(/^Class\s+/i, "") ?? null, rollNo: h.rollNo }));
+    return hits.map((h) => ({ id: h.id, name: h.name, first: h.firstName, admissionNo: h.admissionNo, photoFileId: h.photoFileId, classSection: h.classSection?.replace(/^Class\s+/i, "") ?? null, rollNo: h.rollNo, parent: h.parent ?? null }));
   }
   const rows = await tx.student.findMany({
     where: { ...where, id: { in: ids } },
@@ -72,7 +72,7 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
     take: 80,
   });
   const enr = await enrolmentsOf(tx, ctx, rows.map((r) => r.id));
-  return rows.map((r) => ({ id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, classSection: enr.get(r.id)?.label ?? null, rollNo: enr.get(r.id)?.rollNo ?? null }));
+  return rows.map((r) => ({ id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, classSection: enr.get(r.id)?.label ?? null, rollNo: enr.get(r.id)?.rollNo ?? null, parent: null as string | null }));
 }
 
 export type PickupPerson = { guardianId: string; name: string; relationship: string; phone: string | null; photoFileId: string | null; restriction: string | null; allowed: boolean };

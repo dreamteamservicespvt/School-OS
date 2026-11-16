@@ -106,7 +106,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                   <li key={x.id}>
                     <Link href={qs(HREF, { student: x.id, ...period.keep })} scroll={false} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-sunken/60 rounded-xl px-2">
                       <Avatar name={x.name} size={38} src={photoOf(x.photoFileId)} />
-                      <span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.classSection ? t("Class {n}", { n: x.classSection }) : t("No class this year")}{x.rollNo ? ` · ${t("Roll {n}", { n: x.rollNo })}` : ""} · <span className="font-mono">{x.admissionNo}</span></span></span>
+                      <span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.classSection ? t("Class {n}", { n: x.classSection }) : t("No class this year")}{x.rollNo ? ` · ${t("Roll {n}", { n: x.rollNo })}` : ""}{x.parent ? ` · ${x.parent}` : ""} · <span className="font-mono">{x.admissionNo}</span></span></span>
                       <ChevronRight size={18} className="text-ink3" aria-hidden="true" />
                     </Link>
                   </li>

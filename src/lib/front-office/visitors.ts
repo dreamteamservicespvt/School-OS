@@ -188,6 +188,20 @@ export async function checkOutVisitor(tx: Tx, ctx: SchoolContext, id: string, op
   return { visitor: v, at };
 }
 
+/**
+ * Close every pass left open from an earlier day, each at the time its pass ended (never before the visitor
+ * came in), in one step: six dialogs every morning kept the warning up for days (layman loop 6, L6-15).
+ */
+export async function closeEarlierPasses(tx: Tx, ctx: SchoolContext, opts: { today: Date }) {
+  const open = await tx.visitorEntry.findMany({ where: { archivedAt: null, timeOut: null, visitDate: { lt: opts.today } }, take: 500 });
+  for (const v of open) {
+    const at = v.passExpiresAt.getTime() < v.timeIn.getTime() ? v.timeIn : v.passExpiresAt;
+    await tx.visitorEntry.update({ where: { id: v.id }, data: { timeOut: at, checkedOutById: ctx.userId } });
+    await writeAudit(tx, ctx, { action: "checked-out", recordType: "Visitor Entry", recordId: v.id, before: { timeOut: null }, after: { timeOut: at.toISOString(), late: true, closedTogether: true } });
+  }
+  return open.length;
+}
+
 /** Undo a check-out within the undo window: the pass works again until its expiry. */
 export async function undoCheckOut(tx: Tx, ctx: SchoolContext, id: string) {
   const v = await tx.visitorEntry.findFirst({ where: { id, archivedAt: null } });

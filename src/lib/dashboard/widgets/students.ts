@@ -80,8 +80,10 @@ const consentAttention: Widget<"attention"> = {
     return {
       id: "students.no-consent", tone: "warn", icon: "BadgeCheck",
       // "7 of 25" (live test 17): the reader sees the rest gave consent, not "unknown".
-      title: `${n(g.without)} of ${plural(g.total, "guardian")} ${g.without === 1 ? "has" : "have"} not given data consent`,
-      detail: "Send the consent request through Parent Link from the list",
+      // It counts the DPDP data consent only. A photo consent given on Parent Link is another consent, which read
+      // as "the counts disagree" (layman loop 6, L6-67), so the title names the consent it counts.
+      title: `${n(g.without)} of ${plural(g.total, "guardian")} ${g.without === 1 ? "has" : "have"} not allowed use of their child's data`,
+      detail: "DPDP consent; photo consent is counted apart. Send the request from the list",
       action: "See list", href: `${BASE}/guardians?consent=not-given`, value: String(g.without),
     };
   },

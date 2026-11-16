@@ -86,6 +86,8 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const by = (s: string) => data.reach.filter((r) => r.status === s && !inTestMode(r)).reduce((a, r) => a + r._count._all, 0);
   const reached = data.reach.reduce((a, r) => a + r._count._all, 0);
   const delivered = by("DELIVERED") + by("READ");
+  // Sent with no channel that reports back (no app copy, no delivery report yet): "Sent", never "0 of 1 delivered" (L6-41).
+  const noReports = (m: { id: string; status: string; channels: string[] }) => m.status === "SENT" && !m.channels.includes("app") && !data.counts.get(m.id)?.delivered && !data.counts.get(m.id)?.testMode;
   const read = by("READ");
   const failed = by("FAILED");
   const retryLimit = 3;
@@ -180,7 +182,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                 { key: "title", label: "Message", render: (m) => <div className="max-w-[260px]"><p className="font-semibold leading-snug truncate">{headline(m)}</p><p className="text-[12.5px] text-ink3 flex items-center gap-1 truncate">{m.ruleKey && <Zap size={12} aria-hidden="true" />}{sender(m)}</p></div> },
                 { key: "ch", label: "Channel", render: (m) => <ChannelPills channels={m.channels} backup={m.smsBackup} /> },
                 { key: "n", label: "To", align: "right", render: (m) => m.recipientCount.toLocaleString("en-IN") },
-                { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info"><Words k="Scheduled" /></Pill> : m.status === "CANCELLED" ? <Pill tone="neutral"><Words k="Cancelled" /></Pill> : (data.counts.get(m.id)?.testMode ?? 0) > 0 && !data.counts.get(m.id)?.delivered ? <Pill tone="warn"><Words k="Test mode" /></Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
+                { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info"><Words k="Scheduled" /></Pill> : m.status === "CANCELLED" ? <Pill tone="neutral"><Words k="Cancelled" /></Pill> : (data.counts.get(m.id)?.testMode ?? 0) > 0 && !data.counts.get(m.id)?.delivered ? <Pill tone="warn"><Words k="Test mode" /></Pill> : noReports(m) ? <Pill tone="ok"><Words k="Sent" /></Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
                 { key: "read", label: "Read", align: "right", render: (m) => (m.status === "SCHEDULED" || m.status === "CANCELLED" ? "–" : (data.counts.get(m.id)?.read ?? 0).toLocaleString("en-IN")) },
                 { key: "fail", label: "Failed", align: "right", render: (m) => { const f = data.counts.get(m.id)?.failed ?? 0; return f ? <span className="text-bad font-semibold">{f}</span> : <span className="text-ink3">0</span>; } },
                 { key: "cost", label: "Credits", align: "right", render: (m) => (m.creditCost ? m.creditCost.toLocaleString("en-IN") : "Free") },
@@ -194,7 +196,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                   icon: Ic, iconTone: c?.failed ? "bad" : "ok",
                   pills: m.status === "SCHEDULED"
                     ? [<Pill key="s" tone="info" className="!h-[22px] !text-[11.5px]"><Words k="Scheduled ·" /> {m.recipientCount}</Pill>]
-                    : [c?.testMode && !c.delivered ? <Pill key="d" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Test mode · not sent" /></Pill> : <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="{n} of {n2}" vars={{ n: c?.delivered ?? 0, n2: m.recipientCount }} /> <Words k="delivered" /></Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} <Words k="failed" /></Pill> : null],
+                    : [c?.testMode && !c.delivered ? <Pill key="d" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Test mode · not sent" /></Pill> : noReports(m) ? <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="Sent" /></Pill> : <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="{n} of {n2}" vars={{ n: c?.delivered ?? 0, n2: m.recipientCount }} /> <Words k="delivered" /></Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} <Words k="failed" /></Pill> : null],
                 };
               }}
             />

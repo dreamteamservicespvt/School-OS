@@ -92,7 +92,9 @@ export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date(), 
     guardianIdsIn(tx, ctx, { campusId }),
   ]);
   const withLink = await tx.parentLink.count({ where: { schoolId: ctx.schoolId, status: "ACTIVE", guardianId: { in: all } } });
-  return { active, revoked, opened30, never, withoutLink: Math.max(0, all.length - withLink) };
+  // guardians: every guardian, the base for "opened in 30 days" (it was the active links, so 1 of 1 read as
+  // "100% of guardians" while 7 of 8 had no link; layman loop 6, L6-66).
+  return { active, revoked, opened30, never, guardians: all.length, withoutLink: Math.max(0, all.length - withLink) };
 }
 
 /**

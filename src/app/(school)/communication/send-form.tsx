@@ -142,7 +142,9 @@ export function SendForm({ data }: { data: SendFormData }) {
     "single",
     ...(data.groups.length ? (["group"] as Aud[]) : []),
   ];
-  const firstAud: Aud = data.initialPeople?.length ? "single" : data.initialGroup ? "group" : audOptions[0];
+  // Never "Whole school" on its own: a note typed for one parent went to every family (layman loop 6, L6-64).
+  // The office starts on "One person"; the whole school is a choice someone makes.
+  const firstAud: Aud = data.initialPeople?.length ? "single" : data.initialGroup ? "group" : audOptions[0] === "school" ? "single" : audOptions[0];
   const [aud, setAud] = useState<Aud>(firstAud);
   const [who, setWho] = useState<string[]>(["parents"]);
   const [classes, setClasses] = useState<string[]>([]);
@@ -191,7 +193,10 @@ export function SendForm({ data }: { data: SendFormData }) {
   const isStaff = aud === "staff";
   const parentsChosen = (["school", "classes", "sections"].includes(aud) && who.includes("parents")) || (aud === "single" && people.some((p) => p.type === "parentsOf"));
   const typeInfo = TYPES.find((t) => t.value === type)!;
-  const templatesFor = (ch: Channel) => data.templates.filter((t) => t.channel === ch && t.usable && (!typeInfo.category || t.category === typeInfo.category || t.category === "General"));
+  // "Message type" really narrows the list: General leaves out the fee, attendance and result templates,
+  // which have a type of their own (layman loop 6: the hint said so, the list stayed at 33).
+  const typeCategories = TYPES.map((x) => x.category).filter(Boolean);
+  const templatesFor = (ch: Channel) => data.templates.filter((t) => t.channel === ch && t.usable && (typeInfo.category ? t.category === typeInfo.category || t.category === "General" : !typeCategories.includes(t.category)));
   const chosen = channels.map((c) => data.templates.find((t) => t.id === tpl[c])).filter(Boolean) as Template[];
   const needsText = channels.some((c) => c !== "sms" && !tpl[c]);
   const needsTitle = channels.some((c) => (c === "app" || c === "email") && !tpl[c]);

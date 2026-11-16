@@ -450,3 +450,7 @@ Screenshots (`qa/whatsapp-cards/`):
 Credits: **1** (one Pickup request card; template submission is free).
 
 Left on the test school: GP-2026-0002 marked used (left at 1:17 PM, with a gate log line); one approved pickup request for Sri (Venkatesh, 1:19 PM), never used for a release; Pickup request v1 approved in English, Hindi and Telugu; Pickup code check off.
+
+## Deploy 16 (16 Nov)
+
+Deploy 16 (main 84e9bb28), School Admin only, 14:00 to 14:17 IST. No message sent, 0 credits. **Make 1 template ready**: offered "Pickup request", v2 has "Dear {guardian_name}, you are at the school front desk to take *{student_name}* home now. If this is you, tap the button below. If you are not at the school, please call the school at once." **Send 1 template to WhatsApp for approval** now has "3 texts, one for each language"; sent 14:02, Pending at 14:06, 2 of 3 approved at 14:11, **Approved v2 (English, Hindi, Telugu) at 14:17**, no refusal. Words checked: Front Office settings "Pickup code check" reads **"The guardian confirms before release: a tap on WhatsApp, or a code by SMS"** (left off); Sri's Parents reads **"Father · Primary contact"** (a separate "Primary contact" badge also still shows just below, so the words appear twice). Small: after Make ready, the "Approved" count dropped from 47 to 44 until v2 was approved.

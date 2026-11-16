@@ -16,7 +16,7 @@ export const PARENT_BROWSER_WORDS: readonly string[] = [
   "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
   // Messages from the school (src/components/parent-link/messages-section.tsx).
-  "Messages from the school", "Message from the school", "From {who}", "From the school", "Show older", "New",
+  "Messages from the school", "Message from the school", "From {who}", "From the school", "Show older", "New", "By {channels}",
   // Fee states (the Pay list).
   "Not due", "Due", "Overdue", "Paid",
   // src/components/parent-link/*.tsx, language-picker.tsx and attendance/month-select.tsx.

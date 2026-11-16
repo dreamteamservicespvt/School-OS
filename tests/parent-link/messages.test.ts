@@ -4,23 +4,25 @@
 // until seen, and seeing it on a confirmed phone marks it Read. Never another guardian's or
 // another school's, never on a phone not confirmed, never for opted-out parents, and never about
 // a child the guardian has a custody restriction for, alone or in one message with a brother or sister.
+// Since live test 19 it lists the school's WhatsApp, SMS and email messages too (one entry per message,
+// "By WhatsApp"), never codes or the Parent Link messages, and never marks those rows Read.
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }), headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
 import { withSchool, type SchoolContext } from "@/lib/db";
-import { sendMessage } from "@/lib/messaging/send";
+import { creditWords, sendMessage } from "@/lib/messaging/send";
 import { deliverMessage } from "@/lib/messaging/deliver";
 import { updateSettings } from "@/lib/messaging/settings";
 import { countsFor } from "@/lib/communication/history";
-import { confirmDevice, createLink, hashToken, newDeviceKey, openLink, sendCode, splitPart, tokenFor } from "@/lib/parent-link/links";
+import { confirmDevice, createLink, hashToken, newDeviceKey, openLink, sendCode, sendLinks, splitPart, tokenFor } from "@/lib/parent-link/links";
+import { makeCommSchool, templateId } from "../communication/fixture";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { messagesToShow, MESSAGES_PAGE, type ParentMessages } from "@/lib/parent-link/messages";
 import { withPart, NO_LINK_SUFFIX } from "@/lib/messaging/button-links";
 import { setRestriction } from "@/lib/students/guardians";
-import { makeCommSchool } from "../communication/fixture";
 import { takeLoggedCode, watchLoggedCodes } from "../helpers";
 
 watchLoggedCodes();
@@ -63,7 +65,7 @@ const rowsOf = (school: School, messageId: string) => withSchool(school.ctx, (tx
 beforeAll(async () => {
   s = await makeCommSchool();
   other = await makeCommSchool();
-  for (const g of [s.father, s.mother, s.teluguMother, s.optFather]) await linkAndPhone(s, g.id);
+  for (const g of [s.father, s.mother, s.teluguMother, s.optFather, s.otherFather]) await linkAndPhone(s, g.id);
   await linkAndPhone(other, other.father.id);
 }, 120_000);
 
@@ -151,6 +153,63 @@ describe("an app notice to a guardian", () => {
     expect((await rowsOf(s, r.messageId)).map((x) => x.channel)).toEqual(["whatsapp"]);
     expect(await messagesOn(s, s.father.id)).toBeNull();
     await shows(true);
+  });
+});
+
+// Live test 19 (16 Nov): a "New notice" by WhatsApp says "read the full notice on your Parent Link", so the
+// part lists every message the school sent this guardian, on any channel.
+describe("messages on WhatsApp, SMS and email", () => {
+  it("a WhatsApp-only notice shows on that guardian's Parent Link, By WhatsApp, with no link code; not on another guardian's", async () => {
+    const id = await templateId(s.ctx, "notice", "whatsapp");
+    const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { guardianIds: [s.otherFather.id] }, channels: ["whatsapp"], templates: { whatsapp: id }, title: "Diwali holidays", text: "School is closed from 20 to 24 October." }));
+    await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: r.messageId, round: "0", chunk: 0 }));
+    const [row] = await rowsOf(s, r.messageId);
+    expect(row.channel).toBe("whatsapp");
+    expect(row.text).toContain("⟦parent-link:");
+    const got = await messagesOn(s, s.otherFather.id);
+    expect(got!.rows).toHaveLength(1);
+    const m = got!.rows[0];
+    expect(m).toMatchObject({ title: "Diwali holidays", by: ["whatsapp"], isNew: false, from: "Principal" });
+    expect(m.text).toContain("Diwali holidays");
+    expect(m.text).toContain("School is closed from 20 to 24 October.");
+    expect(m.text).not.toMatch(/[⟦⟧*]/);
+    expect(JSON.stringify(await messagesOn(s, s.mother.id))).not.toContain("Diwali");
+  });
+
+  it("never marks a WhatsApp row Read: its status is the provider's", async () => {
+    const before = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { guardianId: s.otherFather.id, channel: "whatsapp" } }));
+    await messagesOn(s, s.otherFather.id);
+    const after = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { guardianId: s.otherFather.id, channel: "whatsapp" } }));
+    expect(after.map((x) => [x.status, x.readAt])).toEqual(before.map((x) => [x.status, x.readAt]));
+    expect(after.every((x) => x.status !== "READ" && x.readAt === null)).toBe(true);
+  });
+
+  it("a message on WhatsApp and the app is one entry, the app one, saying By WhatsApp", async () => {
+    await sendApp(s, { guardianIds: [s.otherFather.id] }, "App only", "Only here.");
+    const both = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { guardianIds: [s.otherFather.id] }, channels: ["app", "whatsapp"], title: "Twice", text: "One message, two channels." }));
+    await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: both.messageId, round: "0", chunk: 0 }));
+    expect((await rowsOf(s, both.messageId)).map((x) => x.channel).sort()).toEqual(["app", "whatsapp"]);
+    const got = (await messagesOn(s, s.otherFather.id))!.rows.filter((m) => m.title === "Twice");
+    expect(got).toHaveLength(1);
+    expect(got[0]).toMatchObject({ by: ["whatsapp"], isNew: true });
+  });
+
+  it("never shows one-time codes or the Parent Link messages themselves", async () => {
+    // The phone was confirmed with a one-time code (linkAndPhone); now the link itself goes on WhatsApp.
+    const sent = await withSchool(s.ctx, (tx) => sendLinks(tx, s.ctx, [{ id: links[s.otherFather.id].linkId, guardianId: s.otherFather.id }], { channel: "whatsapp", trigger: "test" }));
+    expect(sent?.messageId).toBeTruthy();
+    await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: sent!.messageId, round: "0", chunk: 0 }));
+    const types = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { guardianId: s.otherFather.id }, select: { message: { select: { messageType: true } } } }));
+    expect(types.map((t) => t.message.messageType)).toEqual(expect.arrayContaining(["one-time-code", "parent-link"]));
+    const titles = (await messagesOn(s, s.otherFather.id))!.rows.map((m) => m.title);
+    expect(titles.sort()).toEqual(["App only", "Diwali holidays", "Twice"]);
+  });
+});
+
+describe("credit words", () => {
+  it("says one credit in the singular", () => {
+    expect(creditWords({ charged: { whatsapp: 1 }, testMode: [] })).toBe("1 credit");
+    expect(creditWords({ charged: { whatsapp: 2 }, testMode: [] })).toBe("2 credits");
   });
 });
 

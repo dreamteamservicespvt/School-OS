@@ -1,12 +1,15 @@
 // "Messages from the school" on the guardian's Parent Link (src/lib/parent-link/messages.ts):
 // each app notice the school sent this guardian, newest first, with its title, a short text
-// (the whole text a tap away), the date and who sent it. "New" until this phone has shown it.
+// (the whole text a tap away), the date, how else it came ("By WhatsApp") and who sent it. "New" until this phone has shown it.
 import { MessageSquareText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import type { GuardianView } from "@/lib/parent-link/sections";
 import type { ParentMessages } from "@/lib/parent-link/messages";
 import { Pill } from "@/components/ui/badge";
 import { makeT } from "@/lib/i18n/server";
+
+/** How a message also reached the guardian, next to its date ("By WhatsApp"). */
+const CHANNEL_NAME: Record<string, string> = { whatsapp: "WhatsApp", sms: "SMS", email: "email" };
 
 export function MessagesSection({ data, view }: { data: ParentMessages; view: GuardianView }) {
   const t = makeT(view.lang);
@@ -23,7 +26,7 @@ export function MessagesSection({ data, view }: { data: ParentMessages; view: Gu
                 {m.isNew && <Pill tone="brand" dot>{t("New")}</Pill>}
               </span>
               <span className="block text-[12px] text-ink3 mt-1">
-                {formatDateTime(m.at, view.timeZone)} · {m.from ? t("From {who}", { who: t.any(m.from) }) : t("From the school")}
+                {formatDateTime(m.at, view.timeZone)}{m.by.length > 0 && <> · {t("By {channels}", { channels: m.by.map((c) => CHANNEL_NAME[c] ?? c).join(", ") })}</>} · {m.from ? t("From {who}", { who: t.any(m.from) }) : t("From the school")}
               </span>
             </span>
           );

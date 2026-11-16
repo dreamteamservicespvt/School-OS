@@ -748,7 +748,7 @@ export function SendForm({ data }: { data: SendFormData }) {
         <ul className="flex flex-col gap-2.5 text-[14px] pb-1">
           <li className="flex gap-2.5"><Users size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{live?.audienceLabel || whoLabel}{skippedTotal ? `. ${fmt(skippedTotal)} left out.` : "."}</span></li>
           <li className="flex gap-2.5"><Send size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{channels.map((c) => CH[c].label).join(", ")}{live?.backupCost ? ", with SMS backup" : ""}</span></li>
-          <li className="flex gap-2.5"><Coins size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span className="tnum">{paidTotal ? `${live?.backupCost && !live.backupTest ? "Up to " : ""}${fmt(paidTotal)} credits of ${fmt(available)}` : testWords ? "No credits: test mode" : "No credits needed"}</span></li>
+          <li className="flex gap-2.5"><Coins size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span className="tnum">{paidTotal ? `${live?.backupCost && !live.backupTest ? "Up to " : ""}${fmt(paidTotal)} ${paidTotal === 1 ? "credit" : "credits"} of ${fmt(available)}` : testWords ? "No credits: test mode" : "No credits needed"}</span></li>
           <li className="flex gap-2.5"><Clock size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{when === "now" ? "Now" : at.replace("T", ", ")}</span></li>
           {fileName && <li className="flex gap-2.5"><Paperclip size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{fileName}</span></li>}
         </ul>

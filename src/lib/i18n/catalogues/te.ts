@@ -17382,4 +17382,6 @@ export const te: Catalogue = {
   "Has no Parent Link yet, so app notices cannot reach them": "ఇంకా Parent Link లేదు, కాబట్టి యాప్ నోటీసులు వారికి చేరవు",
   "Is not reached: Parent Link is switched off": "చేరలేదు: Parent Link ఆఫ్ చేయబడింది",
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "చేరలేదు: Parent Link సందేశాలను చూపదు (Message Settings, Parent Link)",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "By {channels}": "{channels} ద్వారా కూడా",
 };

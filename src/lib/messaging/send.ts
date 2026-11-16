@@ -927,7 +927,7 @@ export function testModeWords(channels: Channel[]) {
 export function creditWords(plan: Pick<Plan, "charged" | "testMode">, channelLabel = "") {
   const n = Object.values(plan.charged).reduce((a, b) => a + (b ?? 0), 0);
   const test = testModeWords(plan.testMode);
-  if (n) return `${n.toLocaleString("en-IN")} ${channelLabel ? `${channelLabel} ` : ""}credits${test ? `; ${test}` : ""}`;
+  if (n) return `${n.toLocaleString("en-IN")} ${channelLabel ? `${channelLabel} ` : ""}${n === 1 ? "credit" : "credits"}${test ? `; ${test}` : ""}`;
   return test ? `No credits: ${test}` : "Free";
 }
 

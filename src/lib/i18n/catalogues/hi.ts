@@ -17382,4 +17382,6 @@ export const hi: Catalogue = {
   "Has no Parent Link yet, so app notices cannot reach them": "अभी Parent Link नहीं है, इसलिए ऐप सूचनाएँ उन तक नहीं पहुँच सकतीं",
   "Is not reached: Parent Link is switched off": "नहीं पहुँचा: Parent Link बंद है",
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "नहीं पहुँचा: Parent Link संदेश नहीं दिखाता (Message Settings, Parent Link)",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "By {channels}": "{channels} से भी",
 };

@@ -17940,6 +17940,8 @@ export const EN = [
   "Has no Parent Link yet, so app notices cannot reach them",
   "Is not reached: Parent Link is switched off",
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "By {channels}",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

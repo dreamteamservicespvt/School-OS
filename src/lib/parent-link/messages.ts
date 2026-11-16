@@ -56,6 +56,12 @@ export function parentText(text: string): string {
   return text.replace(LINK_CODE, "").replace(/\*([^*\n]+)\*/g, "$1").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** The closed row's short text: the message's own lines without the empty ones, so "…are ready." and
+ *  "👤 Sri Lakshmi of Class 1 A" stay two lines instead of one run-on line (live test 16 Nov). */
+export function previewText(text: string): string {
+  return text.split("\n").map((l) => l.trim()).filter(Boolean).join("\n");
+}
+
 /** The guardian's messages, newest first, marking the app rows shown as Read. Null: nothing to show. */
 export async function messagesForGuardian(tx: Tx, ctx: SchoolContext, view: GuardianView, now = new Date()): Promise<ParentMessages | null> {
   if (!view.preview && !(await confirmedPhone(tx, ctx, view, now))) return null;

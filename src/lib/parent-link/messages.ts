@@ -63,7 +63,9 @@ export async function messagesForGuardian(tx: Tx, ctx: SchoolContext, view: Guar
   const childIds = new Set(view.children.map((c) => c.id));
   // campus: one guardian's own messages, about their own children only (view.children, below).
   const all = await tx.messageRecipient.findMany({
-    where: { schoolId: ctx.schoolId, guardianId: view.guardianId, recipientType: "guardian", isBackup: false, status: { in: ["SENT", "DELIVERED", "READ"] }, message: { messageType: { notIn: NOT_SHOWN_TYPES } } },
+    where: { schoolId: ctx.schoolId, guardianId: view.guardianId, recipientType: "guardian", isBackup: false, status: { in: ["SENT", "DELIVERED", "READ"] }, message: { messageType: { notIn: NOT_SHOWN_TYPES } },
+      // Test mode only records a WhatsApp, SMS or email message (nothing went), so it is not shown as "By WhatsApp".
+      OR: [{ channel: "app" }, { provider: null }, { provider: { not: "sandbox" } }] },
     orderBy: [{ sentAt: { sort: "desc", nulls: "last" } }, { queuedAt: "desc" }],
     select: { id: true, messageId: true, channel: true, studentId: true, studentIds: true },
   });

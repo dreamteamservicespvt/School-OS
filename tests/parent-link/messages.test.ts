@@ -54,6 +54,8 @@ async function messagesOn(school: School, guardianId: string, opts: { deviceId?:
   const l = links[guardianId];
   return withSchool({ schoolId: school.school.id, userId: null }, async (tx) => {
     const ctx = { schoolId: school.school.id, userId: null };
+    // These sends went in test mode, which the page hides (nothing really went); here they stand for real ones.
+    await tx.messageRecipient.updateMany({ where: { schoolId: school.school.id, channel: { not: "app" }, provider: "sandbox" }, data: { provider: "meta-cloud" } });
     const view = await loadGuardianView(tx, ctx, { linkId: l.linkId, guardianId, token: tokenFor(l.linkId), preview: Boolean(opts.preview) });
     const sections = await loadSections(tx, ctx, { ...view!, deviceId: opts.deviceId === undefined ? l.deviceId : opts.deviceId, more: opts.more ?? 0 });
     return (sections.find((x) => x.def.key === "messages")?.data as ParentMessages | undefined) ?? null;

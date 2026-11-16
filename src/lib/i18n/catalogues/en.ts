@@ -17927,6 +17927,8 @@ export const EN = [
   "The guardian confirms before release: a tap on WhatsApp, or a code by SMS",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. The template puts it in the message (the notice title or the exam name).",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -17369,4 +17369,6 @@ export const te: Catalogue = {
   "The guardian confirms before release: a tap on WhatsApp, or a code by SMS": "విడుదలకు ముందు సంరక్షకులు నిర్ధారిస్తారు: WhatsApp లో ఒక ట్యాప్, లేదా SMS ద్వారా కోడ్",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. The template puts it in the message (the notice title or the exam name).": "శీర్షిక రాయండి. టెంప్లేట్ దాన్ని సందేశంలో చేరుస్తుంది (నోటీసు శీర్షిక లేదా పరీక్ష పేరు).",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.": "శీర్షిక రాయండి. ఈమెయిల్, యాప్ నోటీసులు దాన్ని పైభాగంలో చూపిస్తాయి, నోటీసు లేదా ఫలితాల టెంప్లేట్ దాన్ని సందేశంలో చేరుస్తుంది.",
 };

@@ -17369,4 +17369,6 @@ export const hi: Catalogue = {
   "The guardian confirms before release: a tap on WhatsApp, or a code by SMS": "छोड़ने से पहले अभिभावक पुष्टि करते हैं: WhatsApp पर एक टैप, या SMS से कोड",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Add a title. The template puts it in the message (the notice title or the exam name).": "शीर्षक लिखें। टेम्पलेट इसे संदेश में डालता है (सूचना का शीर्षक या परीक्षा का नाम)।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Add a title. Email and app notices show it at the top, and a notice or results template puts it in the message.": "शीर्षक लिखें। ईमेल और ऐप सूचनाएँ इसे सबसे ऊपर दिखाती हैं, और सूचना या परिणाम का टेम्पलेट इसे संदेश में डालता है।",
 };

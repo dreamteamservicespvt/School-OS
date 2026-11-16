@@ -103,6 +103,8 @@ describe("answers are the person's own list", () => {
     const mine = await run(teacher, "absent_students");
     expect(mine.total).toBe(2);
     expect(text(mine.facts)).not.toContain("Rohan Das");
+    // A short list says who (layman test 16 Nov 2026), in the sentence shown without the AI.
+    expect(mine.sentence).toMatch(/: (Aarav Sharma, Diya Reddy|Diya Reddy, Aarav Sharma)\.$/);
     // Another class is refused, never answered with an empty list.
     const other = await run(teacher, "absent_students", { cls: "5 B" });
     expect(other.ok).toBe(false);

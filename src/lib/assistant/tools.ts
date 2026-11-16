@@ -76,6 +76,15 @@ export function answerWords(lang: AssistantLang, style?: TeluguStyle): T {
   return mixed;
 }
 
+/** One part of a scope line ("Whole school", "01-11-2026 to 16-11-2026", "As on 16-11-2026") in the person's language. */
+function scopePart(t: T, part: string): string {
+  const range = /^(\d{2}-\d{2}-\d{4}) to (\d{2}-\d{2}-\d{4})$/.exec(part);
+  if (range) return t.any("{from} to {to}", { from: range[1], to: range[2] });
+  const asOn = /^As on (\d{2}-\d{2}-\d{4})$/.exec(part);
+  if (asOn) return t.any("As on {date}", { date: asOn[1] });
+  return t.any(part);
+}
+
 /** Lists where an empty answer is good news; a birthday today is good news too. */
 const GOOD_WHEN_EMPTY: readonly QuestionKey[] = ["absent-today", "absent-streak", "below-attendance", "not-marked", "late-staff", "staff-absent", "fees-overdue", "below-pass"];
 
@@ -113,8 +122,13 @@ function askTool(tool: ToolName, key: QuestionKey, about: string, takes: ToolDef
       const nothingYet = a.big === t("Not taken") || a.big === t("No school");
       const good = key === "birthdays" ? a.total > 0 : GOOD_WHEN_EMPTY.includes(key) && a.total === 0 && !nothingYet;
       // The scope line ("Whole school · 16-11-2026") in the conversation's language too.
-      const scope = a.scope ? a.scope.split(" · ").map((part) => t.any(part)).join(" · ") : a.scope;
-      return { tool, ok: true, sentence: a.sentence, facts: { answer: a.sentence, ...askFacts(a) }, scope, link, total: a.total, good };
+      const scope = a.scope ? a.scope.split(" · ").map((part) => scopePart(t, part)).join(" · ") : a.scope;
+      // "Which teachers are on leave today?" wants the names, not only "1 staff member" (layman test 16 Nov 2026):
+      // a short list (up to 5) says who, unless the sentence already lists something.
+      const names = a.total > 0 && a.total <= 5 && !a.sentence.includes(":") ? a.table.rows.map((r) => String(r.name ?? "").trim()).filter(Boolean) : [];
+      const end = a.sentence.search(/[.।](\s|$)/);
+      const sentence = names.length === a.total && end > 0 ? `${a.sentence.slice(0, end)}: ${names.join(", ")}${a.sentence.slice(end)}` : a.sentence;
+      return { tool, ok: true, sentence, facts: { answer: a.sentence, ...askFacts(a) }, scope, link, total: a.total, good };
     },
   };
 }
@@ -211,7 +225,7 @@ async function upcoming(c: ToolContext, args: ToolArgs): Promise<ToolResult> {
   const link = { href: "/events-calendar", label: words(c.lang, "linkCalendar") };
   return {
     tool, ok: true, facts: { ...range, entries: items.length, list, moreEntries: Math.max(0, items.length - list.length) }, scope: answerWords(c.lang, c.style).any("{from} to {to}", range), link, total: items.length,
-    sentence: items.length ? words(c.lang, "upcoming", { n: items.length, list: list.slice(0, 4).map((i) => `${i.title} (${i.from})`).join(", "), ...range }) : words(c.lang, "upcomingNone", range),
+    sentence: items.length === 1 ? words(c.lang, "upcomingOne", { list: list.slice(0, 1).map((i) => `${i.title} (${i.from})`).join(""), ...range }) : items.length ? words(c.lang, "upcoming", { n: items.length, list: list.slice(0, 4).map((i) => `${i.title} (${i.from})`).join(", "), ...range }) : words(c.lang, "upcomingNone", range),
   };
 }
 

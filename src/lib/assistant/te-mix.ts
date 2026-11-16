@@ -30,6 +30,32 @@ export const TE_MIX: Readonly<Record<string, string>> = {
   "today": "ఈరోజు",
   "yesterday": "నిన్న",
 
+  "As on {date}": "{date} నాటికి",
+
+  // The ready-made questions, shown as chips (each is understood again when tapped: tests/assistant/style.test.ts)
+  "Who was absent yesterday in {class}?": "నిన్న {class}లో absent ఎవరు?",
+  "Who was absent yesterday?": "నిన్న absent ఎవరు?",
+  "Who is absent today in {class}?": "ఈరోజు {class}లో absent ఎవరు?",
+  "Who is absent today?": "ఈరోజు absent ఎవరు?",
+  "Who has been absent several days in a row in {class}?": "{class}లో వరుసగా కొన్ని రోజులు absent ఎవరు?",
+  "Who has been absent several days in a row?": "వరుసగా కొన్ని రోజులు absent ఎవరు?",
+  "Who is below the attendance line in {class}?": "{class}లో attendance తక్కువ ఉన్నది ఎవరికి?",
+  "Who is below the attendance line?": "Attendance తక్కువ ఉన్నది ఎవరికి?",
+  "Which classes have not taken attendance today?": "ఈరోజు attendance తీసుకోని classes ఏవి?",
+  "Which staff came late {when}?": "{when} late గా వచ్చిన staff ఎవరు?",
+  "Which staff are absent {when}?": "{when} absent ఉన్న staff ఎవరు?",
+  "Which staff are on leave {when}?": "{when} leave లో ఉన్న staff ఎవరు?",
+  "How much fee was collected {when} in {class}?": "{when} {class}లో ఎంత fee collect అయ్యింది?",
+  "How much fee was collected {when}?": "{when} ఎంత fee collect అయ్యింది?",
+  "Who owes {amount} or more in {class}?": "{class}లో {amount} లేదా ఎక్కువ fees pending ఎవరికి?",
+  "Who owes {amount} or more?": "{amount} లేదా ఎక్కువ fees pending ఎవరికి?",
+  "Who has fees overdue in {class}?": "{class}లో fees pending ఎవరికి ఉంది?",
+  "Who has fees overdue?": "Fees pending ఎవరికి ఉంది?",
+  "Who is below the pass mark in {class}?": "{class}లో pass mark కంటే తక్కువ ఎవరు?",
+  "Which classes have marks below the pass mark?": "ఏ classes లో marks pass mark కంటే తక్కువ ఉన్నాయి?",
+  "Whose birthday is today?": "ఈరోజు birthday ఎవరిది?",
+  "Whose birthday is coming up this week?": "ఈ వారం birthday ఎవరిది?",
+
   // Refusals
   "Student attendance is not part of your role.": "Student attendance మీ role లో లేదు.",
   "Fee defaulters are not part of your role.": "Fee defaulters మీ role లో లేరు.",

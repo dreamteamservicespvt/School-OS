@@ -309,6 +309,8 @@ function amountIn(text: string): number | null {
     [/(?:₹|\brs\.?|\binr)\s*(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)?/, 1],
     [/(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)\b/, 1],
     [/(?:more than|above|over|atleast|at least|greater than|>)\s*(\d+(?:\.\d+)?)/, 100],
+    // Telugu and Hindi put the number first: "10000 కంటే ఎక్కువ", "10000 kante ekkuva", "10000 se zyada".
+    [/(\d+(?:\.\d+)?)\s*(?:రూపాయల|రూపాయలు|rupees|rupaayala|రూ\.?)?\s*(?:కంటే|కన్నా|kante|kanna|से|se)?\s*(?:ఎక్కువ|పైన|పైగా|ekkuva|paina|ज़्यादा|ज्यादा|अधिक|ऊपर|zyada|jyada|adhik|upar)/, 100],
   ];
   for (const [re, least] of tries) {
     const m = re.exec(t);

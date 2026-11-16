@@ -11,6 +11,7 @@ import { APPLICATION_FILTERS, applicationOrder, applicationWhere } from "@/lib/a
 import { OPEN_STAGES, STAGES } from "@/lib/admission/applications";
 import { progressOf } from "@/lib/admission/documents";
 import { feeStatus } from "@/lib/admission/fee";
+import { DATA_CONSENT, PAPER_HOW } from "@/lib/admission/consent";
 import { admissionYears, campusNames, classList, classRules, listYears, stageOn, withCampus } from "@/lib/admission/settings";
 import { applicationScope } from "@/lib/admission/access";
 import { names } from "@/lib/admission/choices";
@@ -71,6 +72,8 @@ export default async function ApplicationsPage({ searchParams }: Search) {
           payments: { select: { status: true, amountPaise: true, cancelledAt: true } },
           tests: { where: { archivedAt: null }, include: { test: { select: { startsAt: true, maxMarks: true } } } },
           interviews: { where: { cancelledAt: null }, select: { startsAt: true, outcome: true } },
+          // A data consent given on a signed paper form is marked, so a leader can check the form.
+          consents: { where: { consentType: DATA_CONSENT, withdrawnAt: null, howGiven: PAPER_HOW }, select: { id: true } },
         },
       }),
       tx.application.count({ where }),
@@ -128,7 +131,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
     return {
       key: r.id, href: `${PATH}/${r.id}`,
       cells: [
-        <div key="a" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}{r.channel === "online" && <Pill tone="info" className="ml-2 !h-5 !text-[11px] align-middle"><Words k="Online" /></Pill>}</p><p className="text-[12px] text-ink3 font-mono">{r.applicationNo}</p></div></div>,
+        <div key="a" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}{r.channel === "online" && <Pill tone="info" className="ml-2 !h-5 !text-[11px] align-middle"><Words k="Online" /></Pill>}{r.consents.length > 0 && <Pill tone="warn" className="ml-2 !h-5 !text-[11px] align-middle"><Words k="Paper consent" /></Pill>}</p><p className="text-[12px] text-ink3 font-mono">{r.applicationNo}</p></div></div>,
         <div key="c"><p className="font-medium">{cls}</p><p className="text-[12px] text-ink3">{yearLabel(r.academicYearId)}</p></div>,
         <span key="p" className="tnum text-[13.5px]">{phoneWords(r.phone)}</span>,
         <StagePill key="s" stage={r.stage} />,
@@ -143,6 +146,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
           <Pill key="s" tone={STAGE_TONE[r.stage] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{STAGES.find((x) => x.value === r.stage)?.label}</Pill>,
           p.required ? <Pill key="d" tone={p.requiredVerified >= p.required ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]"><Words k="Papers" /> {p.requiredVerified}/{p.required}</Pill> : null,
           fee && st.key === "due" ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]"><Words k="Fee not paid" /></Pill> : null,
+          r.consents.length ? <Pill key="pc" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Paper consent" /></Pill> : null,
         ],
       },
     };
@@ -192,6 +196,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
               <UrlSelect param="class" label="Class" allLabel="All classes" options={classes} className="md:w-36" />
               <UrlSelect param="docs" label="Papers" allLabel="All papers" options={[{ value: "complete", label: "Complete" }, { value: "missing", label: "Missing" }]} className="md:w-36" />
               {fee && <UrlSelect param="fee" label="Fee" allLabel="Any fee" options={[{ value: "paid", label: "Fee paid" }, { value: "unpaid", label: "Not paid" }, { value: "none", label: "Not needed" }]} className="md:w-36" />}
+              <UrlSelect param="consent" label="Consent" allLabel="Any consent" options={[{ value: "code", label: "By one-time code" }, { value: "paper", label: "On a signed paper form" }, { value: "none", label: "Not given" }]} className="md:w-44" />
               {settings.onlineOn && <UrlSelect param="channel" label="Filled" allLabel="Counter and online" options={[{ value: "counter", label: "At the counter" }, { value: "online", label: "Online" }]} className="md:w-44" />}
             </div>
           </div>

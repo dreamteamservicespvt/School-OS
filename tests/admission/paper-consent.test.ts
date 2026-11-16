@@ -1,7 +1,9 @@
 // Consent on a signed paper form at the counter (decision 23, 16 November 2026).
 // WhatsApp never delivers one-time codes to Indian (+91) numbers and SMS is off,
 // so the office records a consent form the parent signed on paper: the same
-// consent types, the parent's name as signed, and optionally a photo of the form.
+// consent types, the parent's name as signed, and a photo of the form (needed).
+// Only while no code can go: with SMS working, the code is the way (security
+// review 16-11-2026: never on the staff member's word alone).
 // - recorded like a code-confirmed consent, marked "admission-paper-form", with
 //   who recorded it, when, and the file; the history line and the audit entry are
 //   written in the same transaction;
@@ -28,6 +30,8 @@ import type { FormState } from "@/lib/forms";
 import { withSchool } from "@/lib/db";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";
 import { confirmConsentAtCounter, counterCodeCanGo, DATA_CONSENT, hasDataConsent, PAPER_HOW, PHOTO_CONSENT, recordPaperConsent, sendConsentCode } from "@/lib/admission/consent";
+import { APPLICATION_FILTERS, applicationWhere } from "@/lib/admission/list";
+import { readListParams } from "@/lib/list";
 import { paperConsentAction } from "@/app/(school)/admission-management/applications/actions";
 import { admissionSchool, applicationInput } from "./fixtures";
 
@@ -79,22 +83,58 @@ describe("consent on a signed paper form (decision 23)", () => {
     expect(audit.after).toMatchObject({ how: PAPER_HOW, recordedBy: t.counsellor.id, fileId: rows[0].paperFileId, givenBy: "Ramesh Rao" });
   });
 
-  it("works without a photo of the form, and through the counter's action", async () => {
+  it("is refused without a photo of the signed form, at the server and through the counter's action", async () => {
     const app = await newApp();
+    await expect(withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Sunita Rao", file: null }))).rejects.toThrow("Add a photo of the signed form.");
+    await expect(withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Sunita Rao", file: new File([], "empty.pdf", { type: "application/pdf" }) }))).rejects.toThrow("Add a photo of the signed form.");
     await signIn(t.counsellor.id);
     const fd = new FormData();
     fd.append("id", app.id);
     fd.append(`consent_${DATA_CONSENT}`, "on");
     fd.append("signedName", "Sunita Rao");
     const r = await paperConsentAction(START, fd);
+    expect(r).toMatchObject({ ok: false, message: "Add a photo of the signed form." });
+    expect(await withSchool(counsellor.ctx, (tx) => tx.admissionConsent.count({ where: { applicationId: app.id } }))).toBe(0);
+  });
+
+  it("is recorded with the photo through the counter's action while no code can go", async () => {
+    const app = await newApp();
+    await signIn(t.counsellor.id);
+    const fd = new FormData();
+    fd.append("id", app.id);
+    fd.append(`consent_${DATA_CONSENT}`, "on");
+    fd.append("signedName", "Sunita Rao");
+    fd.append("file", pdf("signed.pdf"));
+    const r = await paperConsentAction(START, fd);
     expect(r).toMatchObject({ ok: true });
     const row = await withSchool(counsellor.ctx, (tx) => tx.admissionConsent.findFirstOrThrow({ where: { applicationId: app.id } }));
-    expect(row).toMatchObject({ consentType: DATA_CONSENT, howGiven: PAPER_HOW, givenByName: "Sunita Rao", recordedById: t.counsellor.id, paperFileId: null });
+    expect(row).toMatchObject({ consentType: DATA_CONSENT, howGiven: PAPER_HOW, givenByName: "Sunita Rao", recordedById: t.counsellor.id });
+    expect(row.paperFileId).toBeTruthy();
+  });
+
+  it("is refused while SMS can carry the code: the code is the way then", async () => {
+    const app = await newApp();
+    const sys = { schoolId: t.school.id, userId: null };
+    await withSchool(sys, (tx) => tx.messagingChannel.create({ data: { schoolId: t.school.id, channel: "sms", provider: "msg91", isOn: true, environment: "live" } }));
+    try {
+      expect(await withSchool(counsellor.ctx, (tx) => counterCodeCanGo(tx, counsellor.ctx))).toBe(true);
+      await expect(withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Ramesh Rao", file: pdf("form.pdf") }))).rejects.toThrow(/one-time code/);
+      expect(await withSchool(counsellor.ctx, (tx) => tx.admissionConsent.count({ where: { applicationId: app.id } }))).toBe(0);
+    } finally {
+      await withSchool(sys, (tx) => tx.messagingChannel.updateMany({ where: { channel: "sms" }, data: { isOn: false } }));
+    }
+    // SMS in Test mode reaches no phone: the paper form is the way again.
+    await withSchool(sys, (tx) => tx.messagingChannel.updateMany({ where: { channel: "sms" }, data: { isOn: true, environment: "test" } }));
+    try {
+      expect(await withSchool(counsellor.ctx, (tx) => counterCodeCanGo(tx, counsellor.ctx))).toBe(false);
+    } finally {
+      await withSchool(sys, (tx) => tx.messagingChannel.updateMany({ where: { channel: "sms" }, data: { isOn: false } }));
+    }
   });
 
   it("needs the data consent and the parent's name, and is not recorded twice", async () => {
     const app = await newApp();
-    const rec = (types: string[], signedName = "Ramesh Rao") => withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types, signedName, file: null }));
+    const rec = (types: string[], signedName = "Ramesh Rao") => withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types, signedName, file: pdf("form.pdf") }));
     await expect(rec([PHOTO_CONSENT])).rejects.toThrow(/Data consent is needed/);
     await expect(rec([DATA_CONSENT], " R ")).rejects.toThrow(/name as signed/);
     await rec([DATA_CONSENT]);
@@ -105,7 +145,7 @@ describe("consent on a signed paper form (decision 23)", () => {
 
   it("is refused for a role that may not confirm consent at the counter", async () => {
     const app = await newApp();
-    const rec = (w: Who) => withSchool(w.ctx, (tx) => recordPaperConsent(tx, w.ctx, w.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Ramesh Rao", file: null }));
+    const rec = (w: Who) => withSchool(w.ctx, (tx) => recordPaperConsent(tx, w.ctx, w.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Ramesh Rao", file: pdf("form.pdf") }));
     await expect(rec(vp)).rejects.toThrow();
     await expect(rec(frontdesk)).rejects.toThrow(/Only the admission team/);
     // A Teacher has no Admission Management at all: the action refuses before any work.
@@ -114,6 +154,7 @@ describe("consent on a signed paper form (decision 23)", () => {
     fd.append("id", app.id);
     fd.append(`consent_${DATA_CONSENT}`, "on");
     fd.append("signedName", "Ramesh Rao");
+    fd.append("file", pdf("form.pdf"));
     const r = await paperConsentAction(START, fd).catch((e: Error) => ({ ok: false, message: e.message }));
     expect(r?.ok).toBe(false);
     expect(await withSchool(counsellor.ctx, (tx) => tx.admissionConsent.count({ where: { applicationId: app.id } }))).toBe(0);
@@ -121,12 +162,24 @@ describe("consent on a signed paper form (decision 23)", () => {
 
   it("another school can neither record it on this school's application nor see it", async () => {
     const app = await newApp();
-    await expect(withSchool(otherCounsellor.ctx, (tx) => recordPaperConsent(tx, otherCounsellor.ctx, otherCounsellor.v, "Other", app.id, { types: [DATA_CONSENT], signedName: "Intruder", file: null }))).rejects.toThrow(/not found/i);
+    await expect(withSchool(otherCounsellor.ctx, (tx) => recordPaperConsent(tx, otherCounsellor.ctx, otherCounsellor.v, "Other", app.id, { types: [DATA_CONSENT], signedName: "Intruder", file: pdf("x.pdf") }))).rejects.toThrow(/not found/i);
     await withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", app.id, { types: [DATA_CONSENT], signedName: "Ramesh Rao", file: pdf("form.pdf") }));
     const mine = await withSchool(counsellor.ctx, (tx) => tx.admissionConsent.findFirstOrThrow({ where: { applicationId: app.id } }));
     expect(await withSchool(otherCounsellor.ctx, (tx) => tx.admissionConsent.count({ where: { applicationId: app.id } }))).toBe(0);
     expect(await withSchool(otherCounsellor.ctx, (tx) => tx.storedFile.count({ where: { id: mine.paperFileId! } }))).toBe(0);
     expect(await withSchool(otherCounsellor.ctx, (tx) => tx.applicationActivity.count({ where: { applicationId: app.id } }))).toBe(0);
+  });
+
+  it("is marked in the applications list, so a leader can find and check them", async () => {
+    const paper = await newApp();
+    await withSchool(counsellor.ctx, (tx) => recordPaperConsent(tx, counsellor.ctx, counsellor.v, "S", paper.id, { types: [DATA_CONSENT], signedName: "Ramesh Rao", file: pdf("form.pdf") }));
+    const none = await newApp();
+    const params = (consent: string) => readListParams({ consent, year: "all" }, APPLICATION_FILTERS);
+    const ids = async (consent: string) => (await withSchool(counsellor.ctx, (tx) => tx.application.findMany({ where: applicationWhere(params(consent), { yearId: [t.nextYearId] }), select: { id: true } }))).map((a) => a.id);
+    expect(await ids("paper")).toContain(paper.id);
+    expect(await ids("paper")).not.toContain(none.id);
+    expect(await ids("none")).toContain(none.id);
+    expect(await ids("none")).not.toContain(paper.id);
   });
 
   it("is the way while no code can reach the parent's phone (no SMS in the test school)", async () => {

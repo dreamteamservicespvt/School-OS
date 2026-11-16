@@ -237,13 +237,17 @@ async function staffNameOf(tx: Tx, userId: string | null) {
 }
 
 /**
- * At the counter, when no code can go (decision 23): the parent signed a paper consent
- * form. The office ticks what the parent agreed to, types the name as signed and may add
- * a photo or scan of the form. Recorded like a code-confirmed consent, marked paper form.
+ * At the counter, only while no code can go (decision 23): the parent signed a paper
+ * consent form. The office ticks what the parent agreed to, types the name as signed and
+ * adds a photo or scan of the form (needed, so a leader can check it; security review
+ * 16-11-2026: never on the staff member's word alone). Recorded like a code-confirmed
+ * consent, marked paper form. When SMS can carry the code, the code is the way.
  */
 export async function recordPaperConsent(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, applicationId: string, input: { types: string[]; signedName: string; file: File | null }) {
   requireFull(v, "consent");
   const app = await loadApplication(tx, applicationId, v);
+  if (await counterCodeCanGo(tx, ctx)) throw new AdmissionProblem("SMS can send the code now, so the parent confirms consent with the one-time code. Tap Send code.");
+  if (!input.file || input.file.size === 0) throw new AdmissionProblem("Add a photo of the signed form.", "file");
   if (!input.types.includes(DATA_CONSENT)) throw new AdmissionProblem("Data consent is needed for the admission. Tick it once the parent has signed for it.", `consent_${DATA_CONSENT}`);
   if (input.signedName.trim().length < 2) throw new AdmissionProblem("Type the parent's name as signed on the form.", "signedName");
   const texts = await admissionConsentTexts(tx, schoolName);
@@ -252,11 +256,8 @@ export async function recordPaperConsent(tx: Tx, ctx: SchoolContext, v: Viewer, 
   if (!todo.length) throw new AdmissionProblem("These consents are already given on this application.");
   // Data consent already stands: the rest are added without it.
   const types = todo.includes(DATA_CONSENT) ? todo : [DATA_CONSENT, ...todo];
-  let fileId: string | null = null;
-  if (input.file) {
-    if (input.file.size > MAX_PAPER_BYTES) throw new FileProblem(`This file is ${(input.file.size / 1024 / 1024).toFixed(1)} MB. The photo of the form can be at most 5 MB. Take a smaller photo or scan at a lower size.`);
-    fileId = (await saveFile(tx, ctx, { file: input.file, purpose: "admission-consent-form", allowed: DOCUMENT_TYPES, maxImageWidth: 2000 })).id;
-  }
+  if (input.file.size > MAX_PAPER_BYTES) throw new FileProblem(`This file is ${(input.file.size / 1024 / 1024).toFixed(1)} MB. The photo of the form can be at most 5 MB. Take a smaller photo or scan at a lower size.`);
+  const fileId = (await saveFile(tx, ctx, { file: input.file, purpose: "admission-consent-form", allowed: DOCUMENT_TYPES, maxImageWidth: 2000 })).id;
   return recordConsents(tx, ctx, app, { types, givenByName: input.signedName, howGiven: PAPER_HOW, texts, verifiedAt: new Date(), paper: { recordedById: ctx.userId, recordedByName: await staffNameOf(tx, ctx.userId), fileId } });
 }
 

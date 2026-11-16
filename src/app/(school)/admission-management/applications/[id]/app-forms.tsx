@@ -139,21 +139,19 @@ function ConsentTicks({ texts, f }: { texts: ConsentText[]; f: FormHelpers }) {
 }
 
 /**
- * Consent at the counter: a one-time code to the parent's phone, or a consent form the
- * parent signed on paper. While no code can reach the phone (codeCanGo false: no SMS,
- * WhatsApp never carries codes to +91 numbers), the paper form comes first.
+ * Consent at the counter: a one-time code to the parent's phone, or, only while no code
+ * can reach it (codeCanGo false: no SMS, WhatsApp never carries codes to +91 numbers), a
+ * consent form the parent signed on paper, with a photo of it. The server checks both again.
  */
 export function ConsentButtons({ id, phone, texts, parent, codeCanGo }: { id: string; phone: string; texts: ConsentText[]; parent: string; codeCanGo: boolean }) {
   const [open, setOpen] = useState<null | "code" | "paper">(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const close = () => { setOpen(null); setFileName(null); };
-  const paperButton = <Button key="paper" size="sm" variant={codeCanGo ? "ghost" : "primary"} icon={FileSignature} onClick={() => setOpen("paper")}><Words k="Parent signed a paper consent form" /></Button>;
   return (
     <div className="flex flex-wrap gap-2">
-      {!codeCanGo && paperButton}
+      {!codeCanGo && <Button size="sm" variant="primary" icon={FileSignature} onClick={() => setOpen("paper")}><Words k="Parent signed a paper consent form" /></Button>}
       <ActionButton action={sendCodeAction} hidden={{ id }} icon={Send} variant={codeCanGo ? "soft" : "ghost"} busyLabel="Sending…"><Words k="Send code to" /> {phone}</ActionButton>
       <Button size="sm" variant={codeCanGo ? "primary" : "ghost"} icon={ShieldCheck} onClick={() => setOpen("code")}><Words k="Enter code" /></Button>
-      {codeCanGo && paperButton}
       <FormSheet open={open === "code"} onClose={close} wide title="Consent on the application" sub="Tick only what the guardian agrees to." action={confirmConsentAction} hidden={{ id }} submitLabel="Record consent" submitIcon={ShieldCheck}>
         {(f) => (
           <>
@@ -163,12 +161,12 @@ export function ConsentButtons({ id, phone, texts, parent, codeCanGo }: { id: st
           </>
         )}
       </FormSheet>
-      <FormSheet open={open === "paper"} onClose={close} wide title="Consent on a signed paper form" sub="Tick only what the parent signed for on the form." action={paperConsentAction} hidden={{ id }} submitLabel="Record consent" busyLabel="Saving…" submitIcon={FileSignature}>
+      {!codeCanGo && <FormSheet open={open === "paper"} onClose={close} wide title="Consent on a signed paper form" sub="Tick only what the parent signed for on the form." action={paperConsentAction} hidden={{ id }} submitLabel="Record consent" busyLabel="Saving…" submitIcon={FileSignature}>
         {(f) => (
           <>
             <ConsentTicks texts={texts} f={f} />
             <TextField label="Parent's name as signed" name="signedName" required maxLength={120} defaultValue={f.val("signedName", parent)} error={f.err("signedName")} />
-            <FieldShell label="Photo of the signed form" id="paper-consent-file" error={f.err("file")} help="Optional. PDF, JPG or PNG, up to 5 MB. Keep the paper form in the file too.">
+            <FieldShell label="Photo of the signed form" id="paper-consent-file" required error={f.err("file")} help="PDF, JPG or PNG, up to 5 MB. Keep the paper form in the file too.">
               <div className="grid grid-cols-2 gap-2">
                 <label className={cx(inputCls(f.err("file")), "h-11 flex items-center justify-center gap-2 font-semibold cursor-pointer")}>
                   <Camera size={17} aria-hidden="true" /><Words k="Take photo" />
@@ -183,7 +181,7 @@ export function ConsentButtons({ id, phone, texts, parent, codeCanGo }: { id: st
             </FieldShell>
           </>
         )}
-      </FormSheet>
+      </FormSheet>}
     </div>
   );
 }

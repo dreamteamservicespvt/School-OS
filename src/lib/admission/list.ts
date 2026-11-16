@@ -10,6 +10,7 @@ import { CLOSED_STATUSES } from "./settings";
 import { STAGES } from "./applications";
 import { instantToLocal, zonedToInstant } from "./act";
 import { momentWhere, type DayRange } from "../periods";
+import { CONSENT_STANDS, DATA_CONSENT, PAPER_HOW } from "./consent";
 
 // "campus": a campus chosen on the Dashboard (the pages narrow the person to it); kept so the lists' links keep it.
 export const ENQUIRY_FILTERS = ["quick", "source", "status", "class", "owner", "campaign", "year", "view", "period", "from", "to", "campus"] as const;
@@ -71,7 +72,7 @@ export function enquiryOrder(params: ListParams) {
   }, [{ nextFollowUpAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }]) as Prisma.EnquiryOrderByWithRelationInput | Prisma.EnquiryOrderByWithRelationInput[];
 }
 
-export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "period", "from", "to", "campus"] as const;
+export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "consent", "period", "from", "to", "campus"] as const;
 
 /** campusId: the campus the person is limited to (Viewer.campusId); none for the whole school. */
 export function applicationWhere(params: ListParams, opts: { yearId: string | string[]; range?: DayRange | null; timeZone?: string; campusId?: string | null }): Prisma.ApplicationWhereInput {
@@ -95,6 +96,10 @@ export function applicationWhere(params: ListParams, opts: { yearId: string | st
   if (f.fee === "paid") and.push({ feeDuePaise: { gt: 0 }, payments: { some: { status: "CONFIRMED", cancelledAt: null } } });
   if (f.fee === "unpaid") and.push({ feeDuePaise: { gt: 0 }, payments: { none: { status: "CONFIRMED", cancelledAt: null } } });
   if (f.fee === "none") and.push({ feeDuePaise: null });
+  // Consent given on a signed paper form (decision 23): leaders open these to check the photo of the form.
+  if (f.consent === "paper") and.push({ consents: { some: { consentType: DATA_CONSENT, withdrawnAt: null, howGiven: PAPER_HOW } } });
+  if (f.consent === "code") and.push({ consents: { some: { consentType: DATA_CONSENT, withdrawnAt: null, otpVerifiedAt: { not: null } } } });
+  if (f.consent === "none") and.push({ consents: { none: { consentType: DATA_CONSENT, ...CONSENT_STANDS } } });
   const stage = STAGES.some((s) => s.value === f.stage) ? (f.stage as ApplicationStage) : undefined;
   return {
     AND: and,

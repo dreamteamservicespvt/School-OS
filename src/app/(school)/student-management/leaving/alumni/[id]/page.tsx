@@ -14,6 +14,7 @@ import { campusAllows } from "@/lib/campus";
 import { addDonationAction, saveAlumniAction } from "../../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Alumni record") };
@@ -42,6 +43,7 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
   return (
     <>
       <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" sub={me?.fullName} />
+      <RecordTitle name={me?.fullName} />
       <PageHeader title={me?.fullName ?? "Alumni record"} sub={<><Words k="Batch" /> {a.graduationYear}{me?.admissionNo ? <> · <span className="font-mono">{me.admissionNo}</span></> : null}{a.career ? ` · ${a.career}` : ""}</>} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/students/${a.studentId}`} icon={UserRound}><Words k="Student Profile" /></ButtonLink>
       </PageHeader>

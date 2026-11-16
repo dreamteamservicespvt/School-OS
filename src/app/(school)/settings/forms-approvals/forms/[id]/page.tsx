@@ -16,6 +16,7 @@ import { FieldEditor } from "../../field-editor";
 import { ArchiveFormButton, FormDetailsForm, MoveButtons, PublishButton, RemoveFormFieldButton } from "../../list-actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Form builder") };
@@ -36,6 +37,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
   return (
     <>
       <Link href="/settings/forms-approvals?tab=forms" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k="← Custom forms" /></Link>
+      <RecordTitle name={form.name} />
       <PageHeader title={form.name} href={`/settings/forms-approvals/forms/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={published ? "success" : "warning"}>{published ? `Published, version ${form.version}` : "Draft"}</Badge>

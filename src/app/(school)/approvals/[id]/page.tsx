@@ -22,6 +22,7 @@ import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
 import { shownReason } from "@/lib/fees/reason-words";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Request") };
@@ -88,6 +89,7 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
   return (
     // A long title with no spaces wraps instead of running off the screen (QA LC16).
     <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
+      <RecordTitle name={a.summary} />
       <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
         crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline"><Words k="Approvals" /></Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>

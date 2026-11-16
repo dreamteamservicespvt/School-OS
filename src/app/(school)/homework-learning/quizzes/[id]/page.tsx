@@ -13,6 +13,7 @@ import { startQuizAction } from "../actions";
 import { TakeQuiz } from "../sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Quiz") };
@@ -39,7 +40,7 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
   });
   if (!st) notFound();
   const z = st.quiz;
-  const back = <BackLink href={`${BASE}/quizzes`} label="Quizzes" sub={z.title} />;
+  const back = <><RecordTitle name={z.title} /><BackLink href={`${BASE}/quizzes`} label="Quizzes" sub={z.title} /></>;
   const left = z.attemptsAllowed - st.done.length;
 
   if (st.running) {

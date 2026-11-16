@@ -18,6 +18,7 @@ import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../../_li
 import { ArchiveSheet, CardMenu, EditSheet, ResendSheet } from "../../sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 
 export async function generateMetadata() {
@@ -69,6 +70,7 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
 
   return (
     <div>
+      <RecordTitle name={h.title} />
       <BackLink href={BASE} label="Homework" sub={`${data.subject} · ${data.sectionLabel}`} />
       <Stack>
         <Card className="p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4">

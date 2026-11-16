@@ -21,6 +21,7 @@ import { replyAction } from "../../actions";
 import { BASE, UUID } from "../../_lib/page";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Visitor for you") };
@@ -51,6 +52,7 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
   const open = status !== "Out";
   return (
     <div className="max-w-[640px]">
+      <RecordTitle name={v.name} />
       {can.desk || !isMe ? <BackLink href={`${BASE}/visitors`} label="Visitors" /> : <BackLink href="/dashboard" label="Dashboard" />}
       <h1 className="text-[26px] font-semibold tracking-[-0.01em] text-ink">{isMe ? "A visitor is here for you" : `Visitor for ${staff?.fullName ?? "staff"}`}</h1>
       <p className="text-[14.5px] text-ink2 mt-1 mb-5">{isMe ? "Tell the front desk what to do. They see your answer straight away." : "The person being visited answers from this page."}</p>

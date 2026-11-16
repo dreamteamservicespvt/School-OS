@@ -19,6 +19,7 @@ import { BASE, origin, certificatesPage } from "../../_lib/page";
 import { cancelCertificateAction, decideCertificateAction, issueCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Certificate") };
@@ -57,6 +58,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
   return (
     <>
       <BackLink href={`${BASE}/certificates`} label="Certificates & ID Cards" sub={student.fullName} />
+      <RecordTitle name={student.fullName} />
       <PageHeader title={label} sub={<>{student.fullName} · <span className="font-mono">{cert.number ?? "number given when approved"}</span></>} href={`${BASE}/certificates/${id}`} userId={current.user.id}>
         {printable && <ButtonLink href={pdf} target="_blank" variant="primary" prefetch={false} icon={Printer}>{cert.status === "ISSUED" ? "Print / download PDF" : "View PDF"}</ButtonLink>}
       </PageHeader>

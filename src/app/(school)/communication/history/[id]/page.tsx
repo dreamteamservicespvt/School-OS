@@ -30,6 +30,7 @@ import { ChannelPills } from "../../_components/channel-pills";
 import { MessageActions, RefreshWhileGoing } from "./message-actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Message") };
@@ -127,6 +128,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
   return (
     <>
       <BackLink href="/communication/history" label="Message History" sub={formatDateTime(m.createdAt, tz)} />
+      <RecordTitle name={m.title ?? m.trigger} />
       <RecordHead title={m.title ?? m.trigger ?? "Message"}
         sub={<>{formatDateTime(m.sentAt ?? m.scheduledAt ?? m.createdAt, tz)} · {m.ruleKey ? "Automatic rule" : "Sent by"} {senderName} <ChannelPills channels={m.channels} backup={m.smsBackup} /></>}
         actions={access.canChange && !isCode ? (

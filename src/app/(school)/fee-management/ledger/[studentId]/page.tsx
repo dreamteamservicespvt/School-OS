@@ -41,6 +41,7 @@ import { FeeTimelineLine } from "./timeline";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Student Fee Ledger") };
@@ -171,6 +172,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
   return (
     <div>
+      <RecordTitle name={card.name} />
       <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Nothing here is ever deleted."
         actions={<>
           {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex"><Words k="Fee invoice" /></ButtonLink>}

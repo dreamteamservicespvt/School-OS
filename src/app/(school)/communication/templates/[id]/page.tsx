@@ -23,6 +23,7 @@ import { isOwnReadyText, newReadyWords } from "@/lib/communication/whatsapp-read
 import { WhatsappCardPreview } from "../card-preview";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Message template") };
@@ -94,6 +95,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   return (
     <>
       <BackLink href="/communication/templates" label="Message Templates" sub={`Version ${maxVersion}`} />
+      <RecordTitle name={t.name} />
       <RecordHead title={t.name}
         sub={<>
           <Pill tone="neutral">{categoryLabel(t.category)}</Pill>

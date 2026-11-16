@@ -19,6 +19,7 @@ import { QueryComposer, QueryHeadActions, QuerySide } from "./query-panel";
 import { ownerOptions } from "../owners";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Query") };
@@ -79,6 +80,7 @@ export default async function QueryPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <BackLink href="/communication/queries" label="Feedback & Queries" sub={q.number} />
+      <RecordTitle name={`${topic ? `${topic}: ` : ""}${type.toLowerCase()} from ${q.fromName}`} />
       <RecordHead title={`${topic ? `${topic}: ` : ""}${type.toLowerCase()} from ${q.fromName}`}
         sub={<>
           <Pill tone={STATUS_TONE[q.status]} dot>{QUERY_STATUS_LABEL[q.status]}</Pill>

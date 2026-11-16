@@ -18,6 +18,7 @@ import { BASE, studentPage } from "../../_lib/page";
 import { archiveIncidentAction, closeIncidentAction } from "../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Behaviour record") };
@@ -44,6 +45,7 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <BackLink href={`${BASE}/behaviour`} label="Behaviour & Counselling" sub={data.students.length === 1 ? data.students[0].fullName : `${data.students.length} students`} />
+      <RecordTitle name={data.students.map((s) => s.fullName).join(", ")} />
       <PageHeader title={typeLabel} sub={`${formatDate(inc.date, tz)} · ${data.students.map((s) => s.fullName).join(", ")}`} href={path} userId={current.user.id}>
         <div className="flex flex-wrap gap-2">
           {settings.counsellingOn && can.contribute && !inc.archivedAt && !isPositive(inc.kind) && data.students.length === 1 && (

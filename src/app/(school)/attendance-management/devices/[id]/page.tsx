@@ -27,6 +27,7 @@ import { DeviceForm, MapUserForm, RegenerateKey } from "../../_components/device
 import { autoMatchAction, deviceStateAction, mapUserAction, regenerateKeyAction, reprocessAction, unmapUserAction, updateDeviceAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Attendance device") };
@@ -93,6 +94,7 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
 
   return (
     <>
+      <RecordTitle name={d.name} />
       <AttHead access={access} features={features} userId={current.user.id} href={path} sub={`${d.name} · ${typeLabel} · ${d.location ?? "No location"} · ${d.serialNo}`}
         actions={<ButtonLink href={`${BASE}/devices`} variant="ghost" icon={ArrowLeft}><Words k="All devices" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">

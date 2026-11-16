@@ -23,6 +23,7 @@ import { archiveRouteAction, archiveStopAction, copyEveningAction, moveStopActio
 import { BASE, UUID, addQ, one, trGuard, type SearchParams } from "../../_lib/page";
 import { crewOptions } from "../../_lib/options";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Route") };
@@ -68,6 +69,7 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
 
   return (
     <div>
+      <RecordTitle name={`Route ${r.number} · ${r.name}`} />
       <TrHead page="routes" href={HREF} sub={`Route ${r.number} · ${r.name}`} />
       <Link href={`${BASE}/routes`} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg">
         <ArrowLeft size={17} aria-hidden="true" />Routes &amp; Stops<span className="text-ink3 font-normal">/ Route {r.number}</span>

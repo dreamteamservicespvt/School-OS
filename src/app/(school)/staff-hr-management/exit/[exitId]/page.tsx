@@ -18,6 +18,7 @@ import { AddHandoverForm, CancelExitForm, ClearanceForm, CompleteExitButton, Han
 import { addHandoverAction, cancelExitAction, clearanceAction, completeExitAction, handOverAction, settlementAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Staff Exit") };
@@ -54,6 +55,7 @@ export default async function ExitPage({ params }: Props) {
   return (
     <>
       <BackLink href={`${BASE}/exit`} label="Staff Exit" />
+      <RecordTitle name={staff.fullName} />
       <PageHeader title={`${exitTypeLabel(exit.type)}: ${staff.fullName}`} href={`${BASE}/exit/${exit.id}`} userId={current.user.id} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Badge tone={EXIT_STATUS[exit.status].tone}>{EXIT_STATUS[exit.status].label}</Badge>

@@ -20,6 +20,7 @@ import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { evCampus, evSees, evYears } from "@/lib/events/campus";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Album") };
@@ -99,6 +100,7 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
 
   return (
     <div>
+      <RecordTitle name={a.name} />
       <Link href={`${BASE}/gallery`} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Gallery" /> <span className="text-ink3 font-normal">/ {a.number}</span></Link>
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
         <div className="min-w-0">

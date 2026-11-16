@@ -18,6 +18,7 @@ import { BASE, feeGuard } from "../../_lib/page";
 import { CollectForm, type DueRow } from "./collect-form";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 /** "Transport · Apr 2026" under the head "Transport" reads "Apr 2026": the head is shown once (layman loop 3). */
 function withoutHead(label: string, head: string) {
@@ -84,6 +85,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
   const first = card.name.split(" ")[0];
   return (
     <div>
+      <RecordTitle name={card.name} />
       <div className="flex items-center justify-between gap-3 mb-4">
         <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Collect fee" /></Link>
         <span className="text-[13px] text-ink3 hidden md:inline"><Words k="Collecting as" /> {p.current.user.displayName}</span>

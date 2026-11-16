@@ -19,6 +19,7 @@ import { STATUS_LABEL, STATUS_TONE } from "../status";
 import { SurveyButtons } from "./survey-buttons";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Survey") };
@@ -59,6 +60,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
   return (
     <>
       <BackLink href="/communication/surveys" label="Surveys" sub={survey.number} />
+      <RecordTitle name={survey.title} />
       <RecordHead
         title={<span className="inline-flex items-center gap-2.5 flex-wrap">{survey.title}<Pill tone={STATUS_TONE[status]} dot>{STATUS_LABEL[status]}</Pill></span>}
         sub={<span className="text-[14px] text-ink3">{sub}</span>}

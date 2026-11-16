@@ -19,6 +19,7 @@ import { CategoriesButton, PublishSheet, RestoreButton } from "../datesheet-ui";
 import { DetailMenu } from "./detail-menu";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Datesheet") };
@@ -95,6 +96,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
 
   return (
     <div>
+      <RecordTitle name={title} />
       <Link href={list} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg">
         <ArrowLeft size={17} aria-hidden="true" /><Words k="Datesheet" /> <span className="text-ink3 font-normal">/ {title}</span>
       </Link>

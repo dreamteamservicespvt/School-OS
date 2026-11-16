@@ -18,6 +18,7 @@ import { schoolRole } from "@/lib/school-roles";
 import { sensitiveChoices, sensitiveLabel } from "@/lib/sensitive";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Role") };
@@ -55,6 +56,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <Link href="/settings/users/roles" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k="← Roles" /></Link>
+      <RecordTitle name={role.name} />
       <PageHeader title={role.name} href={`/settings/users/roles/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="brand">{KIND[role.kind]}</Badge>

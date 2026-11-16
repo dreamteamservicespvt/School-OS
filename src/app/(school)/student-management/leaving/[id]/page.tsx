@@ -21,6 +21,7 @@ import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshCle
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Leaving") };
@@ -59,6 +60,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
   return (
     <>
       <BackLink href={`${BASE}/leaving`} label="Leaving & Alumni" sub={student.name} />
+      <RecordTitle name={student.name} />
       <PageHeader title={`${student.name} is ${open ? "leaving" : req.status === "LEFT" ? "left" : "not leaving (cancelled)"}`} href={`${BASE}/leaving/${id}`} userId={current.user.id}
         sub={`${LEAVING_TYPE_LABEL[req.type]} · ${req.reason} · last day ${formatDate(req.lastDate, tz)}${req.destinationSchool ? ` · to ${req.destinationSchool}` : ""}`}>
         <ButtonLink href={`${BASE}/students/${req.studentId}`} icon={UserRound}><Words k="Student Profile" /></ButtonLink>

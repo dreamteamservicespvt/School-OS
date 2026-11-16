@@ -15,6 +15,7 @@ import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { addSessionAction, saveCaseAction } from "../../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Counselling case") };
@@ -43,6 +44,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <BackLink href={`${BASE}/behaviour/counselling`} label="Counselling" sub={data.student?.fullName} />
+      <RecordTitle name={data.student?.fullName} />
       <PageHeader title={`Counselling: ${data.student?.fullName ?? ""}`} sub={`Opened ${formatDate(c.openedOn, tz)} · ${c.status === "OPEN" ? "open" : "closed"}${c.nextSessionOn ? ` · next session ${formatDate(c.nextSessionOn, tz)}` : ""}`} href={path} userId={current.user.id} />
       <Split side={380}>
         <Col>

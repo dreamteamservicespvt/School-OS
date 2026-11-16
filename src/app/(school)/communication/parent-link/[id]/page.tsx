@@ -20,6 +20,7 @@ import { LinkPanel } from "./link-panel";
 import { Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Parent Link") };
@@ -80,6 +81,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <BackLink href="/communication/parent-link" label="Parent Link" sub={active ? "Active" : "Revoked"} />
+      <RecordTitle name={guardian.name} />
       <RecordHead title={guardian.name}
         sub={<>
           <Pill tone={active ? "ok" : "bad"} dot>{active ? "Active" : "Revoked"}</Pill>

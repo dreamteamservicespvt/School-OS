@@ -50,7 +50,14 @@ describe("Search box people search", () => {
     const u = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["principal"] }] });
     who.current = await currentFor(f.school.id, u.id);
     let last = 0;
-    for (let i = 0; i < 121; i++) last = (await search.GET(new Request("http://localhost/api/v1/search?q=a"))).status;
+    // The limit counts per clock minute: pin the clock to a minute's start, or a slow run that
+    // crosses into the next minute starts the count again (seen 16 Nov under a 4-way full suite).
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-16T10:00:00.000Z") });
+    try {
+      for (let i = 0; i < 121; i++) last = (await search.GET(new Request("http://localhost/api/v1/search?q=a"))).status;
+    } finally {
+      vi.useRealTimers();
+    }
     expect(last).toBe(429);
   }, 60_000);
 });

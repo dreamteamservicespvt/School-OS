@@ -12,6 +12,7 @@ import { formatRupees } from "./format";
 import { approvalOffCampus, approvalsOnCampus } from "./approval-campus";
 import { missingRecordWords } from "./approval-records";
 import { word } from "./notification-words";
+import type { ModuleKey } from "./modules";
 
 export const REQUEST_TYPES = [
   { key: "student-leave", label: "Student leave" },
@@ -48,6 +49,21 @@ export const REQUEST_TYPES = [
 
 export type RequestType = (typeof REQUEST_TYPES)[number]["key"];
 export const requestLabel = (key: string) => REQUEST_TYPES.find((t) => t.key === key)?.label ?? key;
+
+/** Kinds that belong to a module a school can switch off (Transport, Hostel, Library, Inventory). */
+const REQUEST_MODULE: Partial<Record<RequestType, ModuleKey>> = {
+  "transport-change": "transport-management",
+  outing: "hostel-management",
+  "library-charge": "library-management",
+  "asset-disposal": "inventory-management",
+  "stock-audit": "inventory-management",
+  "stock-transfer": "inventory-management",
+};
+
+/** The kinds a school can have: those of modules it switched off are left out of lists and filters (layman loop 6, L6-58). */
+export function requestTypesOn(modulesOn: ReadonlySet<string>) {
+  return REQUEST_TYPES.filter((t) => { const m = REQUEST_MODULE[t.key]; return !m || modulesOn.has(m); });
+}
 
 /**
  * Request types nothing in School OS asks for yet (00-global.md §3 lists
@@ -350,7 +366,7 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
 
   // Without a follow-up the request would say Approved while its record stays waiting: refuse, and change nothing.
   const followUp = await followUpFor(approval.type);
-  if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell DREAM TEAM support.`);
+  if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell the School OS support team.`);
 
   // A request whose record cannot be found cannot move anything on (QA SEED-03): it is
   // not approved or sent back as if it had worked. Rejecting or withdrawing it only takes it off the list.

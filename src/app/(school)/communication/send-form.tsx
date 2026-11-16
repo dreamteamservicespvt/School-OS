@@ -248,7 +248,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (text.length > 1000) e.text = `Keep it under 1,000 characters. It has ${fmt(text.length)}.`;
     if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }
     if (when === "later" && !at) e.scheduledAt = "Choose the date and time to send.";
-    if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. DREAM TEAM adds DLT IDs; untick SMS backup for now.";
+    if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. The School OS support team adds DLT IDs; untick SMS backup for now.";
     if (trBlock && needsText) e.translations = trBlock;
     return e;
   }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError, trBlock]);
@@ -520,7 +520,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
                 {tried && <Problem text={err.channels} className="mt-1.5" />}
                 {data.on.length < offeredChannels<Channel>(["whatsapp", "sms", "email", "app"]).length && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are off are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
-                {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="SMS can be sent once DREAM TEAM adds the school’s DLT registration. Please tell DREAM TEAM support." />}
+                {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="SMS can be sent once the School OS support team adds the school’s DLT registration. Please tell the School OS support team." />}
               </div>
 
               {backupShown && (

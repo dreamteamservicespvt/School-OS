@@ -37,7 +37,7 @@ export function photoRefusal(who: AiWho): string | null {
   if (off === "assistant-off" || off === "feature-off") return `Reading photos of a register needs the AI assistant switched on in Settings, Modules On/Off, with Smart Import on. ${SHEET_INSTEAD}`;
   if (off === "role-not-allowed") return `Reading photos of a register uses the AI assistant, which your school has not turned on for your role (Settings, Modules On/Off). ${SHEET_INSTEAD}`;
   if (off) return `Reading photos of a register is not ready yet. ${SHEET_INSTEAD}`;
-  if (!aiConnected()) return `Reading photos of a register needs the AI service, which is not connected yet: DREAM TEAM connects it. ${SHEET_INSTEAD}`;
+  if (!aiConnected()) return `Reading photos of a register needs the AI service, which is not connected yet: the School OS support team connects it. ${SHEET_INSTEAD}`;
   return null;
 }
 

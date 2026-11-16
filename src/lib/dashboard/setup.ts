@@ -35,9 +35,9 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   { key: "staff", label: "Staff and their logins", module: "staff-hr-management", href: "/staff-hr-management", sub: "Add your staff, then invite them to sign in.", time: "20 minutes", button: "Add staff" },
   { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Every row is checked first.", time: "15 minutes", button: "Import students" },
   { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management/structure", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
-  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "For online fees. Ask DREAM TEAM support to connect it.", time: "1 minute", button: "See status", optional: true },
+  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "For online fees. Ask the School OS support team to connect it.", time: "1 minute", button: "See status", optional: true },
   // SMS is not used for now (owner 15 Nov 2026), so the step names WhatsApp only.
-  { key: "messaging", label: SMS_OFFERED ? "SMS and WhatsApp" : "WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
+  { key: "messaging", label: SMS_OFFERED ? "SMS and WhatsApp" : "WhatsApp", module: "settings", href: "/settings/messaging", sub: "The School OS support team connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
   { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "Attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
   { key: "parent-link", label: "Parent Link", module: "communication", href: "/communication/parent-link", sub: "Choose what parents see, then send each guardian their own link.", time: "5 minutes", button: "Set up" },
 ];
@@ -106,7 +106,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
   // How far a step is while it is not done: real counts, never "done" on the first record.
   const progress: Record<string, string | null> = {
     fees: feeDone > 0 && feeNeeded > 0 ? `${n(feeDone)} of ${plural(feeNeeded, "class", "classes")} have published fees.` : null,
-    messaging: on.length && !live.length ? "Test mode: nothing is sent yet. Ask DREAM TEAM to go live." : null,
+    messaging: on.length && !live.length ? "Test mode: nothing is sent yet. Ask the School OS support team to go live." : null,
     "parent-link": linked > 0 && guardians > 0 ? `${n(linked)} of ${plural(guardians, "parent")} have a link.` : null,
   };
   return shown.map((s) => {

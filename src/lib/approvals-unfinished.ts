@@ -79,11 +79,11 @@ export async function finishFollowUp(tx: Tx, ctx: SchoolContext, approvalId: str
   if (!(await stillWaits(tx, a))) throw new DecisionProblem("This request is already finished: its record has moved on. Nothing was changed.");
   const decision = decisionOf(a);
   const followUp = await followUpFor(a.type);
-  if (!decision || !followUp) throw new DecisionProblem(`School OS cannot finish this request (${requestLabel(a.type)}). Nothing was changed. Please tell DREAM TEAM support.`);
+  if (!decision || !followUp) throw new DecisionProblem(`School OS cannot finish this request (${requestLabel(a.type)}). Nothing was changed. Please tell the School OS support team.`);
   // The same follow-up a decision runs today, done as the person who decided (their name stays on the record).
   const asDecider: SchoolContext = { schoolId: ctx.schoolId, userId: a.decidedById ?? ctx.userId };
   await followUp(tx, asDecider, a, decision, a.decisionReason);
-  if (await stillWaits(tx, a)) throw new DecisionProblem("School OS could not finish this request: its record did not move on. Nothing was changed. Please tell DREAM TEAM support.");
+  if (await stillWaits(tx, a)) throw new DecisionProblem("School OS could not finish this request: its record did not move on. Nothing was changed. Please tell the School OS support team.");
   await writeAudit(tx, ctx, {
     action: "approval-follow-up-finished",
     recordType: "Approval",

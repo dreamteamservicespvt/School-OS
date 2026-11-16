@@ -31,7 +31,7 @@ export function isChannel(v: unknown): v is Channel {
 export const PROVIDERS: Record<ProviderChannel, { key: string; label: string }[]> = {
   whatsapp: [
     { key: "sandbox", label: "Test mode (nothing is sent)" },
-    { key: DREAM_TEAM_PROVIDER, label: "DREAM TEAM's WhatsApp number (shared)" },
+    { key: DREAM_TEAM_PROVIDER, label: "The School OS support team's WhatsApp number (shared)" },
     { key: "meta-cloud", label: "The school's own WhatsApp Business number" },
   ],
   sms: [

@@ -39,7 +39,7 @@ export const LOGIN_CEILING_WORDS = {
   linkAbove: "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.",
   linkElsewhere: "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.",
   // Security review 2026-11-15.
-  linkOtherSchool: "This login also opens a school you do not manage. Only someone who manages every school it opens, or DREAM TEAM support, can make a sign-in link for it.",
+  linkOtherSchool: "This login also opens a school you do not manage. Only someone who manages every school it opens, or the School OS support team, can make a sign-in link for it.",
   linkCampus: "This login works beyond your campus. Only someone who works for the whole school can make a sign-in link for it.",
   campusScope: "You work for one campus, so you can give access to that campus only.",
   campusPerson: "This person works beyond your campus. Only someone who works for the whole school can change their access or their login.",

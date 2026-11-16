@@ -74,7 +74,7 @@ describe("a group login's two-step reset", () => {
     for (const s of [a, b]) {
       const rows = await withSchool({ schoolId: s.id, userId: null }, (tx) => tx.auditLogEntry.findMany({ where: { recordId: groupLogin.id, action: "reset-two-step" } }));
       expect(rows).toHaveLength(1);
-      expect(rows[0].actorNote).toBe("DREAM TEAM: Support Person");
+      expect(rows[0].actorNote).toBe("School OS support: Support Person");
       const notes = await withSchool({ schoolId: s.id, userId: null }, (tx) => tx.notification.count({ where: { userLoginId: groupLogin.id, type: "security" } }));
       expect(notes).toBe(1);
     }

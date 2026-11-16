@@ -116,7 +116,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-5 lg:gap-6">
       {state && !state.ok && state.message && <Banner tone="bad" title={state.message} />}
       <Card>
-        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : SMS_OFFERED ? "DREAM TEAM registers SMS texts on the telecom DLT portal for you" : "Choose the channel, then type the text in each language"} />
+        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : SMS_OFFERED ? "The School OS support team registers SMS texts on the telecom DLT portal for you" : "Choose the channel, then type the text in each language"} />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <FieldShell label="Name" id="t-name" required error={err("name")}>
             <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}
@@ -129,7 +129,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
             </select>
           </FieldShell>
           <FieldShell label="Channel" id="t-channel" required error={err("channel")}
-            help={data.id ? undefined : channel === "sms" ? "DREAM TEAM adds its DLT template ID before it can send SMS." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : undefined}>
+            help={data.id ? undefined : channel === "sms" ? "The School OS support team adds its DLT template ID before it can send SMS." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : undefined}>
             <select id="t-channel" value={channel} disabled={Boolean(data.id)} onChange={(e) => setChannel(e.target.value)} className={cx(inputCls(), "h-11 pr-9 disabled:bg-sunken")}>
               {data.channels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
@@ -183,8 +183,8 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                   <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px]">
                     <p className="font-semibold"><Words k="DLT template ID" /></p>
                     {cur.dltTemplateId
-                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. Changing the text needs a new ID." /></span></p>
-                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM adds its DLT ID. SMS waits until then." /></p>}
+                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by the School OS support team. Changing the text needs a new ID." /></span></p>
+                      : <p className="mt-0.5 text-ink2"><Words k="The School OS support team adds its DLT ID. SMS waits until then." /></p>}
                   </div>
                 )}
               </div>

@@ -61,7 +61,7 @@ export async function checkChannel(tx: Tx, ctx: SchoolContext, channel: Provider
   }
   if (input.live && input.provider === "sandbox") e.live = "Choose a real provider to send for real.";
   // The shared number sends with DREAM TEAM's own IDs and token from the server's environment (dream-team.ts).
-  if (input.live && input.provider === DREAM_TEAM_PROVIDER && !dreamTeamWhatsappReady()) e.live = "DREAM TEAM's WhatsApp number is not set up on this server yet. Keep test mode until it is, or connect the school's own number.";
+  if (input.live && input.provider === DREAM_TEAM_PROVIDER && !dreamTeamWhatsappReady()) e.live = "The School OS support team's WhatsApp number is not set up on this server yet. Keep test mode until it is, or connect the school's own number.";
   return e;
 }
 
@@ -103,7 +103,7 @@ export async function saveChannelChoices(tx: Tx, ctx: SchoolContext, channel: Pr
   if (!Number.isInteger(input.lowCreditAlert) || input.lowCreditAlert < 0 || input.lowCreditAlert > 100000) e.lowCreditAlert = "Enter a number of credits from 0 to 100000.";
   if (channel === "sms" && input.isOn) {
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
-    if (!school.smsDltEntityId || !school.smsSenderHeader) e.isOn = "SMS can be switched on once DREAM TEAM has added the school's DLT registration. Please tell DREAM TEAM support.";
+    if (!school.smsDltEntityId || !school.smsSenderHeader) e.isOn = "SMS can be switched on once the School OS support team has added the school's DLT registration. Please tell the School OS support team.";
   }
   if (Object.keys(e).length) return e;
   const data = { isOn: input.isOn, lowCreditAlert: input.lowCreditAlert, updatedById: ctx.userId };

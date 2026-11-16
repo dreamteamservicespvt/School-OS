@@ -9,7 +9,7 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { approvalsFor } from "@/lib/approvals";
 import { mayApprove } from "@/lib/shell-data";
 import { cx } from "@/components/ui/cx";
-import { mayReject, OPEN_STATUSES, REQUEST_TYPES, requestLabel, workingDaysBetween } from "@/lib/approvals";
+import { mayReject, OPEN_STATUSES, requestLabel, requestTypesOn, workingDaysBetween } from "@/lib/approvals";
 import { VIEWS, decidableIds, inboxWhere, isOverseer, statusWords, type HistoryLine, type InboxView } from "@/lib/approvals-inbox";
 import { rulesInUse } from "@/lib/settings/approval-rules";
 import { PageHeader } from "@/components/shell/page-header";
@@ -99,7 +99,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const support: SupportItem[] = answersSupport(current)
     ? (await schoolSupportRequests(current.school.id, now, 8)).map((r) => ({
       id: r.id,
-      who: `${r.requestedByName} of DREAM TEAM`,
+      who: `${r.requestedByName} of the School OS support team`,
       reason: r.reason,
       length: lengthWords(r.lengthMinutes),
       asked: formatDateTime(r.createdAt, tz),
@@ -196,7 +196,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       )}
       <ListToolbar placeholder="Search requests" showArchived={false} period={dates} filters={[
         { key: "status", label: "Status", options: [{ value: "open", label: "Waiting" }, { value: "approved", label: "Approved" }, { value: "rejected", label: "Rejected or sent back" }, { value: "withdrawn", label: "Withdrawn" }] },
-        { key: "type", label: "Kind", options: REQUEST_TYPES.map((t) => ({ value: t.key, label: t.label })) },
+        { key: "type", label: "Kind", options: requestTypesOn(current.modulesOn).map((t) => ({ value: t.key, label: t.label })) },
       ]} />
       {rows.length === 0 ? (
         filtered ? (

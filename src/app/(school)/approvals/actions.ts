@@ -9,7 +9,7 @@ import { bulkApprove, type BulkResult } from "@/lib/approvals-inbox";
 import { finishFollowUp } from "@/lib/approvals-unfinished";
 import { answerSupport, endSupportFromSchool, SupportProblem } from "@/lib/console/support";
 
-const LOOK_ONLY = "DREAM TEAM support access is for looking only. The school decides its own requests.";
+const LOOK_ONLY = "School OS support access is for looking only. The school decides its own requests.";
 
 const DONE: Record<Decision, string> = {
   approve: "Approved. The person who asked has been told.",
@@ -85,8 +85,8 @@ export async function answerSupportAction(id: string, decision: "allow" | "decli
   try {
     const r = await answerSupport(current, String(id), decision, note ? String(note).slice(0, 300) : null);
     words = decision === "allow"
-      ? `Allowed. ${r.requestedByName} of DREAM TEAM can look inside until ${r.until}. You can end it earlier in Approvals.`
-      : "Declined. DREAM TEAM has been told why.";
+      ? `Allowed. ${r.requestedByName} of the School OS support team can look inside until ${r.until}. You can end it earlier in Approvals.`
+      : "Declined. The School OS support team has been told why.";
   } catch (e) {
     if (e instanceof SupportProblem) return e.message;
     console.error(JSON.stringify({ level: "error", event: "support-answer", error: e instanceof Error ? e.message : String(e) }));
@@ -102,7 +102,7 @@ export async function endSupportNowAction(id: string): Promise<string | void> {
   let words: string;
   try {
     const r = await endSupportFromSchool(current, String(id));
-    words = `${r.requestedByName} of DREAM TEAM can no longer look inside School OS.`;
+    words = `${r.requestedByName} of the School OS support team can no longer look inside School OS.`;
   } catch (e) {
     if (e instanceof SupportProblem) return e.message;
     console.error(JSON.stringify({ level: "error", event: "support-end-school", error: e instanceof Error ? e.message : String(e) }));

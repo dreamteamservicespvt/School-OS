@@ -246,7 +246,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
             ? <SettingRow title="Add the payment link" sub="A link to pay online, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
-            : <SettingRow title="Payment link" sub="Online payment is not set up. Ask DREAM TEAM support." />}
+            : <SettingRow title="Payment link" sub="Online payment is not set up. Ask the School OS support team." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>
         <div>

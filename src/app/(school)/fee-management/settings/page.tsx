@@ -207,7 +207,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             <CardHeader title="Payment gateway for each class" description="Choose which classes use each gateway" icon={Globe}
               action={<Link href={`${HREF}?edit=gateway`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Change" /></Link>} />
             {data.gateways.length === 0 ? (
-              <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No gateway connected yet. Parents cannot pay online until DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. See what is connected in" /> <Link href="/settings/payment-gateways" className="text-brand font-semibold"><Words k="Settings, Payment Gateways" /></Link>.</p>
+              <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No gateway connected yet. Parents cannot pay online until the School OS support team connects Razorpay for the school; tell the School OS support team. See what is connected in" /> <Link href="/settings/payment-gateways" className="text-brand font-semibold"><Words k="Settings, Payment Gateways" /></Link>.</p>
             ) : (
               <SimpleTable minWidth={420} caption="Payment gateway for each class"
                 cols={[

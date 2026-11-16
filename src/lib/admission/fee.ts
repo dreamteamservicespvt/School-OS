@@ -106,7 +106,7 @@ export async function takeCounterPayment(tx: Tx, ctx: SchoolContext, app: Applic
  */
 export async function cancelPayment(tx: Tx, ctx: SchoolContext, v: Viewer, paymentId: string, input: { reason: string; note: string | null }) {
   requireFull(v, "the application fee");
-  if (ctx.support) throw new AdmissionProblem("DREAM TEAM support access cannot cancel payments. Ask the Principal.");
+  if (ctx.support) throw new AdmissionProblem("School OS support access cannot cancel payments. Ask the Principal.");
   if (!v.overCapacity) throw new AdmissionProblem("Only the Principal or School Admin can cancel a payment.");
   const p = await tx.applicationFeePayment.findFirst({ where: { id: paymentId, application: applicationScope(v) } });
   if (!p) throw new AdmissionProblem("This payment was not found.");

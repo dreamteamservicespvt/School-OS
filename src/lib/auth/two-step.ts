@@ -147,8 +147,8 @@ export function twoStepHelp(user: { email: string | null; phone: string | null }
     ? "Add your email with Edit details at the top of this page, or switch SMS on in Settings, SMS, WhatsApp & Email, so the sign-in code can reach you."
     : "Add your email with Edit details at the top of this page, or ask your School Admin to switch SMS on (Settings, SMS, WhatsApp & Email), so the sign-in code can reach you.";
   return setsUpSms
-    ? "Switch SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM to set up email, so the sign-in code can reach you."
-    : "Ask your School Admin to switch SMS on (Settings, SMS, WhatsApp & Email), or DREAM TEAM to set up email, so the sign-in code can reach you.";
+    ? "Switch SMS on in Settings, SMS, WhatsApp & Email, or ask the School OS support team to set up email, so the sign-in code can reach you."
+    : "Ask your School Admin to switch SMS on (Settings, SMS, WhatsApp & Email), or the School OS support team to set up email, so the sign-in code can reach you.";
 }
 
 /**

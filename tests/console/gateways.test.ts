@@ -74,7 +74,7 @@ describe("console payment gateways", () => {
     expect(g).toMatchObject({ id, displayName: "Razorpay", isActive: false, environment: "test", createdById: null });
     expect(g.secretsEnc).not.toContain("thisIsTheSecretKey9x2Q");
     const audit = await withSchool({ schoolId: school.id, userId: null }, (tx) => tx.auditLogEntry.findMany({ where: { recordId: id } }));
-    expect(audit.map((a) => [a.action, a.actorNote, a.userLoginId])).toEqual([["created", `DREAM TEAM: ${people.ONBOARDING.name}`, null]]);
+    expect(audit.map((a) => [a.action, a.actorNote, a.userLoginId])).toEqual([["created", `School OS support: ${people.ONBOARDING.name}`, null]]);
     const log = await withConsole((tx) => tx.consoleActivityEntry.findMany({ where: { forSchoolId: school.id, type: "connect" } }));
     expect(log.map((l) => l.text)).toEqual([`Payment gateway Razorpay added (test mode, switched off) for ${school.name}.`]);
   });

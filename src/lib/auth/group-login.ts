@@ -66,7 +66,7 @@ export async function resetGroupTwoStep(actor: ConsoleActor, schoolId: string, u
   for (const s of schools) {
     const ctx = { schoolId: s.id, userId: null };
     await withSchool(ctx, async (tx) => {
-      await writeAudit(tx, ctx, { action: "reset-two-step", recordType: "User Login", recordId: userLoginId, after: { reason, by: "DREAM TEAM", groupLogin: true }, actorNote: `DREAM TEAM: ${actor.name}` });
+      await writeAudit(tx, ctx, { action: "reset-two-step", recordType: "User Login", recordId: userLoginId, after: { reason, by: "School OS support", groupLogin: true }, actorNote: `School OS support: ${actor.name}` });
       await notify(tx, ctx, { to: userLoginId, type: "security", key: "Your two-step login was reset by School OS support. You will set it up again at your next sign-in.", link: "/profile" });
     });
   }

@@ -149,7 +149,7 @@ describe("the gateway", () => {
     expect(process.env.ANTHROPIC_API_KEY ?? "").toBe("");
     const r = await aiTask(pctx, task());
     expect(r).toMatchObject({ ok: false, reason: "not-connected" });
-    if (!r.ok) expect(r.words).toMatch(/DREAM TEAM connects it/);
+    if (!r.ok) expect(r.words).toMatch(/the School OS support team connects it/);
     const last = (await calls()).at(-1)!;
     expect(last).toMatchObject({ outcome: "fallback", reason: "not-connected", sent: false, feature: "ai-smart-import" });
     expect((await withSchool(actx(), (tx) => aiUsage(tx, actx()))).connected).toBe(false);

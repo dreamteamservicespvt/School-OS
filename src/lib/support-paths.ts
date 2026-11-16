@@ -51,13 +51,13 @@ export function supportRefusal(method: string, pathname: string): SupportRefusal
   if (pathname === "/console" || pathname.startsWith("/console/")) return null;
   if ((SUPPORT_OWN_PATHS as readonly string[]).includes(pathname)) return null;
   if (method !== "GET" && method !== "HEAD") {
-    return { status: 403, text: "DREAM TEAM support access is for looking only: nothing can be changed, sent or saved. Ask the school to make this change." };
+    return { status: 403, text: "School OS support access is for looking only: nothing can be changed, sent or saved. Ask the school to make this change." };
   }
   if (pathname.startsWith("/api/")) {
-    return OPEN_APIS.has(pathname) ? null : { status: 403, text: "DREAM TEAM support access cannot use this." };
+    return OPEN_APIS.has(pathname) ? null : { status: 403, text: "School OS support access cannot use this." };
   }
   if (isFileAddress(pathname)) {
-    return { status: 403, text: "DREAM TEAM support access cannot export, print or download the school's data." };
+    return { status: 403, text: "School OS support access cannot export, print or download the school's data." };
   }
   return null;
 }

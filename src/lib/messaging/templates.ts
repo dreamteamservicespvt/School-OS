@@ -124,7 +124,7 @@ export function versionFor(versions: UsableVersion[], language: string, schoolLa
 
 /** Why a version cannot be used on its channel, or null when it can. */
 export function unusableReason(channel: Channel, v: Pick<UsableVersion, "dltTemplateId" | "whatsappStatus">): string | null {
-  if (channel === "sms" && !v.dltTemplateId) return "This SMS template has no DLT template ID yet. DREAM TEAM adds it.";
+  if (channel === "sms" && !v.dltTemplateId) return "This SMS template has no DLT template ID yet. The School OS support team adds it.";
   return null;
 }
 

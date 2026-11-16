@@ -214,7 +214,8 @@ describe("Front Office by role", () => {
     const full = { "front-office": { see: "all", change: "all" } } as unknown as Viewer["permissions"];
     for (const w of FRONT_OFFICE_WIDGETS.filter((x) => x.allowed && x.module === "front-office")) {
       expect(w.allowed!(v(full, ["receptionist"])), w.id).toBe(true);
-      expect(w.allowed!(v(full, ["principal"])), w.id).toBe(false);
+      // A visitor still inside after the pass ran out is a safety matter the principal oversees (QA L6-17).
+      expect(w.allowed!(v(full, ["principal"])), w.id).toBe(w.id === "front-office.expired-passes");
     }
   });
 

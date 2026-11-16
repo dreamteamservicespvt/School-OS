@@ -32,13 +32,12 @@ import { todayFor } from "../periods";
 import { offeredQuestions, readyMadeFor, type AskClock } from "../ask/answer";
 import { matchIntent, type AskParams, type QuestionKey } from "../ask/questions";
 import { questionTitleIn } from "../ask/titles";
-import { makeT } from "../i18n/server";
 import { ASSISTANT_FEATURE, assistantKilled, assistantModel, FRESH_AFTER_MS, KEEP_TURNS } from "./config";
-import { inLanguage, isAssistantLang, nextLanguage, teluguStyle, type AssistantLang, type LanguageState } from "./language";
+import { detectLanguage, inLanguage, isAssistantLang, nextLanguage, teluguStyle, type AssistantLang, type LanguageState, type TeluguStyle } from "./language";
 import { wordsIntent, type WordsIntent } from "./rules";
 import { allowedNumbers, inventedNumbers } from "./numbers";
 import { COMPOSER_SYSTEM, PLANNER_SYSTEM, composerRequest, plannerRequest, planSchema, replySchema, type Plan } from "./prompt";
-import { isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, type ToolArgs, type ToolName, type ToolResult } from "./tools";
+import { answerWords, isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, type ToolArgs, type ToolName, type ToolResult } from "./tools";
 import { cardOf, ENQUIRY_FORM, mayAddEnquiry, newPrepared, planEnquiry, type Confirmed, type ConfirmCard, type EnquiryPlan, type Prepared } from "./enquiry";
 import { words, type WordKey } from "./words";
 import type { ReplyFeel } from "./mascot-state";
@@ -130,8 +129,9 @@ const todayWords = (clock: AskClock) => {
 };
 
 /** Up to 3 of the person's ready-made questions, in the conversation language, as chips. */
-function readyChips(who: Viewer, lang: AssistantLang, skip: ToolName[] = []): string[] {
-  const t = makeT(lang);
+function readyChips(who: Viewer, lang: AssistantLang, skip: ToolName[] = [], style?: TeluguStyle): string[] {
+  // In the person's way of talking: everyday Telugu chips ("ఈరోజు absent ఎవరు?") unless they write plain Telugu.
+  const t = answerWords(lang, style);
   return readyMadeFor(who).filter((q) => !skip.includes(QUESTION_TOOL[q.key])).slice(0, 3).map((q) => questionTitleIn(t, q.key, paramsOfHref(q.href)));
 }
 /** The first question chips for the panel, before anything is asked. */
@@ -199,8 +199,14 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let special: "hello" | "thanks" | "enquiry" | null = null;
   const match = matchIntent(said, offeredQuestions(who))[0];
   const known: WordsIntent | null = match && match.score >= 3 ? null : wordsIntent(said);
+  // A clear question about a list this role does not open ("who is absent today?" from the front office):
+  // say it is not part of their role, never "I did not get that" (layman test 16 Nov 2026).
+  const otherRole = !match && !known ? matchIntent(said)[0] : undefined;
   if (match && match.score >= 3 && !convo?.prepared) {
     plan = rulesPlan(match.key, match.params, before.lang);
+    understoodBy = "rules";
+  } else if (otherRole && otherRole.score >= 3 && !convo?.prepared) {
+    plan = rulesPlan(otherRole.key, otherRole.params, before.lang);
     understoodBy = "rules";
   } else if (known?.kind === "talk" && !convo?.prepared) {
     // A greeting or thanks needs no model: a friendly line, at once.
@@ -226,12 +232,16 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     }
   }
 
-  const after = nextLanguage(state, said, { model: understoodBy === "ai" ? plan?.language : null, chosen, screen });
+  const heard = nextLanguage(state, said, { model: understoodBy === "ai" ? plan?.language : null, chosen, screen });
+  // "super, thank you" or "hi" in English letters from a Telugu speaker is still the same conversation:
+  // small talk in English letters never switches the language (layman test 16 Nov 2026).
+  const after = special && state && heard.switched && detectLanguage(said).by !== "script" ? { ...heard, lang: state.lang, pending: null, switched: false } : heard;
   const lang = after.lang;
   const newState: LanguageState = { lang, pending: after.pending };
   // How the person talks Telugu: the reply talks the same way (everyday Telugu with English words, or plain Telugu).
   const style = lang === "te" ? teluguStyle(said) : undefined;
   const extraSources: TurnSource[] = [];
+  const chipsFor = (skip: ToolName[] = []) => readyChips(who, lang, skip, style);
 
   let reply = "";
   let by: "ai" | "rules" = "rules";
@@ -246,7 +256,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
 
   if (special === "hello" || special === "thanks") {
     reply = words(lang, special);
-    chips = readyChips(who, lang);
+    chips = chipsFor();
     feel = "happy";
   } else if (special === "enquiry") {
     action = "add an enquiry";
@@ -254,7 +264,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     else { reply = words(lang, "enquiryHelp"); extraSources.push({ label: words(lang, "linkEnquiryForm"), href: ENQUIRY_FORM, scope: null }); }
   } else if (!plan) {
     reply = words(lang, aiProblem === "daily-limit" ? "limit" : aiProblem && aiProblem !== "not-connected" ? "aiDown" : "notUnderstood");
-    chips = readyChips(who, lang);
+    chips = chipsFor();
     feel = "sorry";
   } else if (plan.kind === "tools") {
     calls = callsOf(plan, offered);
@@ -262,7 +272,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
       // Named a list the person may not open, or none at all: say so, never guess.
       const named = plan.tools.some((c) => isToolName(c.tool));
       reply = words(lang, named ? "notYourRole" : "notUnderstood");
-      chips = readyChips(who, lang);
+      chips = chipsFor();
       feel = "sorry";
     } else {
       // 4. Read, each list in its own short transaction, as the person.
@@ -288,7 +298,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
           } else numberCheck = "replaced";
         }
       }
-      if (by === "rules") chips = readyChips(who, lang, calls.map((c) => c.tool));
+      if (by === "rules") chips = chipsFor(calls.map((c) => c.tool));
     }
   } else if (plan.kind === "action") {
     action = "add an enquiry";
@@ -308,7 +318,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     by = fits ? "ai" : "rules";
     if (plan.kind === "cannot") feel = "sorry";
     if (plan.kind === "chat") feel = "happy";
-    if (plan.kind !== "clarify") chips = readyChips(who, lang);
+    if (plan.kind !== "clarify") chips = chipsFor();
   }
 
   // 6. Remember, and 7. log (never the words or the values).

@@ -232,6 +232,15 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
           aria-label={title} title={title} data-assistant-launcher="">
           {/* The assistant's own face (layman test 16 Nov 2026: a book icon did not say "assistant"). */}
           <span aria-hidden="true" className={cx(s.launcherFace, character === "cat" ? s.launcherCat : s.launcherRobot)} />
+          {character !== "cat" && (
+            // The robot's screen is blank in its art (the panel draws the face live): the same glowing eyes and smile here.
+            <svg aria-hidden="true" viewBox="0 0 56 56" className="absolute inset-0 h-full w-full">
+              <g fill="#67EDFF" style={{ filter: "drop-shadow(0 0 2px #22CFEA)" }}>
+                <ellipse cx="22.6" cy="22.4" rx="3" ry="3.6" /><ellipse cx="35.4" cy="22.4" rx="3" ry="3.6" />
+              </g>
+              <path d="M25.6 28.2q3.4 2.6 6.8 0" fill="none" stroke="#67EDFF" strokeWidth="1.6" strokeLinecap="round" style={{ filter: "drop-shadow(0 0 2px #22CFEA)" }} />
+            </svg>
+          )}
         </button>
       )}
       {open && (

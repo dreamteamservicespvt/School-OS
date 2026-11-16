@@ -58,20 +58,18 @@ h1{font-family:var(--display);font-size:1.5rem;margin:0;text-wrap:balance}
 <script>
 const DATA={
   start:"2026-11-16T15:36:00+05:30",
-  updated:"2026-11-16T16:50:00+05:30",
-  readyAt:"2026-11-16T17:45:00+05:30",
-  pct:65,
-  now:"All 11 problems fixed in code; 211 of 211 tests pass and the production build passes. Re-running the language test, then deploying and testing again visibly in your Chrome.",
-  mainline:"Step 5 of 6. 65 questions asked (live and offline). Telugu questions understood without AI: 39 of 40 (was 26). The percent is an estimate.",
-  asked:65, found:11, fixed:10,
+  updated:"2026-11-16T18:25:00+05:30",
+  readyAt:"2026-11-16T19:05:00+05:30",
+  pct:85,
+  now:"All 6 roles tested live by typing in their own Chrome: everything from round 1 works. Round 2 found 9 small things (chips wording, names in short lists, amounts in Telugu...). All fixed; tests running, then deploy 20 and a final live check.",
+  mainline:"Step 6 of 6. 90 questions asked (65 in round 1, 25 typed live in round 2). The percent is an estimate.",
+  asked:90, found:20, fixed:20,
   you:"Optional: put the ANTHROPIC_API_KEY in Vercel (school-os-beta, Production) for free conversation; I never type keys. Everything else works without it.",
   rows:[
-    {"n":"Switch the assistant on (School Admin)","p":100,"s":"Done","l":"On for School Admin, Principal, Accountant, Class Teacher, Teacher and Receptionist.","e":"took 5 min"},
-    {"n":"English questions (School Admin)","p":100,"s":"Done","l":"18 asked: 11 understood before fixes; 'hi', 'thank you', money came, homework, holidays, approvals, enquiry failed.","e":"took 15 min"},
-    {"n":"Telugu + English mix questions","p":100,"s":"Done","l":"40 checked: 26 understood before, 39 after. Replies were bookish; first Telugu question got English.","e":"took 20 min"},
-    {"n":"Voice and feelings","p":100,"s":"Done","l":"New: happy robot + brighter voice for greetings and good news, softer slower voice for sorry; dates said as today / 16 November; amounts as rupees.","e":"took 20 min"},
-    {"n":"Fix what failed","p":95,"s":"Checking","l":"10 of 11 fixed: everyday Telugu that mirrors the person, word list, greetings, homework/holidays/approvals without AI, robot-face button. Last language test re-running.","e":"Est. 10 min"},
-    {"n":"Deploy and ask again visibly (every role)","p":0,"s":"Waiting","l":"Deploy, then type the questions myself in each role's Chrome, like a real user.","e":"Est. 40 min"}
+    {"n":"Round 1: English + Telugu (65 questions)","p":100,"s":"Done","l":"11 problems: Telugu words not understood, bookish replies, no greetings, flat voice. All fixed in deploy 19.","e":"took 2 h"},
+    {"n":"Round 2: all 6 roles, typed live in their Chrome","p":100,"s":"Done","l":"Admin, Accountant, Class Teacher, Receptionist, Principal, Subject Teacher: round 1 fixes work. 9 small new findings.","e":"took 40 min"},
+    {"n":"Fix round 2 findings","p":90,"s":"Checking","l":"Chips in everyday Telugu, names in short lists, Telugu amounts, role message, thanks keeps language, robot eyes on button. Tests running.","e":"Est. 15 min"},
+    {"n":"Deploy 20 + final live check","p":0,"s":"Waiting","l":"Deploy, then repeat the round 2 findings live.","e":"Est. 20 min"}
   ]
 };
 const $=id=>document.getElementById(id);

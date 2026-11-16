@@ -137,6 +137,9 @@ describe("Indian languages", () => {
     ["attendance takkuva unna pillalu evaru", "below-attendance", {}],
     ["ee roju birthday evaridi", "birthdays", { when: "today" }],
     ["how much money came this month", "fees-collected", { when: "thismonth" }],
+    ["10000 కంటే ఎక్కువ fees బాకీ ఉన్న students ఎవరు?", "fees-overdue", { amount: 10000 }],
+    ["5000 kante ekkuva fees pending unna vallu", "fees-overdue", { amount: 5000 }],
+    ["10000 से ज़्यादा फ़ीस बकाया किसकी है", "fees-overdue", { amount: 10000 }],
   ] as const)("%s", (text, key, params) => {
     const m = top(text);
     expect(m?.key).toBe(key);

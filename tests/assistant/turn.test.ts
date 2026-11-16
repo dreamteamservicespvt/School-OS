@@ -209,6 +209,16 @@ describe("a person only gets what their role opens", () => {
     expect(m.planner()[0].text).not.toContain("fee_defaulters");
   });
 
+  it("a clear question about a list the role does not open says so, without asking the model", async () => {
+    await switchOn({ schoolId: fee.school.id, userId: fee.ctx.userId! }, ["school-admin", "class-teacher"]);
+    const m = fakeModel([], []);
+    useAiProvider(m.provider);
+    const r = await say(await viewer(fee.school.id, feeTeacher.id), "who has fees overdue?");
+    expect(r.reply).toBe("That is not part of your role, so I cannot show it.");
+    expect(r.sources).toEqual([]);
+    expect(m.sent).toHaveLength(0);
+  });
+
   it("a role the school did not choose for AI gets nothing", async () => {
     const m = fakeModel([{ kind: "tools", tools: [tool("staff_late")] }], []);
     useAiProvider(m.provider);

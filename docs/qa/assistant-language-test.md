@@ -24,7 +24,27 @@ Modules On/Off > AI assistant). English: 18 questions, 11 understood. Telugu: 40
 | A8 | Homework, holidays/calendar, approvals, add an enquiry: "did not get that" without AI | rules.ts: the three lists from the words; enquiry gets the form link |
 | A9 | Voice read "16-11-2026" and "(01-11-2026 to 16-11-2026)", and every reply in one flat tone | speech.ts: today/yesterday/16 November, ranges not read, ₹ as rupees; tone per feeling |
 | A10 | No emotion for greetings or good news | new feeling "happy" (robot waves, sparkles): greetings, thanks, nobody absent, nothing pending, birthdays today |
-| A11 | Launcher shows a book icon (does not say "assistant"); header "chaitanya assistant" vs greeting "School OS Assistant" | open: noted for the owner |
+| A11 | Launcher shows a book icon (does not say "assistant"); header "chaitanya assistant" vs greeting "School OS Assistant" | button shows the robot's face; greeting says "your school assistant" like the header |
 
 Needs the owner: connect the AI service (ANTHROPIC_API_KEY in Vercel production) for free conversation;
 the prompts now ask the model to mirror the person's Telugu style and tone (prompt.ts TE_STYLE).
+
+## Round 2: deploy 19 live (a1bb534d), typed visibly in each role's own Chrome
+
+All 6 roles: School Admin (Saiveni), Accountant (aksha), Class Teacher (KUSUMA), Receptionist (harikaa),
+Principal (anjali), Subject Teacher (aswini). Passed: Telugu greeting (robot waves, "సంతోషంగా!"),
+"fees ఇంకా కట్టని వాళ్ళు ఎవరు?", "ఈ వీక్ ఫీజు కలెక్షన్ ఎంత?", "ninna fees entha vachindi", holidays this
+week, approvals ("అంతా clear!"), homework, enquiry with the form link, Roman-letter Telugu for the class
+teacher (own class only), plain Telugu stays plain for the Principal, English switches at once.
+
+| # | Problem found in round 2 | Fix (deploy 20) |
+|---|---|---|
+| B1 | Chips under replies still bookish Telugu ("గైర్హాజరైనవారు", "వసూలైంది") | 22 question titles in te-mix.ts; each chip is understood again when tapped (test) |
+| B2 | Scope line "As on 16-11-2026", "16-11-2026 to 16-11-2026" in English | scopePart() in tools.ts |
+| B3 | "1 ఉన్నాయి" for one calendar entry | upcomingOne |
+| B4 | Telugu link words mixed "తెరవండి" and "ఓపెన్ చేయండి" | all "ఓపెన్ చేయండి" |
+| B5 | "super, thank you" switched a Telugu conversation to English | small talk in English letters keeps the language |
+| B6 | "10000 కంటే ఎక్కువ fees బాకీ" ignored the amount (all 29 listed) | amounts said the Telugu/Hindi way |
+| B7 | Receptionist "who is absent today?" got "did not get that" | clear question outside the role: "not part of your role" |
+| B8 | "Which teachers are on leave today?" said "1 staff member" without the name | short lists (up to 5) name the people |
+| B9 | Robot button: the face screen is blank (eyes are drawn live in the panel) | same glowing eyes and smile on the button |

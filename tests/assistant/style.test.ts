@@ -10,6 +10,7 @@ import { TE_MIX } from "@/lib/assistant/te-mix";
 import { wordsIntent } from "@/lib/assistant/rules";
 import { spokenText, toneFor } from "@/lib/assistant/speech";
 import { WORD_KEYS, words } from "@/lib/assistant/words";
+import { matchIntent } from "@/lib/ask/questions";
 
 const blanks = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -37,6 +38,22 @@ describe("the everyday Telugu sentences", () => {
       expect(blanks(te), en).toEqual(blanks(en));
       expect(te.trim(), en).not.toBe("");
       if (en.split(" ").length > 2) expect(te, en).toMatch(/[ఀ-౿]/);
+    }
+  });
+
+  it("each everyday question chip is understood again when tapped, as the same question", () => {
+    const chips: [string, string][] = [
+      ["Who is absent today?", "absent-today"], ["Who was absent yesterday?", "absent-today"],
+      ["Who has been absent several days in a row?", "absent-streak"], ["Who is below the attendance line?", "below-attendance"],
+      ["Which classes have not taken attendance today?", "not-marked"], ["Which staff came late {when}?", "late-staff"],
+      ["Which staff are absent {when}?", "staff-absent"], ["Which staff are on leave {when}?", "staff-on-leave"],
+      ["How much fee was collected {when}?", "fees-collected"], ["Who has fees overdue?", "fees-overdue"],
+      ["Who owes {amount} or more?", "fees-overdue"], ["Which classes have marks below the pass mark?", "below-pass"],
+      ["Whose birthday is today?", "birthdays"], ["Whose birthday is coming up this week?", "birthdays"],
+    ];
+    for (const [en, key] of chips) {
+      const said = TE_MIX[en].replace("{when}", "ఈరోజు").replace("{amount}", "₹10,000");
+      expect(matchIntent(said)[0]?.key, said).toBe(key);
     }
   });
 

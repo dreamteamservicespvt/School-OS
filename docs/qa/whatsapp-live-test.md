@@ -384,3 +384,26 @@ All in `qa/whatsapp-cards/`. Some are PNG data saved under `.jpg` as asked.
 - Early pickup GP-2026-0002 (Sri with Venkatesh, 4:48 AM, "Other: School OS WhatsApp test").
 - New approved versions: Admission welcome v5, Fee received v4, Pickup gate pass v3, Visitor pass v3. Staff invite v4 is approved.
 - "Pickup code check" was switched on and off again.
+
+## Deploy 13 (16 Nov)
+
+Deploy 13 (main 4288893e). Tested by Claude, 05:18 to 05:30 IST (School OS clock). Messages went to 9390011378 only.
+
+| Check | Result |
+|---|---|
+| Make ready | Offered "Make 1 template ready for WhatsApp": **Fee received**. Pressed it, then "Send 1 template to WhatsApp for approval": "Sent. Waiting for WhatsApp's answer." (v5, 05:18) |
+| Fee received page | **No "The receipt PDF is not on this card." note.** The preview header is "Receipt PDF · The parent's own receipt, attached". The sample PDF upload worked |
+| List refresh | Opening Message Templates showed "Approved: 43 · Waiting for WhatsApp: 1". A few minutes later, **without pressing Check approval status**, opening the list showed **Fee received: Approved v5**, and the approval box had gone (nothing waiting). The list now updates on its own |
+| Fee received send | Accountant aksha collected **₹1 cash** for Sri (C-CHE-001/2026-27/00014, 5:28 AM), then "Send to parent again" |
+| Arrived | **Yes, 5:28 AM, with the receipt PDF ON TOP**: `receipt-C-CHE-001-2026-27-00014.pdf` as the document header, then "Dear Venkatesh, thank you. We have received your payment.", Sri Lakshmi of class 1 A, Amount ₹1, Paid by: Cash, Paid on 16-11-2026, Receipt no. 00014, Still due ₹19,798, footer "chaitanya · School OS", **Open receipt** button |
+| Pickup code check | Switched on briefly. Student Pickup > Sri shows the blue note, word for word: **"Pickup code check is on, but WhatsApp does not deliver one-time codes to Indian (+91) numbers, so no code can be sent. Check the photo, ID proof or call a guardian instead."** With Venkatesh, "A parent or guardian confirmed on a call" and reason "Doctor visit", the button **"Release Sri and make gate pass" became active**. It was not pressed. The setting was switched back **off** (checked) |
+
+Small note: the Release button is offered although Sri already has an open early pickup today (GP-2026-0002, "Waiting at the gate"), so a second release for the same child could be made.
+
+Screenshots:
+- `qa/whatsapp-cards/deploy13-fee-received-pdf.jpg` (PNG data)
+- `qa/whatsapp-cards/deploy13-pickup-call-check-active.jpg`
+
+Credits: **1** (Fee received).
+
+Left on the test school: ₹1 cash receipt C-CHE-001/2026-27/00014 for Sri; Fee received v5 approved, with the PDF header.

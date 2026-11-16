@@ -13,8 +13,10 @@ import { ensureReadyTemplates } from "@/lib/messaging/templates";
 import { deliverMessage } from "@/lib/messaging/deliver";
 import { createLink, findLink, newDeviceKey, revokeLink, splitTap, TAP_GONE, TAP_SECRET, tokenFor, type LinkFound } from "@/lib/parent-link/links";
 import { confirmTap, PICKUP_CHOOSE, tapView } from "@/lib/parent-link/tap";
-import { pickupCodeCheckFor, releaseStudent, type Released } from "@/lib/front-office/pickup";
-import { askPickupApproval, pickupApprovals, spendApproval, TAP_CHECK } from "@/lib/front-office/pickup-tap";
+import { pickupCodeCheckFor, releaseStudent, type ReleaseInput, type Released } from "@/lib/front-office/pickup";
+import { askPickupApproval, checkPickupAnswer, LEADER_CHECK, pickupApprovals, TAP_CHECK, TAP_FALLBACK_CHECK } from "@/lib/front-office/pickup-tap";
+import type { CampusLimit } from "@/lib/campus";
+import { makeUser } from "../helpers";
 import { KeptRefusal } from "@/lib/front-office/problem";
 import { as, at, makeFrontOfficeSchool, TZ, type FoFixture } from "./fixture";
 
@@ -87,9 +89,15 @@ async function ask(now: Date, studentId = f.aarav.id) {
 // The father has no photo on record, so the desk confirmed him on a call.
 const release = (studentId: string, now: Date, s: FoFixture = f) =>
   withSchool(as(s, s.frontdesk.id), (tx) => releaseStudent(tx, as(s, s.frontdesk.id), { studentId, guardianId: s.father.id, photoMatch: false, otherCheck: "call", code: null, reason: "Unwell", otherReason: null, minute: null }, { timeZone: TZ, codeCheck: false, tapCheck: true, now }));
+/** Any person, any guardian, with extra fields (a leader's note, the call fallback) or options (a campus limit). */
+const releaseAs = (userId: string, studentId: string, guardianId: string, now: Date, extra: Partial<ReleaseInput> = {}, opts: { limit?: CampusLimit } = {}) =>
+  withSchool(as(f, userId), (tx) => releaseStudent(tx, as(f, userId), { studentId, guardianId, photoMatch: false, otherCheck: "call", code: null, reason: "Unwell", otherReason: null, minute: null, ...extra }, { timeZone: TZ, codeCheck: false, tapCheck: true, now, ...opts }));
 const released = (r: Released | KeptRefusal) => { if (r instanceof KeptRefusal) throw new Error(r.message); return r; };
+/** A refused release is kept (its audit line stays), so it comes back as a KeptRefusal. */
+const refusal = (r: Released | KeptRefusal) => (r instanceof KeptRefusal ? r.message : `released with ${r.pass.passNo}`);
+const audits = (studentId: string, action: string) => withSchool(as(f, null), (tx) => tx.auditLogEntry.findMany({ where: { recordId: studentId, action }, orderBy: { at: "asc" } }));
 const letAllOut = () => withSchool(as(f, null), (tx) => tx.gatePass.updateMany({ where: { kind: "PICKUP", status: "ISSUED" }, data: { status: "LEFT", leftAt: new Date() } }));
-const state = (studentId: string, now: Date) => withSchool(desk(), async (tx) => (await pickupApprovals(tx, desk(), studentId, [f.father.id], TZ, now))[f.father.id]);
+const state = (studentId: string, now: Date) => withSchool(desk(), async (tx) => (await pickupApprovals(tx, desk(), studentId, [f.father.id], { timeZone: TZ, now }))[f.father.id]);
 
 describe("where no code can go", () => {
   it("the pickup check asks for approval on WhatsApp instead", async () => {
@@ -100,7 +108,7 @@ describe("where no code can go", () => {
   it("a release without an approval is refused, by the server action too", async () => {
     const now = at("2026-10-07", "09:00");
     expect(await state(f.aarav.id, now)).toEqual({ state: "none" });
-    await expect(release(f.aarav.id, now)).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
+    expect(refusal(await release(f.aarav.id, now))).toBe("Ask Rajesh to approve on WhatsApp first.");
     who.userId = f.frontdesk.id;
     who.schoolId = f.school.id;
     const r = await actions.releaseAction(null, form({ studentId: f.aarav.id, guardianId: f.father.id, otherCheck: "call", reason: "Unwell" }));
@@ -158,8 +166,10 @@ describe("tap to approve a pickup", () => {
     expect(new Set(lines.map((l) => l.action))).toEqual(new Set(["pickup-approval-asked", "pickup-approved", "pickup-approval-used"]));
     // The approval cannot release the child a second time.
     await letAllOut();
-    await expect(withSchool(desk(), (tx) => spendApproval(tx, desk(), { studentId: f.aarav.id, guardianId: f.father.id, first: "Rajesh", student: "Aarav", timeZone: TZ }, minutes(now, 4)))).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
-    await expect(release(f.aarav.id, minutes(now, 4))).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
+    const again = await withSchool(desk(), (tx) => checkPickupAnswer(tx, desk(), { studentId: f.aarav.id, guardianId: f.father.id, first: "Rajesh", student: "Aarav", timeZone: TZ }, { tapCheck: true, fallback: null, leaderNote: null }, minutes(now, 4)));
+    expect(again).toBeInstanceOf(KeptRefusal);
+    expect((again as KeptRefusal).message).toBe("Ask Rajesh to approve on WhatsApp first.");
+    expect(refusal(await release(f.aarav.id, minutes(now, 4)))).toBe("Ask Rajesh to approve on WhatsApp first.");
   });
 
   it("a No blocks the release with a clear note", async () => {
@@ -167,7 +177,7 @@ describe("tap to approve a pickup", () => {
     const { secret } = await ask(now);
     expect(await confirmTap(found, secret, newDeviceKey(), device, minutes(now, 1), "declined")).toMatchObject({ ok: true, kind: "pickup", answer: "declined" });
     expect(await state(f.aarav.id, minutes(now, 2))).toMatchObject({ state: "declined", at: "11:01 AM" });
-    await expect(release(f.aarav.id, minutes(now, 2))).rejects.toThrow("Rajesh said no on WhatsApp at 11:01 AM. Do not release Aarav. Call Rajesh, or ask again.");
+    expect(refusal(await release(f.aarav.id, minutes(now, 2)))).toBe("Rajesh Sharma said no on WhatsApp at 11:01 AM. Do not release Aarav to anyone before 11:11 AM, unless the Principal or a School Admin allows it.");
     const line = await withSchool(as(f, null), (tx) => tx.auditLogEntry.findFirst({ where: { recordId: f.aarav.id, action: "pickup-declined" }, orderBy: { at: "desc" } }));
     expect(JSON.stringify(line?.after)).toContain("by a tap on the school's WhatsApp message");
   });
@@ -178,7 +188,7 @@ describe("tap to approve a pickup", () => {
     // The guardian taps after the code minutes (10 by default).
     expect(await confirmTap(found, late, newDeviceKey(), device, minutes(now, 11), "approved")).toEqual({ ok: false, message: TAP_GONE });
     expect(await state(f.aarav.id, minutes(now, 11))).toEqual({ state: "expired" });
-    await expect(release(f.aarav.id, minutes(now, 11))).rejects.toThrow("The approval on WhatsApp ran out. Ask Rajesh again.");
+    expect(refusal(await release(f.aarav.id, minutes(now, 11)))).toBe("The approval on WhatsApp ran out. Ask Rajesh again.");
     // A newer request replaces an older one that was not answered.
     const later = minutes(now, 12);
     const { secret: first } = await ask(later);
@@ -186,7 +196,7 @@ describe("tap to approve a pickup", () => {
     expect(await confirmTap(found, first, newDeviceKey(), device, minutes(later, 2), "approved")).toEqual({ ok: false, message: TAP_GONE });
     expect(await confirmTap(found, second, newDeviceKey(), device, minutes(later, 2), "approved")).toMatchObject({ ok: true, answer: "approved" });
     // Approved, but the desk waited longer than the code minutes.
-    await expect(release(f.aarav.id, minutes(later, 13))).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
+    expect(refusal(await release(f.aarav.id, minutes(later, 13)))).toBe("Ask Rajesh to approve on WhatsApp first.");
   });
 
   it("an approval for another child, or from another school, is refused", async () => {
@@ -194,10 +204,10 @@ describe("tap to approve a pickup", () => {
     const { secret } = await ask(now);
     expect(await confirmTap(found, secret, newDeviceKey(), device, minutes(now, 1), "approved")).toMatchObject({ ok: true });
     // Aarav was approved, not his sister Diya.
-    await expect(release(f.diya.id, minutes(now, 2))).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
+    expect(refusal(await release(f.diya.id, minutes(now, 2)))).toBe("Ask Rajesh to approve on WhatsApp first.");
     // Another school sees neither the request nor the approval.
     expect(await withSchool(as(other, null), (tx) => tapView(tx, linkId, secret, null, minutes(now, 2)))).toBeNull();
-    await expect(release(other.aarav.id, minutes(now, 2), other)).rejects.toThrow("Ask Rajesh to approve on WhatsApp first.");
+    expect(refusal(await release(other.aarav.id, minutes(now, 2), other))).toBe("Ask Rajesh to approve on WhatsApp first.");
     await expect(withSchool(as(other, null), (tx) => tx.parentLinkCode.count({ where: { parentLinkId: linkId } }))).resolves.toBe(0);
     // Aarav's own approval still works.
     expect(released(await release(f.aarav.id, minutes(now, 2))).pass.verification).toContain(TAP_CHECK);
@@ -212,6 +222,90 @@ describe("tap to approve a pickup", () => {
     expect(await withSchool(as(f, null), (tx) => tapView(tx, linkId, secret, null, minutes(now, 1)))).toBeNull();
     expect(await confirmTap(found, secret, newDeviceKey(), device, minutes(now, 1), "approved")).toEqual({ ok: false, message: "This request is not for your child. Please call the school." });
     await withSchool(as(f, null), (tx) => tx.studentGuardian.update({ where: { id: sg.id }, data: { restriction: null } }));
+  });
+});
+
+describe("a No warns the school and blocks every release of the child", () => {
+  it("tells the leaders and the class teacher, blocks another guardian with no Parent Link, and only a leader's note allows it", async () => {
+    const grandma = await withSchool(as(f, null), async (tx) => {
+      const g = await tx.guardian.create({ data: { schoolId: f.school.id, name: "Kamala Sharma", relationship: "Grandmother", phone: "9849031266" } });
+      await tx.studentGuardian.create({ data: { schoolId: f.school.id, studentId: f.aarav.id, guardianId: g.id, relationship: "Grandmother" } });
+      return g;
+    });
+    const now = at("2026-10-08", "09:00");
+    const { secret } = await ask(now);
+    expect(await confirmTap(found, secret, newDeviceKey(), device, minutes(now, 1), "declined")).toMatchObject({ ok: true, answer: "declined" });
+    const told = await withSchool(as(f, null), (tx) => tx.notification.findMany({ where: { type: "pickup-refused", link: `/front-office/pickup?student=${f.aarav.id}` }, select: { userLoginId: true, text: true } }));
+    for (const person of [f.principal.id, f.admin.id, f.classTeacher.id]) expect(told.map((n) => n.userLoginId)).toContain(person);
+    expect(told[0].text).toMatch(/^Rajesh Sharma said no on WhatsApp at .* to taking Aarav Sharma home\. Do not release Aarav to anyone before/);
+
+    // The desk chooses the grandmother (no Parent Link) and ticks "called": still refused, and the try is kept.
+    const before = (await audits(f.aarav.id, "pickup-release-refused")).length;
+    const r = await releaseAs(f.frontdesk.id, f.aarav.id, grandma.id, minutes(now, 2));
+    expect(refusal(r)).toMatch(/^Rajesh Sharma said no on WhatsApp at .*\. Do not release Aarav to anyone before .*, unless the Principal or a School Admin allows it\.$/);
+    expect((await audits(f.aarav.id, "pickup-release-refused")).length).toBe(before + 1);
+    // Only a Principal or School Admin may allow it, with a note.
+    await expect(releaseAs(f.frontdesk.id, f.aarav.id, grandma.id, minutes(now, 2), { leaderNote: "I say it is fine" })).rejects.toThrow("Only the Principal or a School Admin can allow this release.");
+    await expect(releaseAs(f.admin.id, f.aarav.id, grandma.id, minutes(now, 2), { leaderNote: "ok" })).rejects.toThrow("Write why you are allowing this release.");
+    const ok = released(await releaseAs(f.admin.id, f.aarav.id, grandma.id, minutes(now, 3), { leaderNote: "Mother called the Principal: grandmother may collect today." }));
+    expect(ok.pass.verification).toBe(`call to a guardian, ${LEADER_CHECK}`);
+    expect(JSON.stringify((await audits(f.aarav.id, "pickup-allowed-by-leader")).at(-1)?.after)).toContain("Mother called the Principal");
+    await letAllOut();
+    // After the code minutes the block is gone.
+    expect(released(await releaseAs(f.frontdesk.id, f.aarav.id, grandma.id, minutes(now, 12))).pass.verification).toBe("call to a guardian");
+    await letAllOut();
+  });
+});
+
+describe("a child is never stuck", () => {
+  it("when the request did not reach WhatsApp, a call is a real, audited fallback", async () => {
+    const now = at("2026-10-08", "10:00");
+    const { sent } = await ask(now);
+    await withSchool(as(f, null), (tx) => tx.messageRecipient.updateMany({ where: { messageId: sent.messageId! }, data: { status: "FAILED", failReason: "Not a WhatsApp number" } }));
+    expect(await state(f.aarav.id, minutes(now, 1))).toEqual({ state: "failed" });
+    expect(refusal(await release(f.aarav.id, minutes(now, 1)))).toBe("The request did not reach Rajesh’s WhatsApp. Call Rajesh, and tick that they confirmed on the call.");
+    const r = released(await releaseAs(f.frontdesk.id, f.aarav.id, f.father.id, minutes(now, 2), { tapFallback: "call" }));
+    expect(r.pass.verification).toBe(`call to a guardian, ${TAP_FALLBACK_CHECK}`);
+    expect(JSON.stringify((await audits(f.aarav.id, "pickup-approval-fallback")).at(-1)?.after)).toContain("approval could not be sent, checked by a call");
+    await letAllOut();
+  });
+
+  it("when the guardian does not answer, a Principal or School Admin can allow it with a note", async () => {
+    const now = at("2026-10-08", "11:00");
+    await ask(now);
+    expect(refusal(await release(f.aarav.id, minutes(now, 1)))).toBe("Rajesh has not approved on WhatsApp yet. Wait for the answer, or ask again.");
+    const r = released(await releaseAs(f.principal.id, f.aarav.id, f.father.id, minutes(now, 2), { leaderNote: "Father's phone is switched off; he is known to the office." }));
+    expect(r.pass.verification).toBe(`call to a guardian, ${LEADER_CHECK}`);
+    await letAllOut();
+  });
+});
+
+describe("a desk kept to one campus", () => {
+  it("cannot ask, read or release for another campus's child", async () => {
+    const main = f.school.campus.id;
+    const { kiran, northDesk } = await withSchool(as(f, null), async (tx) => {
+      const south = await tx.campus.create({ data: { schoolId: f.school.id, name: "South campus" } });
+      const kiran = await tx.student.create({ data: { schoolId: f.school.id, campusId: south.id, admissionNo: "ADM-S1", firstName: "Kiran", lastName: "Sharma", fullName: "Kiran Sharma", status: "ACTIVE" } });
+      await tx.studentGuardian.create({ data: { schoolId: f.school.id, studentId: kiran.id, guardianId: f.father.id, relationship: "Father" } });
+      return { kiran, northDesk: null as null | { id: string } };
+    }).then(async (x) => {
+      const u = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["receptionist"] }], name: "Main Campus Desk" });
+      await withSchool(as(f, null), (tx) => tx.schoolAccess.updateMany({ where: { schoolId: f.school.id, userLoginId: u.id }, data: { scope: "CAMPUS", campusId: main } }));
+      return { ...x, northDesk: u };
+    });
+    const limit = { campusId: main };
+    const now = at("2026-10-08", "12:00");
+    await expect(withSchool(desk(), (tx) => askPickupApproval(tx, desk(), { studentId: kiran.id, guardianId: f.father.id, limit, now }))).rejects.toThrow("This student was not found.");
+    await expect(withSchool(desk(), (tx) => pickupApprovals(tx, desk(), kiran.id, [f.father.id], { timeZone: TZ, now, limit }))).rejects.toThrow("This student was not found.");
+    await expect(releaseAs(f.frontdesk.id, kiran.id, f.father.id, now, {}, { limit })).rejects.toThrow("This student was not found.");
+    // The same through the desk's own actions, signed in as the one-campus person.
+    who.userId = northDesk.id;
+    who.schoolId = f.school.id;
+    expect(await actions.askApprovalAction(null, form({ studentId: kiran.id, guardianId: f.father.id }))).toMatchObject({ ok: false, message: "This student was not found." });
+    expect(await actions.approvalNowAction(kiran.id, f.father.id)).toBeNull();
+    expect(await actions.approvalNowAction(f.aarav.id, f.father.id)).not.toBeNull();
+    expect(await actions.releaseAction(null, form({ studentId: kiran.id, guardianId: f.father.id, otherCheck: "call", reason: "Unwell" }))).toMatchObject({ ok: false, message: "This student was not found." });
+    expect(await withSchool(as(f, null), (tx) => tx.parentLinkCode.count({ where: { detail: { path: ["studentId"], equals: kiran.id } } }))).toBe(0);
   });
 });
 

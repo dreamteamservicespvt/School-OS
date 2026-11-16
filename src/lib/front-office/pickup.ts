@@ -23,7 +23,7 @@ import { CODE_MASK } from "../messaging/one-time-code";
 import { codeChannels, WHATSAPP_NO_CODES } from "../messaging/channels";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
-import { pickupTapCarrier, TAP_CHECK, spendApproval } from "./pickup-tap";
+import { checkPickupAnswer, LEADER_CHECK, pickupTapCarrier, TAP_CHECK, TAP_FALLBACK_CHECK } from "./pickup-tap";
 import { word } from "../notification-words";
 import type { MessageKey } from "../i18n/t";
 
@@ -83,9 +83,10 @@ export type PickupPerson = { guardianId: string; name: string; relationship: str
  * school day for their class (the one school-day rule, so a holiday is named
  * instead of "attendance not marked yet", QA FO-02) and the approved pickup list.
  */
-export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: string, today: Date) {
+/** limit: a person kept to one campus finds only their campus's students ("not found" otherwise). */
+export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: string, today: Date, limit?: CampusLimit | null) {
   const s = await tx.student.findFirst({
-    where: { id: studentId, archivedAt: null },
+    where: { id: studentId, archivedAt: null, ...inCampus(limit) },
     select: {
       id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, status: true,
       guardians: {
@@ -287,17 +288,23 @@ async function tellLeaders(tx: Tx, ctx: SchoolContext, who: PickupWho, opts: { l
   }
 }
 
-export type ReleaseInput = { studentId: string; guardianId: string; photoMatch: boolean; otherCheck?: NoPhotoCheck | null; code: string | null; reason: string; otherReason: string | null; minute: number | null };
+export type ReleaseInput = {
+  studentId: string; guardianId: string; photoMatch: boolean; otherCheck?: NoPhotoCheck | null; code: string | null; reason: string; otherReason: string | null; minute: number | null;
+  /** The WhatsApp request did not reach the guardian, so the desk called them ("call"). */
+  tapFallback?: "call" | null;
+  /** A Principal or School Admin allows a release a guardian refused or could not answer: why. */
+  leaderNote?: string | null;
+};
 
 /**
  * Releases a student to a person on the approved list and makes the Pickup gate pass (16 Done when 3, 4, 12).
  * codeCheck: the 4-digit code; tapCheck: the guardian's approval on WhatsApp, checked and used here (./pickup-tap.ts).
  */
-export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; tapCheck?: boolean; now?: Date }): Promise<Released | KeptRefusal> {
+export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; tapCheck?: boolean; limit?: CampusLimit | null; now?: Date }): Promise<Released | KeptRefusal> {
   const now = opts.now ?? new Date();
   const day = todayIso(opts.timeZone, now);
   const today = new Date(`${day}T00:00:00Z`);
-  const info = await pickupStudent(tx, ctx, input.studentId, today);
+  const info = await pickupStudent(tx, ctx, input.studentId, today, opts.limit);
   if (!info) throw new FrontOfficeProblem("This student was not found.");
   const person = info.people.find((p) => p.guardianId === input.guardianId);
   if (!person || !person.allowed) {
@@ -330,16 +337,19 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   }
   const open = await tx.gatePass.findFirst({ where: { studentId: input.studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: instantOf(day, 0, opts.timeZone) } } });
   if (open) throw new FrontOfficeProblem(`${info.student.first} already has gate pass ${open.passNo} waiting at the gate.`);
-  if (opts.codeCheck) {
+  // A No on WhatsApp blocks every release of this child for a while (to anyone); then the approval, used once,
+  // or the call when the request did not reach WhatsApp; a guardian with no Parent Link was checked by photo,
+  // ID or a call. A Principal or School Admin may allow it with a note. Refusals are kept (./pickup-tap.ts).
+  const answer = await checkPickupAnswer(tx, ctx, { studentId: input.studentId, guardianId: person.guardianId, first, student: info.student.first, timeZone: opts.timeZone },
+    { tapCheck: !opts.codeCheck && Boolean(opts.tapCheck), fallback: input.tapFallback ?? null, leaderNote: input.leaderNote ?? null }, now);
+  if (answer instanceof KeptRefusal) return answer;
+  if (opts.codeCheck && answer !== "leader") {
     const refused = await checkCode(tx, ctx, { studentId: input.studentId, first: info.student.first, name: info.student.name, classSection: info.student.classSection, guardianId: person.guardianId }, code, opts.timeZone, now);
     if (refused) return new KeptRefusal(refused, "code");
-  } else if (opts.tapCheck) {
-    // Checked last, like the code, and used once; a guardian with no Parent Link was checked by photo, ID or a call.
-    const used = await spendApproval(tx, ctx, { studentId: input.studentId, guardianId: person.guardianId, first, student: info.student.first, timeZone: opts.timeZone }, now);
-    if (used) checks.push(TAP_CHECK);
   }
+  if (answer) checks.push({ used: TAP_CHECK, fallback: TAP_FALLBACK_CHECK, leader: LEADER_CHECK }[answer]);
   const passNo = formatNumber(`GP-${day.slice(0, 4)}-`, await nextNumber(tx, ctx, `gate-pass-${day.slice(0, 4)}`), 4);
-  if (opts.codeCheck) checks.push("code");
+  if (opts.codeCheck && answer !== "leader") checks.push("code");
   const verification = checks.join(", ");
   const pass = await tx.gatePass.create({
     data: {
@@ -385,9 +395,9 @@ export async function letOut(tx: Tx, ctx: SchoolContext, gatePassId: string, opt
 }
 
 /** "Someone not on this list is here": kept with the student's record and the class teacher is told. */
-export async function refusedPickup(tx: Tx, ctx: SchoolContext, studentId: string, who: string, opts: { timeZone: string; now?: Date }) {
+export async function refusedPickup(tx: Tx, ctx: SchoolContext, studentId: string, who: string, opts: { timeZone: string; limit?: CampusLimit | null; now?: Date }) {
   const now = opts.now ?? new Date();
-  const info = await pickupStudent(tx, ctx, studentId, new Date(`${todayIso(opts.timeZone, now)}T00:00:00Z`));
+  const info = await pickupStudent(tx, ctx, studentId, new Date(`${todayIso(opts.timeZone, now)}T00:00:00Z`), opts.limit);
   if (!info) throw new FrontOfficeProblem("This student was not found.");
   const name = who.trim().replace(/\s+/g, " ").slice(0, 120) || "Someone not on the list";
   await writeAudit(tx, ctx, { action: "pickup-refused", recordType: "Student", recordId: studentId, after: { who: name, at: now.toISOString() } });

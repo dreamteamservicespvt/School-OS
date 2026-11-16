@@ -20,7 +20,7 @@ import { SheetForm } from "@/components/ui/url-sheet";
 import { SText } from "@/components/ui/sheet-fields";
 import { cx } from "@/components/ui/cx";
 import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
-import type { PickupApproval } from "@/lib/front-office/pickup-tap";
+import type { DeclineBlock, PickupApproval } from "@/lib/front-office/pickup-tap";
 import { approvalNowAction, askApprovalAction, refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
 import { useT, Words } from "@/lib/i18n/client";
@@ -151,7 +151,7 @@ const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (t: ReturnType<typeof useT
 /** How often the desk checks quietly for the guardian's answer on WhatsApp. */
 const APPROVAL_POLL_MS = 4000;
 
-export function ReleaseForm({ student, people, codeCheck, tapCheck = false, approvals = {}, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
+export function ReleaseForm({ student, people, codeCheck, tapCheck = false, approvals = {}, blocked = null, leader = false, codeLock = null, releasedBy, nowHHMM, stopHref, photoBase }: {
   student: { id: string; first: string };
   people: PickupChoice[];
   codeCheck: boolean;
@@ -159,6 +159,10 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
   tapCheck?: boolean;
   /** Where each allowed person's approval stands, by guardian id. */
   approvals?: Record<string, PickupApproval>;
+  /** A guardian said no on WhatsApp: no release to anyone for a while, unless a leader allows it. */
+  blocked?: DeclineBlock | null;
+  /** The Principal or a School Admin: may allow a release a guardian refused or could not answer, with a note. */
+  leader?: boolean;
   /** Code checks are locked after too many wrong codes: why and until when (gap list G04). */
   codeLock?: string | null;
   releasedBy: string;
@@ -177,6 +181,8 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
   const [askState, ask, asking] = useActionState<S, FormData>(askApprovalAction, null);
   const [askFor, setAskFor] = useState<string | null>(null);
   const [live, setLive] = useState<Record<string, PickupApproval>>({});
+  const [called, setCalled] = useState(false);
+  const [leaderNote, setLeaderNote] = useState("");
   const [reason, setReason] = useState(state?.values?.reason ?? "");
   const [other, setOther] = useState(state?.values?.otherReason ?? "");
   const g = people.find((p) => p.guardianId === who) ?? null;
@@ -188,8 +194,11 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
   // The guardian's answer on WhatsApp; checked again and used once on the server when the child is released.
   const approval: PickupApproval | null = g && tapCheck ? live[g.guardianId] ?? approvals[g.guardianId] ?? { state: "no-link" } : null;
   const tapNeeded = Boolean(approval && approval.state !== "no-link");
-  const approved = !tapNeeded || approval?.state === "approved";
-  const ready = Boolean(g && verified && (!codeCheck || (code.length === 4 && !codeLock)) && approved && why);
+  // The leader's note (checked again on the server) lets a release go that a guardian refused or could not answer.
+  const leaderOk = leader && leaderNote.trim().length >= 5;
+  const approved = !tapNeeded || approval?.state === "approved" || (approval?.state === "failed" && called) || leaderOk;
+  const codeOk = !codeCheck || (code.length === 4 && !codeLock) || Boolean(blocked && leaderOk);
+  const ready = Boolean(g && verified && codeOk && approved && (!blocked || leaderOk) && why);
   const askedId = askState?.ok ? askFor : null;
   useEffect(() => {
     // Just asked: read where it stands now (waiting, or ended at once by Test mode).
@@ -210,7 +219,7 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
     return () => { stop = true; clearInterval(h); };
   }, [waitingFor, student.id]);
   const err = state && !state.ok ? state.errors ?? {} : {};
-  const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); };
+  const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); setCalled(false); };
   const t = useT();
   const gFirst = g?.name.split(" ")[0] ?? "";
 
@@ -221,6 +230,13 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
       <input type="hidden" name="reason" value={reason} />
       <input type="hidden" name="photoMatch" value={g?.photo && photo ? "on" : ""} />
       <input type="hidden" name="otherCheck" value={g && !g.photo ? check : ""} />
+      <input type="hidden" name="tapFallback" value={approval?.state === "failed" && called ? "call" : ""} />
+      {blocked && (
+        <div role="alert" className="rounded-xl border border-bad/50 bg-bad/[.06] p-3 flex gap-2 text-[13.5px] text-bad font-semibold">
+          <Ban size={17} className="shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{t("{by} said no on WhatsApp at {at}. Do not release {student} to anyone before {until}, unless the Principal or a School Admin allows it.", { by: blocked.by, at: blocked.at, student: student.first, until: blocked.until })}</span>
+        </div>
+      )}
       <div>
         <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Who is collecting?" /> <span className="font-normal text-ink3"><Words k={"· from Student Management, Parents & Guardians"} /></span></p>
         {people.length ? <PickupList people={people} canChoose chosen={who} onChoose={choose} />
@@ -301,6 +317,11 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
                   <p role="status" className="text-[13px] text-ink2 flex items-center gap-1.5"><Loader2 size={15} className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("Waiting for {name} to tap Approve on WhatsApp…", { name: gFirst })}</p>
                 ) : approval.state === "expired" ? (
                   <p role="status" className="text-[12.5px] text-warn"><Words k="No answer came in time. Ask again." /></p>
+                ) : approval.state === "failed" ? (
+                  <div className="flex flex-col gap-2">
+                    <p role="alert" className="text-[13px] text-bad">{t("The request did not reach {name}’s WhatsApp. Call {name}, then tick below.", { name: gFirst })}</p>
+                    <label className="flex items-center gap-2.5 cursor-pointer"><Checkbox checked={called} onChange={setCalled} label={t("{name} confirmed on a call", { name: gFirst })} /><span className="text-[13.5px] font-semibold">{t("{name} confirmed on a call", { name: gFirst })}</span></label>
+                  </div>
                 ) : null}
                 {approval.state !== "approved" && (
                   <div className="flex flex-col items-start gap-1">
@@ -313,6 +334,13 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
               </div>
             ))}
             {err.approval && <p className="mt-1 text-[12.5px] text-bad" role="alert">{t.any(err.approval)}</p>}
+            {leader && (blocked || (tapNeeded && approval?.state !== "approved")) && (
+              <div className="rounded-xl border border-line p-3 mt-2 flex flex-col gap-2">
+                <label htmlFor="rl-leader" className="text-[14px]"><b className="font-semibold block"><Words k="Allow this release (Principal or School Admin)" /></b><span className="text-[12.5px] text-ink3"><Words k="Only when you are sure. Why you allow it is kept in the audit log." /></span></label>
+                <input id="rl-leader" name="leaderNote" value={leaderNote} onChange={(e) => setLeaderNote(e.target.value)} maxLength={200} placeholder={t("Why you are allowing it")} className={cx(inputCls(err.leaderNote), "h-11")} aria-invalid={err.leaderNote ? true : undefined} />
+                {err.leaderNote && <p className="text-[12.5px] text-bad" role="alert">{t.any(err.leaderNote)}</p>}
+              </div>
+            )}
           </div>
           <FieldShell label="Reason" id="rl-reason" required error={err.reason || err.otherReason}>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("Reason")}>
@@ -333,7 +361,7 @@ export function ReleaseForm({ student, people, codeCheck, tapCheck = false, appr
           </div>
           {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{t.any(state.message ?? "")}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? t("Making gate pass…") : ready ? t("Release {name} and make gate pass", { name: student.first }) : !verified ? (g.photo ? t("Check the photo first") : t("Check ID proof or call first")) : codeCheck && codeLock ? t("Code checks are locked: read the red note above") : codeCheck && code.length !== 4 ? (codeSent ? t("Enter the code from the guardian") : t("Send the code first")) : !approved ? (approval?.state === "declined" ? t("{name} said no: do not release", { name: gFirst }) : approval?.state === "waiting" ? t("Waiting for {name} to approve", { name: gFirst }) : t("Ask {name} to approve on WhatsApp first", { name: gFirst })) : t("Choose a reason")}
+            {pending ? t("Making gate pass…") : ready ? t("Release {name} and make gate pass", { name: student.first }) : !verified ? (g.photo ? t("Check the photo first") : t("Check ID proof or call first")) : blocked && !leaderOk ? t("Release blocked: read the red note") : codeCheck && codeLock && !codeOk ? t("Code checks are locked: read the red note above") : !codeOk && codeCheck && code.length !== 4 ? (codeSent ? t("Enter the code from the guardian") : t("Send the code first")) : !approved ? (approval?.state === "declined" ? t("{name} said no: do not release", { name: gFirst }) : approval?.state === "waiting" ? t("Waiting for {name} to approve", { name: gFirst }) : approval?.state === "failed" ? t("Call {name} first, then tick", { name: gFirst }) : t("Ask {name} to approve on WhatsApp first", { name: gFirst })) : t("Choose a reason")}
           </Button>
         </div>
       ) : (

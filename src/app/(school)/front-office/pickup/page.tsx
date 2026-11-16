@@ -8,7 +8,7 @@ import { fileLink } from "@/lib/files";
 import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
 import { openPickupPass, pickupCodeCheckFor, pickupCodeLock, pickupLockWords, pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
-import { pickupApprovals } from "@/lib/front-office/pickup-tap";
+import { isPickupLeader, pickupApprovals, pickupDeclineBlock } from "@/lib/front-office/pickup-tap";
 import { clockAt, shortDay } from "@/lib/front-office/time";
 import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -57,7 +57,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
     const codeCheck = await pickupCodeCheckFor(tx, ctx, p.settings.pickupCodeCheck);
     const [results, info, list, pass, check, school, lock, openPass] = await Promise.all([
       q ? searchStudents(tx, ctx, q, 8, p.current) : Promise.resolve([]),
-      studentId ? pickupStudent(tx, ctx, studentId, p.today) : Promise.resolve(null),
+      studentId ? pickupStudent(tx, ctx, studentId, p.today, p.current) : Promise.resolve(null),
       (async () => { const m = momentWhere(range, p.tz); return pickupsOn(tx, m.gte, m.lt); })(),
       gpId ? tx.gatePass.findFirst({ where: { id: gpId, kind: "PICKUP", archivedAt: null } }) : Promise.resolve(null),
       "check" in sp ? checkPass(tx, one(sp.check), p.now) : Promise.resolve(null),
@@ -68,13 +68,16 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
       studentId && canRelease ? openPickupPass(tx, studentId, p.tz, p.now) : Promise.resolve(null),
     ]);
     // Approval on WhatsApp (owner decision 21): where each allowed person's request stands.
-    const approvals = info && codeCheck.tap && canRelease && !openPass ? await pickupApprovals(tx, ctx, info.student.id, info.people.filter((x) => x.allowed).map((x) => x.guardianId), p.tz, p.now) : {};
+    const approvals = info && codeCheck.tap && canRelease && !openPass ? await pickupApprovals(tx, ctx, info.student.id, info.people.filter((x) => x.allowed).map((x) => x.guardianId), { timeZone: p.tz, now: p.now, limit: p.current }) : {};
+    // A No on WhatsApp blocks every release of this child for a while; only a Principal or School Admin can allow it.
+    const block = info && canRelease && !openPass ? await pickupDeclineBlock(tx, ctx, info.student.id, p.tz, p.now) : null;
+    const leader = canRelease && (block || codeCheck.tap) ? await isPickupLeader(tx, ctx) : false;
     const passMore = pass ? await Promise.all([
       tx.student.findFirst({ where: { id: pass.studentId }, select: { fullName: true, photoFileId: true } }),
       pass.guardianId ? tx.guardian.findFirst({ where: { id: pass.guardianId }, select: { photoFileId: true } }) : null,
       pass.issuedById ? tx.userLogin.findUnique({ where: { id: pass.issuedById }, select: { displayName: true } }) : null,
     ]) : null;
-    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck, openPass, approvals };
+    return { results, info, list, pass, passMore, check, deskPhone: school?.phone ?? null, lock, codeCheck, openPass, approvals, block, leader };
   });
 
   const info = data.info;
@@ -141,6 +144,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                   <Banner tone="warn" title={t("{name} already has gate pass {pass} waiting at the gate.", { name: info.student.first, pass: data.openPass.passNo })} />
                 ) : canRelease ? (
                   <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={data.codeCheck.on} tapCheck={data.codeCheck.tap} approvals={data.approvals}
+                    blocked={data.block} leader={data.leader}
                     codeLock={data.lock ? pickupLockWords(data.lock, info.student.first, p.tz) : null}
                     releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}
                     photoBase={abilities(p.current).manage ? "/student-management/guardians/" : null} />

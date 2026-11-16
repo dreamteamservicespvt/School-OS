@@ -15,6 +15,7 @@ import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, pickupCodeCheckFor, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
 import { askPickupApproval, pickupApprovals, type PickupApproval } from "@/lib/front-office/pickup-tap";
 import { deliverCodeNow } from "@/lib/messaging/code-now";
+import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { findStudents } from "@/lib/students/find";
 import { inCampus } from "@/lib/campus";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
@@ -160,7 +161,14 @@ export async function askApprovalAction(_: S, fd: FormData): Promise<S> {
   try {
     const r = await inFrontOffice("edit", async (w) => {
       need(w.can.release, "release students");
-      return { sent: await askPickupApproval(w.tx, w.ctx, { studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting") }), ctx: w.ctx, t: foT(w.current) };
+      const studentId = id(fd, "studentId", "student");
+      const guardianId = id(fd, "guardianId", "person collecting");
+      // Counted in the database, so two presses at once cannot both slip through: per guardian and child, per person, per school.
+      for (const [key, max] of [[`pickup-ask:${studentId}:${guardianId}`, 3], [`pickup-ask:user:${w.ctx.userId}`, 30], [`pickup-ask:school:${w.ctx.schoolId}`, 300]] as const) {
+        const hit = await hitLimit(key, max, 600);
+        if (!hit.ok) throw new FrontOfficeProblem(limitMessage(hit));
+      }
+      return { sent: await askPickupApproval(w.tx, w.ctx, { studentId, guardianId, limit: w.current }), ctx: w.ctx, t: foT(w.current) };
     });
     const { sent, t } = r;
     if (sent.testMode) return { ok: true, message: `Test mode, not sent: no request went to ${sent.to}, because the school's WhatsApp is in Test mode (Settings, SMS, WhatsApp & Email).${sent.inLog ? " On this computer the link to tap is in the server log." : ""}`, data: { testMode: true } };
@@ -178,7 +186,7 @@ export async function approvalNowAction(studentId: string, guardianId: string): 
   try {
     return await inFrontOffice("view", async (w) => {
       if (!w.can.release) return null;
-      return (await pickupApprovals(w.tx, w.ctx, studentId, [guardianId], w.tz))[guardianId] ?? null;
+      return (await pickupApprovals(w.tx, w.ctx, studentId, [guardianId], { timeZone: w.tz, limit: w.current }))[guardianId] ?? null;
     });
   } catch {
     return null;
@@ -192,7 +200,8 @@ export async function releaseAction(_: S, fd: FormData): Promise<S> {
     return releaseStudent(w.tx, w.ctx, {
       studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting"), photoMatch: str(fd, "photoMatch") === "on",
       otherCheck: ((c) => (isNoPhotoCheck(c) ? c : null))(str(fd, "otherCheck")), code: str(fd, "code") || null, reason: str(fd, "reason"), otherReason: str(fd, "otherReason") || null, minute: hhmm(fd, "time", "time"),
-    }, { timeZone: w.tz, codeCheck: check.on, tapCheck: check.tap });
+      tapFallback: str(fd, "tapFallback") === "call" ? "call" : null, leaderNote: str(fd, "leaderNote") || null,
+    }, { timeZone: w.tz, codeCheck: check.on, tapCheck: check.tap, limit: w.current });
   }, (r, t) => r.classTeacher ? t("{student} released to {name}. {teacher} told.", { student: r.student.first, name: r.person.name, teacher: r.classTeacher }) : t("{student} released to {name}.", { student: r.student.first, name: r.person.name }));
   if (!r?.ok || !r.data) return r as S;
   const d = r.data as { pass: { id: string }; student: { id: string } };
@@ -229,7 +238,7 @@ export async function sendGatePassAction(_: S, fd: FormData): Promise<S> {
 export async function refusedAction(_: S, fd: FormData): Promise<S> {
   return foAction("edit", fd, async (w) => {
     need(w.can.release || w.can.gateWork, "record this");
-    return refusedPickup(w.tx, w.ctx, id(fd, "studentId", "student"), str(fd, "who"), { timeZone: w.tz });
+    return refusedPickup(w.tx, w.ctx, id(fd, "studentId", "student"), str(fd, "who"), { timeZone: w.tz, limit: w.current });
   }, (r) => (r.told ? `${r.classTeacher} told. ${r.student.first} stays in class.` : `Kept with ${r.student.first}’s record. ${r.student.first} stays in class.`));
 }
 

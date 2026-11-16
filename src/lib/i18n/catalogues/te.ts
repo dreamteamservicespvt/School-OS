@@ -17384,4 +17384,11 @@ export const te: Catalogue = {
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "చేరలేదు: Parent Link సందేశాలను చూపదు (Message Settings, Parent Link)",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "By {channels}": "{channels} ద్వారా కూడా",
+  // Long lists: a box to type a few letters in (layman loop 2).
+  "Type to find": "వెతకడానికి టైప్ చేయండి",
+  "No match. Clear the box to see all.": "ఏదీ సరిపోలలేదు. అన్నీ చూడటానికి బాక్స్ ఖాళీ చేయండి.",
+  // Send Message: templates wait behind one button (layman loop 2).
+  "Use a saved template": "సేవ్ చేసిన టెంప్లేట్ వాడండి",
+  "(fees, attendance, results)": "(ఫీజు, హాజరు, ఫలితాలు)",
+  "No one yet": "ఇంకా ఎవరూ లేరు",
 };

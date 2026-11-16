@@ -17942,6 +17942,13 @@ export const EN = [
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "By {channels}",
+  // Long lists: a box to type a few letters in (layman loop 2).
+  "Type to find",
+  "No match. Clear the box to see all.",
+  // Send Message: templates wait behind one button (layman loop 2).
+  "Use a saved template",
+  "(fees, attendance, results)",
+  "No one yet",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

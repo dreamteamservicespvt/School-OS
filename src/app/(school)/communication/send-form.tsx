@@ -8,7 +8,7 @@ import Link from "next/link";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell, Bookmark, BellOff, CalendarClock, Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock, Coins, Eye, FileText, FlaskConical, GraduationCap,
-  LayoutGrid, ListChecks, Lock, Mail, MessageCircle, MessageSquareText, Paperclip, School, Send, Siren, TriangleAlert, User, Users, X, type LucideIcon,
+  LayoutGrid, LayoutTemplate, ListChecks, Lock, Mail, MessageCircle, MessageSquareText, Paperclip, School, Send, Siren, TriangleAlert, User, Users, X, type LucideIcon,
 } from "lucide-react";
 import { checkOrSend, findPeople, livePreview, saveGroup, type SendState } from "./actions";
 import type { SendPreview } from "@/lib/communication/send-form";
@@ -178,6 +178,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   const [checking, setChecking] = useState(false);
   const [version, setVersion] = useState(0);
   const [trBlock, setTrBlock] = useState<string | null>(null);
+  const [showTpl, setShowTpl] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveSeq = useRef(0);
@@ -193,6 +194,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   const isStaff = aud === "staff";
   const parentsChosen = (["school", "classes", "sections"].includes(aud) && who.includes("parents")) || (aud === "single" && people.some((p) => p.type === "parentsOf"));
   const typeInfo = TYPES.find((t) => t.value === type)!;
+  const tplOpen = showTpl || type !== "general" || Object.values(tpl).some(Boolean) || channels.includes("sms");
   // "Message type" really narrows the list: General leaves out the fee, attendance and result templates,
   // which have a type of their own (layman loop 6: the hint said so, the list stayed at 33).
   const typeCategories = TYPES.map((x) => x.category).filter(Boolean);
@@ -549,6 +551,9 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
 
+              {/* Layman loop 2: three template boxes before the message made a simple notice look heavy. They wait behind
+                  one button until needed; an SMS (its template is required), a chosen type or template keeps them open. */}
+              {tplOpen ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <FieldShell label="Message type" id="send-type" help={backupOk && data.backupDefaults[type] ? "SMS backup is on for this type in Message Settings" : "Sets which templates are offered"}>
                   <select id="send-type" name="messageType" value={type} className={cx(inputCls(), "h-11 pr-9")}
@@ -571,6 +576,16 @@ export function SendForm({ data }: { data: SendFormData }) {
                   </FieldShell>
                 ))}
               </div>
+              ) : (
+                <>
+                  <input type="hidden" name="messageType" value={type} />
+                  <button type="button" onClick={() => setShowTpl(true)} aria-expanded={false}
+                    className="self-start inline-flex min-h-10 items-center gap-2 rounded-full border border-line px-4 text-[13.5px] font-semibold text-brand hover:border-brand focus-visible:outline-2 focus-visible:outline-brand">
+                    <LayoutTemplate size={16} aria-hidden="true" /><Words k="Use a saved template" />
+                    <span className="font-normal text-ink3"><Words k="(fees, attendance, results)" /></span>
+                  </button>
+                </>
+              )}
 
               <FieldShell label="Title" id="send-title" required={needsTitle} error={titleBlankError ?? (tried ? err.title : undefined)}>
                 <input id="send-title" name="title" value={title} maxLength={120} onChange={(e) => { setTitle(e.target.value); touch(); }}
@@ -651,7 +666,9 @@ export function SendForm({ data }: { data: SendFormData }) {
             <div className="px-5 pb-4">
               <p className="eyebrow text-ink3"><Words k="Who will get it" /></p>
               <p className={cx("font-display text-[34px] font-semibold tnum leading-tight transition-opacity", checking && "opacity-50")}>
-                {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{tr.any(noun)}</span>
+                {whoReady
+                  ? <>{live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{tr.any(noun)}</span></>
+                  : <span className="text-[20px] text-ink3"><Words k="No one yet" /></span>}
               </p>
               <ul className="mt-2 flex flex-col gap-1.5 text-[13px] text-ink2">
                 {!whoReady && <li className="flex gap-2"><Users size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{err.who ? tr.any(err.who) : null}</span></li>}

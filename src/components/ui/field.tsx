@@ -5,7 +5,7 @@
 // Inside <FormProblems> (./form-problems.tsx) a field also shows the message found when
 // Save or Next is pressed, and drops a message as soon as it holds a good value.
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
@@ -81,9 +81,26 @@ export function TextArea({ label, name, help, error: given, required, className,
 
 export type Option = { value: string; label: string; /** Shown but cannot be chosen (say why in the label). */ disabled?: boolean };
 
+/** Lists longer than this get a "Type to find" box above them. */
+const LONG_LIST = 12;
+/** Every typed word is in the label, ignoring case, dots and extra spaces ("ram k" finds "Ram Kumar"). */
+export function matchesFind(label: string, words: string): boolean {
+  const l = label.toLowerCase().replace(/\./g, " ");
+  return words.replace(/\./g, " ").split(/\s+/).filter(Boolean).every((w) => l.includes(w));
+}
+
 export function SelectField({ label, name, help, error: given, required, className, options, placeholder, ...rest }: FieldShell & { options: readonly Option[]; placeholder?: string } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">) {
   const id = `${useId()}-${name}`;
   const error = useFieldProblem(name, given);
+  const t = useT();
+  // A long list (staff, books, items) gets a box to type a few letters in: on a phone a 40-name wheel
+  // is slow to scroll (layman loop 2: "staff type-to-search picker"). The chosen one always stays in the list.
+  const [find, setFind] = useState("");
+  const [picked, setPicked] = useState(String(rest.value ?? rest.defaultValue ?? ""));
+  const long = options.length > LONG_LIST && !rest.multiple;
+  const chosen = rest.value !== undefined ? String(rest.value) : picked;
+  const words = find.trim().toLowerCase();
+  const shown = long && words ? options.filter((o) => o.value === chosen || matchesFind(o.label, words) || matchesFind(t.any(o.label), words)) : options;
   // Owner, 15 Nov: a list with one choice is not a choice (opened, it looked broken). When the field is not driven by
   // the page (no value/onChange) and has no "Choose…" line, the one choice shows as plain text and is still sent.
   const only = !placeholder && rest.value === undefined && rest.onChange === undefined && options.length === 1 && !options[0].disabled ? options[0] : null;
@@ -97,10 +114,20 @@ export function SelectField({ label, name, help, error: given, required, classNa
   }
   return (
     <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
+      {long && (
+        <input type="search" value={find} onChange={(e) => setFind(e.target.value)} autoComplete="off" enterKeyHint="done"
+          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+          placeholder={t("Type to find")} aria-label={`${t("Type to find")}: ${t.any(label)}`}
+          className="mb-1.5 h-10 w-full rounded-xl border border-line bg-surface px-3 text-[14.5px] placeholder:text-ink3" />
+      )}
       <KeepSelect id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
-        className={cx(inputCls(error), "h-11 pr-9")} {...rest}>
-        <OptionList options={options} placeholder={placeholder} />
+        className={cx(inputCls(error), "h-11 pr-9")} {...rest}
+        onChange={long ? (e) => { setPicked(e.target.value); rest.onChange?.(e); } : rest.onChange}>
+        <OptionList options={shown} placeholder={placeholder} />
       </KeepSelect>
+      {long && words && shown.every((o) => o.value === chosen) && (
+        <p className="mt-1 text-[13px] text-ink3">{t("No match. Clear the box to see all.")}</p>
+      )}
     </FieldShell>
   );
 }

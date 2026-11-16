@@ -17384,4 +17384,11 @@ export const hi: Catalogue = {
   "Is not reached: Parent Link does not show messages (Message Settings, Parent Link)": "नहीं पहुँचा: Parent Link संदेश नहीं दिखाता (Message Settings, Parent Link)",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "By {channels}": "{channels} से भी",
+  // Long lists: a box to type a few letters in (layman loop 2).
+  "Type to find": "ढूँढने के लिए लिखें",
+  "No match. Clear the box to see all.": "कुछ नहीं मिला। सब देखने के लिए बॉक्स खाली करें।",
+  // Send Message: templates wait behind one button (layman loop 2).
+  "Use a saved template": "सहेजा हुआ टेम्पलेट इस्तेमाल करें",
+  "(fees, attendance, results)": "(फ़ीस, हाज़िरी, परिणाम)",
+  "No one yet": "अभी कोई नहीं",
 };

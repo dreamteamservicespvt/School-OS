@@ -15,9 +15,10 @@ import { defineImport, type RowChoice } from "../importer";
 import { writeAudit } from "../audit";
 import { namesAlike } from "../students/name-match";
 import { AdmissionProblem, checkMobile, todayIn, zonedToInstant } from "./act";
-import { CLOSED_STATUSES, admissionYear, live, loadSettings } from "./settings";
+import { CLOSED_STATUSES, enquiryYear, live, loadSettings } from "./settings";
 import { defaultFollowUp, pickOwner } from "./enquiries";
 import { personCampusId } from "../campus";
+import { classTitle } from "@/lib/class-name";
 
 type Row = {
   childName: string; parentName: string; phone: string; email: string | null; classId: string | null;
@@ -147,7 +148,7 @@ defineImport<Row>({
     if (row.className) {
       // Only the person's campus's classes when limited to one; else the class of their own campus first.
       const classes = await tx.schoolClass.findMany({ where: { archivedAt: null, ...(limit ? { campusId: limit } : {}) }, select: { id: true, name: true, campusId: true } });
-      const found = classes.filter((x) => same(x.name, row.className) || same(x.name, `Class ${row.className}`));
+      const found = classes.filter((x) => same(x.name, row.className) || same(x.name, `${classTitle(row.className)}`));
       const own = found.length > 1 ? await personCampusId(tx, ctx, { campusId: limit }) : null;
       const c = found.find((x) => x.campusId === own) ?? found[0];
       if (!c) problems.push(limit ? `Class "${row.className}" is not a class of your campus.` : `Class "${row.className}" is not a class of this school.`);
@@ -193,7 +194,7 @@ defineImport<Row>({
     const campusId = cls?.campusId ?? (await personCampusId(tx, ctx, { campusId: limit }));
     if (!campusId) throw new AdmissionProblem("Add a campus before importing enquiries.");
     if (limit && campusId !== limit) throw new AdmissionProblem("You can import enquiries only for your own campus.");
-    const year = await admissionYear(tx, ctx, s, campusId);
+    const year = await enquiryYear(tx, ctx, s, campusId);
     if (!year) throw new AdmissionProblem("Set up an academic year before importing enquiries.");
     const me = ctx.userId ? await tx.staff.findFirst({ where: { userLoginId: ctx.userId, archivedAt: null }, select: { id: true } }) : null;
     const owner = v.ownerStaffId ?? (await pickOwner(tx, ctx, s, { classId: v.classId, adderStaffId: me?.id ?? null, today: todayIn(school.timeZone) }));

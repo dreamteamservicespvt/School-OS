@@ -10,6 +10,7 @@ import { academicScope } from "@/lib/academic/scope";
 import { campusAllows } from "@/lib/campus";
 import { assignSubstitute, endTemporaryCover, markAbsent, removeSubstitute, suggestSubstitutes, temporaryTeacher, unmarkAbsent, type Suggestion } from "@/lib/academic/substitutions";
 import { act, actSimple, staffInCampus } from "../_lib/server";
+import { classSection } from "@/lib/class-name";
 
 const PATH = "/academic-management/substitutions";
 const day = (label: string) => z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, `Choose the ${label}.`).transform((v) => new Date(`${v}T00:00:00Z`));
@@ -91,7 +92,7 @@ export async function removeSubstituteAction(substitutionId: string): Promise<st
   const place = async (tx: Tx) => tx.substitution.findFirst({ where: { id: substitutionId }, select: { date: true, period: { select: { section: { select: { schoolClass: { select: { campusId: true } } } } } } } });
   return actSimple("edit", async ({ tx, current }) => {
     const s = await removeSubstitute(tx, current.ctx, substitutionId);
-    return { flash: { message: `Period ${s.period.periodNo} in ${s.period.section.schoolClass.name} ${s.period.section.name} needs a substitute again.` } };
+    return { flash: { message: `Period ${s.period.periodNo} in ${classSection(s.period.section.schoolClass.name, s.period.section.name)} needs a substitute again.` } };
   }, {
     campusOf: async (tx) => (await place(tx))?.period.section.schoolClass.campusId,
     yearOf: async (tx) => { const s = await place(tx); return s ? yearOn(tx, s.date, s.period.section.schoolClass.campusId) : null; },

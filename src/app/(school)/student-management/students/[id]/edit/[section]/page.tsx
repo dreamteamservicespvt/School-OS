@@ -17,6 +17,7 @@ import {
 } from "../../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Edit student") };
@@ -92,9 +93,9 @@ export default async function EditStudentSection({ params }: { params: Promise<{
             <ActionForm action={saveEnrolmentAction.bind(null, id)} submitLabel="Save enrolment details" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
               <FormText name="admissionNo" label="Admission number" required defaultValue={s.admissionNo} help="Must be unique. The old number is kept." />
               <FormText name="admissionDate" label="Admission date" type="date" defaultValue={iso(s.joiningDate)} />
-              <FormText name="rollNo" label="Roll number" inputMode="numeric" defaultValue={p.now?.rollNo ?? ""} disabled={!p.now} help={p.now ? `In ${p.now.section?.schoolClass.name} ${p.now.section?.name}.` : "The student has no class this year."} />
+              <FormText name="rollNo" label="Roll number" inputMode="numeric" defaultValue={p.now?.rollNo ?? ""} disabled={!p.now} help={p.now ? `In ${classSection(p.now.section?.schoolClass.name ?? "", p.now.section?.name)}.` : "The student has no class this year."} />
               <div className="text-[13.5px] text-ink2 sm:col-span-2">
-                <Words k="Class and section:" /> {p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : "none this year"}<Words k=". To move within the class use" />{" "}
+                <Words k="Class and section:" /> {p.now?.section ? `${classSection(p.now.section.schoolClass.name, p.now.section.name)}` : "none this year"}<Words k=". To move within the class use" />{" "}
                 <Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${id}/section`}><Words k="Change section" /></Link><Words k="; to move class, use Promotion." />
               </div>
             </ActionForm>

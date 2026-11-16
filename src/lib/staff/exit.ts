@@ -19,6 +19,7 @@ import { loginsForCampus } from "./campus-logins";
 import { exitRefusal, granterOf, heldHere } from "./login-ceiling";
 import { activeSchoolAdminIds, isLastSchoolAdmin } from "../settings/common";
 import { word } from "../notification-words";
+import { classSection } from "@/lib/class-name";
 
 export class ExitProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -110,8 +111,8 @@ async function buildHandover(tx: Tx, ctx: SchoolContext, exitCaseId: string, sta
     tx.section.findMany({ where: { classTeacherId: staffId, academicYearId: year.id, archivedAt: null }, include: { schoolClass: true } }),
   ]);
   const data = [
-    ...sections.map((s) => ({ kind: "class-teacher", label: `Class teacher of ${s.schoolClass.name} ${s.name}`, refId: s.id })),
-    ...allocs.map((a) => ({ kind: "allocation", label: `${a.section.schoolClass.name} ${a.section.name}: ${a.subject.name}`, refId: a.id })),
+    ...sections.map((s) => ({ kind: "class-teacher", label: `Class teacher of ${classSection(s.schoolClass.name, s.name)}`, refId: s.id })),
+    ...allocs.map((a) => ({ kind: "allocation", label: `${classSection(a.section.schoolClass.name, a.section.name)}: ${a.subject.name}`, refId: a.id })),
   ];
   if (data.length) await tx.handoverItem.createMany({ data: data.map((d) => ({ ...d, schoolId: ctx.schoolId, exitCaseId })) });
   return data.length;

@@ -10,6 +10,7 @@ import { attendanceAccess } from "@/lib/attendance/access";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { STUDENT_LEAVE_STATUS } from "@/lib/attendance/student-leave";
 import { LEAVE_STATUSES, studentLeaveList } from "@/lib/attendance/student-leave-list";
+import { classTitle } from "@/lib/class-name";
 
 export async function GET(req: Request) {
   const gate = await routeAction("attendance-management", "export");
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     const type = list.typeNames.get(sp.type ?? "") ?? list.types.find((t) => t.id === sp.type)?.name;
     const filters = [
       status === "all" ? "All statuses" : STUDENT_LEAVE_STATUS[status]?.label ?? status,
-      section ? `Class ${section}` : null, type ? `Type ${type}` : null,
+      section ? `${classTitle(section)}` : null, type ? `Type ${type}` : null,
       range ? `Dates ${range.label}` : null, sp.q ? `Search "${sp.q.slice(0, 80)}"` : null,
     ].filter(Boolean).join(", ");
     const title = "Student Leave";

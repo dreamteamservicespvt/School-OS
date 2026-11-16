@@ -15,6 +15,7 @@ import { mapActiveOn } from "./subjects";
 import { dayOffOf, type DayOff } from "./calendar";
 import { isSchoolDay } from "../calendar/school-days";
 import { assertYearWritable } from "./years";
+import { classSection } from "@/lib/class-name";
 
 // ---------------------------------------------------------------- versions
 
@@ -114,7 +115,7 @@ async function cells(tx: Tx, where: Prisma.TimetablePeriodWhereInput): Promise<P
   const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.staffId).filter((x): x is string => Boolean(x)))] } }, select: { id: true, fullName: true } });
   const nameOf = new Map(staff.map((s) => [s.id, s.fullName]));
   return rows.map((r) => ({
-    id: r.id, sectionId: r.sectionId, sectionLabel: `${r.section.schoolClass.name} ${r.section.name}`, classId: r.section.classId,
+    id: r.id, sectionId: r.sectionId, sectionLabel: `${classSection(r.section.schoolClass.name, r.section.name)}`, classId: r.section.classId,
     dayOfWeek: r.dayOfWeek, periodNo: r.periodNo, startTime: r.startTime, endTime: r.endTime,
     subjectId: r.subjectId, subjectName: r.subject?.name ?? null, subjectCode: r.subject?.code ?? null,
     staffId: r.staffId, staffName: r.staffId ? nameOf.get(r.staffId) ?? null : null,
@@ -215,7 +216,7 @@ export async function clashFor(tx: Tx, input: { versionId: string; sectionId: st
     if (busy.length) {
       const staff = await tx.staff.findUnique({ where: { id: input.staffId }, select: { fullName: true } });
       const b = busy[0];
-      problems.push(`${staff?.fullName ?? "This teacher"} is already in ${b.section.schoolClass.name} ${b.section.name}, period ${b.periodNo} on ${DAY_NAMES[b.dayOfWeek]}${busy.length > 1 ? ` (and ${plural(busy.length - 1, "more day")})` : ""}.`);
+      problems.push(`${staff?.fullName ?? "This teacher"} is already in ${classSection(b.section.schoolClass.name, b.section.name)}, period ${b.periodNo} on ${DAY_NAMES[b.dayOfWeek]}${busy.length > 1 ? ` (and ${plural(busy.length - 1, "more day")})` : ""}.`);
     }
   }
   if (input.room) {
@@ -227,7 +228,7 @@ export async function clashFor(tx: Tx, input: { versionId: string; sectionId: st
       },
       include: { section: { include: { schoolClass: true } } },
     });
-    if (busy) problems.push(`Room ${input.room} is already booked for ${busy.section.schoolClass.name} ${busy.section.name}, period ${busy.periodNo} on ${DAY_NAMES[busy.dayOfWeek]}.`);
+    if (busy) problems.push(`Room ${input.room} is already booked for ${classSection(busy.section.schoolClass.name, busy.section.name)}, period ${busy.periodNo} on ${DAY_NAMES[busy.dayOfWeek]}.`);
   }
   return problems;
 }
@@ -294,7 +295,7 @@ export async function savePeriod(tx: Tx, ctx: SchoolContext, input: PeriodInput)
   }
   await writeAudit(tx, ctx, { action: "changed", recordType: "Timetable Period", recordId: section.id, before: JSON.parse(JSON.stringify(before)), after: { ...data, archivedAt: undefined, days, periodNo: input.periodNo }, actorNote: note });
   const warnings = (await clashCheck(tx, ctx, version.id)).filter((c) => !c.hard && c.sectionId === section.id && days.includes(c.dayOfWeek)).map((c) => c.message);
-  return { label: `${section.schoolClass.name} ${section.name}`, days, warnings };
+  return { label: `${classSection(section.schoolClass.name, section.name)}`, days, warnings };
 }
 
 /** Removes a period from a draft (with Undo). */
@@ -474,7 +475,7 @@ export async function autoFill(tx: Tx, ctx: SchoolContext, versionId: string, se
         }
       }
     }
-    for (const n of needs) if (n.left > 0) unplaced.push({ section: `${section.schoolClass.name} ${section.name}`, subject: n.subjectName, count: n.left });
+    for (const n of needs) if (n.left > 0) unplaced.push({ section: `${classSection(section.schoolClass.name, section.name)}`, subject: n.subjectName, count: n.left });
   }
   // Breaks from the period master on every working day, for the sections made.
   for (const section of sections) {

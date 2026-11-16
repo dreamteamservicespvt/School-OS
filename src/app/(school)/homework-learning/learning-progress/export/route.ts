@@ -1,6 +1,7 @@
 import type { ExportColumn } from "@/lib/exports";
 import { classProgress, type ProgressRow } from "@/lib/homework/progress";
 import { homeworkExport } from "../../_lib/export";
+import { classTitle } from "@/lib/class-name";
 
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +29,6 @@ export async function GET(req: Request) {
       { label: "Lessons done", value: (r) => r.lessonsDone },
       { label: "Lessons in the courses", value: () => pr.totals.lessons },
     ];
-    return { title: `Homework report · Class ${pr.section.label}`, rows, columns, filters: [`Class ${pr.section.label}`, subject, q && `search "${q}"`].filter((x): x is string => !!x) };
+    return { title: `Homework report · ${classTitle(pr.section.label)}`, rows, columns, filters: [`${classTitle(pr.section.label)}`, subject, q && `search "${q}"`].filter((x): x is string => !!x) };
   });
 }

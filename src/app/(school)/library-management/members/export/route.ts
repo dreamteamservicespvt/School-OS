@@ -5,6 +5,7 @@ import { formatRupees } from "@/lib/format";
 import { librarySettings } from "@/lib/library/settings";
 import { libRoute } from "../../_lib/route";
 import { memberRows, readMembersFilter, type MemberRow } from "../../_lib/members";
+import { classSection } from "@/lib/class-name";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
     const s = await librarySettings(tx, x.current.ctx);
     const { rows } = await memberRows(tx, x.current.ctx, s, f, x.today, null, x.current);
     const sec = f.sec ? await tx.section.findFirst({ where: { id: f.sec }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
-    const filters = [sec ? `Class: ${sec.schoolClass.name} ${sec.name}` : "", f.q ? `Search: ${f.q}` : ""].filter(Boolean).join(" · ");
+    const filters = [sec ? `Class: ${classSection(sec.schoolClass.name, sec.name)}` : "", f.q ? `Search: ${f.q}` : ""].filter(Boolean).join(" · ");
     await logExport(tx, x.current.ctx, { title, format: x.format, filters, rows: rows.length });
     return { rows, filters };
   }, { timeout: 60_000 });

@@ -50,6 +50,7 @@ import { BUILT_MODULES } from "../modules";
 import { readPreferences } from "../settings/profile-rules";
 import { aiRolesOf } from "../settings/switch-rules";
 import { word } from "../notification-words";
+import { classSection } from "@/lib/class-name";
 
 export type ForecastArea = "attendance" | "marks" | "fees" | "students" | "admissions" | "staff" | "finance" | "academic" | "messages" | "activity";
 export const FORECAST_AREA_LABEL: Record<ForecastArea, string> = {
@@ -171,7 +172,7 @@ async function names(tx: Tx, ids: string[]) {
 
 async function classLabels(tx: Tx, sectionIds: string[]) {
   const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true, schoolClass: { select: { name: true } } } });
-  return new Map(sections.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
+  return new Map(sections.map((s) => [s.id, `${classSection(s.schoolClass.name, s.name)}`]));
 }
 
 async function attendanceForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[]> {

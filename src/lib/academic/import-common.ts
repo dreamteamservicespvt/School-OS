@@ -20,6 +20,7 @@ import { classKey, plain } from "../move-in/tidy";
 import { namesAlike } from "../students/name-match";
 import { currentYears } from "./years";
 import { DAY_NAMES } from "./common";
+import { classTitle } from "@/lib/class-name";
 
 export type ImportSection = { id: string; classId: string; className: string; sectionName: string; key: string | null; yearId: string; campusId: string; classTeacherId: string | null };
 export type ImportStaff = { id: string; fullName: string; staffCode: string | null; designation: string | null; working: boolean };
@@ -80,7 +81,7 @@ export function sectionIn(run: ImportRun, rawClass: string, rawSection: string):
   const shown = [rawClass.trim(), rawSection.trim()].filter(Boolean).join(" ");
   const sameClass = run.sections.filter((s) => plain(s.className) === plain(rawClass) || (s.key !== null && s.key === classKey(rawClass)));
   if (sameClass.length > 1 && !rawSection.trim()) return { problem: `Give the section of ${sameClass[0].className}: ${sameClass.map((s) => s.sectionName).join(", ")}.` };
-  return { problem: `${/^class\b/i.test(shown) ? shown : `Class ${shown}`} is not set up this year. Match it to a class, or add it in Academic Management, Classes & Sections.` };
+  return { problem: `${/^class\b/i.test(shown) ? shown : `${classTitle(shown)}`} is not set up this year. Match it to a class, or add it in Academic Management, Classes & Sections.` };
 }
 
 /** This year's class a class name in the file points to (any section), or the problem. */
@@ -89,7 +90,7 @@ export function classIn(run: ImportRun, raw: string): { classId: string; classNa
   const key = classKey(v);
   const hit = run.sections.find((s) => plain(s.className) === plain(v)) ?? (key ? run.sections.find((s) => s.key === key) : undefined);
   if (hit) return { classId: hit.classId, className: hit.className, yearId: hit.yearId };
-  return { problem: `${/^class\b/i.test(v) ? v : `Class ${v}`} is not set up this year. Use a class from Academic Management, Classes & Sections.` };
+  return { problem: `${/^class\b/i.test(v) ? v : `${classTitle(v)}`} is not set up this year. Use a class from Academic Management, Classes & Sections.` };
 }
 
 /** A subject by name or code, or the problem with the names it may mean. */

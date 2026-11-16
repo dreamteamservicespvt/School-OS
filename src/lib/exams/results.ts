@@ -29,6 +29,7 @@ import { messageParents } from "./notify-parents";
 import { refreshReportCards } from "./report-status";
 import type { ExamScope } from "./scope";
 import { word } from "../notification-words";
+import { classSection } from "@/lib/class-name";
 
 async function boardsOn(tx: Tx, ctx: SchoolContext) {
   const f = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: "exam-boards" } } });
@@ -38,7 +39,7 @@ async function boardsOn(tx: Tx, ctx: SchoolContext) {
 export async function sectionInfo(tx: Tx, sectionId: string) {
   const s = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: true } });
   if (!s) throw new ExamRuleError("This section was not found.");
-  return { id: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board, academicYearId: s.academicYearId, classTeacherId: s.classTeacherId };
+  return { id: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board, academicYearId: s.academicYearId, classTeacherId: s.classTeacherId };
 }
 
 /** The bands a class uses for an exam (the exam's scale, the board's, or the school's). */

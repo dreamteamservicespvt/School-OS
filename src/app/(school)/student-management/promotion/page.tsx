@@ -23,6 +23,7 @@ import { StudentsHead } from "../_lib/head";
 import { PromotionReview, type ReviewRow } from "./review";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Promotion") };
@@ -176,7 +177,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                 const s = data.batchSections.find((x) => x.id === b.fromSectionId);
                 return (
                   <Row key={b.id} href={`${BASE}/promotion/${b.id}`} icon={b.undoneAt ? Undo2 : ArrowUpRight} iconTone={b.undoneAt ? "neutral" : "ok"}
-                    title={s ? `${s.schoolClass.name} ${s.name} (${s.academicYear.name})` : "Class"}
+                    title={s ? `${classSection(s.schoolClass.name, s.name)} (${s.academicYear.name})` : "Class"}
                     sub={`${b.summary} · confirmed by ${data.people.find((x) => x.id === b.confirmedById)?.displayName ?? "someone"}`}
                     right={<span className="flex flex-col items-end gap-1"><span className="text-[13px] text-ink3 tnum whitespace-nowrap">{formatDateTime(b.confirmedAt, tz)}</span>{b.undoneAt && <Pill tone="neutral"><Words k="Undone" /></Pill>}</span>} />
                 );

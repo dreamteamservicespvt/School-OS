@@ -20,6 +20,7 @@ import { DUE_WINDOW_DAYS } from "./dues";
 import { feeStudentFilter, type FeeViewer } from "./access";
 import { OPEN_LINK } from "../students/guardian-access";
 import { sectionInCampus } from "../campus";
+import { classSection } from "@/lib/class-name";
 
 const ZERO = BigInt(0);
 export const NO_SECTION = "none";
@@ -206,7 +207,7 @@ export async function feesByClass(tx: Tx, viewer: FeeViewer, today: Date): Promi
     const t = sec.classTeacherId ? teacherOf.get(sec.classTeacherId) : undefined;
     return {
       ...finishTotals(per.get(sec.id)!),
-      sectionId: sec.id, name: `${sec.schoolClass.name} ${sec.name}`, classId: sec.schoolClass.id, sort: sec.schoolClass.sortOrder,
+      sectionId: sec.id, name: `${classSection(sec.schoolClass.name, sec.name)}`, classId: sec.schoolClass.id, sort: sec.schoolClass.sortOrder,
       group: groupOf(sec.schoolClass),
       teacher: t ? { staffId: t.id, name: t.fullName, userLoginId: t.userLoginId } : null,
     };
@@ -241,7 +242,7 @@ export async function sectionFees(tx: Tx, viewer: FeeViewer, sectionId: string, 
   const parentOf = new Map<string, { name: string; phone: string | null }>();
   for (const g of guardians) if (!parentOf.has(g.studentId)) parentOf.set(g.studentId, g.guardian);
   return {
-    sectionId: sec.id, name: `${sec.schoolClass.name} ${sec.name}`,
+    sectionId: sec.id, name: `${classSection(sec.schoolClass.name, sec.name)}`,
     teacher: t ? { staffId: t.id, name: t.fullName, userLoginId: t.userLoginId } : null,
     totals: finishTotals(totals),
     students: students.map((s) => ({ ...s, parent: parentOf.get(s.studentId) ?? null })),

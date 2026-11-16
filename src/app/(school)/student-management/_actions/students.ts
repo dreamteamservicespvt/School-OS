@@ -22,6 +22,7 @@ import {
 } from "@/lib/students/students";
 import { addDocument, addNote, archiveDocument, archiveNote } from "@/lib/students/records";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
+import { classSection } from "@/lib/class-name";
 
 const uuid = (label: string) => z.string().trim().regex(/^[0-9a-f-]{36}$/i, `Choose the ${label}.`);
 const profile = (id: string) => `${BASE}/students/${id}`;
@@ -72,7 +73,7 @@ export async function addStudent(_prev: FormState, fd: FormData): Promise<FormSt
     created = await withSchool(current.ctx, async (tx) => {
       await sectionOnCampus(tx, current, parsed.data.sectionId);
       const r = await createStudent(tx, current.ctx, { ...parsed.data, aadhaar: can.seeRestricted ? parsed.data.aadhaar : null });
-      return { id: r.student.id, name: r.student.fullName, admissionNo: r.student.admissionNo, section: `${r.section.schoolClass.name} ${r.section.name}` };
+      return { id: r.student.id, name: r.student.fullName, admissionNo: r.student.admissionNo, section: `${classSection(r.section.schoolClass.name, r.section.name)}` };
     });
   } catch (e) {
     if (e instanceof DuplicateFound) {

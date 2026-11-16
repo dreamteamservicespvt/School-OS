@@ -9,6 +9,7 @@ import { logExport } from "@/lib/exports";
 import { todayIn } from "@/lib/academic/common";
 import { homeworkScope, mayRead, shortSection } from "@/lib/homework/scope";
 import { withPdfErrors } from "@/lib/pdf";
+import { classTitle } from "@/lib/class-name";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,8 +34,8 @@ async function handleGET(_req: Request, { params }: { params: Promise<{ id: stri
     const label = section ? shortSection(section.schoolClass.name, section.name) : "";
     const doc = await renderDocument(tx, current.ctx, "course-certificate", {
       fields: {
-        certificate_no: cert.number, student_name: student?.fullName ?? "", admission_no: student?.admissionNo ?? "", class_section: label ? `Class ${label}` : "",
-        roll_no: enrolment?.rollNo ? String(enrolment.rollNo) : "", course_name: `${subject?.name ?? ""}, Class ${label}`, lessons: String(lessons),
+        certificate_no: cert.number, student_name: student?.fullName ?? "", admission_no: student?.admissionNo ?? "", class_section: label ? `${classTitle(label)}` : "",
+        roll_no: enrolment?.rollNo ? String(enrolment.rollNo) : "", course_name: `${subject?.name ?? ""}, ${classTitle(label)}`, lessons: String(lessons),
         teacher_name: teacher?.fullName ?? "", completed_on: formatDate(cert.issuedAt, current.school.timeZone),
       },
     });

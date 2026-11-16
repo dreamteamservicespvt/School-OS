@@ -8,6 +8,7 @@ import "server-only";
 import type { Tx } from "./db";
 import type { PermissionMap } from "./permissions";
 import { reachFor } from "./permissions";
+import { classSection } from "@/lib/class-name";
 
 /** The asker's job in a few words, from their staff record (else their roles), by login. */
 export async function askerJobs(tx: Tx, userIds: string[]): Promise<Map<string, string>> {
@@ -27,7 +28,7 @@ export async function askerJobs(tx: Tx, userIds: string[]): Promise<Map<string, 
   for (const s of staff) {
     if (!s.userLoginId) continue;
     const d = s.departmentId ? dept.get(s.departmentId) : null;
-    const classes = sections.filter((x) => x.classTeacherId === s.id).map((x) => `${x.schoolClass.name} ${x.name}`);
+    const classes = sections.filter((x) => x.classTeacherId === s.id).map((x) => `${classSection(x.schoolClass.name, x.name)}`);
     const job = [s.designation, d && !s.designation.toLowerCase().includes(d.toLowerCase()) ? d : null].filter(Boolean).join(", ");
     out.set(s.userLoginId, [job, classes.length ? `Class teacher, ${classes.join(" and ")}` : null].filter(Boolean).join(" · "));
   }

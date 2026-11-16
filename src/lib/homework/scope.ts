@@ -18,6 +18,7 @@ import { campusSectionIds, personCampusId } from "../campus";
 import { staffForUser } from "../people";
 import type { PermissionMap } from "../permissions";
 import { homeworkLevel, HomeworkProblem, pageModes, PAGE_KEYS, type HomeworkLevel, type HomeworkPageKey, type PageMode } from "./access";
+import { classSection } from "@/lib/class-name";
 
 export type Pair = { sectionId: string; subjectId: string };
 
@@ -89,7 +90,7 @@ export async function homeworkScope(tx: Tx, who: Who, today: Date): Promise<Home
     const section = enr ? await tx.section.findFirst({ where: { id: enr.sectionId }, include: { schoolClass: { select: { name: true } } } }) : null;
     return {
       ...base, ...y, staffId: null, sectionIds: section ? [section.id] : [],
-      student: st && enr && section ? { id: st.id, name: st.fullName, sectionId: section.id, classId: section.classId, label: `${section.schoolClass.name} ${section.name}`, rollNo: enr.rollNo } : null,
+      student: st && enr && section ? { id: st.id, name: st.fullName, sectionId: section.id, classId: section.classId, label: `${classSection(section.schoolClass.name, section.name)}`, rollNo: enr.rollNo } : null,
     };
   }
   const staff = await staffForUser(tx, who.ctx);

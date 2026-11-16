@@ -23,6 +23,7 @@ import { BASE, homeworkGuard, homeworkPeriod, localInput, one, qs, UUID, type Ho
 import { ArchiveQuizSheet, CloseQuizButton, MarkShortSheet, OpenQuizButton, QuizSheet, type BankQuestion, type QDraft, type QuizSection } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Quizzes") };
@@ -219,7 +220,7 @@ async function StudentQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   return (
     <div>
-      <HomeworkHead page="quizzes" pageName="Quizzes" sub={`Class ${label} · quizzes from your teachers. They mark themselves.`} />
+      <HomeworkHead page="quizzes" pageName="Quizzes" sub={`${classTitle(label)} · quizzes from your teachers. They mark themselves.`} />
       <Stack>
         <Card>
           <CardHeader title="Open now" description={open.length ? "Finish before they close" : "Nothing open right now"} icon={ListChecks} />

@@ -18,6 +18,7 @@ import { UUID_RE } from "@/lib/hostel/act";
 import { MODULE, bedWords } from "@/lib/hostel/words";
 import { plain } from "../../../_lib/route";
 import { withPdfErrors } from "@/lib/pdf";
+import { classTitle } from "@/lib/class-name";
 
 export const dynamic = "force-dynamic";
 // Starting the PDF browser on a fresh server can take several seconds.
@@ -56,7 +57,7 @@ async function handleGET(_req: Request, { params }: { params: Promise<{ id: stri
     const letterNo = `HL-${a.startDate.getUTCFullYear()}-${a.id.slice(0, 6).toUpperCase()}`;
     const w = (wardens.get(a.hostelId) ?? []).map((x) => `${x.name} (${x.title.toLowerCase()}${x.phone ? `, ${x.phone}` : ""})`).join(", ");
     const rules = s.rules.trim() ? `\n\nHostel rules\n${s.rules.trim()}` : "";
-    const message = `We are happy to confirm a place for ${st.name}${st.classSection ? ` of Class ${st.classSection}` : ""} (admission no. ${st.admissionNo}) in ${hostel.name}: ${bedWords(room.roomNo, bed.bedNo)}, ${room.floor} floor${room.roomType ? `, ${room.roomType}` : ""}, from ${formatDate(a.startDate, "UTC")}.${w ? `\n\nWarden: ${w}.` : ""}${rules}\n\nPlease read the rules with your child and keep this letter for reference.`;
+    const message = `We are happy to confirm a place for ${st.name}${st.classSection ? ` of ${classTitle(st.classSection)}` : ""} (admission no. ${st.admissionNo}) in ${hostel.name}: ${bedWords(room.roomNo, bed.bedNo)}, ${room.floor} floor${room.roomType ? `, ${room.roomType}` : ""}, from ${formatDate(a.startDate, "UTC")}.${w ? `\n\nWarden: ${w}.` : ""}${rules}\n\nPlease read the rules with your child and keep this letter for reference.`;
     const doc = await renderDocument(tx, current.ctx, "letter", {
       fields: {
         letter_no: letterNo,

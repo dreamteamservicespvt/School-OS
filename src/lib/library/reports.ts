@@ -16,6 +16,7 @@ import { syncFeeFines } from "./fines";
 import { copyCounts, shelfOf } from "./catalogue";
 import { showIsbn } from "./isbn";
 import { BASE, COPY_STATUS, FINE_REASON, FINE_STATUS, type CopyStatus, type FineStatus } from "./words";
+import { classSection } from "@/lib/class-name";
 
 export type LibFilter = {
   /** Inclusive dates (00:00 UTC) of the chosen period; null for all dates. */
@@ -48,7 +49,7 @@ const mOf = (map: Map<string, Member>, r: { studentId: string | null; staffId: s
 async function sectionLabels(tx: Tx, ids: (string | null)[]) {
   const list = [...new Set(ids.filter((x): x is string => Boolean(x)))];
   const rows = list.length ? await tx.section.findMany({ where: { id: { in: list } }, select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true } } } }) : [];
-  return new Map(rows.map((s) => [s.id, { label: `${s.schoolClass.name} ${s.name}`, sort: s.schoolClass.sortOrder * 100 + s.name.charCodeAt(0) }]));
+  return new Map(rows.map((s) => [s.id, { label: `${classSection(s.schoolClass.name, s.name)}`, sort: s.schoolClass.sortOrder * 100 + s.name.charCodeAt(0) }]));
 }
 
 const sectionWhere = (f: Pick<LibFilter, "sectionIds" | "campus">): Prisma.BookIssueWhereInput => ({ ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}), AND: [f.campus?.issues ?? {}] });

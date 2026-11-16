@@ -21,6 +21,7 @@ import { sectionStudents, sitters } from "./roster";
 import { isDone } from "./marks";
 import { time12 } from "../academic/common";
 import { word } from "../notification-words";
+import { classSection } from "@/lib/class-name";
 
 async function schoolToday(tx: Tx, schoolId: string, now: Date) {
   const s = await tx.school.findUnique({ where: { id: schoolId }, select: { timeZone: true } });
@@ -92,7 +93,7 @@ export async function remindMarksDue(tx: Tx, ctx: SchoolContext, today: Date) {
         await notify(tx, ctx, {
           to: t.userLoginId!, type: "marks-due",
           key: "{exam}: {subject} marks for {class} are due today. {done} of {students} entered.",
-          values: { exam: e.exam.title, subject: subject.name, class: `${s.schoolClass.name} ${s.name}`, done, students: word(plural(sits.length, "student")) },
+          values: { exam: e.exam.title, subject: subject.name, class: `${classSection(s.schoolClass.name, s.name)}`, done, students: word(plural(sits.length, "student")) },
           link: `/examination-results/marks/${e.id}/${s.id}`,
           groupKey,
         });

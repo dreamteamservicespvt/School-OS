@@ -11,6 +11,7 @@ import { inCampus, type CampusLimit } from "../campus";
 import { AcademicRuleError, addDays, plural } from "./common";
 import { academicSettings } from "./settings";
 import { mapActiveOn } from "./subjects";
+import { classSection } from "@/lib/class-name";
 
 export function allocationActiveOn(date: Date): Prisma.TeacherAllocationWhereInput {
   return { archivedAt: null, OR: [{ fromDate: null }, { fromDate: { lte: date } }], AND: [{ OR: [{ toDate: null }, { toDate: { gte: date } }] }] };
@@ -106,7 +107,7 @@ export async function assignTeacher(tx: Tx, ctx: SchoolContext, input: AssignInp
   const created: string[] = [];
   const handedOver: string[] = [];
   for (const s of sections) {
-    const label = `${s.schoolClass.name} ${s.name}`;
+    const label = `${classSection(s.schoolClass.name, s.name)}`;
     const same = await tx.teacherAllocation.findFirst({ where: { sectionId: s.id, subjectId: subject.id, staffId: staff.id, archivedAt: null, OR: [{ toDate: null }, { toDate: { gte: input.fromDate } }] } });
     if (same) {
       if (same.isMain !== (input.role === "primary") || same.periodsPerWeek !== input.periodsPerWeek) {
@@ -131,10 +132,10 @@ export async function assignTeacher(tx: Tx, ctx: SchoolContext, input: AssignInp
     action: handedOver.length ? "handed-over" : "assigned",
     recordType: "Teacher Allocation",
     recordId: created[0] ?? null,
-    after: { teacher: staff.fullName, subject: subject.name, sections: sections.map((s) => `${s.schoolClass.name} ${s.name}`), role: input.role, from: input.fromDate.toISOString().slice(0, 10), load: load + adding, limit },
+    after: { teacher: staff.fullName, subject: subject.name, sections: sections.map((s) => `${classSection(s.schoolClass.name, s.name)}`), role: input.role, from: input.fromDate.toISOString().slice(0, 10), load: load + adding, limit },
     actorNote: load + adding > limit ? `Saved over the workload limit: ${input.overLimitReason}` : null,
   });
-  const where = sections.length === 1 ? `${sections[0].schoolClass.name} ${sections[0].name}` : plural(sections.length, "section");
+  const where = sections.length === 1 ? `${classSection(sections[0].schoolClass.name, sections[0].name)}` : plural(sections.length, "section");
   return {
     ids: created,
     message: `${staff.fullName} teaches ${subject.name} in ${where} from ${formatDate(input.fromDate)}.${handedOver.length ? " The previous teacher's assignment ends the day before." : ""}`,
@@ -150,7 +151,7 @@ export async function endAllocation(tx: Tx, ctx: SchoolContext, id: string, from
   if (a.fromDate && from <= a.fromDate) await tx.teacherAllocation.update({ where: { id }, data: { archivedAt: new Date() } });
   else await tx.teacherAllocation.update({ where: { id }, data: { toDate: addDays(from, -1) } });
   await writeAudit(tx, ctx, { action: "ended", recordType: "Teacher Allocation", recordId: id, before: { toDate: a.toDate?.toISOString() ?? null }, after: { endsFrom: from.toISOString().slice(0, 10) } });
-  return `${a.subject.name} in ${a.section.schoolClass.name} ${a.section.name}`;
+  return `${a.subject.name} in ${classSection(a.section.schoolClass.name, a.section.name)}`;
 }
 
 /** Undo for a just-made assignment: archive it and give back the handed-over one. */
@@ -195,7 +196,7 @@ export async function allocationGrid(tx: Tx, ctx: SchoolContext, yearId: string,
       if (!list.some((c) => c.isMain && !c.upcoming)) gaps++;
       cells[sub.id] = list;
     }
-    return { sectionId: s.id, classId: s.classId, label: `${s.schoolClass.name} ${s.name}`, cells };
+    return { sectionId: s.id, classId: s.classId, label: `${classSection(s.schoolClass.name, s.name)}`, cells };
   });
   return { subjects: subjects.map((s) => ({ id: s.id, name: s.name, code: s.code })), rows, gaps };
 }
@@ -219,7 +220,7 @@ export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: strin
     return {
       id: t.id, name: t.fullName, designation: t.designation,
       periods: load.get(t.id) ?? 0, limit: l.perWeek,
-      teaches: mine.map((a) => ({ id: a.id, label: `${a.section.schoolClass.name} ${a.section.name}`, subject: a.subject.name, isMain: a.isMain })),
+      teaches: mine.map((a) => ({ id: a.id, label: `${classSection(a.section.schoolClass.name, a.section.name)}`, subject: a.subject.name, isMain: a.isMain })),
     };
   });
 }

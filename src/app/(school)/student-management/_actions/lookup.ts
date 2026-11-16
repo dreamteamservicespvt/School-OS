@@ -10,6 +10,7 @@ import { STUDYING } from "@/lib/students/labels";
 import { studentAction } from "../_lib/page";
 import { dueChipsFor, type DueChip } from "@/lib/fees/due-chips";
 import { todayIn } from "@/lib/staff/dates";
+import { classSection } from "@/lib/class-name";
 
 /** `due` only for people who may see fees, and only for students in their fee reach (adopt item 8). */
 export type PickedStudent = { id: string; name: string; admissionNo: string; cls: string; due?: DueChip };
@@ -27,7 +28,7 @@ async function withDue(tx: Tx, current: Who, list: PickedStudent[]): Promise<Pic
 async function shape(tx: Parameters<Parameters<typeof withSchool>[1]>[0], yearId: string | null, rows: { id: string; fullName: string; admissionNo: string; enrolments: { sectionId: string }[] }[]): Promise<PickedStudent[]> {
   const ids = [...new Set(rows.flatMap((r) => r.enrolments.map((e) => e.sectionId)))];
   const secs = await tx.section.findMany({ where: { id: { in: ids } }, include: { schoolClass: true } });
-  const label = new Map(secs.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
+  const label = new Map(secs.map((s) => [s.id, `${classSection(s.schoolClass.name, s.name)}`]));
   void yearId;
   return rows.map((r) => ({ id: r.id, name: r.fullName, admissionNo: r.admissionNo, cls: r.enrolments[0] ? label.get(r.enrolments[0].sectionId) ?? "" : "" }));
 }

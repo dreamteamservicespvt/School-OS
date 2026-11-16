@@ -22,6 +22,7 @@ import { assertYearOpen } from "../academic/years";
 import { isoDay } from "../staff/dates";
 import { AttendanceProblem, NotYoursError, registerSections, sectionAllowed, sectionLimit, type AttendanceAccess } from "./access";
 import { attendanceFeatures, statusList, statusesFor } from "./settings";
+import { classSection } from "@/lib/class-name";
 
 export const REASONS_FEATURE = "attendance-absence-reasons" as const;
 
@@ -180,7 +181,7 @@ export async function absentList(tx: Tx, ctx: SchoolContext, access: AttendanceA
     rows.push({ sort: sec?.schoolClass.sortOrder ?? 0, row: {
       studentId: sid, name: s?.fullName ?? "Student", admissionNo: s?.admissionNo ?? "", sectionId: first.sectionId,
       rollNo: enrol.find((e) => e.studentId === sid && e.sectionId === first.sectionId)?.rollNo ?? null,
-      className: sec ? `${sec.schoolClass.name} ${sec.name}` : "", statusName: statuses.get(first.statusKey) ?? first.statusKey,
+      className: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "", statusName: statuses.get(first.statusKey) ?? first.statusKey,
       periods: list.filter((m) => m.periodNo > 0).map((m) => m.periodNo), note: first.note,
       reason: absentReason(withReason, access.seesFees), mayChange: mayRecordReasons(access, first.sectionId),
       leave: l ? `${types.get(l.leaveTypeId) ?? "Leave"} leave ${l.status === "APPROVED" ? "approved" : "waiting"}` : null,

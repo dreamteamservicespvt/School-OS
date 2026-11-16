@@ -15,6 +15,7 @@ import { renderReceipt, renderTaxInvoice } from "./documents";
 import { todayIn } from "../staff/dates";
 import { currentEnrolment } from "../academic/years";
 import { childrenOfGuardian } from "../students/guardian-access";
+import { classSection } from "@/lib/class-name";
 
 const ZERO = BigInt(0);
 
@@ -45,7 +46,7 @@ export async function parentLinkFees(tx: Tx, ctx: SchoolContext, guardianId: str
     out.push({
       studentId: s.id,
       name: s.fullName,
-      classSection: section ? `${section.schoolClass.name} ${section.name}` : "",
+      classSection: section ? `${classSection(section.schoolClass.name, section.name)}` : "",
       totals,
       advance: await advanceHeld(tx, s.id),
       canPayOnline: Boolean(gateway) && totals.balance > ZERO,

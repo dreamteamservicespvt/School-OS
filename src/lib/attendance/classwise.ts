@@ -13,6 +13,7 @@ import { attendanceSettings, statusList, statusMap, weightOf } from "./settings"
 import { addDay, dayStatus, finish, type DayMark, type PersonSummary } from "./summary";
 import { registerBook } from "./on-register";
 import type { AttendanceAccess } from "./access";
+import { classSection } from "@/lib/class-name";
 
 export type ClassGroup = { key: string; label: string; sort: number };
 
@@ -171,7 +172,7 @@ export async function classWise(
     const students = count.get(sec.id) ?? 0;
     return {
       sectionId: sec.id,
-      name: `${sec.schoolClass.name} ${sec.name}`,
+      name: `${classSection(sec.schoolClass.name, sec.name)}`,
       classId: sec.schoolClass.id,
       className: sec.schoolClass.name,
       sort: sec.schoolClass.sortOrder,

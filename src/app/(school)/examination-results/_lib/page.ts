@@ -8,6 +8,7 @@ import { campusYears, pageYear } from "@/lib/academic/page-campus";
 import { todayIn } from "@/lib/academic/common";
 import { examScope } from "@/lib/exams/scope";
 import { ensureExamDefaults } from "@/lib/exams/settings";
+import { classSection } from "@/lib/class-name";
 
 export type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export type Raw = Record<string, string | string[] | undefined>;
@@ -52,5 +53,5 @@ export async function sectionOptions(page: ExamPage, opts: { classIds?: string[]
     where: { academicYearId: page.year!.id, archivedAt: null, ...(page.scope.sectionIds ? { id: { in: page.scope.sectionIds } } : {}), ...(opts.classIds ? { classId: { in: opts.classIds } } : {}) },
     include: { schoolClass: true }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   }));
-  return rows.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board }));
+  return rows.map((s) => ({ id: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board }));
 }

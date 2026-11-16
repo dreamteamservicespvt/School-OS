@@ -10,6 +10,7 @@ import { esc } from "../pdf";
 import { time12, plural } from "../academic/common";
 import { ExamRuleError } from "./common";
 import { sectionStudents, sitters } from "./roster";
+import { classSection } from "@/lib/class-name";
 
 export type Sitting = { key: string; date: Date; startTime: string; label: string; classes: string[]; papers: number };
 
@@ -52,7 +53,7 @@ async function candidates(tx: Tx, examId: string, date: Date, startTime: string)
       for (const s of subject ? sitters(inSection, subject) : inSection) {
         if (seen.has(s.studentId)) continue;
         seen.add(s.studentId);
-        out.push({ studentId: s.studentId, name: s.name, rollNo: s.rollNo, sectionId: sec.id, label: `${sec.schoolClass.name} ${sec.name}`, classOrder: sec.schoolClass.sortOrder, classId: sec.classId });
+        out.push({ studentId: s.studentId, name: s.name, rollNo: s.rollNo, sectionId: sec.id, label: `${classSection(sec.schoolClass.name, sec.name)}`, classOrder: sec.schoolClass.sortOrder, classId: sec.classId });
       }
     }
   }
@@ -118,7 +119,7 @@ export async function seatingPlan(tx: Tx, examId: string, sitting: string) {
     if (!rooms.has(r.room)) { rooms.set(r.room, []); order.push(r.room); }
     const sec = sections.find((x) => x.id === r.sectionId);
     const st = students.find((x) => x.id === r.studentId);
-    rooms.get(r.room)!.push({ seatNo: r.seatNo, name: st?.fullName ?? "", admissionNo: st?.admissionNo ?? "", label: sec ? `${sec.schoolClass.name} ${sec.name}` : "", rollNo: enrol.find((e) => e.studentId === r.studentId)?.rollNo ?? null });
+    rooms.get(r.room)!.push({ seatNo: r.seatNo, name: st?.fullName ?? "", admissionNo: st?.admissionNo ?? "", label: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "", rollNo: enrol.find((e) => e.studentId === r.studentId)?.rollNo ?? null });
   }
   // Keep the order rooms were filled in (by first allocation time is not stored; seat 1 rows come in the room order typed).
   return order.map((name) => ({ name, seats: rooms.get(name)!.sort((a, b) => a.seatNo - b.seatNo) }));

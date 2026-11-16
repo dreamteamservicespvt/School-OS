@@ -9,6 +9,7 @@ import { studentIdsMatching } from "@/lib/students/find";
 import { inCampus, type CampusLimit } from "@/lib/campus";
 import { holdsSeat, routeSeats } from "@/lib/transport/places";
 import { clockOf, rupeesShort, showPlate, vehicleType } from "@/lib/transport/words";
+import { classSection } from "@/lib/class-name";
 
 /** Vehicles free for a route (or already on it), drivers and attendants. */
 export async function crewOptions(tx: Tx, routeId: string | null) {
@@ -62,7 +63,7 @@ export async function assignCandidates(tx: Tx, ctx: SchoolContext, today: Date, 
   // Two campuses each have a "Class 5 A": the campus's name tells them apart.
   const campusName = years.length > 1 ? new Map((await tx.campus.findMany({ where: { id: { in: years.map((y) => y.campusId) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name])) : null;
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name) || (campusName?.get(a.schoolClass.campusId) ?? "").localeCompare(campusName?.get(b.schoolClass.campusId) ?? ""));
-  const label = (s: (typeof sections)[number]) => `${s.schoolClass.name} ${s.name}${campusName ? ` · ${campusName.get(s.schoolClass.campusId) ?? ""}` : ""}`;
+  const label = (s: (typeof sections)[number]) => `${classSection(s.schoolClass.name, s.name)}${campusName ? ` · ${campusName.get(s.schoolClass.campusId) ?? ""}` : ""}`;
   const q = f.q.trim();
   // A name search is the one student search (one letter wrong allowed, admission or roll number), best match first.
   const found = !f.studentId && q.length >= 2 ? await studentIdsMatching(tx, q, { scope: inCampus(limit), yearId: yearIds, byParent: false }) : null;

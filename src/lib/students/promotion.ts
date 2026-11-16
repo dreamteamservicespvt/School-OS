@@ -12,6 +12,7 @@ import { currentPolicy } from "./settings";
 import { promotionFacts, runEnrolled, yearActivity, type PromotionFacts } from "./hooks";
 import { applyStatus, StudentProblem } from "./students";
 import { STUDYING } from "./labels";
+import { classSection } from "@/lib/class-name";
 
 export type PreviewRow = {
   studentId: string;
@@ -123,13 +124,13 @@ export async function promotionPreview(tx: Tx, ctx: SchoolContext, q: { fromSect
     return {
       studentId: e.studentId, enrolmentId: e.id, fullName: e.student.fullName, admissionNo: e.student.admissionNo, rollNo: e.rollNo, status: e.student.status,
       facts: f, suggested, why,
-      alreadyIn: already ? (alreadySec ? `${alreadySec.schoolClass.name} ${alreadySec.name}` : "the new year") : null,
+      alreadyIn: already ? (alreadySec ? `${classSection(alreadySec.schoolClass.name, alreadySec.name)}` : "the new year") : null,
       leavingRequestId: leave?.id ?? null,
     };
   });
 
   return {
-    from: { id: from.id, label: `${from.schoolClass.name} ${from.name}`, name: from.name, classId: from.classId, className: from.schoolClass.name, year: from.academicYear },
+    from: { id: from.id, label: `${classSection(from.schoolClass.name, from.name)}`, name: from.name, classId: from.classId, className: from.schoolClass.name, year: from.academicYear },
     toYear,
     toClass,
     finalClass,
@@ -240,7 +241,7 @@ export async function confirmPromotion(tx: Tx, ctx: SchoolContext, q: { fromSect
   }
 
   const sectionNames = await tx.section.findMany({ where: { id: { in: [...sectionCounts.keys()] } }, include: { schoolClass: true } });
-  const parts = sectionNames.filter((s) => s.classId !== p.from.classId).map((s) => `${sectionCounts.get(s.id)} promoted to ${s.schoolClass.name} ${s.name}`);
+  const parts = sectionNames.filter((s) => s.classId !== p.from.classId).map((s) => `${sectionCounts.get(s.id)} promoted to ${classSection(s.schoolClass.name, s.name)}`);
   if (parts.length === 0 && counts.PROMOTE) parts.push(`${counts.PROMOTE} promoted`);
   if (counts.DETAIN) parts.push(`${counts.DETAIN} detained`);
   if (counts.LEAVING) parts.push(`${counts.LEAVING} leaving`);

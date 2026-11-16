@@ -16,6 +16,7 @@ import { BUILT_MODULES } from "../../modules";
 import { addDays, clock, dayWord, hasRole, minutesOf, moduleOpen, myStaff, plural, reach, shortDate, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, ClassToday, DashContext, Widget } from "../types";
 import { attendanceTakeHref, choices as attendanceChoices } from "./attendance";
+import { classSection } from "@/lib/class-name";
 
 const TT = "/academic-management/time-table/mine";
 const SUBS = "/academic-management/substitutions";
@@ -198,12 +199,13 @@ const noClassTeacher: Widget<"attention"> = {
     const withStudents = new Set(used.map((u) => u.sectionId));
     const sections = empty.filter((x) => withStudents.has(x.id));
     if (!sections.length) return null;
-    const names = sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((x) => `${x.schoolClass.name} ${x.name}`);
+    const names = sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((x) => `${classSection(x.schoolClass.name, x.name)}`);
+    // "Set" opens the first section's class-teacher picker, not the whole list (QA L6-61).
     return {
       id: "academic.no-class-teacher", tone: "warn", icon: "Users",
       title: `${plural(sections.length, "section")} ${sections.length === 1 ? "has" : "have"} no class teacher`,
       detail: `${someNames(names, 3)}: nobody takes their attendance`,
-      action: "Set", href: "/academic-management", value: String(sections.length),
+      action: "Set", href: `/academic-management?section=${sections[0].id}`, value: String(sections.length),
     };
   },
 };
@@ -268,7 +270,7 @@ async function progressPairs(c: DashContext, onlyStaffId: string | null) {
     const its = items.filter((i) => i.classId === p.section.classId && i.subjectId === p.subjectId);
     const ids = new Set(its.map((i) => i.id));
     const prog = pairProgress(its, entries.filter((e) => e.sectionId === p.sectionId && ids.has(e.itemId)));
-    return { classId: p.section.classId, className: p.section.schoolClass.name, sortOrder: p.section.schoolClass.sortOrder, label: `${p.section.schoolClass.name} ${p.section.name}`, subject: p.subject.name, ...prog };
+    return { classId: p.section.classId, className: p.section.schoolClass.name, sortOrder: p.section.schoolClass.sortOrder, label: `${classSection(p.section.schoolClass.name, p.section.name)}`, subject: p.subject.name, ...prog };
   }).filter((p) => p.total > 0);
 }
 

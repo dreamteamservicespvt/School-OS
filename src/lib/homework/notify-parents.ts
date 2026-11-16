@@ -12,6 +12,7 @@ import { CHANNEL_LABEL, MessagingProblem, NOT_SENT, planMessage, sendAutomatic, 
 import { HomeworkProblem } from "./access";
 import { onCampus, requireWork, type HomeworkScope } from "./scope";
 import { seenFor } from "./homework";
+import { classSection } from "@/lib/class-name";
 
 type SetInput = { homeworkId: string; title: string; subject: string; sectionLabel: string; dueDate: Date; studentIds: string[] };
 
@@ -76,7 +77,7 @@ async function resendInput(tx: Tx, s: HomeworkScope, homeworkId: string) {
     tx.section.findUnique({ where: { id: hw.sectionId }, include: { schoolClass: { select: { name: true } } } }),
     tx.message.findFirst({ where: { sourceType: "Homework", sourceId: homeworkId }, orderBy: { createdAt: "asc" }, select: { id: true } }),
   ]);
-  const cls = section ? `${section.schoolClass.name} ${section.name}` : "";
+  const cls = section ? `${classSection(section.schoolClass.name, section.name)}` : "";
   const message = `${subject?.name ?? "Homework"}: ${hw.title}. Due ${formatDate(hw.dueDate, "UTC")}.`;
   // Each parent on a channel that can carry it: the Homework template where there is one, else the typed words.
   const input: SendInput = {

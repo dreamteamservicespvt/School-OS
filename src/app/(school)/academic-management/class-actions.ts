@@ -8,6 +8,7 @@ import { AcademicRuleError, parseClassNames, parseSectionNames, plural } from "@
 import type { Tx } from "@/lib/db";
 import type { Current } from "@/lib/current";
 import { act, actSimple, classOnCampus, staffInCampus } from "./_lib/server";
+import { classSection } from "@/lib/class-name";
 
 const id = (label: string) => z.string().uuid(label);
 const optionalId = z.string().trim().transform((v) => (v === "" ? null : v)).refine((v) => v === null || /^[0-9a-f-]{36}$/i.test(v), "Choose from the list.");
@@ -130,11 +131,11 @@ export async function restoreSectionAction(sectionId: string): Promise<string | 
     const s = await tx.section.findFirst({ where: { id: sectionId, archivedAt: { not: null } }, include: { schoolClass: true } });
     if (!s) throw new AcademicRuleError("This section is not archived.");
     const clash = await tx.section.findFirst({ where: { classId: s.classId, academicYearId: s.academicYearId, name: s.name, archivedAt: null } });
-    if (clash) throw new AcademicRuleError(`${s.schoolClass.name} ${s.name} already exists again.`);
+    if (clash) throw new AcademicRuleError(`${classSection(s.schoolClass.name, s.name)} already exists again.`);
     await tx.section.update({ where: { id: s.id }, data: { archivedAt: null } });
     if (s.schoolClass.archivedAt) await tx.schoolClass.update({ where: { id: s.classId }, data: { archivedAt: null } });
     await writeAudit(tx, current.ctx, { action: "restored", recordType: "Section", recordId: s.id });
-    return { flash: { message: `${s.schoolClass.name} ${s.name} restored.` } };
+    return { flash: { message: `${classSection(s.schoolClass.name, s.name)} restored.` } };
   }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: sectionId } }))?.academicYearId ?? null, notFound: "This section is not archived." });
 }
 

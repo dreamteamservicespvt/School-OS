@@ -26,6 +26,7 @@ import { ArchiveSheet, CardMenu, EditSheet, GiveSheet, RemindButton, SubmitSheet
 import { DayText, Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 import { getT, pageTitle } from "@/lib/i18n/server";
+import { classIn } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Homework") };
@@ -160,7 +161,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           <Toolbar>
             <UrlSearch id="hw-search" placeholder="Search homework" label="Search homework" />
             <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
-            {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: tr("Class {name}", { name: l }) }))]} />}
+            {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: classIn(tr, l) }))]} />}
             {!mine && subjectOpts.length > 1 && <UrlSelect param="subject" id="hw-sub" label="Subject" className="md:w-44" options={[{ value: "", label: "All subjects" }, ...subjectOpts.map(([v, l]) => ({ value: v, label: l }))]} />}
             <UrlSegmented param="view" fallback={p.settings.listView === "list" ? "list" : "cards"} className="hidden md:inline-flex" label="Show as"
               options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" /><Words k="Cards" /></> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" /><Words k="List" /></> }]} />

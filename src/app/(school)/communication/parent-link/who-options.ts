@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "@/lib/db";
 import { currentYears } from "@/lib/academic/years";
+import { classTitle } from "@/lib/class-name";
 
 /**
  * "Whole school", each class, and each section, for the Who field. campusId: a
@@ -18,7 +19,7 @@ export async function whoOptions(tx: Tx, ctx: SchoolContext, campusId?: string |
   ]);
   return [
     { value: "school", label: campus ? `All of ${campus.name}` : "Whole school", group: "" },
-    ...classes.map((c) => ({ value: `class:${c.id}`, label: `Class ${c.name.replace(/^Class\s+/i, "")} (all sections)`, group: "Classes" })),
+    ...classes.map((c) => ({ value: `class:${c.id}`, label: `${classTitle(c.name.replace(/^Class\s+/i, ""))} (all sections)`, group: "Classes" })),
     ...classes.flatMap((c) => sections.filter((s) => s.classId === c.id).map((s) => ({ value: `section:${s.id}`, label: `${c.name} ${s.name}`, group: "Sections" }))),
   ];
 }

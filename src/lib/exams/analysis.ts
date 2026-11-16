@@ -11,6 +11,7 @@ import { didNotPass, isWeakResult, round2, type SubjectResult } from "./compute"
 import { isDone } from "./marks";
 import { sectionStudents, sitters } from "./roster";
 import { resultSubjects, type ExamScope } from "./scope";
+import { classSection } from "@/lib/class-name";
 
 export type AnalysisFilters = { examId?: string | null; final?: boolean; classId?: string | null; sectionId?: string | null; subjectId?: string | null };
 
@@ -22,7 +23,7 @@ async function sectionsInScope(tx: Tx, scope: ExamScope, yearId: string, f: Anal
     include: { schoolClass: true },
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   });
-  return rows.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sortOrder: s.schoolClass.sortOrder }));
+  return rows.map((s) => ({ id: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, sortOrder: s.schoolClass.sortOrder }));
 }
 
 /** Teacher Allocations of some sections with the teacher's name, main teacher first. */

@@ -15,6 +15,7 @@ import { RowProblem } from "@/lib/importer";
 import { markPaperFormsReceived } from "@/lib/students/paper-consent";
 import { sectionInCampus } from "@/lib/campus";
 import "@/lib/import-registry";
+import { classSection } from "@/lib/class-name";
 
 const ID = /^[0-9a-f-]{36}$/i;
 const PAGE = "data-security" as const;
@@ -35,7 +36,7 @@ export async function paperFormsAction(_prev: FormState, fd: FormData): Promise<
     const r = await withSchool(current.ctx, async (tx) => {
       const section = await tx.section.findFirst({ where: { id: sectionId, archivedAt: null, ...sectionInCampus(current) }, include: { schoolClass: true } });
       if (!section) throw new RowProblem("This class was not found.");
-      return markPaperFormsReceived(tx, current.ctx, { sectionId, sectionLabel: `${section.schoolClass.name} ${section.name}`, consentType, formDate, studentIds, campusId: current.campusId });
+      return markPaperFormsReceived(tx, current.ctx, { sectionId, sectionLabel: `${classSection(section.schoolClass.name, section.name)}`, consentType, formDate, studentIds, campusId: current.campusId });
     }, { timeout: 60_000 });
     revalidatePath("/settings/data-security/consent");
     const left = r.skipped ? ` ${r.skipped} left as they are: ${r.reasons.slice(0, 3).join(" ")}${r.reasons.length > 3 ? ` and ${r.reasons.length - 3} more.` : ""}` : "";

@@ -11,6 +11,7 @@ import { StudentProblem } from "./students";
 import { STUDYING } from "./labels";
 import { renderDocument } from "../documents";
 import { currentDesign } from "../documents/designs";
+import { classSection } from "@/lib/class-name";
 
 /** The Settings, Document Designs type student ID cards print with. */
 export const ID_CARD_DOC = "student-id-card";
@@ -28,7 +29,7 @@ export async function sectionCards(tx: Tx, sectionId: string) {
   const printed = await tx.idCardPrint.findMany({ where: { academicYearId: section.academicYearId, studentId: { in: enrolments.map((e) => e.studentId) }, replacedAt: null } });
   return {
     section,
-    label: `${section.schoolClass.name} ${section.name}`,
+    label: `${classSection(section.schoolClass.name, section.name)}`,
     students: enrolments.map((e) => ({ ...e.student, rollNo: e.rollNo, guardianPhone: e.student.guardians[0]?.guardian.phone ?? null, guardianName: e.student.guardians[0]?.guardian.name ?? null, printed: printed.some((p) => p.studentId === e.studentId) })),
     batches: Math.max(1, Math.ceil(enrolments.length / ID_BATCH_SIZE)),
   };

@@ -9,6 +9,7 @@ import type { Tx } from "../db";
 import { flatten, syllabusTree } from "../academic/syllabus";
 import { HomeworkProblem } from "./access";
 import { mayWork, type HomeworkScope } from "./scope";
+import { classSection } from "@/lib/class-name";
 
 export type Draft = { title: string; instructions: string; source: string };
 
@@ -40,7 +41,7 @@ export async function draftHomework(tx: Tx, s: HomeworkScope, sectionId: string,
     : isLang
       ? `Read ${topic.title} again. Write the meanings of 5 new words, and answer the questions at the end of the lesson in full sentences. Then write 5 lines in your own words about what you liked.`
       : `Read ${topic.title} in ${chapter} again. Answer the questions at the end of the lesson in your notebook. Draw and label one neat diagram from the lesson.`;
-  return { title, instructions, source: `the ${section.schoolClass.name} ${subject.name} syllabus (${chapter}, topic ${place} of ${leaves.length})${recent ? ` and what ${section.name} was taught on ${recent.lastTaught!.toISOString().slice(0, 10).split("-").reverse().join("-")}` : ""}` };
+  return { title, instructions, source: `the ${classSection(section.schoolClass.name, subject.name)} syllabus (${chapter}, topic ${place} of ${leaves.length})${recent ? ` and what ${section.name} was taught on ${recent.lastTaught!.toISOString().slice(0, 10).split("-").reverse().join("-")}` : ""}` };
 }
 
 /** A feedback draft for one student's work, from their score, the check and whether it was late. */

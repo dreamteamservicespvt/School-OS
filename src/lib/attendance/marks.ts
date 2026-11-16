@@ -24,6 +24,7 @@ import { createCorrection, parentsToTell, tellParentsHref } from "./corrections"
 import { ON_REGISTER_STATUSES } from "./on-register";
 import { nextReason, reasonChoices, reasonFromLeave, REASONS_FEATURE, shownReason, type ShownReason } from "./absence-reasons";
 import { queueAfterSave } from "./after-save";
+import { classSection } from "@/lib/class-name";
 
 export { absenceSendTime } from "./after-save";
 
@@ -32,7 +33,7 @@ export const dayText = (d: Date) => formatDate(d, "UTC");
 export async function sectionInfo(tx: Tx, sectionId: string) {
   const s = await tx.section.findFirst({ where: { id: sectionId, archivedAt: null }, include: { schoolClass: { select: { name: true, campusId: true, sortOrder: true } } } });
   if (!s) return null;
-  return { id: s.id, name: `${s.schoolClass.name} ${s.name}`, campusId: s.schoolClass.campusId, academicYearId: s.academicYearId, classTeacherId: s.classTeacherId, classId: s.classId };
+  return { id: s.id, name: `${classSection(s.schoolClass.name, s.name)}`, campusId: s.schoolClass.campusId, academicYearId: s.academicYearId, classTeacherId: s.classTeacherId, classId: s.classId };
 }
 
 /** Students studying in a section, in roll-number (or name) order. */
@@ -107,13 +108,13 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   const done = await tx.attendanceMark.groupBy({ by: ["sectionId", "periodNo"], where: { date, sectionId: { in: sections.map((s) => s.id) }, archivedAt: null }, _count: true });
   const isDone = (sid: string, p: number) => done.some((d) => d.sectionId === sid && d.periodNo === p);
-  if (!periodWise) return sections.map((s) => ({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: 0, periodLabel: null, startTime: null, done: isDone(s.id, 0) }));
+  if (!periodWise) return sections.map((s) => ({ sectionId: s.id, name: `${classSection(s.schoolClass.name, s.name)}`, periodNo: 0, periodLabel: null, startTime: null, done: isDone(s.id, 0) }));
 
   const out: TakeChoice[] = [];
   if (full) {
     for (const s of sections) {
       const periods = await sectionPeriods(tx, ctx, s.id, s.schoolClass.campusId, date);
-      for (const p of periods) out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
+      for (const p of periods) out.push({ sectionId: s.id, name: `${classSection(s.schoolClass.name, s.name)}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
     }
     return out;
   }
@@ -122,7 +123,7 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   for (const p of mine) {
     const s = sections.find((x) => x.id === p.sectionId) ?? (await tx.section.findFirst({ where: { id: p.sectionId }, include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } }));
     if (!s || !sectionAllowed(access, s.id) || !calendar.campus(s.schoolClass.campusId).info(date, { classId: s.classId }).on) continue;
-    out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
+    out.push({ sectionId: s.id, name: `${classSection(s.schoolClass.name, s.name)}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
   }
   return out;
 }

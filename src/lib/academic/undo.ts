@@ -13,6 +13,7 @@ import { academicScope } from "./scope";
 import { assertYearWritable } from "./years";
 import { undoAssignment } from "./allocation";
 import { restorePeriod } from "./timetable";
+import { classSection } from "@/lib/class-name";
 
 async function guarded(current: Current, needs: "manage" | "arrange", yearOf: (tx: Tx) => Promise<string | null>, work: (tx: Tx) => Promise<void>, notFound = "This change cannot be undone.") {
   requirePermission(current.permissions, "academic-management", "edit");
@@ -35,10 +36,10 @@ registerUndo("academic-section", (current, sectionId) =>
     const s = await tx.section.findFirst({ where: { id: sectionId, archivedAt: { not: null } }, include: { schoolClass: true } });
     if (!s || !s.archivedAt) throw new AcademicRuleError("This section is already back.");
     const clash = await tx.section.findFirst({ where: { classId: s.classId, academicYearId: s.academicYearId, name: s.name, archivedAt: null } });
-    if (clash) throw new AcademicRuleError(`${s.schoolClass.name} ${s.name} exists again, so it cannot come back.`);
+    if (clash) throw new AcademicRuleError(`${classSection(s.schoolClass.name, s.name)} exists again, so it cannot come back.`);
     await tx.teacherAllocation.updateMany({ where: { sectionId, archivedAt: s.archivedAt }, data: { archivedAt: null } });
     await tx.section.update({ where: { id: sectionId }, data: { archivedAt: null } });
-    await writeAudit(tx, current.ctx, { action: "undone", recordType: "Section", recordId: sectionId, after: { restored: `${s.schoolClass.name} ${s.name}` } });
+    await writeAudit(tx, current.ctx, { action: "undone", recordType: "Section", recordId: sectionId, after: { restored: `${classSection(s.schoolClass.name, s.name)}` } });
   }, "This section was not found."));
 
 registerUndo("academic-class", (current, key) => {

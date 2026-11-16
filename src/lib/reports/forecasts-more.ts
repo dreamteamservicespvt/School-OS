@@ -28,6 +28,7 @@ import { CANCELLED_REASON } from "../messaging/send";
 import { formatDate } from "../format";
 import { addDays } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
+import { classSection } from "@/lib/class-name";
 
 /** At most this many student or section signals of one kind, the most urgent first. */
 const MAX_ITEMS = 15;
@@ -140,7 +141,7 @@ export async function marksNeededForecasts(c: Ctx, enrolled: { studentId: string
   return top.map((f): Forecast => {
     const name = who.find((s) => s.id === f.e.studentId)?.fullName ?? "A student";
     const sec = cls.find((s) => s.id === f.e.sectionId);
-    const label = sec ? `${sec.schoolClass.name} ${sec.name}` : "class";
+    const label = sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "class";
     const cannot = f.subjects.filter((s) => s.needed > 100);
     const can = f.subjects.filter((s) => s.needed <= 100);
     const exams = listWords(f.remaining);
@@ -216,7 +217,7 @@ export async function syllabusForecasts(c: Ctx): Promise<Forecast[]> {
   ]);
   return top.map((f): Forecast => {
     const sec = sections.find((s) => s.id === f.sectionId);
-    const label = sec ? `${sec.schoolClass.name} ${sec.name}` : "A section";
+    const label = sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "A section";
     const subject = subjects.find((s) => s.id === f.subjectId)?.name ?? "a subject";
     return {
       key: `syllabus:${f.sectionId}:${f.subjectId}`, area: "academic", strength: f.late >= 30 ? "ACT_NOW" : "WATCH", value: f.late,

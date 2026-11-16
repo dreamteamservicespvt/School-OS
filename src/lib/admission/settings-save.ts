@@ -8,6 +8,7 @@ import { writeAudit } from "../audit";
 import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { CATEGORIES, DEFAULT_STAGES, DOC_TYPES, SYSTEM_STATUSES, classRule, loadSettings, type ClassDoc, type ListItem, type Quota, type Stage } from "./settings";
+import { classTitle } from "@/lib/class-name";
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 
@@ -102,8 +103,8 @@ export async function saveClassRule(tx: Tx, ctx: SchoolContext, v: Viewer, input
   const row = await tx.admissionClassRule.upsert({ where: { schoolId_classId: { schoolId: ctx.schoolId, classId: cls.id } }, create: { schoolId: ctx.schoolId, classId: cls.id, ...data }, update: data });
   await writeAudit(tx, ctx, {
     action: "settings-changed", recordType: "Admission Settings", recordId: row.id,
-    before: { part: `class ${cls.name}`, documents: before.documents, feePaise: before.feePaise?.toString() ?? null, onlineOpen: before.onlineOpen, minAge: before.minAge, maxAge: before.maxAge, ownerStaffId: before.ownerStaffId } as Prisma.InputJsonValue,
-    after: { part: `class ${cls.name}`, documents: docs, feePaise: input.feePaise?.toString() ?? null, onlineOpen: input.onlineOpen, minAge: input.minAge, maxAge: input.maxAge, ownerStaffId: input.ownerStaffId } as Prisma.InputJsonValue,
+    before: { part: classTitle(cls.name), documents: before.documents, feePaise: before.feePaise?.toString() ?? null, onlineOpen: before.onlineOpen, minAge: before.minAge, maxAge: before.maxAge, ownerStaffId: before.ownerStaffId } as Prisma.InputJsonValue,
+    after: { part: classTitle(cls.name), documents: docs, feePaise: input.feePaise?.toString() ?? null, onlineOpen: input.onlineOpen, minAge: input.minAge, maxAge: input.maxAge, ownerStaffId: input.ownerStaffId } as Prisma.InputJsonValue,
   });
   return row;
 }

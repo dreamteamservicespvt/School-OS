@@ -16,6 +16,7 @@ import { ParamSelect, ViewSwitch } from "../_components/pickers";
 import { AddTopItem, ArchivePlan, CopySyllabus, DailyLog, LessonPlanButton, PasteItems, SyllabusTree, type LogChapter, type Row } from "./syllabus-ui";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Syllabus & Lesson Plans") };
@@ -51,7 +52,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
     const seen = new Set<string>();
     const pairs = allocations.filter((a) => a.isMain && a.section.archivedAt === null && !seen.has(`${a.sectionId}:${a.subjectId}`) && seen.add(`${a.sectionId}:${a.subjectId}`)).map((a) => ({
       key: `${a.sectionId}:${a.subjectId}`, sectionId: a.sectionId, classId: a.section.classId, subjectId: a.subjectId,
-      label: `${a.section.schoolClass.name} ${a.section.name}`, subject: a.subject.name, teacher: staffNames.get(a.staffId) ?? null, className: a.section.schoolClass.name,
+      label: `${classSection(a.section.schoolClass.name, a.section.name)}`, subject: a.subject.name, teacher: staffNames.get(a.staffId) ?? null, className: a.section.schoolClass.name,
     }));
     const classes = await tx.schoolClass.findMany({ where: { campusId: page.campusId, archivedAt: null, sections: { some: { academicYearId: year.id, archivedAt: null } } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
 
@@ -97,7 +98,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
     ]);
     return { kind: "plans" as const, pairs, classes, pairKey, total, pageNo, plans: plans.map((p) => {
       const s = sections.find((x) => x.id === p.sectionId);
-      return { ...p, topic: topics.find((t) => t.id === p.topicId)?.title ?? "", section: s ? `${s.schoolClass.name} ${s.name}` : "", subject: subjects.find((x) => x.id === p.subjectId)?.name ?? "", teacher: staff.find((x) => x.id === p.staffId)?.fullName ?? "" };
+      return { ...p, topic: topics.find((t) => t.id === p.topicId)?.title ?? "", section: s ? `${classSection(s.schoolClass.name, s.name)}` : "", subject: subjects.find((x) => x.id === p.subjectId)?.name ?? "", teacher: staff.find((x) => x.id === p.staffId)?.fullName ?? "" };
     }) };
   });
 

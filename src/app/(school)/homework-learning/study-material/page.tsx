@@ -18,6 +18,7 @@ import { BASE, homeworkGuard, one, qs, UUID, type HomeworkPage, type SearchParam
 import { ArchiveLessonSheet, CopyCourseSheet, DoneButton, LessonMenu, LessonSheet, MoveButtons, VisibleSwitch } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Study Material") };
@@ -101,7 +102,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <Chips value={keyOf(c)} label="Courses" options={data.courses.map((x) => ({ value: keyOf(x), label: `${x.subject} · ${x.sectionLabel}`, href: qs(HREF, { c: keyOf(x) }) }))} />
         <Split side={340}>
           <Card>
-            <CardHeader title={`Learning path · ${c.subject} · Class ${c.sectionLabel}`} icon={BookOpenCheck}
+            <CardHeader title={`Learning path · ${c.subject} · ${classTitle(c.sectionLabel)}`} icon={BookOpenCheck}
               description={`${plural(lessons.length, "lesson")} in order · ${lessons.filter((l) => l.visible).length} visible to students`} />
             {lessons.length === 0 ? (
               <Empty icon={BookOpenCheck} title="No lessons yet" body={c.canWork ? "Add the first lesson: notes, a file or a video link." : `${c.teacher || "The teacher"} has not added lessons yet.`}
@@ -199,7 +200,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     if (openId && d.lessons.some((l) => l.id === openId)) await openLesson(tx, s, openId);
     return { courses, pick, lessons: d.lessons };
   });
-  const head = <HomeworkHead page="study-material" pageName="Study Material" sub={`Class ${(s.student?.label ?? "").replace(/^Class\s+/i, "")} · notes, files and videos from your teachers`} />;
+  const head = <HomeworkHead page="study-material" pageName="Study Material" sub={`${classTitle((s.student?.label ?? "").replace(/^Class\s+/i, ""))} · notes, files and videos from your teachers`} />;
   if (!data.pick) return <div>{head}<Card><Empty icon={Library} title="Nothing to study yet" body="Your teachers have not shared lessons yet." /></Card></div>;
 
   const c = data.pick;

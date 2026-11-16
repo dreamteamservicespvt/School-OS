@@ -28,6 +28,7 @@ import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from 
 import { Words } from "@/lib/i18n/client";
 import { getT, pageTitle } from "@/lib/i18n/server";
 import type { T } from "@/lib/i18n/t";
+import { classIn } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Student Pickup") };
@@ -106,7 +107,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                   <li key={x.id}>
                     <Link href={qs(HREF, { student: x.id, ...period.keep })} scroll={false} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-sunken/60 rounded-xl px-2">
                       <Avatar name={x.name} size={38} src={photoOf(x.photoFileId)} />
-                      <span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.classSection ? t("Class {n}", { n: x.classSection }) : t("No class this year")}{x.rollNo ? ` · ${t("Roll {n}", { n: x.rollNo })}` : ""}{x.parent ? ` · ${x.parent}` : ""} · <span className="font-mono">{x.admissionNo}</span></span></span>
+                      <span className="min-w-0 flex-1"><b className="font-semibold text-[14.5px] block truncate">{x.name}</b><span className="text-[12.5px] text-ink3">{x.classSection ? classIn(t, x.classSection) : t("No class this year")}{x.rollNo ? ` · ${t("Roll {n}", { n: x.rollNo })}` : ""}{x.parent ? ` · ${x.parent}` : ""} · <span className="font-mono">{x.admissionNo}</span></span></span>
                       <ChevronRight size={18} className="text-ink3" aria-hidden="true" />
                     </Link>
                   </li>
@@ -122,7 +123,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 <Avatar name={info.student.name} size={64} src={photoOf(info.student.photoFileId)} />
                 <div className="min-w-0 flex-1">
                   <p className="font-display font-semibold text-[20px] leading-tight">{info.student.name}</p>
-                  <p className="text-[13px] text-ink3">{info.student.classSection ? t("Class {n}", { n: info.student.classSection }) : t("No class this year")}{info.student.rollNo ? ` · ${t("Roll {n}", { n: info.student.rollNo })}` : ""} · <span className="font-mono text-[12px]">{info.student.admissionNo}</span></p>
+                  <p className="text-[13px] text-ink3">{info.student.classSection ? classIn(t, info.student.classSection) : t("No class this year")}{info.student.rollNo ? ` · ${t("Roll {n}", { n: info.student.rollNo })}` : ""} · <span className="font-mono text-[12px]">{info.student.admissionNo}</span></p>
                   <p className="text-[13px] text-ink3">{info.classTeacher ? `${t("Class teacher {name}", { name: info.classTeacher })} · ` : ""}{info.attendance ? <span className={cx("font-semibold", { success: "text-ok", danger: "text-bad", warning: "text-warn", info: "text-info" }[info.attendance.tone] ?? "text-ink2")}>{t.any(info.attendance.label)} <Words k="today" /></span> : info.closed ? <span className="font-semibold text-warn">{closedWords(info.closed, t)}</span> : <span><Words k="Attendance not marked yet" /></span>}</p>
                 </div>
               </div>

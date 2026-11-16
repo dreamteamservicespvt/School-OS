@@ -18,6 +18,7 @@ import { Prisma, type StudentStatus } from "@prisma/client";
 import type { Tx } from "../db";
 import { CLOSE_RANK, closeParts, parseQuery, rankCandidate, sectionLabel, type ParsedQuery, type Ranked } from "./find-rules";
 import { STUDYING } from "./labels";
+import { classSection } from "@/lib/class-name";
 
 export type FindStudentOptions = {
   /**
@@ -312,7 +313,7 @@ function rank(q: ParsedQuery, rows: Row[], byParent: boolean): StudentHit[] {
     if (!ranked) continue;
     hits.push({
       id: r.id, name: r.full_name, firstName: r.first_name, admissionNo: r.admission_no, status: r.status, archived: r.archived, photoFileId: r.photo_file_id,
-      classSection: placed ? `${r.class_name} ${r.section_name}` : null,
+      classSection: placed ? `${classSection(r.class_name ?? "", r.section_name)}` : null,
       classId: r.class_id, sectionId: r.section_id, rollNo: r.roll_no,
       by: ranked.by, close: ranked.rank >= CLOSE_RANK, parent: ranked.parent, rank: ranked.rank,
     });

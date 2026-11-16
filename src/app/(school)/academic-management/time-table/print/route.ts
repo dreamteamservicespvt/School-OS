@@ -14,6 +14,7 @@ import { campusAllows, inCampus } from "@/lib/campus";
 import { publishedVersionForYear, roomGrid, sectionGrid, staffGrid } from "@/lib/academic/timetable";
 import { timetableHtml, type PrintPage } from "@/lib/academic/timetable-print";
 import { todayIn } from "@/lib/academic/common";
+import { classSection } from "@/lib/class-name";
 
 async function handleGET(req: Request) {
   const url = new URL(req.url);
@@ -51,7 +52,7 @@ async function handleGET(req: Request) {
     const sections = await tx.section.findMany({ where: { id: { in: sectionIds }, archivedAt: null }, include: { schoolClass: true } });
     for (const id of sectionIds.slice(0, 200)) {
       const s = sections.find((x) => x.id === id);
-      if (s) pages.push({ title: `${s.schoolClass.name} ${s.name} Time Table`, subtitle, cells: await sectionGrid(tx, version.id, s.id), mode: "class" });
+      if (s) pages.push({ title: `${classSection(s.schoolClass.name, s.name)} Time Table`, subtitle, cells: await sectionGrid(tx, version.id, s.id), mode: "class" });
     }
     for (const staffId of url.searchParams.getAll("staff").slice(0, 200)) {
       if (own && staffId !== scope.staffId) continue;

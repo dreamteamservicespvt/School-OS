@@ -26,6 +26,7 @@ import { examSettings } from "./settings";
 import { sectionStudents, sitters, type RosterStudent } from "./roster";
 import { bandsFor, recomputeFinal, recomputeSection, sectionInfo } from "./results";
 import { examInScope, seesYear, teachesPaper, type ExamScope } from "./scope";
+import { classSection } from "@/lib/class-name";
 
 /** `medical` is medical leave (ML): absent, and the paper is left out of the total. */
 export type MarkValue = { parts: Record<string, number | null>; absent: boolean; medical?: boolean; grade: string | null; remark: string | null };
@@ -425,7 +426,7 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     const started = students.filter((s: RosterStudent) => hasMark(mine.get(s.studentId))).length;
     const status = counts && saved === "IN_PROGRESS" && started === 0 ? "NOT_STARTED" : saved;
     return {
-      entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
+      entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${classSection(section.schoolClass.name, section.name)}`, subjectName: subject.name,
       date: entry.date, due: entry.marksDueDate, status, done, partly: Math.max(0, started - done), of: students.length, gradeOnly: subject.gradeOnly,
       waiting: waitingByEntry.get(entry.id)?._count ?? 0,
       teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
@@ -492,7 +493,7 @@ export async function moderationList(tx: Tx, f: { examId?: string; status?: stri
     const subj = subjects.find((s) => s.id === e?.subjectId);
     const sec = sections.find((s) => s.id === sectionOf(r));
     return {
-      id: r.id, approvalId: r.approvalId, exam: e?.exam.title ?? "", subject: subj?.name ?? "", section: sec ? `${sec.schoolClass.name} ${sec.name}` : "",
+      id: r.id, approvalId: r.approvalId, exam: e?.exam.title ?? "", subject: subj?.name ?? "", section: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "",
       student: students.find((s) => s.id === r.studentId)?.fullName ?? "", admissionNo: students.find((s) => s.id === r.studentId)?.admissionNo ?? "",
       oldMarks: words(r.before, Boolean(subj?.gradeOnly)), newMarks: words(r.after, Boolean(subj?.gradeOnly)), reason: r.reason, status: r.status, late: r.kind === "late",
       askedBy: people.find((p) => p.id === r.requestedById)?.displayName ?? "", decidedBy: people.find((p) => p.id === r.decidedById)?.displayName ?? "",

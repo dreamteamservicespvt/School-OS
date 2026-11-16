@@ -12,6 +12,7 @@ import { limitStudentIds, type AttendanceAccess } from "./access";
 import { registerChoices } from "./register";
 import { canDecideStudentLeave, quotaFor, quotaText, studentLeaveTypes } from "./student-leave";
 import { studentIdsForFilter } from "../students/find";
+import { classSection } from "@/lib/class-name";
 
 export const LEAVE_STATUSES = ["WAITING", "APPROVED", "REJECTED", "CANCELLED"] as const;
 export type LeaveFilters = { q?: string; section?: string; type?: string; range?: DayRange | null; status: string; skip?: number; take?: number };
@@ -66,7 +67,7 @@ export async function describe(tx: Tx, ctx: SchoolContext, access: AttendanceAcc
     tx.leaveType.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.leaveTypeId))] } }, select: { id: true, name: true } }),
   ]);
   const secs = await tx.section.findMany({ where: { id: { in: enrolments.map((e) => e.sectionId) } }, include: { schoolClass: { select: { name: true } } } });
-  const secName = new Map(secs.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
+  const secName = new Map(secs.map((s) => [s.id, `${classSection(s.schoolClass.name, s.name)}`]));
   const decidable = new Set<string>();
   for (const r of rows) if (r.status === "WAITING" && (await canDecideStudentLeave(tx, ctx, access, r as never))) decidable.add(r.id);
   return {

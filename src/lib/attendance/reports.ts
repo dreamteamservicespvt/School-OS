@@ -18,6 +18,7 @@ import { minutesText } from "./time";
 import { classWise } from "./classwise";
 import { ABSENCE_REASONS, absentKeys, absentReason, DEFAULT_REASON, FEE_REASON, isReason, reasonChoices, shownReason, SOURCE_WORDS } from "./absence-reasons";
 import { FLAG_STATUS_LABEL, flagStatusOf, OPEN_ATTENDANCE_FLAG } from "./flags";
+import { classTitle } from "@/lib/class-name";
 
 export const REPORTS = [
   { key: "daily", label: "Daily attendance", about: "Each class and section on one date, and staff.", students: true, staff: true },
@@ -155,7 +156,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
         const people = await tx.student.findMany({ where: { id: { in: [...sum.people.keys()] } }, select: { id: true, fullName: true, admissionNo: true } });
         people.sort((a, b) => a.fullName.localeCompare(b.fullName));
         return {
-          title: `Monthly attendance ${section.name} ${monthLabel(from)}`, filters: `Class ${section.name}, month ${monthLabel(from)}`,
+          title: `Monthly attendance ${section.name} ${monthLabel(from)}`, filters: `${classTitle(section.name)}, month ${monthLabel(from)}`,
           columns: [
             { key: "who", label: "Student", phone: "title" }, { key: "adm", label: "Admission no." }, { key: "counted", label: "Days counted", numeric: true },
             { key: "present", label: "Present", numeric: true, phone: "meta" }, { key: "absent", label: "Absent", numeric: true, phone: "meta" }, { key: "late", label: "Late", numeric: true },

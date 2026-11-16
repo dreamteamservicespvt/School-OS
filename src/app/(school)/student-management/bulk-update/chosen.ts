@@ -6,6 +6,7 @@ import type { Who } from "@/lib/students/access";
 import { studentScope } from "@/lib/students/access";
 import { yearList, type YearIds } from "../_lib/queries";
 import { STUDYING } from "@/lib/students/labels";
+import { classSection } from "@/lib/class-name";
 
 const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 
@@ -26,6 +27,6 @@ export async function chosenStudents(tx: Tx, who: Who, yearId: YearIds, q: { ids
   return students.map((s) => {
     const e = s.enrolments[0];
     const sec = secs.find((x) => x.id === e?.sectionId);
-    return { id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: sec ? `${sec.schoolClass.name} ${sec.name}` : "", classId: sec?.classId ?? null, rollNo: e?.rollNo ?? null };
+    return { id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "", classId: sec?.classId ?? null, rollNo: e?.rollNo ?? null };
   });
 }

@@ -19,6 +19,7 @@ import { runEntry } from "./run";
 import type { Cell, Column, ReportViewer, Row, Table } from "./types";
 import { periodFromSearch, type DayRange } from "../periods";
 import { STUDYING } from "../students/labels";
+import { classTitle } from "@/lib/class-name";
 
 export type AreaKey = "students" | "results" | "finance" | "hr" | "workload" | "teachers" | "admissions";
 export const AREA_LABEL: Record<AreaKey, string> = {
@@ -220,7 +221,7 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
       {
         key: "students.attendance", title: "Attendance by class", sub: `${inp.range.label} · goal 90% · tap a class to see who was absent`, icon: "CalendarCheck2", kind: marked.length ? "hbars" : "empty",
         // "1" and "2" alone did not read as classes (QA L6-59).
-        hbars: marked.map((r) => ({ k: classWord(r.k), v: r.v! })), goal: 90, lowBelow: 90, drills: marked.map((r) => ({ label: classWord(r.k), drill: `att-class:${r.id}` })),
+        hbars: marked.map((r) => ({ k: classTitle(r.k), v: r.v! })), goal: 90, lowBelow: 90, drills: marked.map((r) => ({ label: classTitle(r.k), drill: `att-class:${r.id}` })),
         data: tableOf([{ key: "cls", label: "Class" }, { key: "p", label: "Present %", kind: "percent" }], attRows.map((r) => ({ cls: r.name, p: r.v }))), empty: "Attendance is not marked in these dates.",
       },
       {
@@ -506,8 +507,3 @@ export async function pinnedCharts(tx: Tx, who: ReportViewer, keys: string[], se
 }
 
 export type { SchoolContext };
-
-/** A class named by a number alone ("1") reads as "Class 1". */
-function classWord(name: string) {
-  return /^\d/.test(name) ? `Class ${name}` : name;
-}

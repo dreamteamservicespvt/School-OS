@@ -11,6 +11,7 @@ import { attendanceFeatures, attendanceSettings } from "@/lib/attendance/setting
 import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import { readMonth, registerChoices, registerMonth, type RegisterRow } from "@/lib/attendance/register";
 import { percentText } from "@/lib/attendance/summary";
+import { classTitle } from "@/lib/class-name";
 
 const PRINT_COLOURS: Record<string, string> = { success: "#dcfce7", danger: "#fee2e2", warning: "#fef3c7", info: "#e0f2fe", brand: "#e0e7ff", neutral: "#f1f5f9" };
 
@@ -37,7 +38,7 @@ async function handleGET(req: Request) {
     if (!grid) return new Response("This class was not found.", { status: 404 });
     const letters = new Map(grid.statuses.map((s) => [s.key, s]));
     const statusName = status ? letters.get(status)?.name ?? status : null;
-    const filters = [`Class ${grid.section.name}`, `Month ${grid.label}`, statusName ? `Has ${statusName.toLowerCase()}` : null].filter(Boolean).join(", ");
+    const filters = [`${classTitle(grid.section.name)}`, `Month ${grid.label}`, statusName ? `Has ${statusName.toLowerCase()}` : null].filter(Boolean).join(", ");
     const title = `Attendance Register ${grid.section.name} ${grid.label}`;
     await logExport(tx, current.ctx, { title, format, filters, rows: grid.rows.length });
 

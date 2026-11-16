@@ -8,6 +8,7 @@ import type { ReportResult } from "../../fees/reports";
 import type { ReportTable as AttendanceTable } from "../../attendance/reports";
 import type { Report as AdmissionReport } from "../../admission/reports";
 import type { Cell, Column, Row, RunCtx, Table } from "../types";
+import { classSection } from "@/lib/class-name";
 
 export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : null);
 export const ZERO = BigInt(0);
@@ -30,7 +31,7 @@ export async function scopeSections(rc: RunCtx): Promise<string[] | null> {
 export async function sectionNames(rc: RunCtx, yearId: string | null = rc.f.year?.id ?? null) {
   return rc.memo(`sections:${yearId}`, async () => {
     const rows = await rc.tx.section.findMany({ where: { ...(yearId ? { academicYearId: yearId } : {}) }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
-    return new Map(rows.map((s) => [s.id, { label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder * 1000 + s.name.charCodeAt(0) }]));
+    return new Map(rows.map((s) => [s.id, { label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder * 1000 + s.name.charCodeAt(0) }]));
   });
 }
 

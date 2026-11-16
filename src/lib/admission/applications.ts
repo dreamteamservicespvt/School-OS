@@ -17,6 +17,7 @@ import { requireFull, requireOwnCampus, type Viewer } from "./access";
 import { DuplicateProblem, systemStatus, type Match } from "./enquiries";
 import { applicationPrefix, classList, classRule, needsPreviousSchool, stageOn, yearOnCampus, type Settings } from "./settings";
 import { messageParent } from "./notify-parents";
+import { classSection } from "@/lib/class-name";
 
 export const STAGES: { value: ApplicationStage; label: string }[] = [
   { value: "SUBMITTED", label: "Submitted" },
@@ -158,7 +159,7 @@ export async function childDuplicates(tx: Tx, input: { fullName: string; dateOfB
     // The class this year, in the student's own campus's current year.
     const en = await currentEnrolment(tx, st.id);
     const sec = en ? await tx.section.findUnique({ where: { id: en.sectionId }, include: { schoolClass: true } }) : null;
-    out.push({ kind: "parent", id: st.id, href: `/student-management?q=${encodeURIComponent(st.admissionNo)}`, text: `A student with this name, date of birth and parent phone already exists${sec ? ` in ${sec.schoolClass.name} ${sec.name}` : ""} (admission no. ${st.admissionNo}).` });
+    out.push({ kind: "parent", id: st.id, href: `/student-management?q=${encodeURIComponent(st.admissionNo)}`, text: `A student with this name, date of birth and parent phone already exists${sec ? ` in ${classSection(sec.schoolClass.name, sec.name)}` : ""} (admission no. ${st.admissionNo}).` });
   }
   return out;
 }

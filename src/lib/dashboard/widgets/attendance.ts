@@ -21,6 +21,7 @@ import { chronicFlags, type FlagKind } from "../../attendance/reports";
 import { reportAccess } from "../../reports/access";
 import { addDays, awayToday, campusStudents, iso, longDay, moduleOpen, myStaff, n, plural, reach, shortDate } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
+import { classSection, classTitle } from "@/lib/class-name";
 
 const MODULE = "attendance-management" as const;
 const fullReach = (v: Viewer) => reach(v, MODULE) === "all";
@@ -165,7 +166,7 @@ const mySection: Widget<"band"> = {
     if (!sectionId || a.students === "none") return null;
     const section = await c.tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: { select: { name: true, campusId: true } } } });
     if (!section) return null;
-    const name = `${section.schoolClass.name} ${section.name}`;
+    const name = `${classSection(section.schoolClass.name, section.name)}`;
     const href = attendanceTakeHref({ sectionId, periodNo: 0, date: c.today });
     const off = await schoolDayOff(c, section.schoolClass.campusId);
     if (!off.on) return { id: "attendance.my-section-today", label: name, ...(await offTile(c, off, section.schoolClass.campusId)), href: `${BASE}/register?section=${sectionId}` };
@@ -274,7 +275,7 @@ const notTaken: Widget<"attention"> = {
 };
 
 /**
- * "class 1 A: class teacher on leave today" for the principal: classes not marked yet whose class teacher is on
+ * "Class 1 A: class teacher on leave today" for the principal: classes not marked yet whose class teacher is on
  * approved full-day leave, and today's invigilation duties of staff on leave, with a link to Substitutions
  * (QA L6-54: "Staff on leave: KUSUMA" and "Not taken" showed, and nothing joined them).
  */
@@ -295,7 +296,7 @@ const coverNeeded: Widget<"attention"> = {
       for (const x of cw.sections.filter((r) => r.notMarked && r.teacher && away.has(r.teacher.staffId))) {
         out.push({
           id: `attendance.cover-needed:${x.sectionId}`, tone: "warn", icon: "UserX",
-          title: `class ${x.name}: class teacher on leave today`,
+          title: `${x.name}: class teacher on leave today`,
           detail: `${x.teacher!.name} is on approved leave. Give today's attendance and periods to someone.`,
           action: "Give cover", href: SUBSTITUTIONS, value: iso(c.today),
         });
@@ -319,7 +320,7 @@ const coverNeeded: Widget<"attention"> = {
         if (!who || (a.campusId && who.campusId && who.campusId !== a.campusId)) continue;
         out.push({
           id: `attendance.cover-needed:inv:${d.id}`, tone: "warn", icon: "UserX",
-          title: `Invigilation needs cover: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, class ${classes.find((x) => x.id === d.classId)?.name ?? ""} at ${clock(d.startTime)}`.trim(),
+          title: `Invigilation needs cover: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, ${classTitle(classes.find((x) => x.id === d.classId)?.name ?? "")} at ${clock(d.startTime)}`.trim(),
           detail: `${who.fullName} is on approved leave today. Give the duty to someone.`,
           action: "Give cover", href: SUBSTITUTIONS, value: iso(c.today),
         });

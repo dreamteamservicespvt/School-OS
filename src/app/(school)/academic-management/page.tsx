@@ -11,6 +11,7 @@ import { ExportLinks } from "./_components/export-links";
 import { AddClassButtons, ClassesBoard, StreamsButton } from "./classes-board";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Classes & Sections") };
@@ -33,7 +34,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
     let archivedSections: { id: string; label: string; archivedAt: Date }[] = [];
     if (archived && scope.manage) {
       const rows = await tx.section.findMany({ where: { academicYearId: year.id, archivedAt: { not: null }, schoolClass: { campusId: page.campusId } }, include: { schoolClass: true }, orderBy: { archivedAt: "desc" }, take: 50 });
-      archivedSections = rows.map((r) => ({ id: r.id, label: `${r.schoolClass.name} ${r.name}`, archivedAt: r.archivedAt! }));
+      archivedSections = rows.map((r) => ({ id: r.id, label: `${classSection(r.schoolClass.name, r.name)}`, archivedAt: r.archivedAt! }));
     }
     return { classes, teachers, streams, archivedSections, schoolBoard: school?.board ?? null };
   });
@@ -89,6 +90,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
           levels={[...LEVELS]}
           archived={archived && scope.manage ? data.archivedSections.map((s) => ({ id: s.id, label: s.label, archivedOn: s.archivedAt.toISOString() })) : null}
           showArchivedToggle={scope.manage}
+          openSectionId={canEdit && sections.some((s) => s.id === one(raw.section)) ? one(raw.section) : null}
         />
       )}
 

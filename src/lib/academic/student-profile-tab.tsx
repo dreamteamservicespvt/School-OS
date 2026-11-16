@@ -15,6 +15,7 @@ import { todayIn, weekday } from "./common";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TimetableGrid } from "@/app/(school)/academic-management/time-table/grid";
+import { classSection } from "@/lib/class-name";
 
 async function load({ current, studentId, academicYearId }: ProfileTabArgs) {
   return withSchool(current.ctx, async (tx) => {
@@ -40,7 +41,7 @@ async function load({ current, studentId, academicYearId }: ProfileTabArgs) {
     const mine = subjects.filter((s) => s.type === "CORE" || optional.has(s.id));
     const teacherOf = new Map<string, string>();
     for (const c of cells) if (c.subjectId && c.staffName && !teacherOf.has(c.subjectId)) teacherOf.set(c.subjectId, c.staffName);
-    const label = `${section.schoolClass.name} ${section.name}`;
+    const label = `${classSection(section.schoolClass.name, section.name)}`;
     const board = await progressBoard(
       tx,
       academicYearId,

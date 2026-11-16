@@ -17,6 +17,7 @@ import { customFeatureAction } from "./actions";
 import { BASE, one, qs, repGuard, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("All Reports") };
@@ -65,7 +66,7 @@ export default async function AllReportsPage({ searchParams }: { searchParams: S
       <div className="flex flex-col gap-5 lg:gap-6">
         {p.a.own && (
           <Banner tone="info" title="Showing your classes only.">
-            {own.length ? `Reports open with ${own.length === 1 ? `Class ${own[0]}` : own.join(", ")}.` : "You have no classes this year yet, so reports have no rows."} <Words k="Fee and staff reports are not part of your role." />
+            {own.length ? `Reports open with ${own.length === 1 ? `${classTitle(own[0])}` : own.join(", ")}.` : "You have no classes this year yet, so reports have no rows."} <Words k="Fee and staff reports are not part of your role." />
           </Banner>
         )}
         {roleNote && <Banner tone="info" title={roleNote[0]}>{roleNote[1]}</Banner>}

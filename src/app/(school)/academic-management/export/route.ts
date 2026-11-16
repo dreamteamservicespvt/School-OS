@@ -21,6 +21,7 @@ import { progressBoard } from "@/lib/academic/syllabus";
 import { DAY_NAMES, isoDay, parseDay, time12, todayIn, weekday } from "@/lib/academic/common";
 import type { Current } from "@/lib/current";
 import type { SchoolContext } from "@/lib/db";
+import { classSection } from "@/lib/class-name";
 
 type Row = Record<string, string | number | null>;
 type Built = { title: string; filters: string; labels: string[]; rows: Row[] };
@@ -160,7 +161,7 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
         orderBy: [{ section: { schoolClass: { sortOrder: "asc" } } }, { section: { name: "asc" } }],
       });
       const names = new Map((await tx.staff.findMany({ where: { id: { in: allocations.map((x) => x.staffId) } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
-      const pairs = allocations.filter((x) => x.section.archivedAt === null && inScope(x.sectionId)).map((x) => ({ sectionId: x.sectionId, classId: x.section.classId, subjectId: x.subjectId, label: `${x.section.schoolClass.name} ${x.section.name}`, subject: x.subject.name, teacher: names.get(x.staffId) ?? null }));
+      const pairs = allocations.filter((x) => x.section.archivedAt === null && inScope(x.sectionId)).map((x) => ({ sectionId: x.sectionId, classId: x.section.classId, subjectId: x.subjectId, label: `${classSection(x.section.schoolClass.name, x.section.name)}`, subject: x.subject.name, teacher: names.get(x.staffId) ?? null }));
       const board = await progressBoard(tx, yearId, pairs.slice(0, 500), today);
       const rows = board.map((b) => ({ Section: b.label, Subject: b.subject, Teacher: b.teacher ?? "", "Topics done": b.done, Topics: b.total, "Completed %": b.completedPct, "Planned by today %": b.plannedPct, "Chapters late": b.late.map((l) => l.title).join(", ") }));
       return { title: "Syllabus progress", filters: `${a.yearName}${classId ? ", one class" : ""}, ${isoDay(today)}`, labels: ["Section", "Subject", "Teacher", "Topics done", "Topics", "Completed %", "Planned by today %", "Chapters late"], rows };

@@ -23,6 +23,7 @@ import {
 } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Attendance Settings") };
@@ -70,8 +71,8 @@ export default async function SettingsPage({ searchParams }: Props) {
     ]);
     const section = sample ? await tx.section.findFirst({ where: { id: sample.sectionId }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
     // The message parents really get: Communication's "Absent today" message (one setting, shown here read-only).
-    const message = tab === "alerts" ? await absenceMessageView(tx, current.ctx, { student: sample?.student.fullName ?? "Your child", className: section ? `${section.schoolClass.name} ${section.name}` : "the class", date: today }) : null;
-    return { statuses, types, quotas, school, message, sample: sample ? { name: sample.student.fullName, className: section ? `${section.schoolClass.name} ${section.name}` : null } : null };
+    const message = tab === "alerts" ? await absenceMessageView(tx, current.ctx, { student: sample?.student.fullName ?? "Your child", className: section ? `${classSection(section.schoolClass.name, section.name)}` : "the class", date: today }) : null;
+    return { statuses, types, quotas, school, message, sample: sample ? { name: sample.student.fullName, className: section ? `${classSection(section.schoolClass.name, section.name)}` : null } : null };
   });
   const tones = TONES.map((t) => ({ value: t.value, label: t.label }));
   const counts = COUNTS.map((c) => ({ value: c.value, label: c.label }));
@@ -170,7 +171,7 @@ export default async function SettingsPage({ searchParams }: Props) {
                 action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic"><Words k="Change the message" /></ButtonLink>} />
               <div className="border-t border-line/70 px-5 py-4 space-y-3">
                 {message && !message.on && <Alert tone="warning" title="No absence message goes to parents"><Words k="The “Absent today” message is switched off in Communication, Message Settings." /></Alert>}
-                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents">{SMS_OFFERED ? <Words k="No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." /> : <Words k="No channel that can carry it is switched on. Switch WhatsApp on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect it." />}</Alert>}
+                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents">{SMS_OFFERED ? <Words k="No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask the School OS support team to connect one." /> : <Words k="No channel that can carry it is switched on. Switch WhatsApp on in Settings, SMS, WhatsApp & Email, or ask the School OS support team to connect it." />}</Alert>}
                 {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here"><Words k="Switch on “Absence message to parents” below to send it after each register." /></Alert>}
                 <p className="eyebrow text-ink3"><Words k="Message parents get" /></p>
                 <div className="max-w-md rounded-2xl rounded-tl-md bg-ok/10 px-4 py-3 text-[14px] leading-relaxed">

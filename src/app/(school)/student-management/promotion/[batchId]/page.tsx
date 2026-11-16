@@ -15,6 +15,7 @@ import { seesStudentFees } from "@/lib/fees/access";
 import { seesResults } from "@/lib/exams/scope";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Promotion batch") };
@@ -46,7 +47,7 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
   });
   if (!data) notFound();
   const { batch } = data;
-  const sec = (id: string | null) => { const s = data.sections.find((x) => x.id === id); return s ? `${s.schoolClass.name} ${s.name}` : ""; };
+  const sec = (id: string | null) => { const s = data.sections.find((x) => x.id === id); return s ? `${classSection(s.schoolClass.name, s.name)}` : ""; };
   const yearName = (id: string) => data.years.find((y) => y.id === id)?.name ?? "";
   const who = (id: string | null) => data.people.find((p) => p.id === id)?.displayName ?? "someone";
   const decisions = [...batch.decisions].sort((a, b) => (data.students.find((s) => s.id === a.studentId)?.fullName ?? "").localeCompare(data.students.find((s) => s.id === b.studentId)?.fullName ?? ""));

@@ -23,6 +23,7 @@ import { closedWords, entryAllowed, findEntry } from "./catalogue";
 import { filterWords, readFilters, type Raw } from "./filters";
 import type { Cell, ColKind, ReportEntry, ReportFilters, ReportViewer, Row, RunCtx, Table } from "./types";
 import { word } from "../notification-words";
+import { classSection, classTitle } from "@/lib/class-name";
 
 /** Files bigger than this are made in the background (as every export, lib/exports.ts). */
 export const BACKGROUND_ROWS = 2000;
@@ -116,7 +117,7 @@ export async function filterNames(tx: Tx, f: ReportFilters, own: boolean) {
     f.campusId ? tx.campus.findFirst({ where: { id: f.campusId }, select: { name: true } }) : null,
     tx.campus.count({ where: { archivedAt: null } }),
   ]);
-  const clsWords = sec ? `Class ${sec.schoolClass.name.replace(/^class\s+/i, "")} ${sec.name}` : cls ? cls.name : own ? "My classes" : "All classes";
+  const clsWords = sec ? classSection(sec.schoolClass.name, sec.name) : cls ? classTitle(cls.name) : own ? "My classes" : "All classes";
   return { cls: clsWords, campus: campus?.name ?? (campuses > 1 ? "All" : null) };
 }
 

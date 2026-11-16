@@ -6,6 +6,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { subjectsForClass } from "./subjects";
 import { currentYears } from "./years";
+import { classSection } from "@/lib/class-name";
 
 export { currentYear, chosenYear, isYearClosed, assertYearOpen, assertYearWritable, ClosedYearError, financialYearFor } from "./years";
 export { isHoliday, dayOff, dayOffOf, holidaysBetween, examDayOn } from "./calendar";
@@ -27,7 +28,7 @@ export async function sectionsForYear(tx: Tx, ctx: SchoolContext, yearId: string
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   });
   return rows.map((s) => ({
-    id: s.id, name: s.name, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board,
+    id: s.id, name: s.name, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board,
     seats: s.seats, classTeacherId: s.classTeacherId, room: s.room, streamId: s.streamId,
   }));
 }

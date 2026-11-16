@@ -22,6 +22,7 @@ import { CORRECTION_STATUS } from "../../../_components/words";
 import { approveCorrectionAction, rejectCorrectionAction, withdrawCorrectionAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Attendance correction") };
@@ -55,7 +56,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
     const nowMap = new Map(marks.map((m) => [(m.studentId ?? m.staffId)!, m.statusKey]));
     return {
       c, approval, decider, mine, entries, nowMap,
-      sectionName: section ? `${section.schoolClass.name} ${section.name}` : null,
+      sectionName: section ? `${classSection(section.schoolClass.name, section.name)}` : null,
       names: new Map(users.map((u) => [u.id, u.displayName])),
       tell: await parentsToTell(tx, current.ctx, c),
       statuses: await statusList(tx, current.ctx, { includeArchived: true }),

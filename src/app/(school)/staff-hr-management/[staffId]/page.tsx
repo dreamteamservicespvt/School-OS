@@ -48,6 +48,7 @@ import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 import { RecordTitle } from "@/components/ui/record-title";
 import { Reveal } from "./reveal";
+import { classSection } from "@/lib/class-name";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -116,7 +117,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       ]);
       periods = p;
       classCount = new Set(allocs.map((a) => a.sectionId)).size;
-      classTeacher = sections.map((x) => `${x.schoolClass.name} ${x.name}`);
+      classTeacher = sections.map((x) => `${classSection(x.schoolClass.name, x.name)}`);
     }
     // Today from Staff Attendance and the School Calendar (not a placeholder).
     const [todayMarks, todayOff] = await Promise.all([staffMarks(tx, current.ctx, s.id, today, today), offDayMap(tx, current.ctx, today, today, s.campusId)]);
@@ -419,7 +420,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       <div className="space-y-5">
         <Card>
           <CardHeader title="Class teacher of" description={data.year.name} />
-          <CardBody>{data.sections.length ? <p className="font-medium">{data.sections.map((x) => `${x.schoolClass.name} ${x.name}`).join(", ")}</p> : <p className="text-ink-2"><Words k="Not a class teacher this year." /></p>}</CardBody>
+          <CardBody>{data.sections.length ? <p className="font-medium">{data.sections.map((x) => `${classSection(x.schoolClass.name, x.name)}`).join(", ")}</p> : <p className="text-ink-2"><Words k="Not a class teacher this year." /></p>}</CardBody>
         </Card>
         <Card>
           <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation"><Words k="Teacher Allocation" /></ButtonLink> : undefined} />
@@ -478,7 +479,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               return (
                 <li key={d}>
                   <p className="font-medium">{d}</p>
-                  <p className="text-sm text-ink-2">{list.length ? list.map((p) => `P${p.periodNo} ${p.section.schoolClass.name} ${p.section.name} ${p.subject?.name ?? ""}`).join(" · ") : "Free"}</p>
+                  <p className="text-sm text-ink-2">{list.length ? list.map((p) => `P${p.periodNo} ${classSection(p.section.schoolClass.name, p.section.name)} ${p.subject?.name ?? ""}`).join(" · ") : "Free"}</p>
                 </li>
               );
             })}

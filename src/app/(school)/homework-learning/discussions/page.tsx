@@ -16,6 +16,7 @@ import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../_lib/p
 import { BoardSheet, HideSheet, ModMenu, ReplyBox, TopicSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Discussions") };
@@ -64,7 +65,7 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
   });
 
   const label = (s.student?.label ?? "").replace(/^Class\s+/i, "");
-  const sub = p.student ? `Class ${label} boards · ask and answer questions with your class` : p.own ? "Boards for your classes" : "Class boards for questions and answers";
+  const sub = p.student ? `${classTitle(label)} boards · ask and answer questions with your class` : p.own ? "Boards for your classes" : "Class boards for questions and answers";
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { board: data.pick?.id ?? null, ...extra });
   const head = (
     <HomeworkHead page="discussions" pageName="Discussions" sub={sub}

@@ -17,6 +17,7 @@ import { raiseSubstitutions } from "../staff/leave";
 import { tellArrangers } from "./arrangers";
 import { word, type NoteValues } from "../notification-words";
 import type { MessageKey } from "../i18n/t";
+import { classSection } from "@/lib/class-name";
 
 const REASON_WORDS: Record<string, string> = { leave: "Leave", absent: "Absent", temporary: "Temporary teacher" };
 export const reasonWords = (r: string) => REASON_WORDS[r] ?? r;
@@ -108,7 +109,7 @@ async function cellsWhere(tx: Tx, where: Prisma.TimetablePeriodWhereInput): Prom
   });
   const staff = new Map((await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
   return rows.map((r) => ({
-    id: r.id, sectionId: r.sectionId, sectionLabel: `${r.section.schoolClass.name} ${r.section.name}`, classId: r.section.classId,
+    id: r.id, sectionId: r.sectionId, sectionLabel: `${classSection(r.section.schoolClass.name, r.section.name)}`, classId: r.section.classId,
     dayOfWeek: r.dayOfWeek, periodNo: r.periodNo, startTime: r.startTime, endTime: r.endTime,
     subjectId: r.subjectId, subjectName: r.subject?.name ?? null, subjectCode: r.subject?.code ?? null,
     staffId: r.staffId, staffName: staff.get(r.staffId!) ?? null, room: r.room ?? r.section.room, isBreak: r.isBreak, label: r.label,
@@ -189,7 +190,7 @@ export async function assignSubstitute(tx: Tx, ctx: SchoolContext, input: { camp
   const made: string[] = [];
   for (const p of periods) {
     if (weekday(input.date) !== p.dayOfWeek) throw new AcademicRuleError("That period is on another day of the week.");
-    if (p.staffId === sub.id) throw new AcademicRuleError(`${sub.fullName} is the teacher who is away for ${p.section.schoolClass.name} ${p.section.name}.`, "substituteId");
+    if (p.staffId === sub.id) throw new AcademicRuleError(`${sub.fullName} is the teacher who is away for ${classSection(p.section.schoolClass.name, p.section.name)}.`, "substituteId");
     const free = await freeTeachersAt(tx, ctx, input.campusId, input.date, p.periodNo);
     const existing = await tx.substitution.findFirst({ where: { date: input.date, periodId: p.id, archivedAt: null, status: { not: "CANCELLED" } } });
     const alreadyThis = existing?.substituteStaffId === sub.id && existing.status === "ARRANGED";
@@ -204,16 +205,16 @@ export async function assignSubstitute(tx: Tx, ctx: SchoolContext, input: { camp
       ? await tx.substitution.update({ where: { id: existing.id }, data })
       : await tx.substitution.create({ data: { schoolId: ctx.schoolId, date: input.date, periodId: p.id, absentStaffId, createdById: ctx.userId, ...data } });
     made.push(row.id);
-    await writeAudit(tx, ctx, { action: "substitute-arranged", recordType: "Substitution", recordId: row.id, before: existing ? { substitute: existing.substituteStaffId, status: existing.status } : null, after: { substitute: sub.fullName, date: input.date.toISOString().slice(0, 10), period: p.periodNo, section: `${p.section.schoolClass.name} ${p.section.name}` } });
+    await writeAudit(tx, ctx, { action: "substitute-arranged", recordType: "Substitution", recordId: row.id, before: existing ? { substitute: existing.substituteStaffId, status: existing.status } : null, after: { substitute: sub.fullName, date: input.date.toISOString().slice(0, 10), period: p.periodNo, section: `${classSection(p.section.schoolClass.name, p.section.name)}` } });
     // The class teacher is told too (04 §2).
     if (p.section.classTeacherId && p.section.classTeacherId !== sub.id) {
       const ct = await tx.staff.findUnique({ where: { id: p.section.classTeacherId }, select: { userLoginId: true } });
-      if (ct?.userLoginId) await notify(tx, ctx, { to: ct.userLoginId, type: "substitution", key: "{name} covers {subject} in {class}, period {period} on {date}.", values: { name: sub.fullName, subject: p.subject?.name ?? word("a period"), class: `${p.section.schoolClass.name} ${p.section.name}`, period: p.periodNo, date: formatDate(input.date) }, link: `/academic-management/substitutions?date=${input.date.toISOString().slice(0, 10)}`, groupKey: `sub-ct-${input.date.toISOString().slice(0, 10)}`, mergedKey: "{n} substitutions arranged for your class on {date}" });
+      if (ct?.userLoginId) await notify(tx, ctx, { to: ct.userLoginId, type: "substitution", key: "{name} covers {subject} in {class}, period {period} on {date}.", values: { name: sub.fullName, subject: p.subject?.name ?? word("a period"), class: `${classSection(p.section.schoolClass.name, p.section.name)}`, period: p.periodNo, date: formatDate(input.date) }, link: `/academic-management/substitutions?date=${input.date.toISOString().slice(0, 10)}`, groupKey: `sub-ct-${input.date.toISOString().slice(0, 10)}`, mergedKey: "{n} substitutions arranged for your class on {date}" });
     }
   }
   if (sub.userLoginId) {
-    const words = periods.length === 1 ? `${periods[0].subject?.name ?? "a period"} in ${periods[0].section.schoolClass.name} ${periods[0].section.name}, period ${periods[0].periodNo}` : `${plural(periods.length, "period")}`;
-    await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: periods.length === 1 ? "Extra period on {date}: {subject} in {class}, period {period}." : "Extra period on {date}: {periods}.", values: { date: formatDate(input.date), subject: periods[0].subject?.name ?? word("a period"), class: `${periods[0].section.schoolClass.name} ${periods[0].section.name}`, period: periods[0].periodNo, periods: word(words) }, link: "/academic-management/time-table/mine", groupKey: `sub-${input.date.toISOString().slice(0, 10)}`, mergedKey: "{n} extra periods for you on {date}" });
+    const words = periods.length === 1 ? `${periods[0].subject?.name ?? "a period"} in ${classSection(periods[0].section.schoolClass.name, periods[0].section.name)}, period ${periods[0].periodNo}` : `${plural(periods.length, "period")}`;
+    await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: periods.length === 1 ? "Extra period on {date}: {subject} in {class}, period {period}." : "Extra period on {date}: {periods}.", values: { date: formatDate(input.date), subject: periods[0].subject?.name ?? word("a period"), class: `${classSection(periods[0].section.schoolClass.name, periods[0].section.name)}`, period: periods[0].periodNo, periods: word(words) }, link: "/academic-management/time-table/mine", groupKey: `sub-${input.date.toISOString().slice(0, 10)}`, mergedKey: "{n} extra periods for you on {date}" });
   }
   return { ids: made, substitute: sub.fullName, count: periods.length };
 }
@@ -226,7 +227,7 @@ export async function removeSubstitute(tx: Tx, ctx: SchoolContext, substitutionI
   await writeAudit(tx, ctx, { action: "substitute-removed", recordType: "Substitution", recordId: s.id, before: { substitute: s.substituteStaffId, status: s.status } });
   if (s.substituteStaffId) {
     const sub = await tx.staff.findUnique({ where: { id: s.substituteStaffId }, select: { userLoginId: true } });
-    if (sub?.userLoginId) await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: "You no longer cover {class}, period {period} on {date}.", values: { class: `${s.period.section.schoolClass.name} ${s.period.section.name}`, period: s.period.periodNo, date: formatDate(s.date) }, link: "/academic-management/time-table/mine" });
+    if (sub?.userLoginId) await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: "You no longer cover {class}, period {period} on {date}.", values: { class: `${classSection(s.period.section.schoolClass.name, s.period.section.name)}`, period: s.period.periodNo, date: formatDate(s.date) }, link: "/academic-management/time-table/mine" });
   }
   return s;
 }
@@ -266,7 +267,7 @@ export async function releaseForLeave(tx: Tx, ctx: SchoolContext, leaveRequestId
     await tx.substitution.update({ where: { id: r.id }, data: { status: "CANCELLED" } });
     if (r.substituteStaffId) {
       const sub = await tx.staff.findUnique({ where: { id: r.substituteStaffId }, select: { userLoginId: true } });
-      if (sub?.userLoginId) await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: "Cover released: {class}, period {period} on {date}. The teacher is back.", values: { class: `${r.period.section.schoolClass.name} ${r.period.section.name}`, period: r.period.periodNo, date: formatDate(r.date) }, link: "/academic-management/time-table/mine" });
+      if (sub?.userLoginId) await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", key: "Cover released: {class}, period {period} on {date}. The teacher is back.", values: { class: `${classSection(r.period.section.schoolClass.name, r.period.section.name)}`, period: r.period.periodNo, date: formatDate(r.date) }, link: "/academic-management/time-table/mine" });
     }
   }
   if (rows.length) await writeAudit(tx, ctx, { action: "released", recordType: "Substitution", recordId: leaveRequestId, after: { released: rows.length } });
@@ -414,7 +415,7 @@ export async function replanAfterPublish(tx: Tx, ctx: SchoolContext, versionId: 
     if (!inForce.has(key)) inForce.set(key, (await effectiveVersion(tx, ctx, campusId, r.date))?.id ?? null);
     const now = inForce.get(key);
     if (!now || r.period.versionId === now) continue;
-    const where = { class: `${r.period.section.schoolClass.name} ${r.period.section.name}`, period: r.period.periodNo, date: formatDate(r.date) };
+    const where = { class: `${classSection(r.period.section.schoolClass.name, r.period.section.name)}`, period: r.period.periodNo, date: formatDate(r.date) };
     const match = await tx.timetablePeriod.findFirst({ where: { versionId: now, sectionId: r.period.sectionId, dayOfWeek: r.period.dayOfWeek, periodNo: r.period.periodNo, staffId: r.absentStaffId, isBreak: false, archivedAt: null } });
     const taken = match ? await tx.substitution.findFirst({ where: { date: r.date, periodId: match.id, archivedAt: null, status: { not: "CANCELLED" }, id: { not: r.id } } }) : null;
     if (!match || taken) {

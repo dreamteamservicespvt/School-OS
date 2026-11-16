@@ -18,6 +18,7 @@ import { BASE, homeworkGuard, homeworkPeriod, one, qs, UUID, type SearchParams }
 import { IssueSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Learning Progress") };
@@ -89,7 +90,7 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
       <Stack>
         <Card>
           <Toolbar>
-            <UrlSelect param="section" id="lp-cls" label="Class" className="md:w-40" options={data.sections.map((x) => ({ value: x.id, label: `Class ${shortSection(x.schoolClass.name, x.name)}` }))} />
+            <UrlSelect param="section" id="lp-cls" label="Class" className="md:w-40" options={data.sections.map((x) => ({ value: x.id, label: `${classTitle(shortSection(x.schoolClass.name, x.name))}` }))} />
             {subjectOpts.length > 1 && <UrlSelect param="subject" id="lp-sub" label="Subject" className="md:w-60" options={subjectOpts} />}
             <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
           </Toolbar>
@@ -102,9 +103,9 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
         ]} />
         <Split side={380}>
           <Card className="overflow-hidden">
-            <CardHeader title={`Students · Class ${pr.section.label}`} description={profiles ? "Tap a student to open their profile" : `${per.label}${range ? ` · ${range}` : ""}`} icon={Users} />
+            <CardHeader title={`Students · ${classTitle(pr.section.label)}`} description={profiles ? "Tap a student to open their profile" : `${per.label}${range ? ` · ${range}` : ""}`} icon={Users} />
             <div className="px-3 pb-3"><UrlSearch id="lp-search" placeholder="Student name or roll" label="Search students" /></div>
-            <DataList rows={rows} rowKey={(r) => r.id} rowHref={profiles ? (r) => `/student-management/students/${r.id}?tab=homework` : undefined} minWidth={580} caption={`Learning progress, Class ${pr.section.label}`}
+            <DataList rows={rows} rowKey={(r) => r.id} rowHref={profiles ? (r) => `/student-management/students/${r.id}?tab=homework` : undefined} minWidth={580} caption={`Learning progress, ${classTitle(pr.section.label)}`}
               footer={`Showing ${rows.length} of ${pr.rows.length} · ${per.label}${range ? ` · ${range}` : ""}`}
               empty={<Empty icon={Users} title="No student matches" body="Try another name or roll number." />}
               columns={[
@@ -155,7 +156,7 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
           </Col>
         </Split>
       </Stack>
-      {doing === "issue" && issuing && <IssueSheet closeHref={here({ do: null, course: null })} courseId={issuing.course.id} course={`${issuing.subject}, Class ${pr.section.label}`} names={issuing.ready.map((x) => x.name)} />}
+      {doing === "issue" && issuing && <IssueSheet closeHref={here({ do: null, course: null })} courseId={issuing.course.id} course={`${issuing.subject}, ${classTitle(pr.section.label)}`} names={issuing.ready.map((x) => x.name)} />}
     </div>
   );
 }

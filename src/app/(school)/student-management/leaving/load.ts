@@ -4,6 +4,7 @@ import { classShort } from "@/lib/students/show";
 
 import type { Tx } from "@/lib/db";
 import { currentEnrolments } from "@/lib/academic/years";
+import { classSection } from "@/lib/class-name";
 
 export const LEAVING_TYPE_LABEL: Record<string, string> = { TRANSFER: "Transfer", WITHDRAWAL: "Withdrawal", GRADUATION: "Graduation" };
 export const CHECK_LABEL: Record<string, string> = { CLEAR: "Clear", PENDING: "Pending", WAIVER_ASKED: "Waiver asked", WAIVED: "Waived" };
@@ -20,7 +21,7 @@ export async function studentFacts(tx: Tx, ids: string[]) {
   const secs = await tx.section.findMany({ where: { id: { in: [...current.values()].map((e) => e.sectionId) } }, include: { schoolClass: true } });
   return new Map(students.map((s) => {
     const sec = secs.find((x) => x.id === current.get(s.id)?.sectionId);
-    return [s.id, { name: s.fullName, admissionNo: s.admissionNo, status: s.status, cls: sec ? `${sec.schoolClass.name} ${sec.name}` : "", short: sec ? classShort(sec.schoolClass.name, sec.name) : "" }];
+    return [s.id, { name: s.fullName, admissionNo: s.admissionNo, status: s.status, cls: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "", short: sec ? classShort(sec.schoolClass.name, sec.name) : "" }];
   }));
 }
 

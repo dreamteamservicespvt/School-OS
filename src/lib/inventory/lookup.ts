@@ -12,6 +12,7 @@ import { findStudents } from "../students/find";
 import { itemLabel } from "./items";
 import { reorderOf, totalsFor } from "./stock";
 import { qtyWords, stockState } from "./words";
+import { classSection } from "@/lib/class-name";
 
 export type CounterStudent = { id: string; name: string; admissionNo: string; cls: string; classId: string | null };
 
@@ -25,7 +26,7 @@ export async function studentsByIds(tx: Tx, ctx: SchoolContext, ids: string[]): 
   return students.map((s) => {
     const e = enrol.find((x) => x.studentId === s.id);
     const sec = e ? sections.find((x) => x.id === e.sectionId) : null;
-    return { id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: sec ? `${sec.schoolClass.name} ${sec.name}` : "", classId: sec?.classId ?? null };
+    return { id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: sec ? `${classSection(sec.schoolClass.name, sec.name)}` : "", classId: sec?.classId ?? null };
   });
 }
 

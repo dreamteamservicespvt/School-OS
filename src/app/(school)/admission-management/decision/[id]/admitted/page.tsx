@@ -14,6 +14,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { UndoAdmission } from "../../decision-forms";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Admission confirmed") };
@@ -45,7 +46,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   // eslint-disable-next-line react-hooks/purity
   const canUndo = viewer.change === "all" && undoUntil > Date.now();
   const admNo = student?.admissionNo ?? c?.admissionNo ?? "";
-  const place = section ? `${section.schoolClass.name} ${section.name}` : "";
+  const place = section ? `${classSection(section.schoolClass.name, section.name)}` : "";
   const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number"
     : c?.welcome === "held" ? "Not sent: automatic messages to parents start when the school goes live on School OS. Send it from Communication if needed."
       : c?.welcome === "nobody" ? "Not sent: the parent has no mobile number on record. Give the admission number to the parent yourself."

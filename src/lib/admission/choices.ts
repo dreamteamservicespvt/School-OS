@@ -10,15 +10,16 @@ import { personCampusId } from "../campus";
 import { loadCustomFields, visibleFields } from "../custom-fields";
 import { instantToLocal } from "./act";
 import { defaultFollowUp } from "./enquiries";
-import { admissionStaff, admissionYear, admissionYears, campusNames, CATEGORIES, classList, live, needsPreviousSchool, openYears, withCampus, type Settings } from "./settings";
+import { admissionStaff, admissionYears, enquiryYear, campusNames, CATEGORIES, classList, live, needsPreviousSchool, openYears, withCampus, type Settings } from "./settings";
 import { seatsFor } from "./seats";
+import { classTitle } from "../class-name";
 
 export async function names(tx: Tx) {
   const [classes, staff] = await Promise.all([
     tx.schoolClass.findMany({ select: { id: true, name: true } }),
     tx.staff.findMany({ select: { id: true, fullName: true } }),
   ]);
-  return { classes: new Map(classes.map((c) => [c.id, c.name])), staff: new Map(staff.map((s) => [s.id, s.fullName])) };
+  return { classes: new Map(classes.map((c) => [c.id, classTitle(c.name)])), staff: new Map(staff.map((s) => [s.id, s.fullName])) };
 }
 
 type Who = Pick<Current, "roles"> & { campusId?: string | null };
@@ -38,7 +39,7 @@ export async function applicationChoices(tx: Tx, current: Who, s: Settings, year
     classes: classes.map((c) => {
       const seat = seats.get(c.id);
       return {
-        value: c.id, label: withCampus(campus, c.name, c.campusId), previousSchool: needsPreviousSchool(c, classes.filter((x) => x.campusId === c.campusId)),
+        value: c.id, label: withCampus(campus, classTitle(c.name), c.campusId), previousSchool: needsPreviousSchool(c, classes.filter((x) => x.campusId === c.campusId)),
         seatsText: !seat ? "no sections yet" : seat.free > 0 ? `${seat.free} of ${seat.seats} seats left` : "full",
         full: Boolean(seat && seat.free <= 0),
       };
@@ -71,20 +72,22 @@ export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Who, s
     classList(tx, limit), admissionStaff(tx, ctx, { campusId: limit }), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, ctx, tz), openYears(tx, limit),
     tx.admissionClassRule.findMany({ select: { classId: true, ownerStaffId: true } }), admissionYears(tx, ctx, s, limit), personCampusId(tx, ctx, current), campusNames(tx, limit),
   ]);
-  const year = await admissionYear(tx, ctx, s, own);
+  const year = await enquiryYear(tx, ctx, s, own);
   const sources = live(s.sourceList);
   // A campus's current year runs "mid-year" while admissions are open for its next year.
   const midYear = (y: (typeof years)[number]) => y.status === "ACTIVE" && admitting.some((a) => a.campusId === y.campusId && a.id !== y.id);
   const ownerName = (id: string | null | undefined) => staff.find((x) => x.id === id)?.fullName ?? null;
   const turnNext = s.ownerRule === "turn" && s.turnStaffIds.length ? ownerName(s.turnStaffIds[s.turnNext % s.turnStaffIds.length]) : null;
   return {
-    classes: classes.map((c) => ({ value: c.id, label: withCampus(campus, c.name, c.campusId) })),
+    classes: classes.map((c) => ({ value: c.id, label: withCampus(campus, classTitle(c.name), c.campusId) })),
     sources: sources.map((x) => ({ value: x.key, label: x.label })),
     owners: ownerChoices(staff, ctx.userId),
     defaultSource: sources.some((x) => x.key === "walk-in") ? "walk-in" : sources[0]?.key ?? "",
     defaultFollowUp: instantToLocal(follow, tz),
     customFields: visibleFields(fields, current.roles),
     years: years.map((y) => ({ value: y.id, label: withCampus(campus, midYear(y) ? `${y.name} (mid-year)` : y.name, y.campusId) })),
+    // Which year each is in plain words under "For year" (L6-04): the running year or the next one.
+    yearKinds: Object.fromEntries(years.map((y) => [y.id, y.status === "ACTIVE" ? "this" : "next"])) as Record<string, "this" | "next">,
     defaultYearId: year?.id ?? "",
     ownerRule: s.ownerRule,
     ownerByClass: s.ownerRule === "class" ? Object.fromEntries(rules.filter((r) => r.ownerStaffId && staff.some((x) => x.id === r.ownerStaffId)).map((r) => [r.classId, r.ownerStaffId!])) : {},

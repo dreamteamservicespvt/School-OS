@@ -24,6 +24,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { AttendanceSheet, CancelSheet, CopyLink, MaterialSheet, RecordingBox, ScheduleSheet, type OcSection } from "./sheets";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Online Classes") };
@@ -183,7 +184,7 @@ async function StudentOnline({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   return (
     <div>
-      <HomeworkHead page="online-classes" pageName="Online Classes" sub={`Class ${label} · online classes from your teachers`} />
+      <HomeworkHead page="online-classes" pageName="Online Classes" sub={`${classTitle(label)} · online classes from your teachers`} />
       <Stack>
         <div className="flex flex-col md:flex-row md:items-center gap-2.5">
           <PeriodFilter {...p.dates} fallback="acyear" ahead className="w-full md:w-auto" />

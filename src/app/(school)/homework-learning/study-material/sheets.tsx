@@ -16,6 +16,7 @@ import { Text } from "../sheets";
 import { addLessonAction, archiveLessonAction, copyCourseAction, editLessonAction, lessonDoneAction, lessonVisibleAction, moveLessonAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { classTitle } from "@/lib/class-name";
 
 export type CourseRef = { sectionId: string; subjectId: string; label: string; subject: string };
 export type LessonForm = { id: string; title: string; chapterId: string; notes: string; visible: boolean; items: { id: string; name: string }[] };
@@ -29,11 +30,11 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
   const ch = useTyped("chapterId", lesson?.chapterId ?? "");
   const edit = !!lesson;
   return (
-    <SheetForm title={edit ? `Edit: ${lesson.title}` : "Add lesson"} sub={`${course.subject} · Class ${course.label}`} closeHref={closeHref}
+    <SheetForm title={edit ? `Edit: ${lesson.title}` : "Add lesson"} sub={`${course.subject} · ${classTitle(course.label)}`} closeHref={closeHref}
       action={(edit ? editLessonAction : addLessonAction) as (p: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>} submitLabel={edit ? "Save changes" : <><Plus size={16} aria-hidden="true" /><Words k="Add lesson" /></>} pendingText="Saving…"
       hidden={edit ? { id: lesson.id } : { sectionId: course.sectionId, subjectId: course.subjectId, label: course.label }}>
       <FieldShell label="Course" id="ls-course" required>
-        <input id="ls-course" value={`${course.subject} · Class ${course.label}`} readOnly className={cx(inputCls(), "h-11 bg-sunken/50")} />
+        <input id="ls-course" value={`${course.subject} · ${classTitle(course.label)}`} readOnly className={cx(inputCls(), "h-11 bg-sunken/50")} />
       </FieldShell>
       <Text name="title" label="Lesson title" required maxLength={160} start={lesson?.title} placeholder="For example: Simple Equations" />
       <FieldShell label="Chapter" id="ls-ch" help={chapters.length ? "From the syllabus" : "The syllabus for this class has no chapters yet"} error={ch.error}>
@@ -94,7 +95,7 @@ export function CopyCourseSheet({ closeHref, courseId, subject, lessons, targets
       <p className="text-[14px] text-ink2">
         {!targets.length ? `You teach ${subject} in no other section, so there is nowhere to copy this course.`
           : !lessons ? "This course has no lessons to copy yet."
-            : `All ${lessons} lessons and their files are copied to ${subject} for Class ${name}. They start hidden there, so you choose when students see them.`}
+            : `All ${lessons} lessons and their files are copied to ${subject} for ${classTitle(name)}. They start hidden there, so you choose when students see them.`}
       </p>
     </SheetForm>
   );

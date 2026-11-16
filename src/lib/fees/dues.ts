@@ -6,6 +6,7 @@ import type { StudentFeeDue } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { addDays } from "../staff/dates";
 import { currentEnrolment, currentEnrolments } from "../academic/years";
+import { classSection } from "@/lib/class-name";
 
 /** A row is "Due" from this many days before its due date (inferred: the current period). */
 export const DUE_WINDOW_DAYS = 30;
@@ -120,7 +121,7 @@ export async function studentCard(tx: Tx, ctx: SchoolContext, studentId: string,
     academicYearId: e?.academicYearId ?? null,
     className: section?.schoolClass.name ?? null,
     sectionName: section?.name ?? null,
-    classSection: section ? `${section.schoolClass.name} ${section.name}` : "No class this year",
+    classSection: section ? `${classSection(section.schoolClass.name, section.name)}` : "No class this year",
     rollNo: e?.rollNo ?? null,
     fatherName: father?.name ?? primary?.name ?? null,
     primaryGuardian: primary ? { id: primary.id, name: primary.name, phone: primary.phone, optedOut: primary.optedOut, language: primary.language } : null,
@@ -132,7 +133,7 @@ export type ClassOf = { classId: string; sectionId: string; label: string; class
 
 async function sectionLabels(tx: Tx, sectionIds: string[]) {
   const sections = await tx.section.findMany({ where: { id: { in: [...new Set(sectionIds)] } }, include: { schoolClass: true } });
-  return new Map(sections.map((s) => [s.id, { classId: s.classId, sectionId: s.id, label: `${s.schoolClass.name} ${s.name}`, className: s.schoolClass.name } satisfies ClassOf]));
+  return new Map(sections.map((s) => [s.id, { classId: s.classId, sectionId: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, className: s.schoolClass.name } satisfies ClassOf]));
 }
 
 /**

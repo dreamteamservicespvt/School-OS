@@ -31,6 +31,7 @@ import { aiDecisionAction, remindFlagAction } from "../actions";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 const PAGE_SIZE = 25;
 
@@ -98,7 +99,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
   return (
     <div>
       <RepHead pageName="Early Warnings" href={HREF}
-        sub={a.own ? `Students in ${own.length === 1 ? `Class ${own[0]}` : "your classes"} who may need help. Nothing happens until a person reviews.` : "Students who may need help. Nothing happens until a person reviews."}
+        sub={a.own ? `Students in ${own.length === 1 ? `${classTitle(own[0])}` : "your classes"} who may need help. Nothing happens until a person reviews.` : "Students who may need help. Nothing happens until a person reviews."}
         actions={a.warnings.rule ? <ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} variant="secondary" icon={Settings2}><Words k="Marks-drop rule" /></ButtonLink> : null} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {a.own && <Banner tone="info" title="Showing your classes only."><Words k="Fee signals go to the Principal and accounts, not to teachers." /></Banner>}

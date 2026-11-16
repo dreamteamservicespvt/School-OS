@@ -20,6 +20,7 @@ import { inventorySettings } from "./settings";
 import { balanceOf, move, notEnough, usableBatches } from "./stock";
 import { itemLabel } from "./items";
 import { qtyWords } from "./words";
+import { classSection } from "@/lib/class-name";
 
 export const STORE_FEE_HEAD_KEY = "store-charges";
 /** Students who can be issued items (studying in the school). */
@@ -50,12 +51,12 @@ export async function recipientWords(tx: Tx, r: Pick<StockIssue, "toKind" | "sta
   if (r.toKind === "DEPARTMENT" && r.departmentId) return `${(await tx.department.findFirst({ where: { id: r.departmentId }, select: { name: true } }))?.name ?? ""} department`.trim();
   if (r.toKind === "CLASS" && r.sectionId) {
     const s = await tx.section.findFirst({ where: { id: r.sectionId }, select: { name: true, schoolClass: { select: { name: true } } } });
-    return s ? `${s.schoolClass.name} ${s.name}` : "Class";
+    return s ? `${classSection(s.schoolClass.name, s.name)}` : "Class";
   }
   if (r.toKind === "STUDENT" && r.studentId) {
     const st = await tx.student.findFirst({ where: { id: r.studentId }, select: { fullName: true } });
     const s = r.studentSectionId ? await tx.section.findFirst({ where: { id: r.studentSectionId }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
-    return `${st?.fullName ?? "Student"}${s ? `, ${s.schoolClass.name} ${s.name}` : ""}`;
+    return `${st?.fullName ?? "Student"}${s ? `, ${classSection(s.schoolClass.name, s.name)}` : ""}`;
   }
   return "";
 }

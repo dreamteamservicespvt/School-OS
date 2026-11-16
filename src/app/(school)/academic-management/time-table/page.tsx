@@ -22,6 +22,7 @@ import { LabBookings } from "./lab-bookings";
 import { PrintPicker } from "./print-picker";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Time Table") };
@@ -100,7 +101,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
           const nameOf = new Map(teachers.map((t) => [t.id, t.fullName]));
           const assigned: EditContext["assigned"] = {};
           for (const a of allocations) if (nameOf.has(a.staffId)) (assigned[a.subjectId] ??= []).push({ id: a.staffId, name: nameOf.get(a.staffId)! });
-          edit = { versionId: shown.id, sectionId: section.id, sectionLabel: `${section.schoolClass.name} ${section.name}`, sectionRoom: section.room, subjects: subjects.map((s) => ({ id: s.id, name: s.name })), assigned, teachers: teachers.map((t) => ({ id: t.id, name: t.fullName })) };
+          edit = { versionId: shown.id, sectionId: section.id, sectionLabel: `${classSection(section.schoolClass.name, section.name)}`, sectionRoom: section.room, subjects: subjects.map((s) => ({ id: s.id, name: s.name })), assigned, teachers: teachers.map((t) => ({ id: t.id, name: t.fullName })) };
         }
       }
     } else if (view === "teacher") {
@@ -141,7 +142,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
   // Limits and preferences are advice while a draft is made. On a published Time Table they read as
   // "128 errors" (layman loop 4): there only clashes that break a rule are shown.
   const soft = shown?.status === "DRAFT" ? data.clashes.filter((c) => !c.hard) : [];
-  const sectionLabel = (id: string) => { const s = data.sections.find((x) => x.id === id); return s ? `${s.schoolClass.name} ${s.name}` : ""; };
+  const sectionLabel = (id: string) => { const s = data.sections.find((x) => x.id === id); return s ? `${classSection(s.schoolClass.name, s.name)}` : ""; };
   const slots = data.slots.map((s) => ({ number: s.number, label: s.label, startTime: s.startTime, endTime: s.endTime, isBreak: s.isBreak, days: s.days }));
   const freeDay = data.days.includes(Number(one(raw.day))) ? Number(one(raw.day)) : data.days.includes(todayDay) ? todayDay : data.days[0];
 
@@ -213,10 +214,10 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">
               <ParamSelect name="section" label="Class and section" current={data.sectionId} clear={["at"]}
-                options={data.sections.map((s) => ({ value: s.id, label: `${s.schoolClass.name} ${s.name}`, group: s.schoolClass.name }))} />
+                options={data.sections.map((s) => ({ value: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, group: s.schoolClass.name }))} />
               <div className="flex flex-wrap gap-2">
                 <a href={`${PATH}/print?section=${data.sectionId}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}><Words k="Print" /></a>
-                <PrintPicker base={`${PATH}/print?x=1${versionQ}`} sections={data.sections.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}` }))} />
+                <PrintPicker base={`${PATH}/print?x=1${versionQ}`} sections={data.sections.map((s) => ({ id: s.id, label: `${classSection(s.schoolClass.name, s.name)}` }))} />
                 <ExportLinks href={`/academic-management/export?kind=timetable&section=${data.sectionId}${versionQ}${yearQ}`} label="This Time Table" />
               </div>
             </div>
@@ -257,7 +258,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
             {data.labRooms.some((r) => r.name.toLowerCase() === data.room.toLowerCase()) && (
               <LabBookings room={data.labRooms.find((r) => r.name.toLowerCase() === data.room.toLowerCase())!} today={isoDay(page.today)} canBook={page.writable}
                 slots={slots.filter((s) => !s.isBreak).map((s) => ({ number: s.number, label: s.label }))}
-                sections={data.sections.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}` }))}
+                sections={data.sections.map((s) => ({ id: s.id, label: `${classSection(s.schoolClass.name, s.name)}` }))}
                 bookings={data.bookings.map((b) => ({ id: b.id, date: isoDay(b.date), periodNo: b.periodNo, sectionLabel: b.sectionLabel, staffName: b.staffName, purpose: b.purpose, mine: b.staffId === scope.staffId }))}
                 canCancelAll={scope.arrange} />
             )}

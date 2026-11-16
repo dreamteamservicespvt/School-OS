@@ -36,11 +36,13 @@ type Props = {
   danger?: boolean;
   /** false: never keep what was typed (the form is kept as a draft until it saves by default). */
   draft?: boolean;
+  /** Opens at once (a link that goes straight to this form, such as the Dashboard's "Set" class teacher). */
+  startOpen?: boolean;
 };
 
 export function FormDialog(props: Props) {
   const controlled = props.open !== undefined;
-  const [openSelf, setOpenSelf] = useState(false);
+  const [openSelf, setOpenSelf] = useState(Boolean(props.startOpen));
   const open = controlled ? props.open! : openSelf;
   const close = () => (controlled ? props.onClose?.() : setOpenSelf(false));
   return (

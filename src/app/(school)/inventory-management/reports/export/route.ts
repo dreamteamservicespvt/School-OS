@@ -7,6 +7,7 @@ import { reportFile } from "@/lib/reports/run";
 import { INVENTORY_REPORTS } from "@/lib/reports/catalogue/inventory";
 import { invRoute, plain, rangeWords } from "../../_lib/route";
 import { readReportFilter, STORE_REPORTS } from "../../_lib/reports";
+import { classSection } from "@/lib/class-name";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
     const sec = report.byClass && r.sec ? await tx.section.findFirst({ where: { id: r.sec }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
     const store = STORE_REPORTS.has(report.key) && r.store ? await tx.storeLocation.findFirst({ where: { id: r.store }, select: { name: true } }) : null;
     const cat = STORE_REPORTS.has(report.key) && r.cat ? await tx.itemCategory.findFirst({ where: { id: r.cat }, select: { name: true } }) : null;
-    const filters = [report.dated ? rangeWords(range) : "As on today", sec ? `Class: ${sec.schoolClass.name} ${sec.name}` : "", store ? `Store: ${store.name}` : "", cat ? `Category: ${cat.name}` : "", report.key === "inv-purchases" ? `By ${r.group}` : ""].filter(Boolean).join(" · ");
+    const filters = [report.dated ? rangeWords(range) : "As on today", sec ? `Class: ${classSection(sec.schoolClass.name, sec.name)}` : "", store ? `Store: ${store.name}` : "", cat ? `Category: ${cat.name}` : "", report.key === "inv-purchases" ? `By ${r.group}` : ""].filter(Boolean).join(" · ");
     await logExport(tx, x.current.ctx, { title: report.name, format: x.format, filters, rows: t.rows.length });
     return reportFile(t, entry, x.format, { schoolName: x.current.school.name, exportedBy: x.current.user.displayName, timeZone: x.tz, filters });
   }, { timeout: 120_000 });

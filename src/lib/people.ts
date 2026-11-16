@@ -3,6 +3,7 @@
 import "server-only";
 
 import type { Tx, SchoolContext } from "./db";
+import { classSection } from "@/lib/class-name";
 
 /** The Staff record of the signed-in person, if they are staff. */
 export async function staffForUser(tx: Tx, ctx: SchoolContext) {
@@ -34,5 +35,5 @@ export async function classTeacherSectionIds(tx: Tx, ctx: SchoolContext, academi
 
 /** "Class 5 A" from a class name and section name. */
 export function sectionLabel(className: string, sectionName: string) {
-  return `${className} ${sectionName}`;
+  return classSection(className, sectionName);
 }

@@ -10,6 +10,7 @@ import { formatDate } from "../format";
 import { AcademicRuleError, addDays, plural, weekday } from "./common";
 import { effectiveVersion } from "./timetable";
 import { schoolCalendar } from "../calendar/school-days";
+import { classSection } from "@/lib/class-name";
 
 export const KIND_ORDER: SyllabusItemKind[] = ["UNIT", "CHAPTER", "LESSON", "TOPIC"];
 export const KIND_WORDS: Record<SyllabusItemKind, string> = { UNIT: "Unit", CHAPTER: "Chapter", LESSON: "Lesson", TOPIC: "Topic" };
@@ -217,7 +218,7 @@ export async function saveLessonPlan(tx: Tx, ctx: SchoolContext, input: LessonPl
     return { row, message: `Lesson plan for ${topic.title} saved.` };
   }
   const row = await tx.lessonPlan.create({ data: { schoolId: ctx.schoolId, academicYearId: input.yearId, staffId: input.staffId, createdById: ctx.userId, ...data } });
-  await writeAudit(tx, ctx, { action: "created", recordType: "Lesson Plan", recordId: row.id, after: { topic: topic.title, section: `${section.schoolClass.name} ${section.name}`, date: input.date.toISOString().slice(0, 10) } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "Lesson Plan", recordId: row.id, after: { topic: topic.title, section: `${classSection(section.schoolClass.name, section.name)}`, date: input.date.toISOString().slice(0, 10) } });
   return { row, message: `Lesson plan for ${topic.title} on ${formatDate(input.date)} saved.` };
 }
 

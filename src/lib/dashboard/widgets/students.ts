@@ -13,6 +13,7 @@ import { STUDYING } from "../../students/labels";
 import { classTiles, LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
 import { addDays, campusStudents, dayWord, myClassSections, n, plural } from "../common";
 import type { BandItem, Birthday, DashContext, ListRow, Viewer, Widget } from "../types";
+import { classSection } from "@/lib/class-name";
 
 const BASE = "/student-management";
 
@@ -128,7 +129,7 @@ const myClass: Widget<"panel"> = {
     if (!ids.length) return null;
     const sections = await c.tx.section.findMany({ where: { id: { in: ids } }, include: { schoolClass: true } });
     const s = sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder)[0];
-    const label = `${s.schoolClass.name} ${s.name}`;
+    const label = `${classSection(s.schoolClass.name, s.name)}`;
     const q = { class: s.classId, section: s.id };
     const link = (extra: Record<string, string> = {}) => `${BASE}?${new URLSearchParams({ ...q, ...extra })}`;
     const [count, fresh, noPhoto] = await Promise.all([studentCount(c, q), studentCount(c, { ...q, new: "1" }), studentCount(c, { ...q, photo: "missing" })]);
@@ -166,7 +167,7 @@ const myClassBand: Widget<"band"> = {
     const s = await c.tx.section.findFirst({ where: { id: { in: ids } }, include: { schoolClass: true }, orderBy: { schoolClass: { sortOrder: "asc" } } });
     if (!s) return null;
     const count = await studentCount(c, { class: s.classId, section: s.id });
-    return { id: "students.my-class-count", label: `My class: ${s.schoolClass.name} ${s.name}`, big: n(count), foot: s.room ? `Students · ${/^\d/.test(s.room) ? `Room ${s.room}` : s.room}` : "Students", href: `${BASE}?${new URLSearchParams({ class: s.classId, section: s.id })}` };
+    return { id: "students.my-class-count", label: `My class: ${classSection(s.schoolClass.name, s.name)}`, big: n(count), foot: s.room ? `Students · ${/^\d/.test(s.room) ? `Room ${s.room}` : s.room}` : "Students", href: `${BASE}?${new URLSearchParams({ class: s.classId, section: s.id })}` };
   },
 };
 

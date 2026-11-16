@@ -15,6 +15,7 @@ import { attendanceSummary, type PersonSummary } from "./summary";
 import { absentKeys, absentReason, type ShownReason } from "./absence-reasons";
 import { registerBook } from "./on-register";
 import { formatDate } from "../format";
+import { classSection } from "@/lib/class-name";
 
 export type RegisterDate = { iso: string; day: number; weekday: string; off: string | null; future: boolean };
 export type RegisterRow = {
@@ -57,7 +58,7 @@ export async function registerChoices(tx: Tx, access: AttendanceAccess, years: s
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
   });
   rows.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
-  return rows.map((s) => ({ id: s.id, name: `${s.schoolClass.name} ${s.name}` }));
+  return rows.map((s) => ({ id: s.id, name: `${classSection(s.schoolClass.name, s.name)}` }));
 }
 
 /**
@@ -111,7 +112,7 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const toNames = new Map<string, string>();
   if (toIds.length) {
     const secs = await tx.section.findMany({ where: { id: { in: toIds } }, select: { id: true, name: true, schoolClass: { select: { name: true } } } });
-    for (const x of secs) toNames.set(x.id, `${x.schoolClass.name} ${x.name}`);
+    for (const x of secs) toNames.set(x.id, `${classSection(x.schoolClass.name, x.name)}`);
   }
   const awayText = (id: string, fullName: string) => {
     const out = outs.get(id);

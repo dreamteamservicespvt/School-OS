@@ -6,6 +6,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { inCampus, type CampusLimit } from "../campus";
 import { AcademicRuleError, guessLevel, nextSectionName, plural } from "./common";
+import { classSection } from "@/lib/class-name";
 
 export type ClassRow = {
   id: string; name: string; sortOrder: number; level: string | null; board: string | null;
@@ -56,7 +57,8 @@ export type NewClassInput = {
 
 /** Adds a class with its sections for the year (or adds the sections to an existing class of that name). */
 export async function addClass(tx: Tx, ctx: SchoolContext, input: NewClassInput) {
-  const name = input.name.trim().replace(/\s+/g, " ");
+  // "class 1" is saved as "Class 1", so every screen reads the same (L6-16).
+  const name = input.name.trim().replace(/\s+/g, " ").replace(/^class(?=\s|\d|$)/i, "Class");
   if (!name) throw new AcademicRuleError("Class name is needed.", "name");
   if (name.length > 60) throw new AcademicRuleError("Class name can be at most 60 characters.", "name");
   if (input.sectionNames.length === 0) throw new AcademicRuleError("Give at least one section, like A.", "sections");
@@ -108,7 +110,8 @@ export async function addClasses(tx: Tx, ctx: SchoolContext, input: Omit<NewClas
 export async function updateClass(tx: Tx, ctx: SchoolContext, classId: string, input: { name: string; level: string | null; board: string | null }) {
   const cls = await tx.schoolClass.findFirst({ where: { id: classId, archivedAt: null } });
   if (!cls) throw new AcademicRuleError("This class was not found.");
-  const name = input.name.trim().replace(/\s+/g, " ");
+  // "class 1" is saved as "Class 1", so every screen reads the same (L6-16).
+  const name = input.name.trim().replace(/\s+/g, " ").replace(/^class(?=\s|\d|$)/i, "Class");
   if (!name) throw new AcademicRuleError("Class name is needed.", "name");
   const same = await tx.schoolClass.findFirst({ where: { schoolId: ctx.schoolId, campusId: cls.campusId, name: { equals: name, mode: "insensitive" }, id: { not: classId } } });
   if (same) throw new AcademicRuleError(`${same.name} already exists. Class names must be different.`, "name");
@@ -174,7 +177,7 @@ export async function classTeacherDutyElsewhere(tx: Tx, staffId: string, yearId:
     where: { academicYearId: yearId, classTeacherId: staffId, archivedAt: null, ...(sectionId ? { id: { not: sectionId } } : {}) },
     select: { name: true, schoolClass: { select: { name: true } } },
   });
-  return other ? `${other.schoolClass.name} ${other.name}` : null;
+  return other ? `${classSection(other.schoolClass.name, other.name)}` : null;
 }
 
 /** The refusal when a second section is given to a class teacher. */
@@ -196,7 +199,7 @@ export async function updateSection(tx: Tx, ctx: SchoolContext, sectionId: strin
   const data = { name, seats: input.seats, classTeacherId: input.classTeacherId, streamId: input.streamId, room: input.room?.trim() || null };
   const updated = await tx.section.update({ where: { id: sectionId }, data: { ...data, updatedById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "changed", recordType: "Section", recordId: sectionId, before: { name: section.name, seats: section.seats, classTeacherId: section.classTeacherId, streamId: section.streamId, room: section.room }, after: data });
-  return { section: updated, label: `${section.schoolClass.name} ${name}`, warning: seatsWarning(section.schoolClass.name, name, students, input.seats) };
+  return { section: updated, label: `${classSection(section.schoolClass.name, name)}`, warning: seatsWarning(section.schoolClass.name, name, students, input.seats) };
 }
 
 export async function studentsIn(tx: Tx, sectionId: string, yearId: string) {
@@ -208,12 +211,12 @@ export async function archiveSection(tx: Tx, ctx: SchoolContext, sectionId: stri
   const section = await tx.section.findFirst({ where: { id: sectionId, archivedAt: null }, include: { schoolClass: true } });
   if (!section) throw new AcademicRuleError("This section was not found.");
   const students = await studentsIn(tx, sectionId, section.academicYearId);
-  if (students > 0) throw new AcademicRuleError(`Move or promote the ${plural(students, "student")} in ${section.schoolClass.name} ${section.name} first.`);
+  if (students > 0) throw new AcademicRuleError(`Move or promote the ${plural(students, "student")} in ${classSection(section.schoolClass.name, section.name)} first.`);
   const now = new Date();
   await tx.section.update({ where: { id: sectionId }, data: { archivedAt: now, updatedById: ctx.userId } });
   await tx.teacherAllocation.updateMany({ where: { sectionId, archivedAt: null }, data: { archivedAt: now } });
-  await writeAudit(tx, ctx, { action: "archived", recordType: "Section", recordId: sectionId, before: { label: `${section.schoolClass.name} ${section.name}` } });
-  return { label: `${section.schoolClass.name} ${section.name}`, archivedAt: now };
+  await writeAudit(tx, ctx, { action: "archived", recordType: "Section", recordId: sectionId, before: { label: `${classSection(section.schoolClass.name, section.name)}` } });
+  return { label: `${classSection(section.schoolClass.name, section.name)}`, archivedAt: now };
 }
 
 /** Archiving a class: only when no section of it has students this year (04 §2). */
@@ -240,7 +243,7 @@ export async function teacherChoices(tx: Tx, ctx: SchoolContext, yearId: string,
     tx.section.findMany({ where: { academicYearId: yearId, archivedAt: null, classTeacherId: { not: null } }, select: { classTeacherId: true, name: true, schoolClass: { select: { name: true } } } }),
   ]);
   return staff.map((s) => {
-    const mine = duties.filter((d) => d.classTeacherId === s.id).map((d) => `${d.schoolClass.name} ${d.name}`);
+    const mine = duties.filter((d) => d.classTeacherId === s.id).map((d) => `${classSection(d.schoolClass.name, d.name)}`);
     return { id: s.id, name: s.fullName, designation: s.designation, duties: mine };
   });
 }

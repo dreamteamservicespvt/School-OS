@@ -21,6 +21,7 @@ import { notWorkingDay } from "./calendar";
 import { yearOf } from "./cocurricular";
 import { clock, dayOf, dmy, isoOf, niceDay } from "./words";
 import { word } from "../notification-words";
+import { classSection } from "@/lib/class-name";
 
 /** What the teacher taps for each activity type. */
 export function optionsFor(type: string): string[] {
@@ -66,7 +67,7 @@ export async function preSections(tx: Tx, yearId: string): Promise<PreSection[]>
   ]);
   return sections.map((s) => {
     const t = teachers.find((x) => x.id === s.classTeacherId);
-    return { id: s.id, yearId, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder, teacherId: s.classTeacherId, teacher: t?.fullName ?? null, teacherLogin: t?.userLoginId ?? null, students: counts.find((c) => c.sectionId === s.id)?._count._all ?? 0 };
+    return { id: s.id, yearId, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder, teacherId: s.classTeacherId, teacher: t?.fullName ?? null, teacherLogin: t?.userLoginId ?? null, students: counts.find((c) => c.sectionId === s.id)?._count._all ?? 0 };
   }).sort((a, b) => b.sort - a.sort || a.label.localeCompare(b.label));
 }
 

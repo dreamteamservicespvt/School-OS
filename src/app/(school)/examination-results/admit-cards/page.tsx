@@ -26,6 +26,7 @@ import { NoYear, PageTop } from "../_components/page-top";
 import { AdmitPreview, AdmitWorkspace, type AdmitHead, type AdmitPaper, type AdmitStudent } from "./admit-ui";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classTitle } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Admit Cards") };
@@ -85,7 +86,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
             const inner = (
               <>
                 <span className="flex items-center gap-2"><Pill tone={EXAM_STATUS_TONE[status]}>{status}</Pill>{!ready && <Lock size={14} className="text-ink3" aria-hidden="true" />}</span>
-                <span className="block font-semibold text-[15px] mt-2">{e.title} · {names.length > 3 ? `Classes ${names[0]}–${names.at(-1)}` : names.length === 1 ? `Class ${names[0]}` : `Classes ${names.join(", ")}`}</span>
+                <span className="block font-semibold text-[15px] mt-2">{e.title} · {names.length > 3 ? `Classes ${names[0]}–${names.at(-1)}` : names.length === 1 ? `${classTitle(names[0])}` : `Classes ${names.join(", ")}`}</span>
                 <span className="block text-[12.5px] text-ink3">{formatDate(e.startDate)} <Words k="to" /> {formatDate(e.endDate)} · {plural(new Set(e.entries.map((x) => x.subjectId)).size, "subject")}{!ready ? " · publish the datesheet first" : ""}</span>
               </>
             );

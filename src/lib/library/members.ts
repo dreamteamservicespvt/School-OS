@@ -16,6 +16,7 @@ import { inCampus, type CampusLimit } from "../campus";
 import { LibraryProblem } from "./problem";
 import type { LibrarySettings } from "./settings";
 import type { MemberKey } from "./words";
+import { classSection } from "@/lib/class-name";
 
 export const ACTIVE_STUDENT = ["ACTIVE", "ADMITTED", "PROMOTED"] as const;
 export const ACTIVE_STAFF = ["ACTIVE", "ON_LEAVE"] as const;
@@ -100,7 +101,7 @@ export async function membersOf(tx: Tx, ctx: SchoolContext, s: LibrarySettings, 
     const cls = sec ? `${sec.schoolClass.name.replace(/^class\s+/i, "")} ${sec.name}` : "";
     out.set(`S:${st.id}`, {
       key: `S:${st.id}`, kind: "STUDENT", studentId: st.id, staffId: null, name: st.fullName, firstName: st.firstName, cardNo: st.admissionNo, photoFileId: st.photoFileId,
-      group: sec ? `Class ${cls}` : "Not in a class this year", short: cls || "Student", level, sectionId: e?.sectionId ?? null, classId: e?.classId ?? null, userLoginId: null, departmentId: null,
+      group: sec ? classSection(sec.schoolClass.name, sec.name) : "Not in a class this year", short: cls || "Student", level, sectionId: e?.sectionId ?? null, classId: e?.classId ?? null, userLoginId: null, departmentId: null,
       active: !st.archivedAt && (ACTIVE_STUDENT as readonly string[]).includes(st.status) && Boolean(e),
       limit: o?.limitOverride ?? r.books, limitChanged: o?.limitOverride != null ? { reason: o.limitReason ?? "" } : null, loanDays: r.loanDays,
       blocked: o?.blockedAt ? { reason: o.blockReason ?? "", at: o.blockedAt } : null,

@@ -31,6 +31,7 @@ import { CLEARED_REASON } from "./flags";
 import { OPEN_LINK } from "../students/guardian-access";
 import { type NoteValues } from "../notification-words";
 import type { MessageKey } from "../i18n/t";
+import { classSection } from "@/lib/class-name";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
@@ -79,7 +80,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
   const settings = await attendanceSettings(tx, ctx);
   const section = await tx.section.findFirst({ where: { id: payload.sectionId }, include: { schoolClass: { select: { name: true, campusId: true } } } });
   if (!section) return { messages: 0, flagged: 0, cleared: 0 };
-  const className = `${section.schoolClass.name} ${section.name}`;
+  const className = `${classSection(section.schoolClass.name, section.name)}`;
   const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, timeZone: true } });
   const statuses = statusMap(await statusList(tx, ctx, { includeArchived: true }));
   const marks = await tx.attendanceMark.findMany({ where: { sectionId: section.id, date, archivedAt: null, studentId: { not: null } }, select: { studentId: true, periodNo: true, statusKey: true, lateMinutes: true, inTime: true } });

@@ -14,6 +14,7 @@ import { listFactsByYear, studentsWithDues, type ResultKind } from "@/lib/studen
 import { classShort } from "@/lib/students/show";
 import { studentIdsMatching } from "@/lib/students/find";
 import { inCampus, sectionInCampus } from "@/lib/campus";
+import { classSection } from "@/lib/class-name";
 
 export type SectionOption = { value: string; label: string; classId: string; className: string; sectionName: string; seats: number; filled: number; yearId: string };
 
@@ -49,7 +50,7 @@ export async function sectionOptions(tx: Tx, who: Who, yearId: YearIds, opts: { 
   const campusOrder = (campusId: string) => prefix.get(campusId) ?? "";
   return live
     .sort((a, b) => campusOrder(a.schoolClass.campusId).localeCompare(campusOrder(b.schoolClass.campusId)) || a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name))
-    .map((s) => ({ value: s.id, label: `${campusOrder(s.schoolClass.campusId)}${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sectionName: s.name, seats: s.seats, filled: filled.get(s.id) ?? 0, yearId: s.academicYearId }));
+    .map((s) => ({ value: s.id, label: `${campusOrder(s.schoolClass.campusId)}${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, sectionName: s.name, seats: s.seats, filled: filled.get(s.id) ?? 0, yearId: s.academicYearId }));
 }
 
 /** Classes of the school in order (of their own campus, for a person limited to one campus). */
@@ -121,7 +122,7 @@ export type ListStudent = Prisma.StudentGetPayload<{ include: ReturnType<typeof 
 /** Class and section names for a set of enrolments. */
 export async function sectionNames(tx: Tx, sectionIds: string[]) {
   const sections = await tx.section.findMany({ where: { id: { in: [...new Set(sectionIds)] } }, include: { schoolClass: true } });
-  return new Map(sections.map((s) => [s.id, { label: `${s.schoolClass.name} ${s.name}`, className: s.schoolClass.name, sectionName: s.name, classId: s.classId }]));
+  return new Map(sections.map((s) => [s.id, { label: `${classSection(s.schoolClass.name, s.name)}`, className: s.schoolClass.name, sectionName: s.name, classId: s.classId }]));
 }
 
 /** The parent shown on the list: father first, else the primary contact, else any. */

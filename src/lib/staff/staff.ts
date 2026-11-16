@@ -24,6 +24,7 @@ import { ensureBalances, leaveYearFor } from "./leave";
 import type { AccessLevel } from "../roles";
 import { granterOf, loginGrantRefusal } from "./login-ceiling";
 import { linkableLogin, type LoginWithoutStaff } from "./link-login";
+import { classSection } from "@/lib/class-name";
 
 export class StaffProblem extends Error {
   constructor(message: string, public field?: string, public link?: { href: string; label: string }) {
@@ -336,7 +337,7 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
 async function makeClassTeacher(tx: Tx, ctx: SchoolContext, staff: Staff, yearId: string, sectionId: string, login: { giveLogin: boolean; roleKeys: readonly string[] }) {
   const section = await tx.section.findFirst({ where: { id: sectionId, academicYearId: yearId, archivedAt: null }, include: { schoolClass: { select: { name: true } } } });
   if (!section) throw new StaffProblem("Step 3: the section chosen for class teacher is not in this academic year. Choose again.", "classTeacherSectionId");
-  const label = `${section.schoolClass.name} ${section.name}`;
+  const label = `${classSection(section.schoolClass.name, section.name)}`;
   const current = section.classTeacherId ? (await tx.staff.findFirst({ where: { id: section.classTeacherId }, select: { fullName: true } }))?.fullName ?? "another teacher" : null;
   const refused = classTeacherRefusal({ ...login, sectionLabel: label, currentTeacher: current });
   if (refused) throw new StaffProblem(refused, "classTeacherSectionId");

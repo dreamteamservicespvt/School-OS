@@ -7,6 +7,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { AcademicRuleError, weekday } from "./common";
 import { effectiveVersion } from "./timetable";
+import { classSection } from "@/lib/class-name";
 
 export const ROOM_KINDS = [
   { value: "classroom", label: "Classroom" },
@@ -60,7 +61,7 @@ export async function bookLab(tx: Tx, ctx: SchoolContext, input: { roomId: strin
   const taken = await tx.labBooking.findFirst({ where: { roomId: room.id, date: input.date, periodNo: input.periodNo, archivedAt: null } });
   if (taken) {
     const who = taken.sectionId ? await tx.section.findFirst({ where: { id: taken.sectionId }, include: { schoolClass: true } }) : null;
-    throw new AcademicRuleError(`${room.name} is already booked${who ? ` for ${who.schoolClass.name} ${who.name}` : ""} in period ${input.periodNo} on ${formatDate(input.date)}.`, "periodNo");
+    throw new AcademicRuleError(`${room.name} is already booked${who ? ` for ${classSection(who.schoolClass.name, who.name)}` : ""} in period ${input.periodNo} on ${formatDate(input.date)}.`, "periodNo");
   }
   const version = await effectiveVersion(tx, ctx, room.campusId, input.date);
   if (version) {
@@ -69,7 +70,7 @@ export async function bookLab(tx: Tx, ctx: SchoolContext, input: { roomId: strin
       where: { versionId: version.id, dayOfWeek: weekday(input.date), periodNo: input.periodNo, archivedAt: null, isBreak: false, OR: [{ room: { equals: room.name, mode: "insensitive" } }, { room: null, sectionId: { in: sections.map((s) => s.id) }, OR: [{ subjectId: { not: null } }, { label: { not: null } }] }] },
       include: { section: { include: { schoolClass: true } } },
     });
-    if (busy) throw new AcademicRuleError(`${room.name} has ${busy.section.schoolClass.name} ${busy.section.name} in period ${input.periodNo} by the Time Table.`, "periodNo");
+    if (busy) throw new AcademicRuleError(`${room.name} has ${classSection(busy.section.schoolClass.name, busy.section.name)} in period ${input.periodNo} by the Time Table.`, "periodNo");
   }
   const booking = await tx.labBooking.create({ data: { schoolId: ctx.schoolId, roomId: room.id, date: input.date, periodNo: input.periodNo, sectionId: input.sectionId, staffId: input.staffId, purpose: input.purpose, createdById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "created", recordType: "Lab Booking", recordId: booking.id, after: { room: room.name, date: input.date.toISOString().slice(0, 10), periodNo: input.periodNo } });
@@ -92,6 +93,6 @@ export async function bookingsBetween(tx: Tx, roomId: string, from: Date, to: Da
   ]);
   return rows.map((r) => {
     const s = sections.find((x) => x.id === r.sectionId);
-    return { ...r, sectionLabel: s ? `${s.schoolClass.name} ${s.name}` : null, staffName: staff.find((x) => x.id === r.staffId)?.fullName ?? "" };
+    return { ...r, sectionLabel: s ? `${classSection(s.schoolClass.name, s.name)}` : null, staffName: staff.find((x) => x.id === r.staffId)?.fullName ?? "" };
   });
 }

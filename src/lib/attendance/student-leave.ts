@@ -19,6 +19,7 @@ import { schoolDays } from "./calendar";
 import { attendanceFeatures, attendanceSettings, ensureAttendanceDefaults } from "./settings";
 import { fillReasonsFromLeave, undoReasonsFromLeave } from "./absence-reasons";
 import { queueAfterSave } from "./after-save";
+import { classSection } from "@/lib/class-name";
 
 const dayText = (d: Date) => formatDate(d, "UTC");
 const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
@@ -47,7 +48,7 @@ export async function enrolmentOn(tx: Tx, studentId: string, date: Date) {
     const year = await tx.academicYear.findUnique({ where: { id: e.academicYearId } });
     if (year && year.startDate <= date && year.endDate >= date) {
       const section = await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: { select: { name: true, campusId: true } } } });
-      return { enrolment: e, year, section, sectionName: section ? `${section.schoolClass.name} ${section.name}` : "" };
+      return { enrolment: e, year, section, sectionName: section ? `${classSection(section.schoolClass.name, section.name)}` : "" };
     }
   }
   return null;

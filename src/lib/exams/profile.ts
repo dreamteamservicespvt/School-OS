@@ -12,6 +12,7 @@ import { examKey, finalKey, REPORT_STATUS_WORDS } from "./common";
 import type { SubjectResult } from "./compute";
 import { periodsForClass } from "./report-status";
 import { seesSection, type ExamScope } from "./scope";
+import { classSection } from "@/lib/class-name";
 
 export type StudentExamsTab = {
   years: {
@@ -45,7 +46,7 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
   const cards = await tx.reportCard.findMany({ where: { studentId } });
   // A result keeps the section the exam was taken in; its rank is in that section.
   const takenSections = await tx.section.findMany({ where: { id: { in: [...new Set(results.map((r) => r.sectionId))] } }, include: { schoolClass: { select: { name: true } } } });
-  const sectionLabel = new Map(takenSections.map((x) => [x.id, `${x.schoolClass.name} ${x.name}`]));
+  const sectionLabel = new Map(takenSections.map((x) => [x.id, `${classSection(x.schoolClass.name, x.name)}`]));
   const years: StudentExamsTab["years"] = [];
   for (const e of visible) {
     const mine = results.filter((r) => r.academicYearId === e.academicYearId);
@@ -56,7 +57,7 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
       : null;
     const options = own ? [] : await periodsForClass(tx, e.academicYearId, e.section.classId);
     years.push({
-      yearId: e.academicYearId, year: e.academicYear.name, section: `${e.section.schoolClass.name} ${e.section.name}`, sectionId: e.sectionId,
+      yearId: e.academicYearId, year: e.academicYear.name, section: `${classSection(e.section.schoolClass.name, e.section.name)}`, sectionId: e.sectionId,
       exams: exams
         .filter((x) => mine.some((r) => r.key === examKey(x.id)))
         .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())

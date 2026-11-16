@@ -14,6 +14,7 @@ import {
   reorderClassesAction, restoreSectionAction, saveSectionAction, updateClassAction,
 } from "./class-actions";
 import { Words } from "@/lib/i18n/client";
+import { classSection } from "@/lib/class-name";
 
 type Section = { id: string; name: string; seats: number; students: number; classTeacherId: string | null; classTeacherName: string | null; room: string | null; streamId: string | null; streamName: string | null };
 type Klass = { id: string; name: string; sortOrder: number; level: string | null; board: string | null; sections: Section[] };
@@ -81,6 +82,8 @@ function BoardField({ state, schoolBoard, value }: { state: Parameters<typeof v>
 export function ClassesBoard(props: {
   yearId: string; classes: Klass[]; teachers: Teacher[]; streams: Option[]; canEdit: boolean; streamsOn: boolean; boardsOn: boolean; schoolBoard: string | null; levels: string[];
   archived: { id: string; label: string; archivedOn: string }[] | null; showArchivedToggle: boolean;
+  /** ?section=<id>: that section's Edit opens at once, on its class teacher (layman loop 6, L6-61). */
+  openSectionId?: string | null;
 }) {
   const { yearId, canEdit } = props;
   const [order, setOrder] = useState(props.classes.map((c) => c.id));
@@ -227,7 +230,7 @@ export function ClassesBoard(props: {
                             <td className="px-4 py-2 text-right tabular-nums">{left < 0 ? <Badge tone="danger">{left}</Badge> : left === 0 ? <Badge tone="warning"><Words k="Full" /></Badge> : left}</td>
                             {canEdit && (
                               <td className="whitespace-nowrap px-2 py-1 text-right">
-                                <SectionDialog mode="edit" yearId={yearId} classId={c.id} className={c.name} section={s} teachers={props.teachers} streams={props.streams} streamsOn={props.streamsOn} defaultSeats={s.seats} />
+                                <SectionDialog mode="edit" yearId={yearId} classId={c.id} className={c.name} section={s} teachers={props.teachers} streams={props.streams} streamsOn={props.streamsOn} defaultSeats={s.seats} startOpen={props.openSectionId === s.id} />
                                 <ConfirmButton trigger="Archive" triggerVariant="ghost" triggerClassName="min-h-11 text-danger" title={`Archive ${c.name} ${s.name}?`} confirmLabel={`Archive ${c.name} ${s.name}`} confirmVariant="danger"
                                   onConfirm={async () => { const p = await archiveSectionAction(s.id); if (!p) router.refresh(); return p; }}>
                                   {s.students > 0 ? `Move or promote the ${s.students} students first. A section with students cannot be archived.` : "It leaves this year's lists and dropdowns. You can undo for 10 seconds."}
@@ -249,19 +252,19 @@ export function ClassesBoard(props: {
   );
 }
 
-function SectionDialog({ mode, yearId, classId, className, section, teachers, streams, streamsOn, defaultSeats }: {
-  mode: "add" | "edit"; yearId: string; classId: string; className: string; section?: Section; teachers: Teacher[]; streams: Option[]; streamsOn: boolean; defaultSeats: number;
+function SectionDialog({ mode, yearId, classId, className, section, teachers, streams, streamsOn, defaultSeats, startOpen }: {
+  mode: "add" | "edit"; yearId: string; classId: string; className: string; section?: Section; teachers: Teacher[]; streams: Option[]; streamsOn: boolean; defaultSeats: number; startOpen?: boolean;
 }) {
   // A teacher is class teacher of one section only (owner test 2026-11-05): one with another section is shown but cannot be chosen.
   const teacherOptions = teachers.map((t) => {
-    const elsewhere = t.duties.filter((d) => d !== `${className} ${section?.name}`);
+    const elsewhere = t.duties.filter((d) => d !== classSection(className, section?.name));
     const keep = t.id === section?.classTeacherId;
     return { value: t.id, label: `${t.name}${elsewhere.length ? `: already class teacher of ${elsewhere.join(", ")}` : ""}`, disabled: elsewhere.length > 0 && !keep };
   });
   return (
     <FormDialog trigger={mode === "add" ? "Add section" : "Edit"} triggerSize="sm" triggerVariant="ghost" triggerLabel={mode === "add" ? `Add a section to ${className}` : `Edit ${className} ${section?.name}`}
       title={mode === "add" ? `Add a section to ${className}` : `Edit ${className} ${section?.name}`} action={saveSectionAction} submitLabel={mode === "add" ? "Add section" : "Save section"}
-      hidden={{ yearId, classId, ...(section ? { sectionId: section.id } : {}) }}>
+      hidden={{ yearId, classId, ...(section ? { sectionId: section.id } : {}) }} startOpen={startOpen}>
       {(state) => (
         <>
           <div className="grid gap-4 sm:grid-cols-2">

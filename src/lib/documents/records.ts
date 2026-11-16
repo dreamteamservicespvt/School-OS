@@ -10,6 +10,7 @@ import { numberInWords } from "./words";
 import { sampleData, type DocumentData } from "./render";
 import { findDocType } from "./types";
 import { campusAllows, type CampusLimit } from "../campus";
+import { classSection } from "@/lib/class-name";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -41,7 +42,7 @@ export async function studentRecord(tx: Tx, ctx: SchoolContext, studentId: strin
     fields: {
       student_name: s.fullName,
       admission_no: s.admissionNo,
-      class_section: section ? `${section.schoolClass.name} ${section.name}` : "",
+      class_section: section ? `${classSection(section.schoolClass.name, section.name)}` : "",
       roll_no: e?.rollNo ?? "",
       date_of_birth: s.dateOfBirth ? formatDate(s.dateOfBirth, tz) : "",
       dob_in_words: s.dateOfBirth ? dateInWords(s.dateOfBirth) : "",

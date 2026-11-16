@@ -21,6 +21,7 @@ import { newVerifyCode, qrSvg } from "./codes";
 import { CERTIFICATE_LABEL, CERTIFICATE_SHORT } from "./labels";
 import { renderDocument } from "../documents";
 import { currentDesign } from "../documents/designs";
+import { classSection } from "@/lib/class-name";
 
 export type NewCertificate = {
   studentId: string;
@@ -206,7 +207,7 @@ export async function certificateData(tx: Tx, studentId: string, leavingRequestI
     dateOfBirth: s.dateOfBirth?.toISOString().slice(0, 10) ?? null,
     category: s.category, religion: s.religion, nationality: "Indian",
     joinedOn: s.joiningDate?.toISOString().slice(0, 10) ?? null,
-    firstClass: first?.schoolClass.name ?? null, lastClass: last ? `${last.schoolClass.name} ${last.name}` : null, lastClassName: last?.schoolClass.name ?? null,
+    firstClass: first?.schoolClass.name ?? null, lastClass: last ? `${classSection(last.schoolClass.name, last.name)}` : null, lastClassName: last?.schoolClass.name ?? null,
     firstYear: first?.academicYear.name ?? null,
     lastYear: last?.academicYear.name ?? null, lastYearEnd: last?.academicYear.endDate.toISOString().slice(0, 10) ?? null,
     promotion: lastEnr?.status === "PROMOTED" ? "Yes, promoted" : lastEnr?.status === "HELD_BACK" ? "No" : "Studying at the time of leaving",

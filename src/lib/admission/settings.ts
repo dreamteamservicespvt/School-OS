@@ -190,6 +190,28 @@ export async function admissionYear(tx: Tx, ctx: SchoolContext, s: Pick<Settings
   return currentYear(tx, ctx, campusId ?? null);
 }
 
+/** How soon before the next year starts its enquiries begin: about 8 months, so October for a June start. */
+export const NEXT_YEAR_ENQUIRIES_DAYS = 243;
+
+/**
+ * The year a new enquiry is for (layman loop 6, L6-04): the school's chosen admission
+ * year when it set one; else the next year once it exists and starts within about
+ * 8 months (from about October, parents ask for next June), even before its sections
+ * are made; else the admission year (the current year). Enquiries need no seats yet;
+ * applications keep admissionYear, which waits for the next year's sections.
+ */
+export async function enquiryYear(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">, campusId?: string | null, now = new Date()) {
+  const year = await admissionYear(tx, ctx, s, campusId);
+  if (s.admissionYearId && year?.id === s.admissionYearId) return year;
+  if (year && year.status === "UPCOMING") return year;
+  const soon = new Date(now.getTime() + NEXT_YEAR_ENQUIRIES_DAYS * 86_400_000);
+  const next = await tx.academicYear.findFirst({
+    where: { status: "UPCOMING", archivedAt: null, startDate: { lte: soon }, ...(campusId ? { campusId } : {}) },
+    orderBy: { startDate: "asc" },
+  });
+  return next ?? year;
+}
+
 /** The admission year of each campus the person sees (only theirs when limited to one campus). */
 export async function admissionYears(tx: Tx, ctx: SchoolContext, s: Pick<Settings, "admissionYearId">, limit?: string | null) {
   const campuses = await tx.campus.findMany({ where: { archivedAt: null, ...(limit ? { id: limit } : {}) }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });

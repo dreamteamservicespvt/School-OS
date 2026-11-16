@@ -18,6 +18,7 @@ import { bookValue, depreciation, placeNames, rateOf } from "./assets";
 import { billsWithState } from "./purchases";
 import { itemLabel } from "./items";
 import { ASSET_STATUS, BASE, BILL_STATUS, ISSUE_TO, MAINT_STATUS, MOVE_KIND, ORDER_STATUS, PRIORITY, STOCK_STATE, billState, stockState, type MoveKind } from "./words";
+import { classSection } from "@/lib/class-name";
 
 export type InvFilter = {
   /** Inclusive dates (00:00 UTC) of the chosen period; null for all dates. */
@@ -169,7 +170,7 @@ export async function setsReport(tx: Tx, _ctx: SchoolContext, f: InvFilter): Pro
   for (const i of issues) {
     const s = i.studentSectionId ? secOf.get(i.studentSectionId) : null;
     const key = `${i.bookSetId}|${s?.id ?? ""}`;
-    const v = by.get(key) ?? { set: sets.get(i.bookSetId!) ?? "Set", cls: s ? `${s.schoolClass.name} ${s.name}` : "No class", sort: s ? s.schoolClass.sortOrder * 100 + s.name.charCodeAt(0) : 99999, count: 0, value: ZERO, missing: 0 };
+    const v = by.get(key) ?? { set: sets.get(i.bookSetId!) ?? "Set", cls: s ? `${classSection(s.schoolClass.name, s.name)}` : "No class", sort: s ? s.schoolClass.sortOrder * 100 + s.name.charCodeAt(0) : 99999, count: 0, value: ZERO, missing: 0 };
     v.count++;
     v.value += i.chargePaise;
     if (Array.isArray(i.missing) && i.missing.length) v.missing++;

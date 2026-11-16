@@ -22,6 +22,7 @@ import { CORRECTION_STATUS } from "../../_components/words";
 import { pillTone } from "../../_components/status";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { classSection } from "@/lib/class-name";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Attendance corrections") };
@@ -67,7 +68,7 @@ export default async function CorrectionsPage({ searchParams }: Props) {
     const missing = rows.map((r) => r.sectionId).filter((x): x is string => Boolean(x) && !names.has(x!));
     if (missing.length) {
       const extra = await tx.section.findMany({ where: { id: { in: missing } }, include: { schoolClass: { select: { name: true } } } });
-      for (const s of extra) names.set(s.id, `${s.schoolClass.name} ${s.name}`);
+      for (const s of extra) names.set(s.id, `${classSection(s.schoolClass.name, s.name)}`);
     }
     return { rows, total, statuses, names, counts: Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number>, askers: new Map(askers.map((a) => [a.id, a.displayName])) };
   });

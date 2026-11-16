@@ -4,6 +4,7 @@ import "server-only";
 
 import type { Tx } from "../db";
 import { STATUS_LABEL, CERTIFICATE_LABEL, LEAVING_TYPE_LABEL, BEHAVIOUR_KIND_LABEL, type StudentStatusKey, type BehaviourKind } from "./labels";
+import { classSection } from "@/lib/class-name";
 
 export type TimelineItem = { at: Date; title: string; detail?: string; kind: "admission" | "status" | "class" | "behaviour" | "certificate" | "leaving" | "document" | "card" };
 
@@ -22,7 +23,7 @@ export async function studentTimeline(tx: Tx, studentId: string, opts: { behavio
   const sectionIds = [...new Set([...enrolments.map((e) => e.sectionId), ...moves.flatMap((m) => [m.fromSectionId, m.toSectionId])])];
   const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, include: { schoolClass: true, academicYear: true } });
   const sec = (id: string) => sections.find((s) => s.id === id);
-  const label = (id: string) => { const s = sec(id); return s ? `${s.schoolClass.name} ${s.name}` : "a section"; };
+  const label = (id: string) => { const s = sec(id); return s ? `${classSection(s.schoolClass.name, s.name)}` : "a section"; };
 
   const items: TimelineItem[] = [];
   for (const s of statuses) {

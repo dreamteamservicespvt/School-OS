@@ -13,6 +13,7 @@ import { billDueSoon, billsWithState } from "@/lib/inventory/purchases";
 import { placeNames } from "@/lib/inventory/assets";
 import { billState, stockState, type MoveKind, type StockState } from "@/lib/inventory/words";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { classSection } from "@/lib/class-name";
 
 const ZERO = BigInt(0);
 type Get = (k: string) => string;
@@ -118,7 +119,7 @@ export async function recipients(tx: Tx, issues: { id: string; toKind: string; s
   const st = new Map(staff.map((s) => [s.id, s.fullName]));
   const dp = new Map(depts.map((d) => [d.id, d.name]));
   const su = new Map(students.map((s) => [s.id, s]));
-  const se = new Map(sections.map((s) => [s.id, `${s.schoolClass.name} ${s.name}`]));
+  const se = new Map(sections.map((s) => [s.id, `${classSection(s.schoolClass.name, s.name)}`]));
   const out = new Map<string, string>();
   for (const i of issues) {
     if (i.toKind === "STAFF") out.set(i.id, st.get(i.staffId ?? "") ?? "Staff member");

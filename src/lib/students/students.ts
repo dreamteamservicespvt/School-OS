@@ -19,6 +19,7 @@ import { namesAlike } from "./name-match";
 import "../fees/enrolled";
 // Examination & Results moves a student's marks and results with a section change (G23).
 import "../exams/student-hooks";
+import { classSection } from "@/lib/class-name";
 
 export class StudentProblem extends Error {
   /** The form field the problem is about, so it shows next to that field. */
@@ -38,7 +39,7 @@ export function splitName(full: string) {
 }
 
 export const sectionTitle = (e: { schoolClass?: { name: string } | null; section?: { name: string } | null } | null | undefined) =>
-  e?.schoolClass && e.section ? `${e.schoolClass.name} ${e.section.name}` : "No class this year";
+  e?.schoolClass && e.section ? `${classSection(e.schoolClass.name, e.section.name)}` : "No class this year";
 
 /** The format and next value of the admission number, without using it up. */
 export async function admissionFormat(tx: Tx, ctx: SchoolContext, yearStart?: Date) {
@@ -215,7 +216,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
   if (!section) throw new StudentProblem("Choose the class and section.", "sectionId");
   await assertYearOpen(tx, section.academicYearId);
   if ((await seatsLeft(tx, section.id)) <= 0) {
-    throw new StudentProblem(`${section.schoolClass.name} ${section.name} is full (${section.seats} seats). Choose another section, or add seats in Academic Management.`, "sectionId");
+    throw new StudentProblem(`${classSection(section.schoolClass.name, section.name)} is full (${section.seats} seats). Choose another section, or add seats in Academic Management.`, "sectionId");
   }
 
   let admissionNo = input.admissionNo?.trim() || null;
@@ -284,7 +285,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
   const rollNo = input.rollNo ?? (await nextRollNo(tx, section.id, section.academicYearId));
   if (input.rollNo) {
     const clash = await tx.enrolment.findFirst({ where: { sectionId: section.id, academicYearId: section.academicYearId, rollNo: input.rollNo, archivedAt: null } });
-    if (clash) throw new StudentProblem(`Roll number ${input.rollNo} is already used in ${section.schoolClass.name} ${section.name}. The next free number is ${await nextRollNo(tx, section.id, section.academicYearId)}.`, "rollNo");
+    if (clash) throw new StudentProblem(`Roll number ${input.rollNo} is already used in ${classSection(section.schoolClass.name, section.name)}. The next free number is ${await nextRollNo(tx, section.id, section.academicYearId)}.`, "rollNo");
   }
   const enrolment = await tx.enrolment.create({
     data: { schoolId: ctx.schoolId, studentId: student.id, academicYearId: section.academicYearId, classId: section.classId, sectionId: section.id, rollNo, createdById: ctx.userId },
@@ -297,7 +298,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     action: "created",
     recordType: "Student",
     recordId: student.id,
-    after: { admissionNo, fullName: name.fullName, section: `${section.schoolClass.name} ${section.name}`, rollNo, guardianLinked: Boolean(input.linkGuardianId) },
+    after: { admissionNo, fullName: name.fullName, section: `${classSection(section.schoolClass.name, section.name)}`, rollNo, guardianLinked: Boolean(input.linkGuardianId) },
     actorNote: dups.length ? `Saved anyway despite a possible duplicate (${dups.map((d) => d.admissionNo).join(", ")}): ${input.duplicateReason}` : null,
   });
   return { student, enrolment, section };
@@ -500,7 +501,7 @@ export async function changeSection(tx: Tx, ctx: SchoolContext, studentId: strin
   const to = await tx.section.findFirst({ where: { id: toSectionId, academicYearId: year.id, archivedAt: null }, include: { schoolClass: true } });
   if (!to) throw new StudentProblem("Choose a section of this year.", "sectionId");
   if (to.classId !== enr.classId) throw new StudentProblem("A section change stays in the same class. To move class, use Promotion.", "sectionId");
-  if ((await seatsLeft(tx, to.id)) <= 0) throw new StudentProblem(`${to.schoolClass.name} ${to.name} is full (${to.seats} seats).`, "sectionId");
+  if ((await seatsLeft(tx, to.id)) <= 0) throw new StudentProblem(`${classSection(to.schoolClass.name, to.name)} is full (${to.seats} seats).`, "sectionId");
   const rollNo = await nextRollNo(tx, to.id, year.id);
   await tx.enrolment.update({ where: { id: enr.id }, data: { sectionId: to.id, rollNo } });
   const change = await tx.sectionChange.create({
@@ -512,10 +513,10 @@ export async function changeSection(tx: Tx, ctx: SchoolContext, studentId: strin
     action: "section-changed",
     recordType: "Enrolment",
     recordId: enr.id,
-    before: { section: `${from.schoolClass.name} ${from.name}`, rollNo: enr.rollNo },
-    after: { section: `${to.schoolClass.name} ${to.name}`, rollNo, reason },
+    before: { section: `${classSection(from.schoolClass.name, from.name)}`, rollNo: enr.rollNo },
+    after: { section: `${classSection(to.schoolClass.name, to.name)}`, rollNo, reason },
   });
-  return { change, label: `${to.schoolClass.name} ${to.name}` };
+  return { change, label: `${classSection(to.schoolClass.name, to.name)}` };
 }
 
 export async function undoSectionChange(tx: Tx, ctx: SchoolContext, changeId: string) {
@@ -544,14 +545,14 @@ export async function placeInSection(tx: Tx, ctx: SchoolContext, studentId: stri
   await assertYearOpen(tx, section.academicYearId);
   const existing = await tx.enrolment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId: section.academicYearId } } });
   if (existing && !existing.archivedAt && existing.status !== "LEFT") throw new StudentProblem("The student already has a class this year. Use Change section.", "sectionId");
-  if ((await seatsLeft(tx, section.id)) <= 0) throw new StudentProblem(`${section.schoolClass.name} ${section.name} is full (${section.seats} seats).`, "sectionId");
+  if ((await seatsLeft(tx, section.id)) <= 0) throw new StudentProblem(`${classSection(section.schoolClass.name, section.name)} is full (${section.seats} seats).`, "sectionId");
   const rollNo = await nextRollNo(tx, section.id, section.academicYearId);
   const data = { classId: section.classId, sectionId: section.id, rollNo, status: "STUDYING" as const, archivedAt: null, createdById: ctx.userId };
   const enr = existing
     ? await tx.enrolment.update({ where: { id: existing.id }, data })
     : await tx.enrolment.create({ data: { schoolId: ctx.schoolId, studentId, academicYearId: section.academicYearId, ...data } });
   await runEnrolled(tx, ctx, { studentId, enrolmentId: enr.id, academicYearId: section.academicYearId, classId: section.classId, sectionId: section.id, how: "added", applyFeePlan: true });
-  await writeAudit(tx, ctx, { action: "enrolled", recordType: "Enrolment", recordId: enr.id, after: { section: `${section.schoolClass.name} ${section.name}`, rollNo } });
+  await writeAudit(tx, ctx, { action: "enrolled", recordType: "Enrolment", recordId: enr.id, after: { section: `${classSection(section.schoolClass.name, section.name)}`, rollNo } });
   return enr;
 }
 

@@ -4,8 +4,8 @@
 import type { T } from "./t";
 import { dateRuns, dayWords } from "./dates";
 
-/** "class 1 A" with the word "class" in the screen's language; the class name stays as typed (QA L6-44). */
-const classWords = (t: T, section: string) => section.replace(/^class /, `${t("class")} `);
+/** "Class 1 A" with the word "Class" in the screen's language; the class name stays as typed (QA L6-44, L6-16). */
+export const classWords = (t: T, section: string) => section.replace(/^class /i, (w) => `${t(w.startsWith("C") ? "Class" : "class")} `);
 
 const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^(.+) is needed\.$/, (t, m) => t("{field} is needed.", { field: t.any(m[1]) })],

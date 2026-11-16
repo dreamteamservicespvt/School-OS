@@ -25,6 +25,7 @@ import { DataList } from "../../_components/data-list";
 import { ReasonButton } from "../../_components/reason-form";
 import { setAbsenceReasonAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { classSection, classShort } from "@/lib/class-name";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +56,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
     // Every campus's current year; only their campus's sections when their access is limited to one campus.
     const sections = access.students === "all" || access.studentLeave === "all"
       ? (await tx.section.findMany({ where: { ...(access.yearIds.length ? { academicYearId: { in: access.yearIds } } : {}), archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) }, include: { schoolClass: { select: { name: true, sortOrder: true } } } }))
-        .sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((s) => ({ id: s.id, name: `${s.schoolClass.name} ${s.name}` }))
+        .sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((s) => ({ id: s.id, name: `${classSection(s.schoolClass.name, s.name)}` }))
       : await registerChoices(tx, access);
     const sectionId = wantedSection && UUID_RE.test(wantedSection) && sections.some((s) => s.id === wantedSection) ? wantedSection : null;
     // The names show whether or not the school records reasons: a principal needs who is absent
@@ -117,7 +118,7 @@ export default async function AbsentListPage({ searchParams }: Props) {
                 <p className="font-semibold text-[14.5px] flex items-center gap-2"><CalendarX2 size={18} className="text-warn shrink-0" aria-hidden="true" /><Words k="Attendance not taken yet" />: {data.notTaken.length}</p>
                 <ul className="mt-1.5 text-[14px] text-ink2 flex flex-col gap-0.5">
                   {data.notTaken.map((x) => (
-                    <li key={x.id}><Words k="class" /> {x.name} · {x.teacher ?? <Words k="no class teacher" />}</li>
+                    <li key={x.id}>{/^class /i.test(x.name) ? <><Words k="Class" /> {classShort(x.name)}</> : x.name} · {x.teacher ?? <Words k="no class teacher" />}</li>
                   ))}
                 </ul>
                 <p className="mt-1.5 text-[13px] text-ink3"><Words k="Students in these classes are not in the absent list until attendance is saved." /></p>

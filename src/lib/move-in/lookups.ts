@@ -3,6 +3,7 @@
 // lists so they can be tested without a database.
 
 import { classKey, distance, plain, splitClassSection } from "./tidy";
+import { classSection } from "@/lib/class-name";
 
 export type SectionOption = { id: string; className: string; sectionName: string; key: string | null };
 export type Lookups = {
@@ -22,7 +23,7 @@ export type Lookups = {
 /** "Asha Rao (T-001)": a teacher as the ready sheet's drop-down writes one, read back by the Academic Management imports. */
 export const teacherOption = (s: { fullName: string; staffCode: string | null }) => (s.staffCode ? `${s.fullName} (${s.staffCode})` : s.fullName);
 
-export const sectionLabel = (s: { className: string; sectionName: string }) => `${s.className} ${s.sectionName}`;
+export const sectionLabel = (s: { className: string; sectionName: string }) => classSection(s.className, s.sectionName);
 
 /** The section a class and section written in a file point to, or null. */
 export function findSection(sections: SectionOption[], rawClass: string, rawSection: string): SectionOption | null {

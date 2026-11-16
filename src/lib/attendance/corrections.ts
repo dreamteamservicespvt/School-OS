@@ -16,6 +16,7 @@ import { queueAfterSave } from "./after-save";
 import { schoolDateOf } from "./time";
 import { dayInfo, offDayMessage } from "./calendar";
 import { absentKeys, nextReason, reasonsOn } from "./absence-reasons";
+import { classSection } from "@/lib/class-name";
 
 export type CorrectionEntry = { id: string; name: string; from: string | null; to: string; note: string | null };
 
@@ -75,7 +76,7 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
     // The daily register is the class teacher's; a subject teacher corrects only their period (as in Take Attendance).
     if (!mayChangeSection(access, section.id, input.periodNo)) throw new NotYoursError();
     await assertSchoolDay(tx, ctx, input.date, section.academicYearId, section.schoolClass.campusId, input.today, section.classId);
-    sectionName = `${section.schoolClass.name} ${section.name}`;
+    sectionName = `${classSection(section.schoolClass.name, section.name)}`;
     const enrolled = await tx.enrolment.findMany({ where: { sectionId: section.id, studentId: { in: input.changes.map((c) => c.id) }, archivedAt: null }, include: { student: { select: { id: true, fullName: true } } } });
     const marks = await tx.attendanceMark.findMany({ where: { studentId: { in: input.changes.map((c) => c.id) }, date: input.date, periodNo: input.periodNo, archivedAt: null } });
     for (const c of input.changes) {

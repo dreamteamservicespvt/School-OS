@@ -12,6 +12,7 @@ import { pct } from "../../homework/words";
 import { homeworkFeatures } from "../../homework/settings";
 import { plural, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
+import { classSection } from "@/lib/class-name";
 
 const BASE = "/homework-learning";
 const DAY = 86_400_000;
@@ -100,7 +101,7 @@ const handedIn: Widget<"panel"> = {
     const range = `period=custom&from=${from.toISOString().slice(0, 10)}&to=${c.today.toISOString().slice(0, 10)}`;
     const all = sections.filter((x) => (share.get(x.id)?.given ?? 0) > 0).map((x) => {
       const g = share.get(x.id)!;
-      return { key: x.id, label: `${x.schoolClass.name} ${x.name}`, value: pct(g.done, g.given), sort: x.schoolClass.sortOrder, href: `${BASE}/learning-progress?section=${x.id}&${range}` };
+      return { key: x.id, label: `${classSection(x.schoolClass.name, x.name)}`, value: pct(g.done, g.given), sort: x.schoolClass.sortOrder, href: `${BASE}/learning-progress?section=${x.id}&${range}` };
     });
     if (!all.length) return null;
     const many = s.level === "full" && all.length > HANDED_IN_ROWS;

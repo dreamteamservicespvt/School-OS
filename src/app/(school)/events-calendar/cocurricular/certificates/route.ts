@@ -13,6 +13,7 @@ import { plain } from "../../_lib/export";
 import { achievementList } from "../../_lib/co";
 import { campusYearIds } from "@/lib/academic/page-campus";
 import { withPdfErrors } from "@/lib/pdf";
+import { classTitle } from "@/lib/class-name";
 
 export const dynamic = "force-dynamic";
 // Starting the PDF browser on a fresh server can take several seconds.
@@ -46,7 +47,7 @@ async function handleGET(req: Request) {
     const rows = all.filter((a) => certificateKind(a) === kind);
     const doc = await renderDocument(tx, current.ctx, kind, rows.map((a) => ({
       fields: {
-        certificate_no: a.certificateNo ?? "", student_name: a.student, admission_no: a.admissionNo, class_section: a.place ? `Class ${a.place}` : "",
+        certificate_no: a.certificateNo ?? "", student_name: a.student, admission_no: a.admissionNo, class_section: a.place ? `${classTitle(a.place)}` : "",
         roll_no: a.rollNo ? String(a.rollNo) : "", activity: a.activity, level: a.level, position: a.position ?? "Winners", activity_date: dmy(isoOf(a.date)),
       },
     })));

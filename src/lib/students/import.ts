@@ -23,6 +23,7 @@ import { getStudentSettings } from "./settings";
 import { namesAlike } from "./name-match";
 import { parseDate } from "./parse-date";
 import { studentUpdateImport, type StudentUpdate } from "./update-import";
+import { classSection } from "@/lib/class-name";
 
 export { parseDate };
 
@@ -279,7 +280,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
           mem.sections.set(k, sec?.id ?? null);
         }
         sectionId = mem.sections.get(k) ?? null;
-        if (!sectionId) problems.push(`Class ${row.className} ${row.sectionName || "A"} is not set up this year. Add it in Academic Management or fix the class.`);
+        if (!sectionId) problems.push(`${classSection(row.className, row.sectionName || "A")} is not set up this year. Add it in Academic Management or fix the class.`);
       }
       if (!sectionId && !row.className) problems.push("Class is empty. Choose a class on the screen or fill the Class column.");
 
@@ -293,7 +294,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
         if (rollNo && Number.isInteger(rollNo) && rollNo > 0) {
           if (!mem.sectionInfo.has(sectionId)) {
             const sec = await tx.section.findUnique({ where: { id: sectionId }, include: { schoolClass: true } });
-            if (sec) mem.sectionInfo.set(sectionId, { yearId: sec.academicYearId, label: `${sec.schoolClass.name} ${sec.name}` });
+            if (sec) mem.sectionInfo.set(sectionId, { yearId: sec.academicYearId, label: `${classSection(sec.schoolClass.name, sec.name)}` });
           }
           const info = mem.sectionInfo.get(sectionId);
           if (info) {

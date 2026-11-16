@@ -11,6 +11,7 @@ import { classRange } from "../../exams/common";
 import { addDays, awayToday, dayWord, dueWord, n, plural, someNames } from "../common";
 import { isWeakResult } from "../../exams/results";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
+import { classSection, classTitle } from "@/lib/class-name";
 
 const BASE = "/examination-results";
 
@@ -25,7 +26,7 @@ function examView(c: DashContext): Promise<View | null> {
       where: { academicYearId: c.year.id, archivedAt: null, ...(scope.sectionIds ? { id: { in: scope.sectionIds } } : {}) },
       include: { schoolClass: { select: { name: true, sortOrder: true } } },
     });
-    const sections = rows.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder }))
+    const sections = rows.map((s) => ({ id: s.id, label: `${classSection(s.schoolClass.name, s.name)}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder }))
       .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label));
     return { scope, yearId: c.year.id, sections, sectionIds: sections.map((s) => s.id), classIds: [...new Set(sections.map((s) => s.classId))] };
   });
@@ -94,7 +95,7 @@ const upcoming: Widget<"agenda"> = {
         const [h, m] = d.startTime.split(":").map(Number);
         out.push({
           id: `invigilation:${d.id}`, time: dayWord(d.date, c.today), tone: "warn",
-          title: `${away && days === 0 ? "You are on leave: needs cover · " : ""}Invigilation: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, ${classes.find((x) => x.id === d.classId)?.name ?? ""}`.trim(),
+          title: `${away && days === 0 ? "You are on leave: needs cover · " : ""}Invigilation: ${subjects.find((s) => s.id === d.subjectId)?.name ?? "Paper"}, ${classTitle(classes.find((x) => x.id === d.classId)?.name ?? "")}`.trim(),
           where: [d.exam.title, d.room ? `Room ${d.room}` : null, `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`].filter(Boolean).join(" · "),
           href: `${BASE}/datesheet/${d.exam.id}`, sort: days * 1440 + h * 60 + m,
         });

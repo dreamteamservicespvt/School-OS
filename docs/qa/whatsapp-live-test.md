@@ -454,3 +454,31 @@ Left on the test school: GP-2026-0002 marked used (left at 1:17 PM, with a gate 
 ## Deploy 16 (16 Nov)
 
 Deploy 16 (main 84e9bb28), School Admin only, 14:00 to 14:17 IST. No message sent, 0 credits. **Make 1 template ready**: offered "Pickup request", v2 has "Dear {guardian_name}, you are at the school front desk to take *{student_name}* home now. If this is you, tap the button below. If you are not at the school, please call the school at once." **Send 1 template to WhatsApp for approval** now has "3 texts, one for each language"; sent 14:02, Pending at 14:06, 2 of 3 approved at 14:11, **Approved v2 (English, Hindi, Telugu) at 14:17**, no refusal. Words checked: Front Office settings "Pickup code check" reads **"The guardian confirms before release: a tap on WhatsApp, or a code by SMS"** (left off); Sri's Parents reads **"Father · Primary contact"** (a separate "Primary contact" badge also still shows just below, so the words appear twice). Small: after Make ready, the "Approved" count dropped from 47 to 44 until v2 was approved.
+
+## Deploy 18 notice + results (16 Nov)
+
+Deploy 18 live. Tested by Claude, 15:25 to 15:34 IST. School Admin (Saiveni) browser, then the WhatsApp Chrome. Only Venkatesh (Sri Lakshmi, 1 A) was messaged.
+
+| Step | Result |
+|---|---|
+| 1. New notice card | **Not sent: blocked.** Send Message > One person > "Parents of Sri Lakshmi" (Venkatesh (Father) · Class 1 A, 1 person, 1 credit). The WhatsApp template list does **not offer "New notice"** under any message type (General offers Admission welcome, Behaviour note, Birthday wishes x2, Consent request, Homework pending, PTM reminder, School connection test). The template itself is fine: Message Templates > New notice = "Approved v4, English, used by Notice Board, **used in 0 messages**". Cause in code: `src/app/(school)/communication/page.tsx` line 95 offers only templates whose every blank is in `fillable`; New notice has `{title}`, `{message}`, `{parent_link}` and **`message` is not in that set** (`TYPED_BLANKS` in src/lib/messaging/blanks.ts has no `message`). Commit f84df7bc added `title` and `exam_name` but not `message`. The sender already fills `{message}` from the typed text (send.ts `fill()`, lines 259-260), so adding `"message"` to `fillable` (and keeping the Message box required for that template) should be enough. "General announcement" (also `{message}`) is hidden for the same reason |
+| 2. Results card | Exams and results > template **Results published** (approved v4, English) > Title "Unit Test 1", App notice unticked. Preview "Dear Venkatesh, the exam results are ready. Sri Lakshmi of Class 1 A, Exam: Unit Test 1". Sent **3:31 PM**. **Arrived 3:31 PM**: header **"Results are out"**, "Dear Venkatesh, the exam results are ready.", **Sri Lakshmi** of Class 1 A, **Exam: Unit Test 1**, "Open your Parent Link to see the full report card.", footer "chaitanya · School OS", button **See results**. Tapped: it opened Venkatesh's Parent Link at the top of the page (no jump to a results part). Message History shows it as "Sent" (delivery reports not connected) |
+| 3. Notices | Notice Board: **Current 0, Waiting 0, Archive empty: "No notices yet"**. The school has never published a notice, so no notice WhatsApp ever went (the New notice template is "used in 0 messages") |
+| 3. History | 55 messages since 04-11. None is a notice. To Venkatesh today: one-time codes, pickup request, fee receipts, consent request, birthday, PTM, absent/late, test cards, Results (3:31 PM). KUSUMA (class teacher) sent "Test" at 5:44 AM with **WhatsApp + App notice** ticked: the recipients list shows **only the WhatsApp row**, no App notification row for Venkatesh |
+| 3. Parent Link | Venkatesh (only 1 of 8 guardians has a link; last opened 3:32 PM, 2 phones verified). It shows: header "Namaste, Venkatesh", Sri Lakshmi class 1 A (class teacher KUSUMA), chips **Fees due, Fee receipts, Exam datesheet, Consent forms**; Fees due ₹19,798 overdue; 4 receipts; datesheet "Unit Test 1 QA" (SOCIAL 09-11, TELUGU 10-11); consent "Photos of my child" given. **No Notices part, no Report cards / results part, no messages or inbox, no bell, no "new" markers.** |
+
+What a parent sees vs what the school sent: every WhatsApp message arrives on WhatsApp only. Nothing sent from Send Message (WhatsApp or "App notice") ever appears on the Parent Link. The Parent Link only shows Notice Board notices (none published) and report cards after results are published (none published, so "See results" lands on a page with no results).
+
+Best explanation of "no notification on Parent Link":
+1. **Parent Link has no notifications area at all.** It is a status page (fees, receipts, datesheet, consent; notices and report cards only when they exist). There is no inbox, bell or "new" marker, and no push/browser notification.
+2. **"App notice" does nothing for parents**, though the Send Message card says "App notice: Staff logins and Parent Link · Free". send.ts line 451 drops it ("parents have no app"); the KUSUMA "Test" message shows only a WhatsApp row. Anyone who ticks App notice expects it on the Parent Link and finds nothing.
+3. **No notice has ever been published** at chaitanya, so the Notices part is hidden (empty parts are left out) and the New notice WhatsApp card has never gone.
+4. **The results card points to results that are not there**: "Open your Parent Link to see the full report card" opens a page with no Report cards part (no published results for 1 A).
+
+Screenshots (`qa/whatsapp-cards/`):
+- `deploy18-results-card.jpg`: the Results card (PNG data)
+- `deploy18-parent-link-from-results.jpg`: Parent Link opened from "See results"
+
+Credits: **1** (Results published). New notice not sent.
+
+Left on the test school: one "Unit Test 1" Results published message to Venkatesh (3:31 PM). No notice published, nothing changed in settings.

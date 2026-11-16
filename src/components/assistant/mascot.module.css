@@ -100,6 +100,11 @@
   background: radial-gradient(circle at 35% 30%, #8F84FF, #5B4BF5 55%, #3E46D8);
   box-shadow: 0 14px 30px -12px rgba(90, 75, 245, .8);
 }
+/* The launcher shows the mascot's head, cut from its idle art (1024 px square). */
+.launcherFace { position: absolute; inset: 0; border-radius: 9999px; background-repeat: no-repeat; overflow: hidden; }
+.launcherRobot { background-image: url("/assistant/r-idle.webp"); background-size: 185%; background-position: 52% 27%; }
+.launcherCat { background-image: url("/assistant/c-idle.webp"); background-size: 160%; background-position: 50% 26%; }
+.launcher:hover .launcherFace { transform: scale(1.06); transition: transform 180ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .bob, .shadow, .ring, .tdot, .cdot, .arc, .spark { animation: none !important; }

@@ -53,22 +53,17 @@ describe("the conversation's language", () => {
     expect(nextLanguage(null, "ok", { screen: "hi" }).lang).toBe("hi");
   });
 
-  it("stays when one message is in another language, and switches after two in a row", () => {
-    let s: LanguageState = { lang: "te", pending: null };
-    const one = nextLanguage(s, "Who is absent today?");
-    expect(one.lang).toBe("te");
-    expect(one.pending).toEqual({ lang: "en", count: 1 });
-    expect(one.switched).toBe(false);
-    s = one;
-    const two = nextLanguage(s, "And how much fee came in today?");
-    expect(two.lang).toBe("en");
-    expect(two.switched).toBe(true);
-    expect(two.pending).toBeNull();
+  it("talks the way the person talks: one clear message in another language switches at once (owner, 16 Nov 2026)", () => {
+    const one = nextLanguage({ lang: "te", pending: null }, "Who is absent today?");
+    expect(one).toMatchObject({ lang: "en", pending: null, switched: true });
+    const back = nextLanguage(one, "ఈరోజు absent ఎవరు?");
+    expect(back).toMatchObject({ lang: "te", pending: null, switched: true });
   });
 
-  it("a message back in the conversation's language resets the count; a name keeps it", () => {
-    const s = nextLanguage({ lang: "te", pending: null }, "Who is absent today?");
-    expect(nextLanguage(s, "Ravi").pending).toEqual({ lang: "en", count: 1 });
+  it("a message that says nothing about its language (a name, a number, ok) keeps the conversation's language", () => {
+    const s: LanguageState = { lang: "te", pending: null };
+    expect(nextLanguage(s, "Ravi")).toMatchObject({ lang: "te", switched: false });
+    expect(nextLanguage(s, "5")).toMatchObject({ lang: "te", switched: false });
     expect(nextLanguage(s, "ninna evaru raledu?")).toMatchObject({ lang: "te", pending: null, switched: false });
   });
 

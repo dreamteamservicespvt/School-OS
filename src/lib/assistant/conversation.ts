@@ -34,7 +34,8 @@ import { matchIntent, type AskParams, type QuestionKey } from "../ask/questions"
 import { questionTitleIn } from "../ask/titles";
 import { makeT } from "../i18n/server";
 import { ASSISTANT_FEATURE, assistantKilled, assistantModel, FRESH_AFTER_MS, KEEP_TURNS } from "./config";
-import { inLanguage, isAssistantLang, nextLanguage, type AssistantLang, type LanguageState } from "./language";
+import { inLanguage, isAssistantLang, nextLanguage, teluguStyle, type AssistantLang, type LanguageState } from "./language";
+import { wordsIntent, type WordsIntent } from "./rules";
 import { allowedNumbers, inventedNumbers } from "./numbers";
 import { COMPOSER_SYSTEM, PLANNER_SYSTEM, composerRequest, plannerRequest, planSchema, replySchema, type Plan } from "./prompt";
 import { isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, type ToolArgs, type ToolName, type ToolResult } from "./tools";
@@ -194,15 +195,22 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let plan: Plan | null = null;
   let understoodBy: "rules" | "ai" | null = null;
   let aiProblem: string | null = null;
+  // Words the assistant's own rules know beyond Ask's questions (rules.ts): small talk, homework, the calendar, approvals, an enquiry.
+  let special: "hello" | "thanks" | "enquiry" | null = null;
   const match = matchIntent(said, offeredQuestions(who))[0];
+  const known: WordsIntent | null = match && match.score >= 3 ? null : wordsIntent(said);
   if (match && match.score >= 3 && !convo?.prepared) {
     plan = rulesPlan(match.key, match.params, before.lang);
+    understoodBy = "rules";
+  } else if (known?.kind === "talk" && !convo?.prepared) {
+    // A greeting or thanks needs no model: a friendly line, at once.
+    special = known.talk;
     understoodBy = "rules";
   } else {
     const r = await aiTask(who.ctx, {
       feature: ASSISTANT_FEATURE, purpose: "Assistant: understand the question", system: PLANNER_SYSTEM, schema: planSchema, model: assistantModel(), effort: "low", maxTokens: 700,
       input: plannerRequest({
-        said, replyLanguage: before.lang, today, earlier: turns.map((t) => ({ said: t.said, tools: t.tools.map((x) => ({ tool: x.tool, args: x.args })), action: t.action })),
+        said, replyLanguage: before.lang, style: before.lang === "te" ? teluguStyle(said) : undefined, today, earlier: turns.map((t) => ({ said: t.said, tools: t.tools.map((x) => ({ tool: x.tool, args: x.args })), action: t.action })),
         tools: offered.map((n) => ({ tool: n, about: TOOLS[n].about, takes: TOOLS[n].takes, when: TOOLS[n].whens })),
         canAddEnquiry: mayAddEnquiry(who), enquiryOpen: Boolean(convo?.prepared),
       }),
@@ -211,12 +219,19 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     else {
       aiProblem = r.reason;
       if (match) { plan = rulesPlan(match.key, match.params, before.lang); understoodBy = "rules"; }
+      else if (known?.kind === "tool") {
+        plan = { language: before.lang, kind: "tools", tools: [{ tool: known.tool, cls: known.cls, when: null, amount: null, student: null, days: known.days }], enquiry: null, text: null };
+        understoodBy = "rules";
+      } else if (known?.kind === "enquiry") { special = "enquiry"; understoodBy = "rules"; }
     }
   }
 
   const after = nextLanguage(state, said, { model: understoodBy === "ai" ? plan?.language : null, chosen, screen });
   const lang = after.lang;
   const newState: LanguageState = { lang, pending: after.pending };
+  // How the person talks Telugu: the reply talks the same way (everyday Telugu with English words, or plain Telugu).
+  const style = lang === "te" ? teluguStyle(said) : undefined;
+  const extraSources: TurnSource[] = [];
 
   let reply = "";
   let by: "ai" | "rules" = "rules";
@@ -229,7 +244,15 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let numberCheck: "passed" | "replaced" | null = null;
   let feel: ReplyFeel = "answer";
 
-  if (!plan) {
+  if (special === "hello" || special === "thanks") {
+    reply = words(lang, special);
+    chips = readyChips(who, lang);
+    feel = "happy";
+  } else if (special === "enquiry") {
+    action = "add an enquiry";
+    if (!mayAddEnquiry(who)) { reply = words(lang, "notYourRole"); feel = "sorry"; }
+    else { reply = words(lang, "enquiryHelp"); extraSources.push({ label: words(lang, "linkEnquiryForm"), href: ENQUIRY_FORM, scope: null }); }
+  } else if (!plan) {
     reply = words(lang, aiProblem === "daily-limit" ? "limit" : aiProblem && aiProblem !== "not-connected" ? "aiDown" : "notUnderstood");
     chips = readyChips(who, lang);
     feel = "sorry";
@@ -243,14 +266,16 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
       feel = "sorry";
     } else {
       // 4. Read, each list in its own short transaction, as the person.
-      for (const c of calls) results.push(await withSchool(who.ctx, (tx) => runTool({ tx, who, clock, lang }, c.tool, c.args)));
+      for (const c of calls) results.push(await withSchool(who.ctx, (tx) => runTool({ tx, who, clock, lang, style }, c.tool, c.args)));
       const plain = results.map((r) => r.sentence).join(" ");
       reply = plain;
+      // Good news (nobody absent, nothing waiting, a birthday today): the mascot and the voice are glad.
+      if (results.length && results.every((r) => r.ok && r.good)) feel = "happy";
       // 5. Reply in the person's language from the records, when the AI service is there.
       if (aiConnected() && aiProblem !== "daily-limit") {
         const r = await aiTask(who.ctx, {
           feature: ASSISTANT_FEATURE, purpose: "Assistant: write the reply", system: COMPOSER_SYSTEM, schema: replySchema, model: assistantModel(), effort: "low", maxTokens: 800,
-          input: composerRequest({ said, replyLanguage: lang, today, earlier: turns.slice(-2).map((t) => ({ said: t.said, reply: t.reply })), records: results.map((x) => ({ tool: x.tool, found: x.ok, facts: x.facts, scope: x.scope, link: x.link?.label ?? null })) }),
+          input: composerRequest({ said, replyLanguage: lang, style, today, earlier: turns.slice(-2).map((t) => ({ said: t.said, reply: t.reply })), records: results.map((x) => ({ tool: x.tool, found: x.ok, facts: x.facts, scope: x.scope, link: x.link?.label ?? null })) }),
         }, now);
         if (r.ok) {
           const allowed = allowedNumbers([...results.map((x) => x.facts), ...results.map((x) => x.sentence), said, ...turns.slice(-2).map((t) => t.reply)], todayFor(clock.setup.timeZone, now));
@@ -282,6 +307,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     reply = fits ? text : words(lang, fallback);
     by = fits ? "ai" : "rules";
     if (plan.kind === "cannot") feel = "sorry";
+    if (plan.kind === "chat") feel = "happy";
     if (plan.kind !== "clarify") chips = readyChips(who, lang);
   }
 
@@ -297,7 +323,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     return id;
   });
 
-  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: sourcesOf(results), chips, card, feel };
+  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: [...sourcesOf(results), ...extraSources], chips, card, feel };
 }
 
 /* ---------- The card: "Yes" or "No" ---------- */

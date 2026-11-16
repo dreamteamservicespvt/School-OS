@@ -119,6 +119,24 @@ describe("Indian languages", () => {
     ["తరగతి 7 ఫీజు బాకీ", "fees-overdue", { cls: "7" }],
     ["ఈ వారం పుట్టినరోజులు", "birthdays", { when: "thisweek" }],
     ["సిబ్బంది ఆలస్యం నిన్న", "late-staff", { when: "yesterday" }],
+    // Layman test 16 Nov 2026: Telugu as educated speakers write it, English words in Telugu letters
+    // (as Telugu voice typing spells them), Telugu verbs, and Telugu in English letters.
+    ["ఈరోజు ఆబ్సెంట్ స్టూడెంట్స్ ఎవరు?", "absent-today", { when: "today" }],
+    ["fees ఇంకా కట్టని వాళ్ళ list చూపించండి", "fees-overdue", {}],
+    ["ఫీజు పెండింగ్ ఉన్న స్టూడెంట్స్ లిస్ట్", "fees-overdue", {}],
+    ["ఈ వీక్ ఫీజు కలెక్షన్ ఎంత?", "fees-collected", { when: "thisweek" }],
+    ["ఈ వారం ఎంత ఫీజు వసూలైంది?", "fees-collected", { when: "thisweek" }],
+    ["నిన్న ఎంత fee వచ్చింది?", "fees-collected", { when: "yesterday" }],
+    ["లీవ్ లో ఉన్న టీచర్స్ ఎవరు?", "staff-on-leave", {}],
+    ["బర్త్‌డే ఎవరిది ఈరోజు?", "birthdays", { when: "today" }],
+    ["ఈరోజు attendance తీసుకోని classes ఏవి?", "not-marked", {}],
+    ["5వ తరగతి ఫీజు బాకీ", "fees-overdue", { cls: "5" }],
+    ["ivvala entha mandi students raledu", "absent-today", { when: "today" }],
+    ["fees kattani vallu list chupinchu", "fees-overdue", {}],
+    ["ninna fees entha vachindi", "fees-collected", { when: "yesterday" }],
+    ["attendance takkuva unna pillalu evaru", "below-attendance", {}],
+    ["ee roju birthday evaridi", "birthdays", { when: "today" }],
+    ["how much money came this month", "fees-collected", { when: "thismonth" }],
   ] as const)("%s", (text, key, params) => {
     const m = top(text);
     expect(m?.key).toBe(key);

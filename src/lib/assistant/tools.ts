@@ -17,7 +17,8 @@ import "server-only";
 
 import type { Tx } from "../db";
 import type { Viewer } from "../dashboard/types";
-import { makeT } from "../i18n/server";
+import { catalogueFor, makeT } from "../i18n/server";
+import { translator, type T } from "../i18n/t";
 import { formatDate } from "../format";
 import { todayFor } from "../periods";
 import { moduleOpen } from "../reports/access";
@@ -35,7 +36,8 @@ import { homeworkScope } from "../homework/scope";
 import { listHomework } from "../homework/homework";
 import { calendarItems } from "../events/calendar";
 import { approvalsFor, requestLabel } from "../approvals";
-import type { AssistantLang } from "./language";
+import type { AssistantLang, TeluguStyle } from "./language";
+import { TE_MIX } from "./te-mix";
 import { words } from "./words";
 
 export const TOOL_NAMES = [
@@ -59,9 +61,23 @@ export type ToolResult = {
   scope: string | null;
   link: ToolLink | null;
   total: number | null;
+  /** Good news for the person ("nobody is absent", "nothing waiting", a birthday today): the mascot and the voice are glad. */
+  good?: boolean;
 };
 
-export type ToolContext = { tx: Tx; who: Viewer; clock: AskClock; lang: AssistantLang };
+/** `style`: how the person talks Telugu; "mixed" (the default) answers in everyday Telugu with English school words (te-mix.ts). */
+export type ToolContext = { tx: Tx; who: Viewer; clock: AskClock; lang: AssistantLang; style?: TeluguStyle };
+
+let mixed: T | null = null;
+/** The words for Ask's answers in the conversation's language and the person's way of talking. */
+export function answerWords(lang: AssistantLang, style?: TeluguStyle): T {
+  if (lang !== "te" || style === "pure") return makeT(lang);
+  mixed ??= translator("te", { ...catalogueFor("te"), ...TE_MIX });
+  return mixed;
+}
+
+/** Lists where an empty answer is good news; a birthday today is good news too. */
+const GOOD_WHEN_EMPTY: readonly QuestionKey[] = ["absent-today", "absent-streak", "below-attendance", "not-marked", "late-staff", "staff-absent", "fees-overdue", "below-pass"];
 
 type ToolDef = {
   /** For the model: what it answers, in plain English (the model reads English best; it replies in the person's language). */
@@ -90,11 +106,15 @@ function askTool(tool: ToolName, key: QuestionKey, about: string, takes: ToolDef
     about, takes, whens,
     offered: (who) => offeredQuestions(who).includes(key),
     run: async (c, args) => {
-      const t = makeT(c.lang);
+      const t = answerWords(c.lang, c.style);
       const a = await answerQuestion(c.tx, c.who, key, { cls: args.cls ?? null, when: args.when ?? null, amount: args.amount ?? null }, c.clock, t);
       const link = a.link ? { href: a.link.href, label: t.any(a.link.label) } : null;
       if (!a.ok) return { tool, ok: false, sentence: a.problem, facts: { problem: a.problem }, scope: null, link, total: null };
-      return { tool, ok: true, sentence: a.sentence, facts: { answer: a.sentence, ...askFacts(a) }, scope: a.scope, link, total: a.total };
+      const nothingYet = a.big === t("Not taken") || a.big === t("No school");
+      const good = key === "birthdays" ? a.total > 0 : GOOD_WHEN_EMPTY.includes(key) && a.total === 0 && !nothingYet;
+      // The scope line ("Whole school · 16-11-2026") in the conversation's language too.
+      const scope = a.scope ? a.scope.split(" · ").map((part) => t.any(part)).join(" · ") : a.scope;
+      return { tool, ok: true, sentence: a.sentence, facts: { answer: a.sentence, ...askFacts(a) }, scope, link, total: a.total, good };
     },
   };
 }
@@ -172,7 +192,7 @@ async function homeworkNotIn(c: ToolContext, args: ToolArgs): Promise<ToolResult
     homework: rows.slice(0, SHOW_TO_MODEL).map((r) => ({ title: r.title, class: r.sectionLabel, subject: r.subject, due: day(r.dueDate), notHandedIn: r.counts.notIn, of: r.counts.assigned })),
   };
   return {
-    tool, ok: true, facts, scope: `${range.from} to ${range.to}`, link, total: rows.length,
+    tool, ok: true, facts, scope: answerWords(c.lang, c.style).any("{from} to {to}", range), link, total: rows.length, good: rows.length === 0,
     sentence: rows.length ? words(c.lang, "homework", { n: rows.length, k: missing, ...range }) : words(c.lang, "homeworkNone", range),
   };
 }
@@ -190,7 +210,7 @@ async function upcoming(c: ToolContext, args: ToolArgs): Promise<ToolResult> {
   const range = { from: day(today), to: day(to) };
   const link = { href: "/events-calendar", label: words(c.lang, "linkCalendar") };
   return {
-    tool, ok: true, facts: { ...range, entries: items.length, list, moreEntries: Math.max(0, items.length - list.length) }, scope: `${range.from} to ${range.to}`, link, total: items.length,
+    tool, ok: true, facts: { ...range, entries: items.length, list, moreEntries: Math.max(0, items.length - list.length) }, scope: answerWords(c.lang, c.style).any("{from} to {to}", range), link, total: items.length,
     sentence: items.length ? words(c.lang, "upcoming", { n: items.length, list: list.slice(0, 4).map((i) => `${i.title} (${i.from})`).join(", "), ...range }) : words(c.lang, "upcomingNone", range),
   };
 }
@@ -208,7 +228,7 @@ async function approvalsWaiting(c: ToolContext): Promise<ToolResult> {
   ]);
   const link = { href: "/approvals", label: words(c.lang, "linkApprovals") };
   return {
-    tool, ok: true, link, total: n, scope: null,
+    tool, ok: true, link, total: n, scope: null, good: n === 0,
     facts: { waiting: n, oldestFirst: rows.map((r) => ({ request: requestLabel(r.type), about: r.summary, since: day(r.createdAt) })), note: "The assistant cannot approve or reject; the person decides on the Approvals screen." },
     sentence: n ? words(c.lang, "approvals", { n }) : words(c.lang, "approvalsNone"),
   };

@@ -134,22 +134,26 @@ export function classWords(words: string) {
 /** Words for each idea, as Indian school staff write them (a few Hindi words too). Two-word phrases match in order. */
 const CONCEPTS = {
   absent: ["absent", "absents", "absentee", "absentees", "absence", "absences", "not present", "not come", "not came", "didnt come", "did not come", "not coming", "missing", "bunk", "bunked", "gairhazir", "ghairhazir", "nahi aaye", "nahi aya",
-    "अनुपस्थित", "गैरहाज़िर", "गैरहाजिर", "नहीं आए", "नहीं आया", "नहीं आई", "గైర్హాజరు", "గైర్హాజరైన", "గైర్హాజరయ్యారు", "రాలేదు", "రానివారు", "வரவில்லை", "வராதவர்கள்", "ಗೈರುಹಾಜರಿ", "ಬರಲಿಲ್ಲ", "ഹാജരില്ല", "വന്നില്ല", "गैरहजर", "অনুপস্থিত"],
-  streak: ["running", "in a row", "continuous", "continuously", "consecutive", "straight", "streak", "chronic", "regularly", "days running", "back to back", "lagatar", "लगातार", "వరుసగా", "தொடர்ந்து", "ಸತತ", "തുടർച്ചയായി", "सलग", "টানা"],
-  attendance: ["attendance", "attendence", "atendance", "present", "percent", "percentage", "presence", "haziri", "hazri", "उपस्थिति", "हाज़िरी", "हाजिरी", "హాజరు", "வருகை", "ಹಾಜರಾತಿ", "ഹാജർ", "उपस्थिती", "উপস্থিতি"],
-  low: ["below", "under", "less", "lesser", "low", "lower", "short", "shortage", "poor", "weak", "lowest", "kam", "कम", "नीचे", "తక్కువ", "குறைவு", "குறைவான", "ಕಡಿಮೆ", "കുറവ്", "कमी", "কম"],
-  late: ["late", "latecomer", "latecomers", "latecoming", "delay", "delayed", "der", "देर", "देरी", "लेट", "ఆలస్యం", "ఆలస్యంగా", "தாமதம்", "ತಡ", "വൈകി", "उशीर", "उशिरा", "দেরি"],
+    "raledu", "raaledu", "rani", "ranivallu", "gairhajaru",
+    "अनुपस्थित", "गैरहाज़िर", "गैरहाजिर", "नहीं आए", "नहीं आया", "नहीं आई", "గైర్హాజరు", "గైర్హాజరైన", "గైర్హాజరయ్యారు", "రాలేదు", "రానివారు", "రాని", "రానివాళ్ళు", "రాలేదా", "வரவில்லை", "வராதவர்கள்", "ಗೈರುಹಾಜರಿ", "ಬರಲಿಲ್ಲ", "ഹാജരില്ല", "വന്നില്ല", "गैरहजर", "অনুপস্থিত"],
+  streak: ["running", "in a row", "continuous", "continuously", "consecutive", "straight", "streak", "chronic", "regularly", "days running", "back to back", "lagatar", "varusaga", "लगातार", "వరుసగా", "தொடர்ந்து", "ಸತತ", "തുടർച്ചയായി", "सलग", "টানা"],
+  attendance: ["attendance", "attendence", "atendance", "present", "percent", "percentage", "presence", "haziri", "hazri", "hajaru", "उपस्थिति", "हाज़िरी", "हाजिरी", "హాజరు", "வருகை", "ಹಾಜರಾತಿ", "ഹാജർ", "उपस्थिती", "উপস্থিতি"],
+  low: ["below", "under", "less", "lesser", "low", "lower", "short", "shortage", "poor", "weak", "lowest", "kam", "takkuva", "thakkuva", "takkuvaga", "कम", "नीचे", "తక్కువ", "తక్కువగా", "குறைவு", "குறைவான", "ಕಡಿಮೆ", "കുറവ്", "कमी", "কম"],
+  late: ["late", "latecomer", "latecomers", "latecoming", "delay", "delayed", "der", "alasyam", "aalasyam", "देर", "देरी", "लेट", "ఆలస్యం", "ఆలస్యంగా", "தாமதம்", "ತಡ", "വൈകി", "उशीर", "उशिरा", "দেরি"],
   staff: ["staff", "staffs", "teacher", "teachers", "employee", "employees", "faculty", "sir", "madam", "maam", "sirs", "teaching staff", "non teaching", "स्टाफ़", "स्टाफ", "शिक्षक", "अध्यापक", "సిబ్బంది", "టీచర్లు", "టీచర్", "ఉపాధ్యాయులు", "ஆசிரியர்கள்", "ஊழியர்கள்", "ಸಿಬ್ಬಂದಿ", "ಶಿಕ್ಷಕರು", "ജീവനക്കാർ", "അധ്യാപകർ", "कर्मचारी", "কর্মী", "শিক্ষক"],
-  leave: ["leave", "leaves", "chutti", "chhutti", "on leave", "छुट्टी", "సెలవు", "సెలవులో", "விடுப்பு", "ರಜೆ", "അവധി", "रजा", "ছুটি"],
+  leave: ["leave", "leaves", "chutti", "chhutti", "on leave", "selavu", "selavulo", "छुट्टी", "సెలవు", "సెలవులో", "விடுப்பு", "ರಜೆ", "അവധി", "रजा", "ছুটি"],
   fee: ["fee", "fees", "fess", "feez", "payment", "payments", "money", "tuition", "amount", "rupees", "rs", "inr", "paisa", "cash", "फ़ीस", "फीस", "शुल्क", "ఫీజు", "ఫీజులు", "கட்டணம்", "ಶುಲ್ಕ", "ഫീസ്", "फी", "ফি"],
-  collected: ["collected", "collection", "collections", "received", "receipts", "came in", "come in", "paid", "deposited", "earned", "jama", "aaya", "जमा", "वसूल", "వసూలు", "వసూలైన", "வசூல்", "ಸಂಗ್ರಹ", "പിരിച്ചത്", "আদায়"],
-  owe: ["owe", "owes", "owing", "outstanding", "defaulter", "defaulters", "unpaid", "not paid", "baki", "baaki", "bakaya", "arrears", "overdue", "not yet paid", "बकाया", "बाकी", "బాకీ", "బకాయి", "బాకీదారులు", "நிலுவை", "ಬಾಕಿ", "കുടിശ്ശിക", "थकबाकी", "বকেয়া"],
+  collected: ["collected", "collection", "collections", "collect", "received", "receipts", "came in", "come in", "paid", "deposited", "earned", "jama", "aaya", "kattaru", "जमा", "वसूल", "వసూలు", "వసూలైన", "వసూలైంది", "వసూలయ్యింది", "కట్టారు", "வசூல்", "ಸಂಗ್ರಹ", "പിരിച്ചത്", "আদায়"],
+  owe: ["owe", "owes", "owing", "outstanding", "defaulter", "defaulters", "unpaid", "not paid", "baki", "baaki", "bakaya", "arrears", "overdue", "not yet paid", "kattani", "kattaledu", "kattanivallu", "kattalsina",
+    "बकाया", "बाकी", "బాకీ", "బకాయి", "బాకీదారులు", "కట్టని", "కట్టనివాళ్ళు", "కట్టనివారు", "కట్టలేదు", "కట్టాల్సిన", "நிலுவை", "ಬಾಕಿ", "കുടിശ്ശിക", "थकबाकी", "বকেয়া"],
   /** Words that mean owing only next to a fee word ("homework due" is not about fees). */
   dueWord: ["due", "dues", "pending", "balance", "remaining"],
+  /** Words that mean money came in only next to a fee word ("how much money came", "ninna fees entha vachindi"). */
+  cameWord: ["came", "come", "vachindi", "vachayi", "vachaayi", "వచ్చింది", "వచ్చాయి", "వచ్చినది"],
   marks: ["marks", "mark", "result", "results", "exam", "exams", "score", "scores", "scored", "grade", "grades", "test", "tests", "subject", "subjects", "percentage marks", "अंक", "नंबर", "परिणाम", "परीक्षा", "మార్కులు", "ఫలితాలు", "పరీక్ష", "மதிப்பெண்", "ಅಂಕ", "മാർക്ക്", "गुण", "নম্বর"],
   fail: ["fail", "failed", "failing", "fails", "pass mark", "below pass", "not passed", "did not pass", "didnt pass", "passing marks", "fail hue", "फेल", "फ़ेल", "अनुत्तीर्ण", "ఫెయిల్", "தோல்வி", "ಅನುತ್ತೀರ್ಣ", "തോറ്റ", "नापास", "ফেল"],
-  birthday: ["birthday", "birthdays", "bday", "date of birth", "dob", "born", "janamdin", "janmdin", "janmadin", "जन्मदिन", "పుట్టినరోజు", "పుట్టినరోజులు", "பிறந்தநாள்", "ಹುಟ್ಟುಹಬ್ಬ", "ജന്മദിനം", "वाढदिवस", "জন্মদিন"],
-  notTaken: ["not taken", "not marked", "not done", "not yet", "unmarked", "missed", "nobody marked", "not filled", "pending", "नहीं ली", "नहीं लगी", "తీసుకోలేదు", "వేయలేదు"],
+  birthday: ["birthday", "birthdays", "bday", "birth day", "date of birth", "dob", "born", "janamdin", "janmdin", "janmadin", "puttinaroju", "puttina roju", "जन्मदिन", "పుట్టినరోజు", "పుట్టినరోజులు", "பிறந்தநாள்", "ಹುಟ್ಟುಹಬ್ಬ", "ജന്മദിനം", "वाढदिवस", "জন্মদিন"],
+  notTaken: ["not taken", "not marked", "not done", "not yet", "unmarked", "missed", "nobody marked", "not filled", "pending", "teesukoledu", "tiskoledu", "veyaledu", "नहीं ली", "नहीं लगी", "తీసుకోలేదు", "తీసుకోని", "వేయలేదు", "వేయని", "తీయలేదు"],
 } as const;
 type Concept = keyof typeof CONCEPTS;
 
@@ -181,6 +185,47 @@ export function wordsOf(text: string) {
   return text.toLowerCase().replace(/[’'`]/g, "").replace(/₹/g, " ₹ ").replace(/%/g, " % ").split(/[^a-z0-9₹%.\u0900-\u0DFF\u200C\u200D]+/).map((w) => w.replace(/^\.+|\.+$/g, "")).filter(Boolean);
 }
 
+/**
+ * English school words as Telugu speakers write them in Telugu letters, and as Telugu voice typing spells
+ * them ("ఆబ్సెంట్ స్టూడెంట్స్" is "absent students"). Owner, 16 Nov 2026: educated Telugu speakers mix
+ * English words into Telugu, so these must be understood like the English word. Keys are written without
+ * the joiners (U+200C, U+200D) that phones put inside some words ("బర్త్‌డే").
+ */
+const TE_LOANS: Record<string, string> = {
+  "ఆబ్సెంట్": "absent", "ఆబ్సెంటు": "absent", "అబ్సెంట్": "absent", "ఆప్సెంట్": "absent", "ఆబ్సెంట్స్": "absent", "ఆబ్సెంటీస్": "absentees",
+  "ప్రెజెంట్": "present", "అటెండెన్స్": "attendance", "అటెండెన్సు": "attendance", "అటెండన్స్": "attendance", "అటెండెంస్": "attendance",
+  "స్టూడెంట్స్": "students", "స్టూడెంట్": "student", "స్టూడెంట్లు": "students", "స్టుడెంట్స్": "students",
+  "టీచర్స్": "teachers", "స్టాఫ్": "staff", "ఎంప్లాయీస్": "employees",
+  "ఫీ": "fee", "ఫీస్": "fees", "ఫీజ్": "fees", "పెండింగ్": "pending", "బ్యాలెన్స్": "balance", "డ్యూ": "due", "డిఫాల్టర్స్": "defaulters", "డిఫాల్టర్లు": "defaulters",
+  "కలెక్షన్": "collection", "కలెక్షను": "collection", "కలెక్షన్స్": "collections", "కలెక్ట్": "collect", "పెయిడ్": "paid",
+  "లీవ్": "leave", "లీవు": "leave", "లీవ్స్": "leaves", "లేట్": "late", "లేటు": "late",
+  "బర్త్డే": "birthday", "బర్తడే": "birthday", "బర్త్డేలు": "birthdays", "బర్త్డేస్": "birthdays", "బర్త్": "birth", "డే": "day",
+  "మార్క్స్": "marks", "మార్కు": "mark", "ఫెయిలైన": "failed", "ఫెయిలయ్యారు": "failed", "ఫెయిలైనవాళ్ళు": "failed",
+  "ఎగ్జామ్": "exam", "ఎగ్జామ్స్": "exams", "ఎగ్జాం": "exam", "రిజల్ట్స్": "results", "రిజల్ట్": "result", "టెస్ట్": "test",
+  "టుడే": "today", "యెస్టర్డే": "yesterday", "వీక్": "week", "మంత్": "month", "లాస్ట్": "last", "దిస్": "this",
+  "క్లాసు": "class", "క్లాసులు": "classes", "క్లాసెస్": "classes", "లిస్ట్": "list", "కంటిన్యూగా": "continuously", "కంటిన్యూస్గా": "continuously",
+  "హోంవర్క్": "homework", "హోమ్వర్క్": "homework", "హాలిడే": "holiday", "హాలిడేస్": "holidays", "హాలిడేలు": "holidays",
+  "ఈవెంట్": "event", "ఈవెంట్స్": "events", "క్యాలెండర్": "calendar", "అప్రూవల్": "approval", "అప్రూవల్స్": "approvals", "రిక్వెస్ట్స్": "requests",
+  "ఎంక్వైరీ": "enquiry", "ఎంక్వయిరీ": "enquiry", "ఇంక్వైరీ": "enquiry", "అడ్మిషన్": "admission",
+  "హాయ్": "hi", "హలో": "hello", "థాంక్స్": "thanks", "థాంక్యూ": "thanks", "థ్యాంక్స్": "thanks", "థ్యాంక్యూ": "thanks",
+};
+/** Telugu endings stuck to a word ("లీవ్‌లో", "స్టూడెంట్స్‌కి"), tried off when the whole word is not known. */
+const TE_ENDINGS = ["లో", "కి", "కు", "ని", "ను", "లు", "ల", "తో", "గా", "దే"];
+const TELUGU_WORD = /^[ఀ-౿‌‍]+$/;
+
+function loanOf(word: string): string {
+  if (!TELUGU_WORD.test(word)) return word;
+  const w = word.replace(/[‌‍]/g, "");
+  if (TE_LOANS[w]) return TE_LOANS[w];
+  for (const end of TE_ENDINGS) if (w.endsWith(end) && TE_LOANS[w.slice(0, -end.length)]) return TE_LOANS[w.slice(0, -end.length)];
+  return word;
+}
+
+/** wordsOf(), with English words written in Telugu letters read as the English word. */
+export function plainWords(text: string) {
+  return wordsOf(text).map(loanOf);
+}
+
 function conceptsIn(words: string[]): Set<Concept> {
   const found = new Set<Concept>();
   for (const [concept, list] of Object.entries(CONCEPTS) as [Concept, readonly string[]][]) {
@@ -192,6 +237,8 @@ function conceptsIn(words: string[]): Set<Concept> {
   }
   // "fees due", "pending fees": owing, when a fee word is there.
   if (found.has("dueWord") && found.has("fee")) found.add("owe");
+  // "how much money came", "ninna fees entha vachindi": collected, when a fee word is there.
+  if (found.has("cameWord") && found.has("fee")) found.add("collected");
   // "not paid" is owing, not money collected.
   if (found.has("owe") && found.has("collected") && /\b(not|un) ?paid\b|\bnot yet paid\b/.test(words.join(" "))) found.delete("collected");
   // A "%" next to a number ("below 75%") is about attendance unless marks are named.
@@ -218,12 +265,12 @@ const RULES: { key: QuestionKey; score: (c: Set<Concept>) => number }[] = [
 
 function whenIn(words: string[]): AskWhen | null {
   const s = ` ${words.join(" ")} `;
-  if (/ (yesterday|yday|kal|कल|నిన్న|நேற்று|ನಿನ್ನೆ|ഇന്നലെ|काल|গতকাল) /.test(s)) return "yesterday";
-  if (/ (last|previous|pichle|pichla) (week|wk) | पिछले (हफ़्ते|हफ्ते|सप्ताह) | గత వారం /.test(s)) return "lastweek";
-  if (/ (last|previous|pichle|pichla) month | पिछले महीने | గత నెల /.test(s)) return "lastmonth";
-  if (/ (this|current|is) month | (month|monthly|mahina|mahine|महीने|महीना|నెల) /.test(s)) return "thismonth";
-  if (/ (this|current|is) (week|wk) | (week|weekly|hafta|hafte|हफ़्ते|हफ्ते|सप्ताह|వారం) /.test(s)) return "thisweek";
-  if (/ (today|todays|now|aaj|आज|ఈ రోజు|ఈరోజు|ఇవాళ|இன்று|ಇಂದು|ഇന്ന്|আজ) /.test(s)) return "today";
+  if (/ (yesterday|yday|kal|ninna|ninnati|कल|నిన్న|నిన్నటి|நேற்று|ನಿನ್ನೆ|ഇന്നലെ|काल|গতকাল) /.test(s)) return "yesterday";
+  if (/ (last|previous|pichle|pichla|poyina|gatha|gata) (week|wk|vaaram|varam) | पिछले (हफ़्ते|हफ्ते|सप्ताह) | (గత|పోయిన) వారం /.test(s)) return "lastweek";
+  if (/ (last|previous|pichle|pichla|poyina|gatha|gata) (month|nela) | पिछले महीने | (గత|పోయిన) నెల /.test(s)) return "lastmonth";
+  if (/ (this|current|is|ee) (month|nela) | (month|monthly|mahina|mahine|nela|महीने|महीना|నెల) /.test(s)) return "thismonth";
+  if (/ (this|current|is|ee) (week|wk|vaaram|varam) | (week|weekly|hafta|hafte|vaaram|varam|हफ़्ते|हफ्ते|सप्ताह|వారం) /.test(s)) return "thisweek";
+  if (/ (today|todays|now|aaj|ee roju|eeroju|ivvala|ivala|ఈరోజే|నేడు|आज|ఈ రోజు|ఈరోజు|ఇవాళ|ఇవ్వాళ|ఇవ్వాళ్టి|இன்று|ಇಂದು|ഇന്ന്|আজ) /.test(s)) return "today";
   return null;
 }
 
@@ -239,6 +286,9 @@ function classIn(words: string[]): string | null {
     }
     // "5a", "5th", "ukg", "lkg b", and "5 a" or "5-a" (two words after splitting)
     if (/^\d{1,2}[a-h]$/.test(w)) { const c = readClass(w); if (c) return c.words; }
+    // Telugu: "5వ తరగతి", "5వ class", "5 తరగతి"
+    const te = /^(\d{1,2})(వ|వది|వ\.)$/.exec(w) ?? (/^\d{1,2}$/.test(w) && /^(తరగతి|క్లాస్|class)$/.test(next) ? [w, w] : null);
+    if (te) { const c = readClass(te[1]); if (c) return c.words; }
     if (/^\d{1,2}$/.test(w) && /^[a-h]$/.test(next) && !/^[a-z]/.test(words[i + 2] ?? "")) { const c = readClass(`${w} ${next}`); if (c) return c.words; }
     if (/^\d{1,2}(st|nd|rd|th)$/.test(w) && !/^(day|days|of|october|november|december|january|february|march|april|may|june|july|august|september)$/.test(next)) {
       const letter = /^[a-h]$/.test(next) ? ` ${next}` : "";
@@ -277,7 +327,7 @@ export type IntentMatch = { key: QuestionKey; params: AskParams; score: number; 
  * own) are given. Empty when the words name no question.
  */
 export function matchIntent(text: string, allowed: readonly QuestionKey[] = QUESTION_KEYS): IntentMatch[] {
-  const words = wordsOf(text.slice(0, 200));
+  const words = plainWords(text.slice(0, 200));
   if (!words.length) return [];
   const concepts = conceptsIn(words);
   const raw: AskParams = { cls: classIn(words), when: whenIn(words), amount: amountIn(text) };
@@ -304,7 +354,7 @@ export function looksLikeQuestion(text: string) {
  * else the person's own ready-made questions in order.
  */
 export function closestQuestions(text: string, allowed: readonly QuestionKey[], fallback: readonly QuestionKey[] = allowed, take = 3): QuestionKey[] {
-  const words = wordsOf(text.slice(0, 200));
+  const words = plainWords(text.slice(0, 200));
   const found = conceptsIn(words);
   const touches: Record<QuestionKey, Concept[]> = {
     "absent-today": ["absent", "attendance"], "absent-streak": ["absent", "streak"], "below-attendance": ["attendance", "low"], "not-marked": ["attendance", "notTaken"],

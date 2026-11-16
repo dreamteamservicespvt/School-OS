@@ -10,6 +10,7 @@
 // - When the words decide nothing, the model's own judgement from the same
 //   call that picks the tools is used (nextLanguage's `model` input).
 // No database and no server code: the panel and the tests use it as is.
+import { plainWords, wordsOf } from "../ask/questions";
 
 export const ASSISTANT_LANGS = ["en", "te", "hi"] as const;
 export type AssistantLang = (typeof ASSISTANT_LANGS)[number];
@@ -27,6 +28,8 @@ const TELUGU_WORDS = new Set([
   "chesi", "cheyyi", "cheyandi", "cheyali", "cheyyandi", "baaki", "bakaayi", "katti", "kattaru", "kattaledu", "intiki", "matladu", "matladandi",
   "telugulo", "inglishlo", "englishlo", "lo", "ki", "ni", "nu", "kuda", "kooda", "inka", "mari", "ante", "avunu", "kaadu", "sare", "chala",
   "naa", "emaina", "emanna", "unnaya", "unnayi", "rojulu", "varam", "nela", "sankhya", "hajaru", "gairhajaru", "selavu", "fee", // "fee" alone never decides: see below
+  "unna", "unnavallu", "mandi", "ivvu", "ivvandi", "evaridi", "takkuva", "thakkuva", "kattani", "kattaledu", "vachina", "vachindi", "ayina", "ayyina",
+  "ayyindi", "ayindi", "aindi", "teesukoledu", "rani", "raaledu", "vaaram", "poyina", "ninnati", "ivala", "namaskaram", "dhanyavadalu", "chupinchandi",
 ]);
 
 /** Romanised Hindi words (Latin letters). */
@@ -96,8 +99,12 @@ export type LanguageState = {
   pending: { lang: AssistantLang; count: number } | null;
 };
 
-/** Messages in a row in a new language before the conversation switches. */
-export const SWITCH_AFTER = 2;
+/**
+ * Messages in a row in a new language before the conversation switches. Owner, 16 Nov 2026: the
+ * assistant talks the way the person talks, so one clear message in another language switches at once
+ * (it was 2, and a Telugu question in an English conversation got an English answer).
+ */
+export const SWITCH_AFTER = 1;
 
 /**
  * The conversation's language after one more message.
@@ -105,7 +112,7 @@ export const SWITCH_AFTER = 2;
  *   language, the model's judgement, the language chosen before the first
  *   voice message, else the person's screen language).
  * - An explicit request switches at once.
- * - Otherwise it changes only after SWITCH_AFTER messages in a row in the new language.
+ * - Otherwise it changes after SWITCH_AFTER messages in a row in the new language (one: at once).
  * - A message that decides nothing (a number, a name, "ok") changes nothing.
  * `model` is the model's own judgement of this message (same call, no extra cost); it is used only when the
  * words were Latin with no romanised hint, where the model can recognise Telugu or Hindi the word list missed.
@@ -124,6 +131,22 @@ export function nextLanguage(state: LanguageState | null, said: string, opts: { 
   const n = state.pending?.lang === detected ? state.pending.count + 1 : 1;
   if (n >= SWITCH_AFTER) return { lang: detected, pending: null, detected, switched: true };
   return { lang: state.lang, pending: { lang: detected, count: n }, detected, switched: false };
+}
+
+/**
+ * How a Telugu speaker talks, so the reply talks the same way (owner, 16 Nov 2026):
+ * - "mixed": Telugu with English words, the everyday speech of educated Telugu speakers
+ *   ("ఈరోజు absent ఎవరు?", "ఈరోజు ఆబ్సెంట్ స్టూడెంట్స్", "ee roju absent evaru?"). The default.
+ * - "pure": only Telugu words in Telugu letters ("ఈ రోజు గైర్హాజరు ఎవరు?"): the reply stays in plain Telugu too.
+ */
+export type TeluguStyle = "mixed" | "pure";
+export function teluguStyle(text: string): TeluguStyle {
+  const t = String(text ?? "").slice(0, 500);
+  if (count(TELUGU, t) < 2) return "mixed";
+  if (/[A-Za-z]{2,}/.test(t)) return "mixed";
+  const words = wordsOf(t);
+  if (words.some((w) => plainWords(w)[0] !== w)) return "mixed";
+  return words.length >= 2 ? "pure" : "mixed";
 }
 
 /**

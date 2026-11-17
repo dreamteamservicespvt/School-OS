@@ -104,8 +104,31 @@ const INTERACTIONS_REVISION = "2026-05-20";
 /** Answers Gemini gives for a request it will not answer (prompt or answer blocked). */
 const BLOCKED = /^(SAFETY|RECITATION|BLOCKLIST|PROHIBITED_CONTENT|SPII|IMAGE_SAFETY|IMAGE_PROHIBITED_CONTENT|LANGUAGE)$/;
 
-type GeminiFail = { failed: AiFailure; status: number; message: string };
+/** `retryMs` and `quota` come from Google's error details (RetryInfo, QuotaFailure) when it gives them. */
+type GeminiFail = { failed: AiFailure; status: number; message: string; retryMs?: number | null; quota?: string[] };
 type GeminiOk = { json: Record<string, unknown> };
+
+/** Google's error text without its help links, so the part that says WHICH limit ran out fits the log line
+ *  (live 17 Nov: the 429 text was cut at "Quota exceeded for metric: generativelangua"). */
+const tidyGoogle = (m: string) => m.replace(/[^.\n]*?\bhead to:\s*https?:\/\/\S+/gi, " ").replace(/https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim();
+
+/** Google's machine-readable error details: how long to wait (RetryInfo) and which quota ran out (QuotaFailure ids,
+ *  e.g. "GenerateRequestsPerDayPerProjectPerModel-FreeTier"). Ids and seconds only. */
+function detailsOf(details: unknown): { retryMs: number | null; quota: string[] } {
+  let retryMs: number | null = null;
+  const quota: string[] = [];
+  for (const d of Array.isArray(details) ? details : []) {
+    const x = (d ?? {}) as { retryDelay?: unknown; violations?: unknown };
+    const delay = /^(\d+(?:\.\d+)?)s$/.exec(String(x.retryDelay ?? "").trim());
+    if (delay) retryMs = Math.round(Number(delay[1]) * 1000);
+    for (const v of Array.isArray(x.violations) ? x.violations : []) {
+      const y = (v ?? {}) as { quotaId?: unknown; quotaMetric?: unknown };
+      const id = String(y.quotaId ?? y.quotaMetric ?? "").slice(0, 100);
+      if (id && quota.length < 4 && !quota.includes(id)) quota.push(id);
+    }
+  }
+  return { retryMs, quota };
+}
 
 /** The request's time limit ran out (or it was stopped). */
 const aborted = (e: unknown, signal: AbortSignal) => signal.aborted || /^(TimeoutError|AbortError)$/.test(String((e as { name?: unknown } | null)?.name ?? ""));
@@ -124,28 +147,55 @@ async function geminiCall(url: string, apiKey: string, body: unknown, signal: Ab
     if (res.ok) return { failed: "unreadable", status: res.status, message: "" };
   }
   if (res.ok) return { json };
-  const err = (json.error ?? {}) as { message?: unknown; status?: unknown };
-  const message = `${String(err.status ?? "")} ${String(err.message ?? "")}`.slice(0, 300);
+  const err = (json.error ?? {}) as { message?: unknown; status?: unknown; details?: unknown };
+  const message = `${String(err.status ?? "")} ${tidyGoogle(String(err.message ?? ""))}`.slice(0, 400);
   const failed: AiFailure =
     res.status === 401 || res.status === 403 || (res.status === 400 && /API[_ ]KEY|api key/i.test(message)) ? "key-refused"
     : res.status === 429 ? "rate-limited"
     : res.status === 408 || res.status === 504 ? "timeout"
     : "service-error";
-  return { failed, status: res.status, message };
+  return { failed, status: res.status, message, ...detailsOf(err.details) };
 }
 
 const isFail = (r: GeminiOk | GeminiFail): r is GeminiFail => "failed" in r;
 /** Safe diagnostics for the server log (live AI failures were invisible, 17 Nov): the model, the HTTP status, the
  *  short code and Google's own error text. Never the request, the answer, the key or anyone's details. */
 const warnFail = (what: string, model: string, r: GeminiFail, label?: string) =>
-  console.warn(`[ai] ${what}`, { task: label, model, httpStatus: r.status, code: r.failed, google: r.message });
+  console.warn(`[ai] ${what}`, { task: label, model, httpStatus: r.status, code: r.failed, google: r.message, ...(r.quota?.length ? { quota: r.quota } : {}), ...(r.retryMs ? { retryAfterS: Math.round(r.retryMs / 1000) } : {}) });
 const warnStage = (stage: string, model: string, label?: string, more: Record<string, unknown> = {}) =>
   console.warn("[ai] gemini answer not used", { task: label, model, stage, ...more });
 /** Zod issue paths and codes only ("reply: invalid_type"), never the values. */
 export const zodIssuePaths = (e: z.ZodError) => e.issues.slice(0, 10).map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.code}`);
 /** The first model cannot answer (not offered, out of free requests, busy, a request it will not take): worth one try
  *  on the fallback model. Never for a key problem: the same key would be refused again. */
-const tryFallback = (f: GeminiFail) => f.failed !== "key-refused" && !/API[_ ]KEY/i.test(f.message) && (f.status === 400 || f.status === 404 || f.status === 429 || f.status >= 500);
+const tryFallback = (f: GeminiFail) => f.failed !== "key-refused" && !/API[_ ]KEY/i.test(f.message) && (f.failed === "timeout" || f.status === 400 || f.status === 404 || f.status === 429 || f.status >= 500);
+
+/** With a fallback model, the first model gets this share of the time limit, never all of it: a model that hangs
+ *  under "high demand" must leave the fallback time to answer (live 17 Nov: a 20.8 s wait, then no AI reply). */
+export const FIRST_MODEL_SHARE = 0.6;
+/** The fallback is not started with less time than this left. */
+const FALLBACK_MIN_MS = 1_000;
+
+// Models that just said they are busy or out of requests, and until when (this server copy only). Meanwhile the
+// next request goes straight to the fallback model, so a question's second request (the reply) does not wait
+// for the same refusal again (live 17 Nov: gemini-3.8-flash 503 "high demand" and 429 "quota exceeded").
+const busyUntil = new Map<string, number>();
+/** How long a model rests after this failure (0: not at all). Google's own retry time for a quota, within 10 s to 10 min. */
+function restMs(f: GeminiFail): number {
+  if (f.failed === "rate-limited") return f.quota?.some((q) => /PerDay/i.test(q)) ? 600_000 : Math.min(Math.max(f.retryMs ?? 60_000, 10_000), 600_000);
+  if (f.status === 404) return 600_000;
+  if (f.failed === "timeout" || f.status >= 500) return 30_000;
+  return 0;
+}
+function rest(model: string, f: GeminiFail, label?: string) {
+  const ms = restMs(f);
+  if (!ms) return;
+  busyUntil.set(model, Date.now() + ms);
+  console.warn("[ai] gemini model resting", { task: label, model, seconds: Math.round(ms / 1000) });
+}
+const resting = (model: string) => (busyUntil.get(model) ?? 0) > Date.now();
+/** For tests: forget every resting model. */
+export function forgetBusyModels() { busyUntil.clear(); }
 /** Thinking off, else the low level, else the model's own default: newer models refuse a 0 budget and not every model
  *  knows every level (live 17 Nov: every Gemini text answer failed). */
 const THINKING: (Record<string, unknown> | null)[] = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
@@ -173,13 +223,16 @@ function parseJson(text: string): unknown {
  * the task's zod schema as JSON Schema, and the answer is parsed with the same
  * schema. Thinking is off (thinkingBudget 0) where the model allows it, so a short
  * answer is never cut by thinking tokens. When the first model cannot answer, the
- * fallback model (AI_FALLBACK_MODEL) is tried once, inside the same time limit.
+ * fallback model (AI_FALLBACK_MODEL) is tried once, inside the same time limit:
+ * the first model gets FIRST_MODEL_SHARE of it, the fallback the rest. A first
+ * model that is resting (busy or out of requests a moment ago) is skipped.
  */
 export function geminiProvider(apiKey: string, fallbackModel: string | null = null): AiProvider {
   return {
     name: "gemini",
     async ask(req) {
-      const signal = AbortSignal.timeout(req.timeoutMs);
+      const deadline = Date.now() + req.timeoutMs;
+      const fallback = fallbackModel && fallbackModel !== req.model ? fallbackModel : null;
       const parts = [
         ...req.images.map((img) => ({ inlineData: { mimeType: img.mediaType, data: img.data } })),
         { text: req.text },
@@ -194,7 +247,8 @@ export function geminiProvider(apiKey: string, fallbackModel: string | null = nu
         contents: [{ role: "user", parts }],
         generationConfig: { maxOutputTokens: req.maxTokens, responseMimeType: "application/json", responseJsonSchema: schema, ...(thinking ? { thinkingConfig: thinking } : {}) },
       });
-      const once = async (model: string) => {
+      const once = async (model: string, ms: number) => {
+        const signal = AbortSignal.timeout(Math.max(1, ms));
         const url = `${GEMINI}/models/${encodeURIComponent(model)}:generateContent`;
         let r = await geminiCall(url, apiKey, bodyFor(THINKING[0]), signal);
         // A model that refuses a thinking setting is asked with the next one down the ladder.
@@ -205,11 +259,20 @@ export function geminiProvider(apiKey: string, fallbackModel: string | null = nu
         return r;
       };
       let model = req.model;
-      let r = await once(model);
-      if (isFail(r)) warnFail("gemini failed", model, r, req.label);
-      if (isFail(r) && fallbackModel && fallbackModel !== model && tryFallback(r)) {
-        model = fallbackModel; r = await once(model);
-        if (isFail(r)) warnFail("gemini fallback failed", model, r, req.label);
+      let r: GeminiOk | GeminiFail;
+      if (fallback && resting(model) && !resting(fallback)) {
+        // Busy a moment ago: straight to the fallback model, with the whole time limit.
+        model = fallback;
+        r = await once(model, req.timeoutMs);
+        if (isFail(r)) { warnFail("gemini fallback failed", model, r, req.label); rest(model, r, req.label); }
+      } else {
+        r = await once(model, fallback ? Math.round(req.timeoutMs * FIRST_MODEL_SHARE) : req.timeoutMs);
+        if (isFail(r)) { warnFail("gemini failed", model, r, req.label); rest(model, r, req.label); }
+        const left = deadline - Date.now();
+        if (isFail(r) && fallback && tryFallback(r) && left >= FALLBACK_MIN_MS) {
+          model = fallback; r = await once(model, left);
+          if (isFail(r)) { warnFail("gemini fallback failed", model, r, req.label); rest(model, r, req.label); }
+        }
       }
       if (isFail(r)) return { outcome: "failed", error: r.failed, usage: NO_USAGE, model };
 

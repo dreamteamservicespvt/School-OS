@@ -43,7 +43,11 @@ import { words, type WordKey } from "./words";
 import type { ReplyFeel } from "./mascot-state";
 import { cleanDelivery, deliveryFor } from "./voice";
 
-export type StoredTurn = { said: string; tools: { tool: ToolName; args: ToolArgs }[]; action: string | null; reply: string; at: string };
+/** The model answered but its words were not shown (a number not in the records, the wrong language, no line):
+ *  the code's own sentence was. Logged without the words (live 17 Nov: these replies were invisible in the log). */
+const notUsed = (stage: string, why: Record<string, unknown>) => console.warn("[ai] assistant answer not used", { stage, ...why });
+
+export type StoredTurn ={ said: string; tools: { tool: ToolName; args: ToolArgs }[]; action: string | null; reply: string; at: string };
 export type TurnSource = { label: string; href: string; scope: string | null };
 
 export type TurnReply = {
@@ -301,7 +305,11 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
         if (r.ok) {
           const allowed = allowedNumbers([...results.map((x) => x.facts), ...results.map((x) => x.sentence), said, ...turns.slice(-2).map((t) => t.reply)], todayFor(clock.setup.timeZone, now));
           // Shown only when every number is in the records and it is in the conversation's language.
-          if (inventedNumbers(r.data.reply, allowed).length === 0 && inLanguage(r.data.reply, lang)) {
+          const invented = inventedNumbers(r.data.reply, allowed).length;
+          const sameLanguage = inLanguage(r.data.reply, lang);
+          if (!invented && !sameLanguage) notUsed("reply", { lang, wrongLanguage: true });
+          else if (invented) notUsed("reply", { lang, inventedNumbers: invented });
+          if (invented === 0 && sameLanguage) {
             reply = r.data.reply.trim();
             by = "ai";
             numberCheck = "passed";
@@ -329,6 +337,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     const text = (plan.text ?? "").trim();
     const fallback: WordKey = plan.kind === "clarify" ? "sayMore" : plan.kind === "chat" ? "hello" : "cantDo";
     const fits = Boolean(text) && inLanguage(text, lang) && inventedNumbers(text, allowedNumbers([said])).length === 0;
+    if (!fits) notUsed("planner text", { kind: plan.kind, lang, planLanguage: plan.language, empty: !text, wrongLanguage: Boolean(text) && !inLanguage(text, lang), inventedNumbers: text ? inventedNumbers(text, allowedNumbers([said])).length : 0 });
     reply = fits ? text : words(lang, fallback);
     by = fits ? "ai" : "rules";
     if (plan.kind === "cannot") feel = "sorry";

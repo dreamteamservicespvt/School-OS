@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as z from "zod/v4";
 import { aiKey, aiModel, aiService, aiSpeechKey, aiTtsVoice, fitModel } from "@/lib/ai/config";
-import { aiConnected, aiSpeechConnected, geminiProvider, geminiSpeaker, type AiRequest, type SpeechRequest } from "@/lib/ai/provider";
+import { aiConnected, aiSpeechConnected, FIRST_MODEL_SHARE, forgetBusyModels, geminiProvider, geminiSpeaker, type AiRequest, type SpeechRequest } from "@/lib/ai/provider";
 import { geminiJsonSchema } from "@/lib/ai/json-schema";
 import { estimatePaise, priceOf } from "@/lib/ai/cost";
 import { isWav, pcmOfWav, pcmSeconds, wavFromPcm } from "@/lib/ai/wav";
@@ -22,6 +22,8 @@ const KEY = "test-key-not-real";
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
+  forgetBusyModels();
 });
 
 /** A fake fetch: answers in turn, every call kept (URL, headers, body). */
@@ -250,6 +252,107 @@ describe("how a Gemini answer ends", () => {
     calls = fakeFetch(fail(502, "Bad gateway", "UNAVAILABLE"), answer({ reply: "ok", chips: [], feel: null }));
     expect(await geminiProvider(KEY, "gemini-3.1-flash-lite").ask(req())).toMatchObject({ outcome: "ok" });
     expect(calls).toHaveLength(2);
+  });
+
+  // Live 17 Nov 2026 (deploy 25): gemini-3.8-flash answered 503 "high demand" and 429 "quota exceeded"; one
+  // question waited 20.8 s and got no AI reply, another said "The AI service is not working right now".
+  const LITE = "gemini-3.1-flash-lite";
+  const ok = () => answer({ reply: "ok", chips: [], feel: null }, "STOP", { modelVersion: LITE });
+  const hang = (init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason)));
+  const quota = (retry = "41.2s", quotaId = "GenerateRequestsPerMinutePerProjectPerModel-FreeTier") => json({ error: {
+    code: 429, status: "RESOURCE_EXHAUSTED",
+    message: "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash\nPlease retry in 41.2s.",
+    details: [
+      { "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests", quotaId, quotaDimensions: { model: "gemini-3.8-flash" }, quotaValue: "20" }] },
+      { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: retry },
+    ],
+  } }, 429);
+  const modelsOf = (calls: { url: string }[]) => calls.map((c) => c.url.split("/models/")[1]?.split(":")[0]);
+
+  it("a first model that hangs leaves the fallback model time to answer, inside the same time limit", async () => {
+    const calls = fakeFetch(hang, ok());
+    const started = Date.now();
+    const r = await geminiProvider(KEY, LITE).ask(req({ timeoutMs: 3_000 }));
+    expect(r).toMatchObject({ outcome: "ok", model: LITE });
+    expect(modelsOf(calls)).toEqual(["gemini-3.8-flash", LITE]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(3_000 * FIRST_MODEL_SHARE - 20);
+    expect(Date.now() - started).toBeLessThan(3_000);
+  });
+
+  it("the fallback is not started with under a second left", async () => {
+    const calls = fakeFetch(hang, ok());
+    expect(await geminiProvider(KEY, LITE).ask(req({ timeoutMs: 400 }))).toMatchObject({ outcome: "failed", error: "timeout" });
+    expect(modelsOf(calls)).toEqual(["gemini-3.8-flash"]);
+  });
+
+  it("with no fallback model, the first model gets the whole time limit", async () => {
+    fakeFetch(hang);
+    const started = Date.now();
+    expect(await geminiProvider(KEY).ask(req({ timeoutMs: 150 }))).toMatchObject({ outcome: "failed", error: "timeout" });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(140);
+  });
+
+  it("a busy or out-of-quota model rests: the next request goes straight to the fallback, and back after the rest", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      let calls = fakeFetch(quota(), ok());
+      expect(await geminiProvider(KEY, LITE).ask(req())).toMatchObject({ outcome: "ok", model: LITE });
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash", LITE]);
+      // The reply of the same question (a new provider, as aiTask makes one per request): one call, to the fallback.
+      calls = fakeFetch(ok());
+      expect(await geminiProvider(KEY, LITE).ask(req())).toMatchObject({ outcome: "ok", model: LITE });
+      expect(modelsOf(calls)).toEqual([LITE]);
+      // Google's retry time (41 s) has passed: the first model is asked again.
+      vi.setSystemTime(Date.now() + 42_000);
+      calls = fakeFetch(answer({ reply: "ok", chips: [], feel: null }));
+      expect(await geminiProvider(KEY, LITE).ask(req())).toMatchObject({ outcome: "ok", model: "gemini-3.8-flash" });
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash"]);
+      // "High demand" (503) rests it 30 s.
+      calls = fakeFetch(fail(503, "This model is currently experiencing high demand.", "UNAVAILABLE"), ok(), ok());
+      await geminiProvider(KEY, LITE).ask(req());
+      await geminiProvider(KEY, LITE).ask(req());
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash", LITE, LITE]);
+      vi.setSystemTime(Date.now() + 31_000);
+      calls = fakeFetch(answer({ reply: "ok", chips: [], feel: null }));
+      await geminiProvider(KEY, LITE).ask(req());
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash"]);
+      // A day's quota used up: 10 minutes, whatever the retry time says.
+      calls = fakeFetch(quota("5s", "GenerateRequestsPerDayPerProjectPerModel-FreeTier"), ok());
+      await geminiProvider(KEY, LITE).ask(req());
+      vi.setSystemTime(Date.now() + 60_000);
+      calls = fakeFetch(ok());
+      await geminiProvider(KEY, LITE).ask(req());
+      expect(modelsOf(calls)).toEqual([LITE]);
+    } finally { warn.mockRestore(); }
+  });
+
+  it("when both models are resting, the first model is asked again (never no answer at all)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      let calls = fakeFetch(fail(503, "high demand", "UNAVAILABLE"), fail(503, "high demand", "UNAVAILABLE"));
+      expect(await geminiProvider(KEY, LITE).ask(req())).toMatchObject({ outcome: "failed", error: "service-error" });
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash", LITE]);
+      calls = fakeFetch(answer({ reply: "ok", chips: [], feel: null }));
+      expect(await geminiProvider(KEY, LITE).ask(req())).toMatchObject({ outcome: "ok" });
+      expect(modelsOf(calls)).toEqual(["gemini-3.8-flash"]);
+    } finally { warn.mockRestore(); }
+  });
+
+  it("a quota failure is logged with WHICH quota ran out and the retry time, without Google's help links", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      fakeFetch(quota(), fail(503, "high demand", "UNAVAILABLE"));
+      await geminiProvider(KEY, LITE).ask(req({ label: "ai-school-assistant · Assistant: understand the question" }));
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).toContain("GenerateRequestsPerMinutePerProjectPerModel-FreeTier");
+      expect(logged).toContain("generate_content_free_tier_requests, limit: 20, model: gemini-3.8-flash");
+      expect(logged).toContain("\"retryAfterS\":41");
+      expect(logged).toContain("gemini model resting");
+      expect(logged).not.toMatch(/https?:\/\//);
+      expect(logged).not.toContain(KEY);
+    } finally { warn.mockRestore(); }
   });
 
   it("logs why a call failed for the server log, never the question, the key or the answer's values", async () => {

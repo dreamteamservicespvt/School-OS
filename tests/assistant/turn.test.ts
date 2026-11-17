@@ -6,7 +6,7 @@
 // (add an enquiry) waits for "Yes" and then runs through the Enquiries form's
 // own rules; every request is an AI Call with a cost, every turn an Audit Log
 // entry without the words.
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
 import { useAiProvider, type AiProvider, type AiRequest } from "@/lib/ai";
 import { saveAssistant, setFeature } from "@/lib/settings/switches";
@@ -163,6 +163,27 @@ describe("talking, in the person's language, from the records", () => {
     expect(r.by).toBe("rules");
     expect(r.reply).toContain("3 students are absent");
     expect(r.reply).not.toContain("7");
+  });
+
+  it("'explain ... in Telugu' asks the model for Telugu and shows its Telugu line (live 17 Nov 2026: the stock greeting came instead)", async () => {
+    const line = "School OS లో attendance, fees, exams అన్నీ ఒకే చోట ఉంటాయి. ఏదైనా అడగండి, నేను చూపిస్తాను.";
+    const m = fakeModel([{ language: "te", kind: "chat", text: line }], []);
+    useAiProvider(m.provider);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const r = await say(await viewer(f.school.id, f.principal.id), "Explain me about the software how to use it in Telugu");
+      expect(r).toMatchObject({ ok: true, lang: "te", by: "ai", reply: line });
+      expect(m.planner()[0].text).toContain("Telugu (Telugu script)");
+      // A line the model wrote in English for a Telugu conversation is not shown, and the log says why (never the words).
+      const m2 = fakeModel([{ language: "te", kind: "chat", text: "I can help with attendance and fees." }], []);
+      useAiProvider(m2.provider);
+      const r2 = await say(await viewer(f.school.id, f.principal.id), "Explain me about the software how to use it in Telugu");
+      expect(r2).toMatchObject({ lang: "te", by: "rules" });
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).toContain("assistant answer not used");
+      expect(logged).toContain("\"wrongLanguage\":true");
+      expect(logged).not.toContain("I can help with attendance");
+    } finally { warn.mockRestore(); }
   });
 
   it("a record that says 'ignore your rules' can change nothing: the reply only has words", async () => {

@@ -51,10 +51,23 @@ const SWITCH_TO: { lang: AssistantLang; test: RegExp }[] = [
   { lang: "hi", test: /\b(speak|talk|reply|answer|continue)\s+(in\s+)?hindi\b|\bhindi\s*(mein|me|lo)\s*(bolo|boliye|baat|cheppu|cheppandi|batao)|हिंदी में|హిందీ\s*లో|హిందీలో/i },
 ];
 
+/**
+ * "Explain me about the software, how to use it, in Telugu": a request to ANSWER in that language, said at the end of
+ * the message after a word for saying or explaining. Live 17 Nov 2026: this owner question stayed English for the
+ * AI's own line while the conversation turned Telugu, so the line was dropped for the stock greeting.
+ * A school subject is not a request: "marks in Telugu", "who failed in Hindi".
+ */
+const ANSWER_IN = /\b(explain|describe|reply|answer|respond|speak|talk|write|say|tell|teach|continue)\b[^.?!]{0,120}?\bin\s+(telugu|hindi|english)\s*(please|pls)?\s*[.?!]*$/i;
+const SUBJECT_IN = /\b(marks?|scores?|scored|fail(ed|s|ing)?|pass(ed|es)?|exams?|tests?|subjects?|grades?|results?|weak|teachers?|teaches|period|periods|medium|paper)\s+in\s+(telugu|hindi|english)\b/i;
+const NAMED: Record<string, AssistantLang> = { telugu: "te", hindi: "hi", english: "en" };
+
 /** The language the person explicitly asked to switch to, or null. */
 export function explicitSwitch(text: string): AssistantLang | null {
   const t = text.slice(0, 300);
-  return SWITCH_TO.find((s) => s.test.test(t))?.lang ?? null;
+  const named = SWITCH_TO.find((s) => s.test.test(t))?.lang;
+  if (named) return named;
+  const m = ANSWER_IN.exec(t.trim());
+  return m && !SUBJECT_IN.test(t) ? NAMED[m[2].toLowerCase()] ?? null : null;
 }
 
 const TELUGU = /[ఀ-౿]/g;

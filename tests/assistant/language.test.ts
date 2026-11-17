@@ -41,6 +41,18 @@ describe("one message's language", () => {
     expect(explicitSwitch("english lo cheppu")).toBe("en");
     expect(explicitSwitch("who is absent")).toBeNull();
   });
+
+  it("hears 'explain ... in Telugu' at the end as a request to answer in Telugu, never a school subject (live 17 Nov 2026)", () => {
+    expect(explicitSwitch("Explain me about the software how to use it in Telugu")).toBe("te");
+    expect(explicitSwitch("Tell me today's fee collection in Hindi please")).toBe("hi");
+    expect(explicitSwitch("can you explain the attendance screen in English?")).toBe("en");
+    expect(explicitSwitch("Tell me who failed in Telugu")).toBeNull();
+    expect(explicitSwitch("Which students scored low marks in Hindi?")).toBeNull();
+    expect(explicitSwitch("Who teaches in Telugu medium")).toBeNull();
+    expect(explicitSwitch("in Telugu, who is absent today?")).toBeNull();
+    // It decides the conversation's language at once, before the AI is asked.
+    expect(nextLanguage({ lang: "en", pending: null }, "Explain me about the software how to use it in Telugu")).toMatchObject({ lang: "te", switched: true });
+  });
 });
 
 describe("the conversation's language", () => {

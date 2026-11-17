@@ -31,6 +31,8 @@ export type AiRequest = {
   effort: "low" | "medium" | "high";
   maxTokens: number;
   timeoutMs: number;
+  /** Which task asked ("feature · purpose"), for the server log only. */
+  label?: string;
 };
 
 /** What came back. Never the request's content: only the parsed answer, the token counts and a short error code. */
@@ -133,8 +135,21 @@ async function geminiCall(url: string, apiKey: string, body: unknown, signal: Ab
 }
 
 const isFail = (r: GeminiOk | GeminiFail): r is GeminiFail => "failed" in r;
-/** The first model cannot answer for this key (not offered, out of free requests, busy): worth one try on the fallback model. */
-const tryFallback = (f: GeminiFail) => f.status === 404 || f.status === 429 || f.status === 500 || f.status === 503 || (f.status === 400 && /model/i.test(f.message) && !/API[_ ]KEY/i.test(f.message));
+/** Safe diagnostics for the server log (live AI failures were invisible, 17 Nov): the model, the HTTP status, the
+ *  short code and Google's own error text. Never the request, the answer, the key or anyone's details. */
+const warnFail = (what: string, model: string, r: GeminiFail, label?: string) =>
+  console.warn(`[ai] ${what}`, { task: label, model, httpStatus: r.status, code: r.failed, google: r.message });
+const warnStage = (stage: string, model: string, label?: string, more: Record<string, unknown> = {}) =>
+  console.warn("[ai] gemini answer not used", { task: label, model, stage, ...more });
+/** Zod issue paths and codes only ("reply: invalid_type"), never the values. */
+export const zodIssuePaths = (e: z.ZodError) => e.issues.slice(0, 10).map((i) => `${i.path.map(String).join(".") || "(root)"}: ${i.code}`);
+/** The first model cannot answer (not offered, out of free requests, busy, a request it will not take): worth one try
+ *  on the fallback model. Never for a key problem: the same key would be refused again. */
+const tryFallback = (f: GeminiFail) => f.failed !== "key-refused" && !/API[_ ]KEY/i.test(f.message) && (f.status === 400 || f.status === 404 || f.status === 429 || f.status >= 500);
+/** Thinking off, else the low level, else the model's own default: newer models refuse a 0 budget and not every model
+ *  knows every level (live 17 Nov: every Gemini text answer failed). */
+const THINKING: (Record<string, unknown> | null)[] = [{ thinkingBudget: 0 }, { thinkingLevel: "low" }, null];
+const thinkingRefused = (f: GeminiFail) => f.status === 400 && /thinking|budget|level/i.test(f.message);
 
 const geminiUsage = (u: unknown): AiUsage => {
   const m = (u ?? {}) as Record<string, number | undefined>;
@@ -156,8 +171,8 @@ function parseJson(text: string): unknown {
 /**
  * Gemini (generateContent), with structured JSON output: the answer shape is
  * the task's zod schema as JSON Schema, and the answer is parsed with the same
- * schema. Thinking is off (thinkingBudget 0) so a short answer is never cut by
- * thinking tokens. When the first model cannot answer for this key, the
+ * schema. Thinking is off (thinkingBudget 0) where the model allows it, so a short
+ * answer is never cut by thinking tokens. When the first model cannot answer, the
  * fallback model (AI_FALLBACK_MODEL) is tried once, inside the same time limit.
  */
 export function geminiProvider(apiKey: string, fallbackModel: string | null = null): AiProvider {
@@ -170,38 +185,49 @@ export function geminiProvider(apiKey: string, fallbackModel: string | null = nu
         { text: req.text },
       ];
       let schema: Record<string, unknown>;
-      try { schema = geminiJsonSchema(req.schema); } catch { return { outcome: "failed", error: "unreadable", usage: NO_USAGE, model: req.model }; }
-      const bodyFor = (thinking: Record<string, unknown>) => ({
+      try { schema = geminiJsonSchema(req.schema); } catch (e) {
+        console.warn("[ai] gemini schema conversion failed", { task: req.label, model: req.model, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" });
+        return { outcome: "failed", error: "unreadable", usage: NO_USAGE, model: req.model };
+      }
+      const bodyFor = (thinking: Record<string, unknown> | null) => ({
         systemInstruction: { parts: [{ text: req.system }] },
         contents: [{ role: "user", parts }],
-        generationConfig: { maxOutputTokens: req.maxTokens, responseMimeType: "application/json", responseJsonSchema: schema, thinkingConfig: thinking },
+        generationConfig: { maxOutputTokens: req.maxTokens, responseMimeType: "application/json", responseJsonSchema: schema, ...(thinking ? { thinkingConfig: thinking } : {}) },
       });
       const once = async (model: string) => {
         const url = `${GEMINI}/models/${encodeURIComponent(model)}:generateContent`;
-        let r = await geminiCall(url, apiKey, bodyFor({ thinkingBudget: 0 }), signal);
-        // A model that cannot switch thinking off takes the smallest level instead.
-        if (isFail(r) && r.status === 400 && /thinking/i.test(r.message)) r = await geminiCall(url, apiKey, bodyFor({ thinkingLevel: "MINIMAL" }), signal);
+        let r = await geminiCall(url, apiKey, bodyFor(THINKING[0]), signal);
+        // A model that refuses a thinking setting is asked with the next one down the ladder.
+        for (let i = 1; i < THINKING.length && isFail(r) && thinkingRefused(r); i++) {
+          warnFail(`gemini refused thinking setting ${i}`, model, r, req.label);
+          r = await geminiCall(url, apiKey, bodyFor(THINKING[i]), signal);
+        }
         return r;
       };
       let model = req.model;
       let r = await once(model);
-      if (isFail(r) && fallbackModel && fallbackModel !== model && tryFallback(r)) { model = fallbackModel; r = await once(model); }
+      if (isFail(r)) warnFail("gemini failed", model, r, req.label);
+      if (isFail(r) && fallbackModel && fallbackModel !== model && tryFallback(r)) {
+        model = fallbackModel; r = await once(model);
+        if (isFail(r)) warnFail("gemini fallback failed", model, r, req.label);
+      }
       if (isFail(r)) return { outcome: "failed", error: r.failed, usage: NO_USAGE, model };
 
       const json = r.json;
       const usage = geminiUsage(json.usageMetadata);
       const answered = typeof json.modelVersion === "string" && json.modelVersion ? json.modelVersion : model;
       const blocked = (json.promptFeedback as { blockReason?: string } | undefined)?.blockReason;
-      if (blocked) return { outcome: "refused", usage, model: answered };
+      if (blocked) { warnStage("blocked", answered, req.label, { blockReason: String(blocked).slice(0, 60) }); return { outcome: "refused", usage, model: answered }; }
       const cand = (json.candidates as { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[] | undefined)?.[0];
-      if (!cand) return { outcome: "failed", error: "unreadable", usage, model: answered };
+      if (!cand) { warnStage("no-candidate", answered, req.label); return { outcome: "failed", error: "unreadable", usage, model: answered }; }
       const finish = cand.finishReason ?? "STOP";
-      if (BLOCKED.test(finish)) return { outcome: "refused", usage, model: answered };
-      if (finish === "MAX_TOKENS") return { outcome: "failed", error: "cut-short", usage, model: answered };
+      if (BLOCKED.test(finish)) { warnStage("finish-blocked", answered, req.label, { finishReason: finish.slice(0, 60) }); return { outcome: "refused", usage, model: answered }; }
+      if (finish === "MAX_TOKENS") { warnStage("cut-short", answered, req.label, { outputTokens: usage.outputTokens }); return { outcome: "failed", error: "cut-short", usage, model: answered }; }
       const text = (cand.content?.parts ?? []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
       const data = parseJson(text);
-      if (data === undefined) return { outcome: "failed", error: "unreadable", usage, model: answered };
+      if (data === undefined) { warnStage("not-json", answered, req.label, { finishReason: finish.slice(0, 60), textLength: text.length }); return { outcome: "failed", error: "unreadable", usage, model: answered }; }
       const parsed = req.schema.safeParse(data);
+      if (!parsed.success) warnStage("shape", answered, req.label, { zodIssuePaths: zodIssuePaths(parsed.error) });
       return parsed.success ? { outcome: "ok", data: parsed.data, usage, model: answered } : { outcome: "failed", error: "unreadable", usage, model: answered };
     },
   };

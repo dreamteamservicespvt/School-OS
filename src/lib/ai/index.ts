@@ -27,7 +27,7 @@ import { AI_OFF_WORDS, aiAllowed, aiOffReason, aiRolesOf, type AiFeatureKey, typ
 import { aiModel, aiPlatformDailyLimit, aiRupeesPerDollar, aiSpeechDailyLimit, aiTimeoutMs, aiTtsModel, fitModel } from "./config";
 import { NO_USAGE, estimatePaise } from "./cost";
 import { maskText, minimise, type DeclarableField } from "./minimise";
-import { aiConnected, currentProvider, currentSpeaker, type AiAnswer, type AiFailure, type AiImage, type SpeechAnswer } from "./provider";
+import { aiConnected, currentProvider, currentSpeaker, zodIssuePaths, type AiAnswer, type AiFailure, type AiImage, type SpeechAnswer } from "./provider";
 import type { Pcm } from "./wav";
 
 export { aiConnected, aiSpeechConnected, useAiProvider, useAiSpeaker, type AiProvider, type AiRequest, type AiAnswer, type AiImage, type AiSpeaker, type SpeechRequest, type SpeechAnswer } from "./provider";
@@ -146,14 +146,22 @@ export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new D
     const answer: AiAnswer = await gate.provider.ask({
       model, system: task.system, text: gate.text, images: task.images ?? [], schema: task.schema,
       effort: task.effort ?? "low", maxTokens: task.maxTokens ?? 4000, timeoutMs: Math.min(Math.max(aiTimeoutMs(), task.minTimeoutMs ?? 0), 120_000),
-    }).catch((): AiAnswer => ({ outcome: "failed", error: "unreadable", usage: NO_USAGE, model }));
+      label: `${task.feature} · ${task.purpose.slice(0, 80)}`,
+    }).catch((e): AiAnswer => {
+      console.warn("[ai] provider threw", { feature: task.feature, purpose: task.purpose.slice(0, 80), model, error: e instanceof Error ? `${e.name}: ${e.message.slice(0, 200)}` : "unknown" });
+      return { outcome: "failed", error: "unreadable", usage: NO_USAGE, model };
+    });
 
     // The answer must fit the shape asked for; anything else is a failure, never shown.
     let result: AiResult<T>;
+    let issues: string[] | undefined;
     if (answer.outcome === "ok") {
       const parsed = task.schema.safeParse(answer.data);
+      if (!parsed.success) issues = zodIssuePaths(parsed.error);
       result = parsed.success ? { ok: true, data: parsed.data, callId: gate.id } : no<T>("unreadable", gate.id);
     } else result = no<T>(answer.outcome === "refused" ? "refused" : answer.error, gate.id);
+    // Safe diagnostics (17 Nov): which task, model and outcome, and only the PATHS of a wrong shape. No content.
+    if (!result.ok) console.warn("[ai] task failed", { feature: task.feature, purpose: task.purpose.slice(0, 80), model: answer.model, outcome: answer.outcome, error: result.reason, zodIssuePaths: issues });
 
     const usage = answer.usage;
     await withSchool(ctx, (tx) => tx.aiCall.update({

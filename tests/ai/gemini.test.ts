@@ -220,10 +220,52 @@ describe("how a Gemini answer ends", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("a model that cannot switch thinking off is asked again with the smallest thinking level", async () => {
+  const thinkingOf = (c: { body: Record<string, unknown> }) => (c.body as { generationConfig: { thinkingConfig?: unknown } }).generationConfig.thinkingConfig;
+
+  it("a model that cannot switch thinking off is asked again with the low thinking level", async () => {
     const calls = fakeFetch(fail(400, "Budget 0 is invalid. This model only works in thinking mode."), answer({ reply: "ok", chips: [], feel: null }));
     expect(await geminiProvider(KEY).ask(req())).toMatchObject({ outcome: "ok" });
-    expect((calls[1].body as { generationConfig: { thinkingConfig: unknown } }).generationConfig.thinkingConfig).toEqual({ thinkingLevel: "MINIMAL" });
+    expect(calls.map(thinkingOf)).toEqual([{ thinkingBudget: 0 }, { thinkingLevel: "low" }]);
+  });
+
+  it("thinking ladder: budget 0, then low, then the model's own default (no thinkingConfig at all)", async () => {
+    const calls = fakeFetch(fail(400, "Budget 0 is invalid."), fail(400, "Unknown thinking level: low"), answer({ reply: "ok", chips: [], feel: null }));
+    expect(await geminiProvider(KEY).ask(req())).toMatchObject({ outcome: "ok" });
+    expect(calls.map(thinkingOf)).toEqual([{ thinkingBudget: 0 }, { thinkingLevel: "low" }, undefined]);
+    expect("thinkingConfig" in (calls[2].body as { generationConfig: object }).generationConfig).toBe(false);
+  });
+
+  it("a 400 that is not about thinking skips the ladder and goes to the fallback model", async () => {
+    const calls = fakeFetch(fail(400, "Invalid JSON payload received."), answer({ reply: "ok", chips: [], feel: null }, "STOP", { modelVersion: "gemini-3.1-flash-lite" }));
+    expect(await geminiProvider(KEY, "gemini-3.1-flash-lite").ask(req())).toMatchObject({ outcome: "ok", model: "gemini-3.1-flash-lite" });
+    expect(calls.map((c) => c.url.split("/models/")[1])).toEqual(["gemini-3.8-flash:generateContent", "gemini-3.1-flash-lite:generateContent"]);
+    expect(calls.map(thinkingOf)).toEqual([{ thinkingBudget: 0 }, { thinkingBudget: 0 }]);
+  });
+
+  it("when the whole ladder fails, the fallback model gets its own ladder; a 5xx goes to the fallback too", async () => {
+    let calls = fakeFetch(fail(400, "Budget 0 is invalid."), fail(400, "thinking level not supported"), fail(400, "thinking is required"), answer({ reply: "ok", chips: [], feel: null }));
+    expect(await geminiProvider(KEY, "gemini-3.1-flash-lite").ask(req())).toMatchObject({ outcome: "ok" });
+    expect(calls).toHaveLength(4);
+    expect(calls[3].url).toContain("/models/gemini-3.1-flash-lite:");
+    calls = fakeFetch(fail(502, "Bad gateway", "UNAVAILABLE"), answer({ reply: "ok", chips: [], feel: null }));
+    expect(await geminiProvider(KEY, "gemini-3.1-flash-lite").ask(req())).toMatchObject({ outcome: "ok" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("logs why a call failed for the server log, never the question, the key or the answer's values", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      fakeFetch(fail(400, "Budget 0 is invalid."), fail(400, "Unknown thinking level"), fail(400, "Request contains an invalid argument."));
+      await geminiProvider(KEY).ask(req({ text: "{\"said\":\"secret-question-words\"}", label: "ai-assistant · Assistant: write the reply" }));
+      fakeFetch(answer({ reply: "secret-answer-words".repeat(5), chips: [], feel: null }));
+      await geminiProvider(KEY).ask(req({ text: "{\"said\":\"secret-question-words\"}" }));
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).toContain("Request contains an invalid argument.");
+      expect(logged).toContain("ai-assistant · Assistant: write the reply");
+      expect(logged).toContain("reply: too_big");
+      expect(logged).not.toMatch(/secret-question-words|secret-answer-words/);
+      expect(logged).not.toContain(KEY);
+    } finally { warn.mockRestore(); }
   });
 });
 

@@ -156,6 +156,27 @@ async function refundNote(tx: Tx, f: ReportFilter, viewer: FeeViewer, collected:
   return `Collected is before refunds. ${plural(refunds.length, "refund")} of ${formatRupees(refunded)} paid back in this period, so net of refunds ${formatRupees(collected - refunded)}.`;
 }
 
+/**
+ * Collection details lists posted payments only. A cancelled payment keeps its receipt number (fee
+ * payments are never deleted), so the numbers in the list jump: 00002, 00004. Name the receipts of
+ * the period that are left out, with the day each was cancelled, so no receipt looks missing.
+ * Same filters and campus as the list.
+ */
+async function cancelledReceiptsNote(tx: Tx, ctx: SchoolContext, f: ReportFilter, viewer: FeeViewer) {
+  const gone = await payments(tx, f, viewer, { status: "CANCELLED" });
+  if (!gone.length) return undefined;
+  const receipts = await tx.receipt.findMany({ where: { paymentId: { in: gone.map((p) => p.id) } }, orderBy: { number: "asc" } });
+  if (!receipts.length) return undefined;
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  const tz = school?.timeZone ?? "Asia/Kolkata";
+  const cancelledAt = new Map(gone.map((p) => [p.id, p.cancelledAt]));
+  const list = receipts.map((r) => {
+    const at = cancelledAt.get(r.paymentId) ?? r.cancelledAt;
+    return at ? `${r.number} (cancelled ${formatDate(at, tz)})` : `${r.number} (cancelled)`;
+  });
+  return `Receipts not in this list: ${list.join(", ")}. A cancelled payment keeps its receipt number; the Cancelled payments report has who cancelled it and why.`;
+}
+
 export const FEE_REPORTS: ReportDef[] = [
   {
     key: "collection",
@@ -199,7 +220,7 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Collection details",
     about: "Every payment in the period with receipt number, student, heads, mode and collector.",
     filters: ["dates", "class", "head", "mode", "collector"],
-    async run(tx, _ctx, f, viewer) {
+    async run(tx, ctx, f, viewer) {
       const list = await payments(tx, f, viewer);
       const n = await names(tx, list.map((p) => p.studentId));
       const heads = await headNames(tx);
@@ -226,6 +247,7 @@ export const FEE_REPORTS: ReportDef[] = [
         ],
         rows,
         totals: { date: null, receipt: plural(rows.length, "payment"), amount: sum(rows, (r) => r.amount) },
+        note: await cancelledReceiptsNote(tx, ctx, f, viewer),
       };
     },
   },

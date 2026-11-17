@@ -102,6 +102,15 @@ export function words(lang: AssistantLang, key: WordKey, vars?: Vars): string {
   return fill(W[key][AT[lang]], vars);
 }
 
+/**
+ * A colon with nothing after it ("...చెప్పలేను: ." or "Still needed: ") comes
+ * from an empty list; the colon goes, the full stop stays (live test 17 Nov
+ * 2026). A colon followed by words or digits ("10:30", "absent: Aarav") stays.
+ */
+export function withoutEmptyList(text: string): string {
+  return text.replace(/\s*:[ \t]*(?=[.।!?](?:\s|$)|$)/g, "");
+}
+
 /** Every key, for the test that each language has every sentence and the same blanks. */
 export const WORD_KEYS = Object.keys(W) as WordKey[];
 export const rawWords = (key: WordKey) => W[key];

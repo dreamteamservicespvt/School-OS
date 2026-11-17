@@ -20,7 +20,7 @@ import { ASSISTANT_FEATURE, FRESH_AFTER_MS, KEEP_TURNS } from "./config";
 import { assistantOff } from "./conversation";
 import { isAssistantLang, type AssistantLang } from "./language";
 import { mascotCharacterOf, type MascotCharacter, type ReplyFeel } from "./mascot-state";
-import { spokenText } from "./speech";
+import { schoolToday, spokenText } from "./speech";
 import { styleFor } from "./voice";
 
 /** The most a spoken reply may hold (letters). A reply is at most 700; most are far shorter. */
@@ -46,12 +46,6 @@ export type SpeakInput = { conversationId?: unknown; text?: unknown; lang?: unkn
 export type SpeakResult = { status: 200; wav: Uint8Array } | { status: 204 | 400 | 403; problem?: string; why?: string };
 
 type Who = Viewer & { support?: unknown; schoolStatus: string; school: { timeZone?: string; assistantCharacter?: MascotCharacter } };
-
-/** The school's today as a local date, for "today" / "yesterday" in the spoken words. */
-function schoolToday(timeZone: string, now: Date): Date {
-  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now).split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 
 export async function speakReply(who: Who, input: SpeakInput | null, now = new Date()): Promise<SpeakResult> {
   if (who.support) return { status: 403, problem: "DREAM TEAM support access does not use the school's assistant." };

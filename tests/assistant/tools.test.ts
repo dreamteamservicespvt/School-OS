@@ -117,6 +117,22 @@ describe("answers are the person's own list", () => {
     expect(r.sentence).not.toMatch(/[a-z]{4,} students/i);
   });
 
+  // Live test 17 Nov 2026: "attendance not taken" came back as "...చెప్పలేను: ." (an empty name list after a colon).
+  it("an empty list never leaves a colon at the end, in English, Telugu and Hindi", async () => {
+    const principal = await viewer(a.school.id, a.principal.id);
+    // Yesterday (08-10-2026) no class took attendance.
+    expect((await run(principal, "absent_students", { when: "yesterday" })).sentence).toBe("Attendance for 08-10-2026 has not been taken yet, so nobody can be counted absent.");
+    expect((await run(principal, "absent_students", { when: "yesterday" }, "te")).sentence).toBe("08-10-2026 attendance ఇంకా తీసుకోలేదు, అందుకే ఎవరు absent అనేది ఇప్పుడే చెప్పలేను.");
+    expect((await run(principal, "absent_students", { when: "yesterday" }, "hi")).sentence).toBe("08-10-2026 की उपस्थिति अभी नहीं ली गई है, इसलिए किसी को अनुपस्थित नहीं गिना जा सकता।");
+    // Every list the Principal may ask, in every language: no ":" right before the end of a sentence.
+    for (const lang of ["en", "te", "hi"] as const) {
+      for (const tool of offeredTools(principal)) {
+        const r = await run(principal, tool, tool === "student_details" ? { name: "Nobody Such" } : {}, lang);
+        expect(r.sentence, `${tool} in ${lang}`).not.toMatch(/:\s*([.।!?](\s|$)|$)/);
+      }
+    }
+  });
+
   it("a student's details and attendance, within the person's reach", async () => {
     const principal = await viewer(a.school.id, a.principal.id);
     // Two students share the name (5 A and 5 B): the assistant asks which one, never picks.

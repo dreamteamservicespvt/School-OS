@@ -341,6 +341,23 @@ describe("talking without the AI service, the way the person talks", () => {
     expect(r.sources[0].href).toMatch(/^\/attendance-management\//);
   });
 
+  // Live test 17 Nov 2026 (Principal, Telugu): "17-11-2026 attendance ఇంకా తీసుకోలేదు, ... చెప్పలేను: ."
+  it("the written reply says today and yesterday, never their dates, and an empty list leaves no colon", async () => {
+    const principal = await viewer(f.school.id, f.principal.id);
+    const today = await say(principal, "Who is absent today?");
+    expect(today.reply).toMatch(/^3 students are absent today: /);
+    expect(today.reply).not.toContain("09-10-2026");
+    // Yesterday no class took attendance.
+    const en = await say(principal, "Who was absent yesterday?");
+    expect(en.reply).toBe("Attendance for yesterday has not been taken yet, so nobody can be counted absent.");
+    const te = await say(principal, "నిన్న absent ఎవరు?");
+    expect(te).toMatchObject({ lang: "te", by: "rules" });
+    expect(te.reply).toBe("నిన్న attendance ఇంకా తీసుకోలేదు, అందుకే ఎవరు absent అనేది ఇప్పుడే చెప్పలేను.");
+    // What is kept (and later said aloud) is the same reply.
+    const kept = await withSchool(principal.ctx, (tx) => tx.assistantConversation.findFirst({ where: { id: te.conversationId! }, select: { turns: true } }));
+    expect((kept!.turns as { reply: string }[]).at(-1)!.reply).toBe(te.reply);
+  });
+
   it("approvals are answered from the word table, in the person's language", async () => {
     const r = await say(await viewer(f.school.id, f.principal.id), "నా approvals ఏమైనా pending ఉన్నాయా?");
     expect(r).toMatchObject({ ok: true, lang: "te", by: "rules" });

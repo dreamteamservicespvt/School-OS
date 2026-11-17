@@ -24,6 +24,53 @@ const RUPEES: Record<AssistantLang, string> = { en: "rupees", te: "రూపా�
 const DATE = /\b(\d{2})-(\d{2})-(\d{4})\b/g;
 const ymd = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
+/** The school's today as a local date (its day in the school's time zone), for "today" / "yesterday". */
+export function schoolToday(timeZone: string, now: Date = new Date()): Date {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Other ways the replies already write the day ("ఈ రోజు" on the plain Telugu screens), so "today (today)" is said once. */
+const TODAY_FORMS: Record<AssistantLang, string[]> = { en: ["today"], te: ["ఈరోజు", "ఈ రోజు"], hi: ["आज"] };
+const YESTERDAY_FORMS: Record<AssistantLang, string[]> = { en: ["yesterday"], te: ["నిన్న"], hi: ["कल"] };
+/**
+ * A date with the little word for "on" around it, which "today" does not need:
+ * "on 17-11-2026", "17-11-2026 న" / "17-11-2026న", "17-11-2026 को".
+ * Not "నాటికి" or "నుంచి" (a Telugu letter follows the న).
+ */
+const DATE_ON = /(\bon\s+)?\b(\d{2})-(\d{2})-(\d{4})\b(\s?(?:న|को)(?![ऀ-ॿఀ-౿]))?/g;
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The written reply with today's date as "today" and yesterday's as
+ * "yesterday" in the conversation's language (live test 17 Nov 2026:
+ * "17-11-2026 attendance ఇంకా తీసుకోలేదు" should say "ఈరోజు"). Every other
+ * date stays exactly as it is, and so does a date range in brackets
+ * ("this week (16-11-2026 to 17-11-2026)"): there the exact dates are the point.
+ * `today` is the school's day as a local date (schoolToday()).
+ */
+export function writtenText(reply: string, lang: AssistantLang, today: Date): string {
+  const text = String(reply ?? "");
+  const yest = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  // Brackets that hold a range (two dates or more) keep their dates.
+  const kept = [...text.matchAll(/\([^()]*\)/g)].filter((m) => (m[0].match(DATE) ?? []).length >= 2).map((m) => [m.index!, m.index! + m[0].length]);
+  let s = text.replace(DATE_ON, (all: string, _on: string | undefined, dd: string, mm: string, yyyy: string, _post: string | undefined, at: number) => {
+    if (kept.some(([from, to]) => at >= from && at < to)) return all;
+    const d = Number(dd), m = Number(mm), y = Number(yyyy);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return all;
+    const n = y * 10000 + m * 100 + d;
+    const word = n === ymd(today) ? TODAY[lang] : n === ymd(yest) ? YESTERDAY[lang] : null;
+    if (!word) return all;
+    // At the start of a sentence: "Today ...".
+    return lang === "en" && (at === 0 || /[.!?]\s+$/.test(text.slice(0, at))) ? word[0].toUpperCase() + word.slice(1) : word;
+  });
+  // "today (17-11-2026)" became "today (today)": once is enough.
+  for (const [forms, word] of [[TODAY_FORMS[lang], TODAY[lang]], [YESTERDAY_FORMS[lang], YESTERDAY[lang]]] as const) {
+    s = s.replace(new RegExp(`(${forms.map(escape).join("|")})\\s*\\(${escape(word)}\\)`, "gi"), "$1");
+  }
+  return s;
+}
+
 /** The reply as it should be spoken. `today` is the device's date (the school's day for its staff). */
 export function spokenText(reply: string, lang: AssistantLang, today: Date = new Date()): string {
   const yest = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);

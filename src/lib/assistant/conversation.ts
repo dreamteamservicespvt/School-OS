@@ -41,6 +41,7 @@ import { answerWords, isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, t
 import { cardOf, ENQUIRY_FORM, mayAddEnquiry, newPrepared, planEnquiry, type Confirmed, type ConfirmCard, type EnquiryPlan, type Prepared } from "./enquiry";
 import { words, type WordKey } from "./words";
 import type { ReplyFeel } from "./mascot-state";
+import { cleanDelivery, deliveryFor } from "./voice";
 
 export type StoredTurn = { said: string; tools: { tool: ToolName; args: ToolArgs }[]; action: string | null; reply: string; at: string };
 export type TurnSource = { label: string; href: string; scope: string | null };
@@ -60,6 +61,8 @@ export type TurnReply = {
   card: ConfirmCard | null;
   /** How it ended, for the mascot's face: "done" after a confirmed change, "sorry" on a refusal or a problem. */
   feel?: ReplyFeel;
+  /** How the voice says it, in a few plain words ("warm and pleased", "gentle and concerned"): voice.ts. */
+  delivery?: string;
 };
 
 export type TurnInput = {
@@ -160,6 +163,10 @@ function callsOf(plan: Plan, offered: ToolName[]): { tool: ToolName; args: ToolA
   return out;
 }
 
+/** Lists where something found is a worry for the school (a child absent, fees unpaid): the voice is gentle and concerned. */
+const CONCERN_TOOLS: readonly string[] = ["absent_students", "absent_streak", "below_attendance", "attendance_not_taken", "staff_absent", "staff_late", "fee_defaulters", "below_pass_mark"];
+const worrying = (results: ToolResult[]) => results.some((r) => r.ok && r.good !== true && CONCERN_TOOLS.includes(r.tool) && (r.total ?? 0) > 0);
+
 const sourcesOf = (results: ToolResult[]): TurnSource[] =>
   results.filter((r) => r.link).map((r) => ({ label: r.link!.label, href: r.link!.href, scope: r.scope }))
     .filter((s, i, all) => all.findIndex((x) => x.href === s.href) === i);
@@ -253,15 +260,17 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let action: string | null = null;
   let numberCheck: "passed" | "replaced" | null = null;
   let feel: ReplyFeel = "answer";
+  let delivery: string | null = null;
 
   if (special === "hello" || special === "thanks") {
     reply = words(lang, special);
     chips = chipsFor();
     feel = "happy";
+    delivery = deliveryFor(feel, special === "hello" ? "greeting" : "thanks");
   } else if (special === "enquiry") {
     action = "add an enquiry";
     if (!mayAddEnquiry(who)) { reply = words(lang, "notYourRole"); feel = "sorry"; }
-    else { reply = words(lang, "enquiryHelp"); extraSources.push({ label: words(lang, "linkEnquiryForm"), href: ENQUIRY_FORM, scope: null }); }
+    else { reply = words(lang, "enquiryHelp"); delivery = deliveryFor(feel, "instructions"); extraSources.push({ label: words(lang, "linkEnquiryForm"), href: ENQUIRY_FORM, scope: null }); }
   } else if (!plan) {
     reply = words(lang, aiProblem === "daily-limit" ? "limit" : aiProblem && aiProblem !== "not-connected" ? "aiDown" : "notUnderstood");
     chips = chipsFor();
@@ -281,6 +290,8 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
       reply = plain;
       // Good news (nobody absent, nothing waiting, a birthday today): the mascot and the voice are glad.
       if (results.length && results.every((r) => r.ok && r.good)) feel = "happy";
+      // A worry (children absent, fees unpaid): the voice is gentle and concerned; the mascot stays calm.
+      else if (worrying(results)) delivery = deliveryFor(feel, "concern");
       // 5. Reply in the person's language from the records, when the AI service is there.
       if (aiConnected() && aiProblem !== "daily-limit") {
         const r = await aiTask(who.ctx, {
@@ -294,6 +305,9 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
             reply = r.data.reply.trim();
             by = "ai";
             numberCheck = "passed";
+            // The writer's own reading of the records' feeling; a change is never "done" here (nothing was changed).
+            if (r.data.feel === "happy" || r.data.feel === "sorry" || r.data.feel === "answer") feel = r.data.feel;
+            delivery = cleanDelivery(r.data.delivery) ?? delivery;
             chips = r.data.chips.filter((c) => inventedNumbers(c, allowed).length === 0 && inLanguage(c, lang)).slice(0, 3);
           } else numberCheck = "replaced";
         }
@@ -308,6 +322,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
       prepared = newPrepared(p, now);
       card = cardOf(prepared, lang);
       reply = card.ready ? card.title : words(lang, "missing", { fields: card.missing.join(", ") });
+      delivery = deliveryFor(feel, card.ready ? "question" : "instructions");
     }
   } else {
     // clarify, chat, cannot: the planner's own short line, only when it is in the conversation's language and holds no number the person did not say.
@@ -318,6 +333,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     by = fits ? "ai" : "rules";
     if (plan.kind === "cannot") feel = "sorry";
     if (plan.kind === "chat") feel = "happy";
+    delivery = plan.kind === "clarify" ? deliveryFor(feel, "question") : plan.kind === "chat" ? deliveryFor(feel, "greeting") : null;
     if (plan.kind !== "clarify") chips = chipsFor();
   }
 
@@ -333,7 +349,7 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     return id;
   });
 
-  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: [...sourcesOf(results), ...extraSources], chips, card, feel };
+  return { ok: true, conversationId, lang, switched: after.switched, reply, by, sources: [...sourcesOf(results), ...extraSources], chips, card, feel, delivery: delivery ?? deliveryFor(feel) };
 }
 
 /* ---------- The card: "Yes" or "No" ---------- */
@@ -376,5 +392,5 @@ export async function answerCard(who: Viewer, input: { conversationId: string; c
     await writeAudit(tx, who.ctx, { action: "answered an assistant card", recordType: "Assistant Conversation", recordId: convo.id, after: { change: "add an enquiry", outcome } });
   });
   const feel: ReplyFeel = outcome === "added" ? "done" : outcome === "duplicate" || outcome === "refused" ? "sorry" : "answer";
-  return { ...base, reply, sources, card: keep ? cardOf(keep, lang) : null, feel };
+  return { ...base, reply, sources, card: keep ? cardOf(keep, lang) : null, feel, delivery: deliveryFor(feel, outcome === "not-ready" ? "instructions" : null) };
 }

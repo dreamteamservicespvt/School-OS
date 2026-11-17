@@ -11,15 +11,19 @@
 // mascot keeps the School OS badge. Type or speak; replies, questions back, the
 // card and the suggestions are all in the conversation's language. Speech is
 // recognised in that language (te-IN, hi-IN, en-IN), never forced to English.
-// Replies are read aloud only when the person turns it on, with a voice of the
-// same language; with none on the device the reply stays text and says so.
+// Replies are read aloud only when the person turns it on. When DREAM TEAM
+// connected the AI voice (Gemini), the reply is said by it with the reply's
+// feeling (warm for good news, gentle for a worry) and the mascot's mouth and
+// the wave follow the real sound; otherwise, or when it cannot answer, the
+// browser's own voice of the same language reads it, exactly as before; with
+// none on the device the reply stays text and says so.
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Keyboard, MessageCircle, Mic, Send, Square, Volume2, VolumeX, X } from "lucide-react";
 import { answerAssistantCard, sendToAssistant } from "@/app/(school)/assistant/actions";
 import type { TurnReply } from "@/lib/assistant/conversation";
 import { ASSISTANT_LANGS, pickVoice, SPEECH_LANG, type AssistantLang } from "@/lib/assistant/language";
-import { AFTER_MS, feelingFor, LipSync, SILENT_SPEAK_MAX, SURPRISE_MS, type Feeling, type MascotCharacter, type ReplyFeel, type ReplyMoment } from "@/lib/assistant/mascot-state";
+import { AFTER_MS, feelingFor, LipSync, SILENT_SPEAK_MAX, soundLevel, SURPRISE_MS, type Feeling, type MascotCharacter, type ReplyFeel, type ReplyMoment } from "@/lib/assistant/mascot-state";
 import { spokenText, toneFor } from "@/lib/assistant/speech";
 import { words, type WordKey } from "@/lib/assistant/words";
 import { playUiSound } from "@/lib/ui-sound";
@@ -48,9 +52,14 @@ export type AssistantPanelProps = {
   character: MascotCharacter;
   /** The first question chips in each conversation language. */
   chips: Record<AssistantLang, string[]>;
+  /** The AI voice is connected: replies are said by it, with the browser's voice as the fallback. */
+  voice?: boolean;
 };
 
-export function AssistantPanel({ screen, school, character, chips: startChips }: AssistantPanelProps) {
+/** How long the AI voice may take to arrive before the browser's voice reads the reply instead. */
+const AI_VOICE_WAIT_MS = 10_000;
+
+export function AssistantPanel({ screen, school, character, chips: startChips, voice: aiVoice = false }: AssistantPanelProps) {
   const start: AssistantLang = (ASSISTANT_LANGS as readonly string[]).includes(screen) ? (screen as AssistantLang) : "en";
   const [open, setOpen] = useState(false);
   const [lang, setLang] = useState<AssistantLang>(start);
@@ -72,6 +81,10 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
   const panel = useRef<HTMLElement | null>(null);
   const launcher = useRef<HTMLButtonElement | null>(null);
   const flow = useRef(0);
+  // The AI voice: its sound system (made once, after the person has used the panel), the request on its way, the sound playing.
+  const audio = useRef<AudioContext | null>(null);
+  const fetching = useRef<AbortController | null>(null);
+  const playing = useRef<AudioBufferSourceNode | null>(null);
   const greeted = useRef(false);
   const w = (k: WordKey, v?: Parameters<typeof words>[2]) => words(lang, k, v);
   const firstMessage = lines.length === 0;
@@ -79,7 +92,12 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
   const feeling = feelingFor({ listening, busy, moment });
 
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [lines, busy]);
-  useEffect(() => () => { rec.current?.abort(); if (typeof window !== "undefined") window.speechSynthesis?.cancel(); }, []);
+  useEffect(() => () => {
+    rec.current?.abort();
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    fetching.current?.abort();
+    void audio.current?.close().catch(() => undefined);
+  }, []);
   useEffect(() => { if (open) panel.current?.focus(); }, [open]);
   // On a phone the panel fills the screen, so the page behind it stays still (page-lock.tsx);
   // on a wider screen it sits beside the page, which keeps scrolling.
@@ -97,9 +115,22 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
   const hush = useCallback(() => {
     flow.current++;
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    fetching.current?.abort();
+    fetching.current = null;
+    try { playing.current?.stop(); } catch { /* not started yet */ }
+    playing.current = null;
     lip.clear();
     setMoment(null);
   }, [lip]);
+
+  /** Makes the AI voice's sound system while the person is pressing something, so the browser lets it play later. */
+  const unlockAudio = useCallback(() => {
+    if (!aiVoice || typeof window === "undefined" || !("AudioContext" in window)) return;
+    try {
+      const ctx = audio.current ?? (audio.current = new AudioContext());
+      if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+    } catch { /* no sound system: the browser's voice reads replies */ }
+  }, [aiVoice]);
 
   const openPanel = useCallback(() => {
     setOpen(true);
@@ -114,8 +145,53 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     setTimeout(() => launcher.current?.focus(), 0);
   }, [hush]);
 
-  /** Reads the reply aloud (when on and a voice exists) or shows it with the mouth moving for a short while. Resolves when done. */
-  const say = useCallback((reply: string, l: AssistantLang, id: number, feel: ReplyFeel = "answer") => new Promise<void>((resolve) => {
+  /**
+   * The reply said by the AI voice: "played" when it was heard to the end (or
+   * stopped), "fallback" when there is no AI audio (not connected, refused, too
+   * slow, sound blocked), so the browser's voice reads it instead.
+   */
+  const sayWithAi = useCallback(async (r: TurnReply, id: number): Promise<"played" | "fallback"> => {
+    if (!aiVoice || !r.conversationId || typeof window === "undefined" || !("AudioContext" in window)) return "fallback";
+    const ctrl = new AbortController();
+    fetching.current = ctrl;
+    const timer = setTimeout(() => ctrl.abort(), AI_VOICE_WAIT_MS);
+    try {
+      const res = await fetch("/api/v1/assistant/speak", {
+        method: "POST", headers: { "content-type": "application/json" }, cache: "no-store", signal: ctrl.signal,
+        body: JSON.stringify({ conversationId: r.conversationId, text: r.reply, lang: r.lang, feel: r.feel ?? "answer", delivery: r.delivery ?? null }),
+      });
+      if (flow.current !== id) return "played";
+      if (res.status !== 200) return "fallback";
+      const bytes = await res.arrayBuffer();
+      if (flow.current !== id) return "played";
+      const ctx = audio.current ?? (audio.current = new AudioContext());
+      if (ctx.state === "suspended") await ctx.resume().catch(() => undefined);
+      if (ctx.state !== "running") return "fallback";
+      const buffer = await ctx.decodeAudioData(bytes);
+      if (flow.current !== id) return "played";
+      clearTimeout(timer);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      const meter = ctx.createAnalyser();
+      meter.fftSize = 1024;
+      src.connect(meter);
+      meter.connect(ctx.destination);
+      const samples = new Float32Array(meter.fftSize);
+      // The mouth and the wave follow the real sound.
+      lip.follow(() => { meter.getFloatTimeDomainData(samples); return soundLevel(samples); });
+      await new Promise<void>((done) => { src.onended = () => done(); playing.current = src; src.start(); });
+      return "played";
+    } catch {
+      return flow.current === id ? "fallback" : "played";
+    } finally {
+      clearTimeout(timer);
+      if (fetching.current === ctrl) fetching.current = null;
+      if (flow.current === id) { lip.follow(null); playing.current = null; }
+    }
+  }, [aiVoice, lip]);
+
+  /** The browser's own voice (as before the AI voice), or the mouth moving for a short while with no voice. */
+  const sayInBrowser = useCallback((reply: string, l: AssistantLang, id: number, feel: ReplyFeel = "answer") => new Promise<void>((resolve) => {
     const silent = () => {
       const now = performance.now() / 1000;
       const ends = Math.min(lip.text(reply, now + 0.05), now + SILENT_SPEAK_MAX);
@@ -150,6 +226,13 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     } catch { silent(); }
   }), [speakOn, character, lip]);
 
+  /** Reads the reply aloud (when on: the AI voice, else the browser's voice) or shows it with the mouth moving for a short while. Resolves when done. */
+  const say = useCallback(async (r: TurnReply, id: number, feel: ReplyFeel = "answer") => {
+    if (speakOn && (await sayWithAi(r, id)) === "played") return;
+    if (flow.current !== id) return;
+    await sayInBrowser(r.reply, r.lang, id, feel);
+  }, [speakOn, sayWithAi, sayInBrowser]);
+
   const take = useCallback(async (r: TurnReply) => {
     if (r.conversationId) setConversationId(r.conversationId);
     setLang(r.lang);
@@ -158,7 +241,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     const id = ++flow.current;
     if (r.switched) { setMoment({ feel, phase: "surprise" }); await sleep(SURPRISE_MS); if (flow.current !== id) return; }
     setMoment({ feel, phase: "speaking" });
-    await say(r.reply, r.lang, id, feel);
+    await say(r, id, feel);
     if (flow.current !== id) return;
     if (feel === "answer") { setMoment(null); return; }
     setMoment({ feel, phase: "after" });
@@ -170,6 +253,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     const words_ = said.trim();
     if (!words_ || busy) return;
     hush();
+    if (speakOn) unlockAudio();
     setNote(null);
     setLines((ls) => [...ls, { who: "person", text: words_, voice: via === "voice" }]);
     setText("");
@@ -179,7 +263,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
     catch { r = failed(lang, conversationId); }
     setBusy(false);
     void take(r);
-  }, [busy, conversationId, firstMessage, hush, lang, picked, take]);
+  }, [busy, conversationId, firstMessage, hush, lang, picked, speakOn, take, unlockAudio]);
 
   const answer = useCallback(async (cardId: string, yes: boolean) => {
     if (!conversationId || busy) return;
@@ -254,7 +338,7 @@ export function AssistantPanel({ screen, school, character, chips: startChips }:
               <span aria-hidden="true" className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-brand/15 text-[14px] font-bold text-brand">{school.name.trim().charAt(0).toUpperCase()}</span>
             )}
             <p className="flex-1 min-w-0 line-clamp-2 font-semibold text-[15px] leading-tight">{title}</p>
-            <button type="button" onClick={() => { if (speakOn) hush(); setSpeakOn((v) => !v); }} className={buttonClass("ghost", "sm")} aria-pressed={speakOn} title={w("speakReplies")}>
+            <button type="button" onClick={() => { if (speakOn) hush(); else unlockAudio(); setSpeakOn((v) => !v); }} className={buttonClass("ghost", "sm")} aria-pressed={speakOn} title={w("speakReplies")}>
               {speakOn ? <Volume2 size={17} aria-hidden="true" /> : <VolumeX size={17} aria-hidden="true" />}<span className="sr-only">{w("speakReplies")}</span>
             </button>
             <button type="button" onClick={closePanel} className={buttonClass("ghost", "sm")} title={w("close")}>

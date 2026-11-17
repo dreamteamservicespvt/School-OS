@@ -132,7 +132,7 @@ type Pulse = { t0: number; d: number; peak: number };
 export class LipSync {
   private pulses: Pulse[] = [];
   constructor(private random: () => number = Math.random) {}
-  clear() { this.pulses = []; }
+  clear() { this.pulses = []; this.source = null; }
   /** A word starting at `at` seconds; returns when it ends. */
   word(word: string, at: number, rate = 1): number {
     const n = syllables(word), d = 0.165 / rate;
@@ -149,8 +149,18 @@ export class LipSync {
     }
     return t;
   }
+  private source: (() => number) | null = null;
+  /**
+   * Follow a live sound level instead of the words (the AI voice: the audio's
+   * loudness from a WebAudio analyser), or null to go back to the words.
+   */
+  follow(source: (() => number) | null) { this.source = source; }
   /** How open the mouth is at `now` (0 to 1). */
   level(now: number): number {
+    if (this.source) {
+      const v = this.source();
+      return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+    }
     let v = 0;
     this.pulses = this.pulses.filter((p) => p.t0 + p.d > now - 0.05);
     for (const p of this.pulses) {
@@ -161,6 +171,18 @@ export class LipSync {
   }
   /** Whether any pulse is still to come or running. */
   busy(now: number) { return this.pulses.some((p) => p.t0 + p.d >= now); }
+}
+
+/**
+ * How open the mouth is for a slice of real sound (samples from -1 to 1, a
+ * WebAudio analyser's time-domain data): its loudness, so a quiet breath
+ * leaves it closed and normal speech opens it well.
+ */
+export function soundLevel(samples: ArrayLike<number>): number {
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  const rms = samples.length ? Math.sqrt(sum / samples.length) : 0;
+  return Math.min(1, Math.max(0, (rms - 0.012) * 5));
 }
 
 /** How long a reply shown without a voice keeps the mouth moving (seconds): long replies do not talk silently for long. */

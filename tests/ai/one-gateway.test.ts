@@ -38,7 +38,7 @@ describe("one door to the AI service", () => {
     const users = sources.filter((s) => s.file !== "lib/ai/provider.ts" && /from\s+["'](\.\/provider|@\/lib\/ai\/provider|\.\.\/ai\/provider)["']/.test(s.text)).map((s) => s.file);
     expect(users).toEqual(["lib/ai/index.ts"]);
     // Nothing outside the gateway asks the provider directly.
-    const asking = sources.filter((s) => !s.file.startsWith("lib/ai/") && /currentProvider|anthropicProvider/.test(s.text)).map((s) => s.file);
+    const asking = sources.filter((s) => !s.file.startsWith("lib/ai/") && /currentProvider|currentSpeaker|anthropicProvider|geminiProvider|geminiSpeaker/.test(s.text)).map((s) => s.file);
     expect(asking).toEqual([]);
   });
 
@@ -46,6 +46,9 @@ describe("one door to the AI service", () => {
     const reading = sources.filter((s) => /ANTHROPIC_API_KEY/.test(s.text)).map((s) => s.file);
     expect(reading).toEqual(["lib/ai/config.ts"]);
     expect(sources.filter((s) => /sk-ant-[A-Za-z0-9]/.test(s.text)).map((s) => s.file)).toEqual([]);
+    // The Gemini key too (Google keys start "AIza").
+    expect(sources.filter((s) => /GEMINI_API_KEY/.test(s.text)).map((s) => s.file)).toEqual(["lib/ai/config.ts"]);
+    expect(sources.filter((s) => /AIza[0-9A-Za-z_-]{20,}/.test(s.text)).map((s) => s.file)).toEqual([]);
   });
 });
 

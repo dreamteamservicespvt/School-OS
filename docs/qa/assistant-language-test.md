@@ -48,3 +48,52 @@ teacher (own class only), plain Telugu stays plain for the Principal, English sw
 | B7 | Receptionist "who is absent today?" got "did not get that" | clear question outside the role: "not part of your role" |
 | B8 | "Which teachers are on leave today?" said "1 staff member" without the name | short lists (up to 5) name the people |
 | B9 | Robot button: the face screen is blank (eyes are drawn live in the panel) | same glowing eyes and smile on the button |
+
+## Voice standard (AI voice, 17 Nov 2026)
+
+When `GEMINI_API_KEY` is set, Gemini writes the words (unless Claude's key is set) and the
+Gemini voice model (`gemini-3.8-flash-tts`, fallback `gemini-3.8-flash-lite-tts`) says every
+reply aloud when the speaker button is on. The bar is the voice modes of ChatGPT and Gemini Live:
+a real person, not a reader. Code: src/lib/assistant/voice.ts (feel to style), speak.ts and
+POST /api/v1/assistant/speak. With no key, or on any failure, the browser's voice reads it as before.
+
+How each feel should sound (the reply carries a feel and a short delivery note):
+
+| Feel / delivery | When | Should sound |
+|---|---|---|
+| happy, "warm and pleased" | nobody absent, all paid, a birthday, thanks | a smile you can hear, a little brighter and quicker |
+| happy, "bright and welcoming" | a greeting | bright, friendly, like greeting a colleague at the counter |
+| answer, "gentle and concerned" | children absent, fees unpaid, attendance not taken, below pass | softer and slower on the problem, then calm and clear on the next step |
+| answer, "calm and clear" | plain numbers, lists, how-to | steady, clear, unhurried; names said clearly |
+| done, "bright and relieved" | an enquiry added after "Yes" | pleased and relieved, short |
+| sorry, "gentle and kind" | cannot do it, not this role, the service is down | sincere and soft, never dramatic, never robotic |
+
+Language: English replies in natural Indian English; Telugu in everyday educated Telugu with the
+English school words said the English way (attendance, fees, pending); Hindi the same way. Dates are
+said as "today", "16 November"; ₹ amounts as "1,55,202 rupees". Never bookish Telugu or Hindi.
+
+Fail if: the voice reads a style note aloud, sounds flat for good news, sounds cheerful about an
+absent child, stumbles on English school words in Telugu, says digits of a date one by one, starts
+more than about 3 seconds after the reply appears, or keeps talking after Stop.
+
+### Live script (run once the key exists): 12 conversations, speaker on, in each role's own Chrome
+
+| # | Role, way of talking | Say | Good sounds like |
+|---|---|---|---|
+| V1 | Receptionist, worried parent at the desk, English | "A parent is asking, is Aarav in 5 A present today?" | gentle and concerned if absent, relieved if present; one short sentence; no "I did not get that" |
+| V2 | Receptionist, Telugu mixed | "ఒక parent వచ్చారు, admission enquiry add చేయాలి" | calm, helpful, asks for the missing fields one by one; card shown; nothing added before "Yes" |
+| V3 | Principal, busy, mixed Telugu | "ఈరోజు absent ఎవరు?" | quick, gentle on the absent names, everyday Telugu, English words said in English |
+| V4 | Principal, mixed Telugu, follow-up | "ninna?" then "only 5 A?" | keeps the same tools; same warm, brisk tone; no restart of the greeting |
+| V5 | Accountant, English, formal | "What is today's fee collection?" | calm and clear; "rupees" said once; no digit-by-digit reading |
+| V6 | Accountant, English | "Who has fees overdue above 10000?" | gentle and concerned, names clear, "and N more" only when given |
+| V7 | Class teacher, Hindi | "आज मेरी क्लास में कौन absent है?" | everyday Hindi, own class only, gentle |
+| V8 | Subject teacher, Hindi, Roman letters | "aaj kaun absent hai?" | replies in Hindi, not English; calm |
+| V9 | Any role, upset | "This is useless, nothing works!" | soft and kind, says what it can do next, never defensive, never "Sorry, I did not get that" |
+| V10 | Any role, happy news | "Any birthdays today?" (with one in the data) | a smile you can hear, warm |
+| V11 | Principal, asks for a change | "Mark Rohan present" | gentle refusal: cannot change attendance here, points to the screen; nothing changed |
+| V12 | Any role, greeting then thanks | "Hi" ... "super, thank you" | bright welcome, warm thanks, same language kept |
+
+For each: note how long until the voice starts, whether the mouth and the wave follow the sound,
+whether Stop (mic button or speaker button) cuts it at once, and whether Settings, Modules On/Off
+shows the spoken replies in the month's AI use. Also check once with `AI_TTS_MODEL=off`: replies are
+read by the browser's voice exactly as before.

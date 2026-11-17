@@ -24,12 +24,13 @@ import { withSchool, type SchoolContext, type Tx } from "../db";
 import { dayStartUtc } from "../periods";
 import { readPreferences } from "../settings/profile-rules";
 import { AI_OFF_WORDS, aiAllowed, aiOffReason, aiRolesOf, type AiFeatureKey, type AiOff, type AiWho } from "../settings/switch-rules";
-import { aiModel, aiPlatformDailyLimit, aiRupeesPerDollar, aiTimeoutMs } from "./config";
+import { aiModel, aiPlatformDailyLimit, aiRupeesPerDollar, aiSpeechDailyLimit, aiTimeoutMs, aiTtsModel, fitModel } from "./config";
 import { NO_USAGE, estimatePaise } from "./cost";
-import { minimise, type DeclarableField } from "./minimise";
-import { aiConnected, currentProvider, type AiAnswer, type AiFailure, type AiImage } from "./provider";
+import { maskText, minimise, type DeclarableField } from "./minimise";
+import { aiConnected, currentProvider, currentSpeaker, type AiAnswer, type AiFailure, type AiImage, type SpeechAnswer } from "./provider";
+import type { Pcm } from "./wav";
 
-export { aiConnected, useAiProvider, type AiProvider, type AiRequest, type AiAnswer, type AiImage } from "./provider";
+export { aiConnected, aiSpeechConnected, useAiProvider, useAiSpeaker, type AiProvider, type AiRequest, type AiAnswer, type AiImage, type AiSpeaker, type SpeechRequest, type SpeechAnswer } from "./provider";
 
 export type AiReason = AiOff | "not-connected" | "daily-limit" | "restricted-data" | "refused" | AiFailure;
 
@@ -99,15 +100,27 @@ async function whoFor(tx: Tx, ctx: SchoolContext, feature: string) {
   return { who, prefs, timeZone: school?.timeZone ?? "Asia/Kolkata" };
 }
 
-/** Requests sent today (in the school's time zone), against the daily limit. */
+/** How long the voice may take: the panel stops waiting a little after this and the browser's voice reads the reply. */
+const SPEECH_TIMEOUT_MS = 9_000;
+
+/** The fixed purpose of a spoken reply: it counts against the speech limit, never the school's daily AI requests. */
+export const SPEECH_PURPOSE = "Assistant: say the reply aloud";
+
+/** Requests sent today (in the school's time zone), against the daily limit. Spoken replies have their own limit. */
 async function sentToday(tx: Tx, timeZone: string, now: Date) {
-  return tx.aiCall.count({ where: { sent: true, createdAt: { gte: dayStartUtc(todayIso(timeZone, now), timeZone) } } });
+  return tx.aiCall.count({ where: { sent: true, purpose: { not: SPEECH_PURPOSE }, createdAt: { gte: dayStartUtc(todayIso(timeZone, now), timeZone) } } });
+}
+
+/** Replies spoken aloud today, against the speech limit. */
+async function spokenToday(tx: Tx, timeZone: string, now: Date) {
+  return tx.aiCall.count({ where: { sent: true, purpose: SPEECH_PURPOSE, createdAt: { gte: dayStartUtc(todayIso(timeZone, now), timeZone) } } });
 }
 
 /** Runs one AI task for the person in ctx, or says why not. Never throws: a failure is a reason, and the screen carries on. */
 export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new Date()): Promise<AiResult<T>> {
   const started = Date.now();
-  const model = task.model?.trim() || aiModel();
+  // A model from the other service (an old setting) is never sent: the answering service's own default instead.
+  const model = fitModel(task.model?.trim() || aiModel());
   const base = { schoolId: ctx.schoolId, feature: task.feature, purpose: task.purpose.slice(0, 120), userLoginId: ctx.userId, model };
   let callId: string | null = null;
   try {
@@ -158,6 +171,74 @@ export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new D
   } catch (e) {
     console.error(JSON.stringify({ level: "error", event: "ai-task-failed", schoolId: ctx.schoolId, feature: task.feature, error: e instanceof Error ? e.message : String(e) }));
     return no<T>("service-error", callId);
+  }
+}
+
+export type AiSpeechTask = {
+  feature: AiFeatureKey;
+  /** Exactly the words to say. Checked for private details here before they leave. */
+  text: string;
+  /** How to say it, in plain words (voice.ts). Fixed words from the code, never the person's. */
+  style: string;
+  /** A prebuilt voice name. */
+  voice: string;
+};
+
+export type AiSpeechResult = { ok: true; audio: Pcm; callId: string } | { ok: false; reason: AiReason; callId: string | null };
+
+/**
+ * Says one reply aloud with the AI voice (the assistant's speaking), or says
+ * why not, so the panel uses the browser's own voice instead. The same checks
+ * as aiTask(): the switches and the person's role, no private details
+ * (a reply holding a phone, an email or a long number is never sent), and its
+ * own daily limit for the school (AI_TTS_DAILY_LIMIT), kept apart from the
+ * daily AI requests. Each request is logged as an AI Call ("Assistant: say the
+ * reply aloud") with its token counts and estimated cost, never its words.
+ * With no voice connected nothing is logged: no request was made.
+ */
+export async function aiSpeech(ctx: SchoolContext, task: AiSpeechTask, now = new Date()): Promise<AiSpeechResult> {
+  const started = Date.now();
+  const speaker = currentSpeaker();
+  if (!speaker) return { ok: false, reason: "not-connected", callId: null };
+  const model = aiTtsModel();
+  const base = { schoolId: ctx.schoolId, feature: task.feature, purpose: SPEECH_PURPOSE, userLoginId: ctx.userId, model };
+  let callId: string | null = null;
+  try {
+    const gate = await withSchool(ctx, async (tx) => {
+      const { who, timeZone } = await whoFor(tx, ctx, task.feature);
+      const off = aiOffReason(who, task.feature);
+      if (off) return { stop: off as AiReason, id: null };
+      const log = async (data: { outcome: string; reason?: string; sent?: boolean; masked?: number }) => (await tx.aiCall.create({ data: { ...base, ...data } })).id;
+      const m = maskText(task.text);
+      if (m.masked) return { stop: "restricted-data" as const, id: await log({ outcome: "refused", reason: "restricted-data", masked: m.masked }) };
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ai-speech:${ctx.schoolId}`}))`;
+      if ((await spokenToday(tx, timeZone, now)) >= aiSpeechDailyLimit()) return { stop: "daily-limit" as const, id: await log({ outcome: "fallback", reason: "daily-limit" }) };
+      return { stop: null, id: await log({ outcome: "pending", sent: true }) };
+    });
+    callId = gate.id;
+    if (gate.stop || !gate.id) return { ok: false, reason: gate.stop ?? "service-error", callId: gate.id };
+    const id = gate.id;
+
+    const answer: SpeechAnswer = await speaker.speak({ model, text: task.text, style: task.style, voice: task.voice, timeoutMs: SPEECH_TIMEOUT_MS })
+      .catch((): SpeechAnswer => ({ outcome: "failed", error: "unreadable", usage: NO_USAGE, model }));
+    const result: AiSpeechResult = answer.outcome === "ok" ? { ok: true, audio: answer.audio, callId: id }
+      : { ok: false, reason: answer.outcome === "refused" ? "refused" : answer.error, callId: id };
+    const usage = answer.usage;
+    await withSchool(ctx, (tx) => tx.aiCall.update({
+      where: { id },
+      data: {
+        outcome: result.ok ? "ok" : answer.outcome === "refused" ? "refused" : "failed",
+        reason: result.ok ? null : result.reason,
+        model: answer.model.slice(0, 80),
+        inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0,
+        costPaise: estimatePaise(answer.model, usage, aiRupeesPerDollar(), now),
+        durationMs: Math.min(Date.now() - started, 2_000_000_000),
+      },
+    })).catch((e) => console.error(JSON.stringify({ level: "error", event: "ai-call-log-failed", schoolId: ctx.schoolId, error: e instanceof Error ? e.message : String(e) })));
+    return result;
+  } catch (e) {
+    console.error(JSON.stringify({ level: "error", event: "ai-speech-failed", schoolId: ctx.schoolId, error: e instanceof Error ? e.message : String(e) }));
+    return { ok: false, reason: "service-error", callId };
   }
 }
 

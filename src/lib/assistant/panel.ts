@@ -5,6 +5,7 @@
 import "server-only";
 
 import type { Viewer } from "../dashboard/types";
+import { aiSpeechConnected } from "../ai";
 import { assistantOff, startChips } from "./conversation";
 import { ASSISTANT_LANGS, type AssistantLang } from "./language";
 import { mascotCharacterOf, type MascotCharacter } from "./mascot-state";
@@ -17,6 +18,8 @@ export type AssistantPanelStart = {
   character: MascotCharacter;
   /** The first question chips in each conversation language, for this person's role. */
   chips: Record<AssistantLang, string[]>;
+  /** The AI voice is connected (a Gemini key): replies are said by it, with the browser's voice as the fallback. */
+  voice: boolean;
 };
 
 type Who = Viewer & {
@@ -34,5 +37,6 @@ export function assistantPanelFor(who: Who, screen: string): AssistantPanelStart
     school: { name: who.school.name, logoUrl: who.school.logoUrl },
     character: mascotCharacterOf(who.school.assistantCharacter),
     chips: Object.fromEntries(ASSISTANT_LANGS.map((l) => [l, startChips(who, l)])) as Record<AssistantLang, string[]>,
+    voice: aiSpeechConnected(),
   };
 }

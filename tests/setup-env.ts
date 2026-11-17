@@ -10,3 +10,5 @@ process.env.STORAGE_DIR ??= `${tmpdir()}/school-os-test-storage`;
 // No test ever reaches the AI service: with no platform key it is "not connected",
 // and tests that need answers put in a fake provider (useAiProvider).
 process.env.ANTHROPIC_API_KEY = "";
+process.env.GEMINI_API_KEY = "";
+process.env.AI_PROVIDER = "";

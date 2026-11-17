@@ -1,16 +1,21 @@
 // The one place School OS talks to an outside AI service. Everything else
-// goes through aiTask() in ./index.ts, which checks the switches, hides
-// restricted data, keeps the daily limit and logs the call first.
+// goes through aiTask() (words) or aiSpeech() (the assistant's voice) in
+// ./index.ts, which check the switches, hide restricted data, keep the daily
+// limit and log the call first. Claude or Google Gemini answers (config.ts);
+// the voice is always Gemini's.
 //
 // Tests never reach the network: they put a fake provider in with
-// useAiProvider(); with no fake and no platform key, AI is not connected.
+// useAiProvider() (and a fake voice with useAiSpeaker()); with no fake and no
+// platform key, AI is not connected.
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type * as z from "zod/v4";
-import { aiKey } from "./config";
+import { aiFallbackModel, aiService, aiSpeechKey, aiTtsFallbackModel } from "./config";
 import { NO_USAGE, type AiUsage } from "./cost";
+import { geminiJsonSchema } from "./json-schema";
+import { isWav, pcmOfWav, pcmSeconds, type Pcm } from "./wav";
 
 /** A picture, or a PDF scan, sent for a task that declares it needs pictures. Base64. */
 export type AiImage = { mediaType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; data: string };
@@ -89,12 +94,221 @@ export function anthropicProvider(apiKey: string): AiProvider {
   };
 }
 
-// The fake used by tests, kept on globalThis so every copy of this module sees it.
-const slot = globalThis as unknown as { __schoolOsAiProvider?: AiProvider | null };
+/* ---------- Google Gemini ---------- */
+
+const GEMINI = "https://generativelanguage.googleapis.com/v1beta";
+/** The Interactions API revision the voice request follows (aistudio.google.com/docs/speech-generation). */
+const INTERACTIONS_REVISION = "2026-05-20";
+/** Answers Gemini gives for a request it will not answer (prompt or answer blocked). */
+const BLOCKED = /^(SAFETY|RECITATION|BLOCKLIST|PROHIBITED_CONTENT|SPII|IMAGE_SAFETY|IMAGE_PROHIBITED_CONTENT|LANGUAGE)$/;
+
+type GeminiFail = { failed: AiFailure; status: number; message: string };
+type GeminiOk = { json: Record<string, unknown> };
+
+/** The request's time limit ran out (or it was stopped). */
+const aborted = (e: unknown, signal: AbortSignal) => signal.aborted || /^(TimeoutError|AbortError)$/.test(String((e as { name?: unknown } | null)?.name ?? ""));
+
+/** One HTTP call to Gemini: the JSON answer, or a short failure code (never the content). */
+async function geminiCall(url: string, apiKey: string, body: unknown, signal: AbortSignal, headers: Record<string, string> = {}): Promise<GeminiOk | GeminiFail> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": apiKey, ...headers }, body: JSON.stringify(body), signal, cache: "no-store" });
+  } catch (e) {
+    return { failed: aborted(e, signal) ? "timeout" : "unreachable", status: 0, message: "" };
+  }
+  let json: Record<string, unknown> = {};
+  try { json = (await res.json()) as Record<string, unknown>; } catch (e) {
+    if (aborted(e, signal)) return { failed: "timeout", status: res.status, message: "" };
+    if (res.ok) return { failed: "unreadable", status: res.status, message: "" };
+  }
+  if (res.ok) return { json };
+  const err = (json.error ?? {}) as { message?: unknown; status?: unknown };
+  const message = `${String(err.status ?? "")} ${String(err.message ?? "")}`.slice(0, 300);
+  const failed: AiFailure =
+    res.status === 401 || res.status === 403 || (res.status === 400 && /API[_ ]KEY|api key/i.test(message)) ? "key-refused"
+    : res.status === 429 ? "rate-limited"
+    : res.status === 408 || res.status === 504 ? "timeout"
+    : "service-error";
+  return { failed, status: res.status, message };
+}
+
+const isFail = (r: GeminiOk | GeminiFail): r is GeminiFail => "failed" in r;
+/** The first model cannot answer for this key (not offered, out of free requests, busy): worth one try on the fallback model. */
+const tryFallback = (f: GeminiFail) => f.status === 404 || f.status === 429 || f.status === 500 || f.status === 503 || (f.status === 400 && /model/i.test(f.message) && !/API[_ ]KEY/i.test(f.message));
+
+const geminiUsage = (u: unknown): AiUsage => {
+  const m = (u ?? {}) as Record<string, number | undefined>;
+  const cached = m.cachedContentTokenCount ?? 0;
+  return {
+    inputTokens: Math.max(0, (m.promptTokenCount ?? 0) - cached),
+    outputTokens: (m.candidatesTokenCount ?? 0) + (m.thoughtsTokenCount ?? 0),
+    cacheReadTokens: cached,
+    cacheWriteTokens: 0,
+  };
+};
+
+/** The JSON in a text answer (a stray code fence around it is allowed). */
+function parseJson(text: string): unknown {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try { return JSON.parse(t); } catch { return undefined; }
+}
+
+/**
+ * Gemini (generateContent), with structured JSON output: the answer shape is
+ * the task's zod schema as JSON Schema, and the answer is parsed with the same
+ * schema. Thinking is off (thinkingBudget 0) so a short answer is never cut by
+ * thinking tokens. When the first model cannot answer for this key, the
+ * fallback model (AI_FALLBACK_MODEL) is tried once, inside the same time limit.
+ */
+export function geminiProvider(apiKey: string, fallbackModel: string | null = null): AiProvider {
+  return {
+    name: "gemini",
+    async ask(req) {
+      const signal = AbortSignal.timeout(req.timeoutMs);
+      const parts = [
+        ...req.images.map((img) => ({ inlineData: { mimeType: img.mediaType, data: img.data } })),
+        { text: req.text },
+      ];
+      let schema: Record<string, unknown>;
+      try { schema = geminiJsonSchema(req.schema); } catch { return { outcome: "failed", error: "unreadable", usage: NO_USAGE, model: req.model }; }
+      const bodyFor = (thinking: Record<string, unknown>) => ({
+        systemInstruction: { parts: [{ text: req.system }] },
+        contents: [{ role: "user", parts }],
+        generationConfig: { maxOutputTokens: req.maxTokens, responseMimeType: "application/json", responseJsonSchema: schema, thinkingConfig: thinking },
+      });
+      const once = async (model: string) => {
+        const url = `${GEMINI}/models/${encodeURIComponent(model)}:generateContent`;
+        let r = await geminiCall(url, apiKey, bodyFor({ thinkingBudget: 0 }), signal);
+        // A model that cannot switch thinking off takes the smallest level instead.
+        if (isFail(r) && r.status === 400 && /thinking/i.test(r.message)) r = await geminiCall(url, apiKey, bodyFor({ thinkingLevel: "MINIMAL" }), signal);
+        return r;
+      };
+      let model = req.model;
+      let r = await once(model);
+      if (isFail(r) && fallbackModel && fallbackModel !== model && tryFallback(r)) { model = fallbackModel; r = await once(model); }
+      if (isFail(r)) return { outcome: "failed", error: r.failed, usage: NO_USAGE, model };
+
+      const json = r.json;
+      const usage = geminiUsage(json.usageMetadata);
+      const answered = typeof json.modelVersion === "string" && json.modelVersion ? json.modelVersion : model;
+      const blocked = (json.promptFeedback as { blockReason?: string } | undefined)?.blockReason;
+      if (blocked) return { outcome: "refused", usage, model: answered };
+      const cand = (json.candidates as { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[] | undefined)?.[0];
+      if (!cand) return { outcome: "failed", error: "unreadable", usage, model: answered };
+      const finish = cand.finishReason ?? "STOP";
+      if (BLOCKED.test(finish)) return { outcome: "refused", usage, model: answered };
+      if (finish === "MAX_TOKENS") return { outcome: "failed", error: "cut-short", usage, model: answered };
+      const text = (cand.content?.parts ?? []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("");
+      const data = parseJson(text);
+      if (data === undefined) return { outcome: "failed", error: "unreadable", usage, model: answered };
+      const parsed = req.schema.safeParse(data);
+      return parsed.success ? { outcome: "ok", data: parsed.data, usage, model: answered } : { outcome: "failed", error: "unreadable", usage, model: answered };
+    },
+  };
+}
+
+/* ---------- The voice (text to speech) ---------- */
+
+export type SpeechRequest = {
+  model: string;
+  /** Exactly the words to say (Gemini's voice models read the text as it is). */
+  text: string;
+  /** How to say it, in plain words: "warm and pleased, like a caring school office assistant". */
+  style: string;
+  /** A prebuilt voice name, e.g. "Achird". */
+  voice: string;
+  timeoutMs: number;
+};
+
+export type SpeechAnswer =
+  | { outcome: "ok"; audio: Pcm; usage: AiUsage; model: string }
+  | { outcome: "refused"; usage: AiUsage; model: string }
+  | { outcome: "failed"; error: AiFailure; usage: AiUsage; model: string };
+
+export type AiSpeaker = { name: string; speak(req: SpeechRequest): Promise<SpeechAnswer> };
+
+type AudioBlock = { data: string; mime: string };
+
+/** The last audio block in an Interactions answer (or a generateContent-shaped one), base64. */
+function audioOf(json: Record<string, unknown>): AudioBlock | null {
+  const found: AudioBlock[] = [];
+  const look = (items: unknown) => {
+    for (const c of Array.isArray(items) ? items : []) {
+      const x = c as { type?: string; data?: string; mime_type?: string; inlineData?: { data?: string; mimeType?: string } };
+      if (x.type === "audio" && typeof x.data === "string") found.push({ data: x.data, mime: x.mime_type ?? "" });
+      else if (x.inlineData?.data) found.push({ data: x.inlineData.data, mime: x.inlineData.mimeType ?? "" });
+    }
+  };
+  for (const st of Array.isArray(json.steps) ? json.steps : []) {
+    const s = st as { type?: string; content?: unknown };
+    if (!s.type || s.type === "model_output") look(s.content);
+  }
+  look(json.outputs);
+  for (const c of Array.isArray(json.candidates) ? json.candidates : []) look((c as { content?: { parts?: unknown } }).content?.parts);
+  return found.at(-1) ?? null;
+}
+
+/** Audio bytes to PCM: a WAV file is opened; raw PCM takes its rate from the type ("audio/l16; rate=24000"). */
+function toPcm(bytes: Uint8Array, mime: string): Pcm | null {
+  if (isWav(bytes)) return pcmOfWav(bytes);
+  if (!bytes.byteLength) return null;
+  const rate = Number(/rate=(\d+)/i.exec(mime)?.[1] ?? 24_000);
+  return { pcm: bytes, sampleRate: rate >= 8_000 && rate <= 48_000 ? rate : 24_000, channels: 1 };
+}
+
+/**
+ * Gemini's voice models through the Interactions API: the reply's words, a
+ * style in plain words (speech_metadata.style), one prebuilt voice, and raw
+ * 16-bit PCM at 24 kHz back (audio/l16). Nothing is stored at Google
+ * (store: false). The fallback voice model is tried once when the first
+ * cannot answer for this key.
+ */
+export function geminiSpeaker(apiKey: string, fallbackModel: string | null = null): AiSpeaker {
+  return {
+    name: "gemini",
+    async speak(req) {
+      const signal = AbortSignal.timeout(req.timeoutMs);
+      const body = (model: string) => ({
+        model,
+        input: [{ type: "user_input", content: [{ type: "text", text: req.text, annotations: req.style ? [{ type: "speech_metadata", style: req.style }] : [] }] }],
+        response_format: { type: "audio", mime_type: "audio/l16", sample_rate: 24_000 },
+        generation_config: { speech_config: [{ voice: req.voice }] },
+        store: false,
+      });
+      const call = (model: string) => geminiCall(`${GEMINI}/interactions`, apiKey, body(model), signal, { "Api-Revision": INTERACTIONS_REVISION });
+      let model = req.model;
+      let r = await call(model);
+      if (isFail(r) && fallbackModel && fallbackModel !== model && tryFallback(r)) { model = fallbackModel; r = await call(model); }
+      if (isFail(r)) return { outcome: "failed", error: r.failed, usage: NO_USAGE, model };
+      const json = r.json;
+      const u = (json.usage ?? {}) as { total_input_tokens?: number; total_output_tokens?: number };
+      const found = audioOf(json);
+      let audio: Pcm | null = null;
+      if (found) { try { audio = toPcm(new Uint8Array(Buffer.from(found.data, "base64")), found.mime); } catch { audio = null; } }
+      // When the answer gives no token counts, they are estimated: about 4 letters a token in, 25 audio tokens a second out.
+      const usage: AiUsage = {
+        inputTokens: u.total_input_tokens ?? Math.ceil(req.text.length / 4),
+        outputTokens: u.total_output_tokens ?? (audio ? Math.ceil(pcmSeconds(audio) * 25) : 0),
+        cacheReadTokens: 0, cacheWriteTokens: 0,
+      };
+      if (!audio || !audio.pcm.byteLength) {
+        const said = JSON.stringify(json.status ?? "") + JSON.stringify(json.error ?? "");
+        return /block|safety|prohibit/i.test(said) ? { outcome: "refused", usage, model } : { outcome: "failed", error: "unreadable", usage, model };
+      }
+      return { outcome: "ok", audio, usage, model };
+    },
+  };
+}
+
+/* ---------- Which service answers ---------- */
+
+// The fakes used by tests, kept on globalThis so every copy of this module sees them.
+const slot = globalThis as unknown as { __schoolOsAiProvider?: AiProvider | null; __schoolOsAiSpeaker?: AiSpeaker | null };
 
 /** Only the test runner may put a fake in: a running school never answers from one, and never counts one as connected. */
 const testing = () => process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
 const fakeIn = () => (testing() ? slot.__schoolOsAiProvider ?? null : null);
+const fakeSpeakerIn = () => (testing() ? slot.__schoolOsAiSpeaker ?? null : null);
 
 /** For tests only: answer every AI request with this provider (null puts the real one back). Refused outside the test runner. */
 export function useAiProvider(p: AiProvider | null) {
@@ -102,13 +316,31 @@ export function useAiProvider(p: AiProvider | null) {
   slot.__schoolOsAiProvider = p;
 }
 
+/** For tests only: speak every reply with this stand-in voice (null puts the real one back). Refused outside the test runner. */
+export function useAiSpeaker(p: AiSpeaker | null) {
+  if (p && !testing()) throw new Error("A stand-in AI voice can only be used by the tests.");
+  slot.__schoolOsAiSpeaker = p;
+}
+
 /** The provider to use, or null when the AI service is not connected. */
 export function currentProvider(): AiProvider | null {
   const fake = fakeIn();
   if (fake) return fake;
-  const key = aiKey();
-  return key ? anthropicProvider(key) : null;
+  const service = aiService();
+  if (!service) return null;
+  return service.name === "gemini" ? geminiProvider(service.key, aiFallbackModel()) : anthropicProvider(service.key);
+}
+
+/** The voice to use, or null when there is none (no Gemini key). */
+export function currentSpeaker(): AiSpeaker | null {
+  const fake = fakeSpeakerIn();
+  if (fake) return fake;
+  const key = aiSpeechKey();
+  return key ? geminiSpeaker(key, aiTtsFallbackModel()) : null;
 }
 
 /** Is the AI service connected (a platform key is set, or a test provider is in)? */
-export const aiConnected = () => Boolean(fakeIn()) || aiKey() !== null;
+export const aiConnected = () => Boolean(fakeIn()) || aiService() !== null;
+
+/** Can replies be spoken by the AI voice (a Gemini key is set, or a test voice is in)? */
+export const aiSpeechConnected = () => Boolean(fakeSpeakerIn()) || aiSpeechKey() !== null;

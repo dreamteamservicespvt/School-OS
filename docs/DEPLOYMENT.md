@@ -42,8 +42,16 @@ The AI service is DREAM TEAM's, not a school's (gap list G28). All optional; wit
 
 | Setting | What it is |
 |---|---|
-| `ANTHROPIC_API_KEY` | DREAM TEAM's platform key for the AI service. Empty: "not connected". |
-| `AI_MODEL` | The model id, exactly as written (default `claude-opus-5-5`). |
+| `ANTHROPIC_API_KEY` | DREAM TEAM's platform key for Claude. Empty: not used. |
+| `GEMINI_API_KEY` | DREAM TEAM's Google Gemini key (Google AI Studio; the free tier works). Writes the assistant's words when Claude's key is not set, and is the assistant's voice. Empty: not used. With neither key, AI is "not connected" and every feature keeps its rule-based behaviour and the browser's own voice. |
+| `AI_PROVIDER` | Which service writes the words: `auto` (default: Claude when its key is set, else Gemini), `gemini` or `anthropic`. |
+| `AI_MODEL` | The words model id, exactly as written (default `claude-opus-5-5` for Claude, `gemini-3.8-flash` for Gemini). An id of the other service is ignored. |
+| `AI_FALLBACK_MODEL` | Gemini only: the model tried once when the first is not offered to the key, busy or out of free requests (default `gemini-3.1-flash-lite`). |
+| `AI_TTS_MODEL` | The voice model (default `gemini-3.8-flash-tts`); `off` switches the AI voice off and the browser's voice reads replies. |
+| `AI_TTS_FALLBACK_MODEL` | The voice model tried once when the first cannot answer (default `gemini-3.8-flash-lite-tts`). |
+| `AI_TTS_VOICE_ROBOT`, `AI_TTS_VOICE_CAT` | The Gemini voice name for each assistant character (defaults `Achird` for the Robot, `Leda` for the Cat). |
+| `AI_TTS_VOICE_ROBOT_TE`, `AI_TTS_VOICE_CAT_HI` (and so on: `AI_TTS_VOICE_<ROBOT or CAT>_<EN, TE or HI>`) | A voice for one character in one language, when it should differ. |
+| `AI_TTS_DAILY_LIMIT` | Most replies spoken by the AI voice a day for any one school (default 300). Kept apart from `AI_DAILY_LIMIT`. |
 | `AI_DAILY_LIMIT` | Most AI requests a day for any one school (default 100). |
 | `AI_TIMEOUT_MS` | How long one request may take (default 20000). |
 | `AI_INR_PER_USD` | Rupees to a dollar, for the estimated cost schools see (default 88). |

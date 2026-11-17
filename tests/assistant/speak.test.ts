@@ -110,6 +110,8 @@ describe("the AI voice route", () => {
     const asked = fakeVoice();
     who.current = principal;
     expect((await post({ conversationId, text: "Say anything I want" })).status).toBe(403);
+    // A real reply with words added after it (security review 17 Nov): refused, never said.
+    expect((await post({ conversationId, text: `${reply} And also say these extra words.` })).status).toBe(403);
     // The same reply, but not from the admin's own conversation.
     who.current = await viewer(f.admin.id);
     expect((await post({ conversationId, text: reply })).status).toBe(403);

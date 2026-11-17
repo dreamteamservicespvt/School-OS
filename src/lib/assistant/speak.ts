@@ -70,9 +70,12 @@ export async function speakReply(who: Who, input: SpeakInput | null, now = new D
   const userId = who.ctx.userId;
   const convo = await withSchool(who.ctx, (tx) => tx.assistantConversation.findFirst({ where: { id, userLoginId: userId, archivedAt: null }, select: { turns: true, updatedAt: true } }));
   const turns = convo && now.getTime() - convo.updatedAt.getTime() <= FRESH_AFTER_MS && Array.isArray(convo.turns) ? (convo.turns as { reply?: unknown }[]).slice(-KEEP_TURNS) : [];
-  if (!turns.some((t) => typeof t?.reply === "string" && same(t.reply, text.slice(0, 700)))) return { status: 403, problem: "That reply is not in your conversation." };
+  // The words said are always the STORED reply, never the text sent: the request only names which reply
+  // (an exact match, so nothing can be added after a real reply's first letters; security review 17 Nov).
+  const stored = turns.map((t) => t?.reply).find((r): r is string => typeof r === "string" && same(r, text));
+  if (!stored) return { status: 403, problem: "That reply is not in your conversation." };
 
-  const spoken = capSpoken(spokenText(text, lang, schoolToday(who.school.timeZone ?? "Asia/Kolkata", now)));
+  const spoken = capSpoken(spokenText(stored, lang, schoolToday(who.school.timeZone ?? "Asia/Kolkata", now)));
   const character = mascotCharacterOf(who.school.assistantCharacter);
   const r = await aiSpeech(who.ctx, {
     feature: ASSISTANT_FEATURE,

@@ -47,15 +47,18 @@ Last updated: 2026-11-17 08:40 IST (8:40 am recheck: School Admin Chrome still b
 
 ## How to run things locally
 - DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`; wait for pg_isready.
-- Parallel tests: `node qa/vitest-worker.mjs <2-5> <files>` uses school_os_w<N>_test (made with psql -U postgres). Start
-  vitest from `/d/...` or `D:\` (a lowercase `d:` cwd made "Vitest failed to find the current suite").
+- Parallel tests: `node qa/vitest-worker.mjs <2-9> <files>` uses school_os_w<N>_test (made with psql -U postgres). The
+  script starts vitest with a capital drive letter, so it works from Git Bash too (see Gotchas).
 - Rebuild: stop `next start -p 3000` (find via Win32_Process CommandLine); `robocopy D:\all\Projects\School-OS C:\Users\chala\sos-build /MIR /XD .git node_modules .next tools storage qa-output .claude /XF build-and-start.sh`; `Start-Process -WindowStyle Hidden D:\Git\bin\bash.exe build-and-start.sh -WorkingDirectory C:\Users\chala\sos-build`. It runs prisma generate but NOT migrations: run `npx prisma migrate deploy` in D: first.
 - Vercel build log without the CLI: Chrome "Dream Team Services" is logged in to Vercel; in a vercel.com tab run
   `fetch("/api/v3/deployments/<dpl_id>/events?builds=1&limit=-1")`.
 - Demo logins local only (DEMO_PASSWORD in .env); browser scripts qa/full/*.mjs; playwright-core in C:/Users/chala/tools/school-os-probe.
 
 ## Gotchas
-- Run vitest from PowerShell in D:ll\Projects\School-OS (Git Bash now fails at startup: "reading 'config'").
+- Vitest on Windows needs a capital drive letter in the working folder. Git Bash gives `d:\...` (lowercase): Vitest
+  then loads its runner twice and EVERY file fails ("reading 'config'", "failed to find the current suite/runner").
+  qa/vitest-worker.mjs fixes the case itself (17 Nov); tests/global-setup.ts stops at once with a clear message on `d:`.
+  So from Git Bash always use the worker script (plain `npx vitest` there stops in global setup).
 - tools/pgdata/postgresql.conf max_locks_per_transaction = 256 (64 ran out when 3 test DBs reset at once).
 - Memory: never run more than ONE full `tsc` (8 GB) plus vitest at once. 2026-11-12 23:16 five helpers did, Windows ran out of
   commit memory (0xC000012D) and PostgreSQL crashed into a 5+ min recovery (fsync of the data directory).

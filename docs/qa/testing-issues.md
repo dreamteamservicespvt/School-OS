@@ -5,6 +5,8 @@ Status: Open = not fixed yet. Add new items at the bottom; never delete, mark Fi
 
 ## 1. Fee Structure: "Add fee row" does nothing when the school has no fee heads (Open, found 2026-11-03)
 
+- **Status:** Fixed 2026-11-04 (10dadaba). Checked 2026-11-17 in the code: with no fee heads "Add fee row" opens a sheet "Add a fee head first" with an Add fee head button; when every head is already in the class, the class sheet offers "Add fee head" in its place (`structure/page.tsx` lines 296-298 and 321-343). A school with no fee heads also sees "Set up fees in 3 steps" (line 153).
+
 - **Where:** Fee Management → Fee Structure → open any class → "Add fee row".
 - **What happens:** the class dialog closes, the URL becomes `...&do=row`, and nothing opens. No form, no message.
 - **Root cause:** `src/app/(school)/fee-management/structure/page.tsx` line ~304: `if (!options.length) return null;`. With no fee heads there are no options, so the row form is silently not rendered.
@@ -20,12 +22,16 @@ Status: Open = not fixed yet. Add new items at the bottom; never delete, mark Fi
 
 ## 3. Fee Settings: "Allow advance payments" and "Verify before posting" look editable but cannot be changed in the Payments card (Open, found 2026-11-03)
 
+- **Status:** Fixed 2026-11-04 (10dadaba). Checked 2026-11-17 in the code: both switches sit in the Payments card (`settings/page.tsx` lines 226-234; "Verify before posting" is a switch for whoever may change the limits and an On/Off label for others, and the server checks it in `settings/actions.ts` featureAction). While it is off, the Payments form says "Switch on “Verify before posting” on the Payments card for this to apply" (`settings/sheets.tsx` line 112).
+
 - **Where:** Fee Management → Fee Settings → Payments card. Its "Change" form only has the concession limit, cancel-approval switch and the verification modes.
 - **What happens:** the two rows show On/Off labels, but there is no way to change them there. The owner could not find where.
 - **Root cause:** the real switches are in the separate "Optional parts" card further down the left column (`settings/page.tsx` lines ~190-201, features `fee-advance` and `fee-verification`). The Payments card (line ~223) just displays their state. The modes chosen in Payments → Change only apply once "Verify payments before posting" is on.
 - **Fix wanted:** put the two switches in the Payments card (or add a "Change in Optional parts" link on those rows), and show a hint in the Payments form with a link when verification is off. Test for School Admin and Principal.
 
 ## 4. Collect fee: typing a discount does not lower "Amount received" or the Collect button (Open, UI/UX, found 2026-11-03)
+
+- **Status:** Fixed 2026-11-04 (10dadaba); since 2026-11-16 (3401f9a9) the amount starts empty and "Full" follows the discount. Checked 2026-11-17 in the browser on the local build c4026ca8 (accountant, Vaishnavi Rao, ₹98,900 ticked; `qa/full/ti-money-check.mjs`): Full, then discount ₹500, gives Amount received 98400, the button "Collect ₹98,400 in cash" and the line "Fees ₹98,900 − discount ₹500 = ₹98,400", with no "held as advance" line (`collect-form.tsx`: `payable` and `followFull`). The "Still to test" path was run too: a discount above the limit is refused, one request goes to Approvals and nothing is collected (see 5).
 
 - **Where:** Fee Management → collect a student's fee (accountant aksha, student vasundhra, class 2 A, Academic fee Term 2 ₹15,000).
 - **What happens:** typed discount ₹500. "Amount received" stays 15000 and the button stays "Collect ₹15,000". Only a small grey line appears: "₹500 more than the dues. It is held as advance." The user expected the amount to drop to ₹14,500.
@@ -34,6 +40,8 @@ Status: Open = not fixed yet. Add new items at the bottom; never delete, mark Fi
 - **Still to test (ask the owner first, it writes live data):** discount over the limit (limit ₹1,000). From the code (`src/lib/fees/collect.ts` line ~128) the payment is refused with "Discounts above ₹1,000 need the principal's approval" and an "Ask for approval" button appears; the request goes to the Principal on Approvals. Check on screen that the Principal gets it, and that collecting after approval works.
 
 ## 5. Collect fee: over-limit discount flow works, but the form is confusing (Open, UI/UX, found 2026-11-03)
+
+- **Status:** Fixed 2026-11-04 (10dadaba) and 2026-11-17 (2317e495, not live yet). Checked 2026-11-17 in the browser (same script): the Reason stays after a refusal and after "Ask for approval"; "Sent to the principal" shows with Open Approvals; the same request again is refused with "This discount is already waiting for the principal" (`collect/[studentId]/actions.ts` lines 109-111, tests/fees/ask-approval-twice.test.ts); the line under the amount no longer talks of an advance. One thing was still wrong on that build: the red "Discounts above ₹1,000 need the principal's approval. Ask for approval, then collect…" stayed under the Discount box, below the green message. Fixed 2026-11-17: once the request has gone, the old refusal and the box's own "needs approval" line are not shown (`collect/[studentId]/refusal.ts`, tests/fees/collect-form-refusal.test.ts).
 
 - **Tested (accountant aksha, vasundhra, ₹15,000 due, limit ₹1,000):** discount ₹1,500 + reason → Collect is refused ("Discounts above ₹1,000 need the principal's approval") and no payment is made. "Ask for approval" then creates ONE request "Discount of ₹1,500 for vasundhra", kind Discount or concession, "waiting for the Principal", visible under Approvals → Asked by me. So the rule itself works.
 - **Problems seen:**
@@ -76,6 +84,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 
 ## 12. Students just brought in show "₹20,000 overdue" on the day they join (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 for new rows: a term whose date has passed is due on the student's joining day (dueDateForStudent in src/lib/fees/structure.ts); the full year is still owed. Test tests/fees/late-joiner.test.ts. Rows made before the fix keep their old dates (owner decision: fix the test school's 30 by hand or leave)
+- **Checked 2026-11-17:** Fixed 2026-11-05 (a4a0e677). Still in the code: `dueDateForStudent` (src/lib/fees/structure.ts lines 687-691), used when a student's fee rows are made (line 702).
 - **Where:** Student Management → Student List, after importing 30 students (admission date left empty = today). Every new student shows a red "₹20,000 overdue" chip.
 - **Why it matters:** a clerk sees every new child as overdue the minute they are admitted. Probably the class fee plan puts all terms (including ones whose due date already passed) on the student.
 - **Fix wanted:** decide the rule: a new admission should owe only terms still to come, or show earlier terms as "due now" with a clear note; the importer should say what the fee plan will add before bringing students in. Test it.
@@ -94,12 +103,14 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 
 ## 15. Fee numbers on the Principal dashboard contradict each other (Open, High, found 2026-11-04)
 - **Status:** FIXED 2026-11-05: the Fee collection chart counts the year's rows like the tile; a term dated before the year's first day lands in the first month (monthlyTrend yearId). Test tests/fees/late-joiner.test.ts
+- **Checked 2026-11-17:** Fixed 2026-11-05 (a4a0e677). Still in the code: `monthlyTrend` counts by year (src/lib/fees/dashboard.ts lines 63-69); the dashboard chart and the Fee Dashboard both pass the year (src/lib/dashboard/widgets/money.ts line 181, fee-management/dashboard/page.tsx line 98), and the chart's top line uses the same "due so far" as the tile (money.ts lines 185-193).
 - **Where:** Dashboard. Fee collection says "₹35k of ₹8 L due so far · 4%" but right below "No fees have fallen due this year yet." Needs-attention says "₹5,25,000 overdue from 30 students, more than 30 days late".
 - **Why it matters:** the Principal gets three different stories about money.
 - **Fix wanted:** one source of truth for "due so far"; show the same figure in all three places.
 
 ## 16. Brand-new students are "147 days late" (Open, High, found 2026-11-04; same root as issue 12)
 - **Status:** FIXED 2026-11-05 with issue 12 (new admissions are due today, so not on Defaulters). The Send dialog already shows count, cost, preview and "cannot be unsent"
+- **Checked 2026-11-17:** Fixed 2026-11-05 (a4a0e677), same code as issue 12 (src/lib/fees/structure.ts lines 687-702).
 - **Where:** Fee Management → Defaulters. Students admitted today show oldest due 10-06-2026 and "147 days"; all 30 land in "Over 90 days". The big blue button "Send reminder to all 30" would tell new parents they are almost five months late.
 - **Fix wanted:** same rule as issue 12 (a new admission owes only terms due after joining), plus a warning before "Send reminder to all".
 
@@ -173,26 +184,33 @@ Done: datesheet created and published as Principal (26-28); KUSUMA Marks Entry (
 
 ## 29. Collect fee: typing a discount resets "Amount received" to the full amount (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-04: typing a discount or waiver no longer overwrites a typed Amount received
+- **Checked 2026-11-17:** Fixed 2026-11-05 (969f6124). In the browser on the local build c4026ca8 (`qa/full/ti-money-check.mjs`): Amount typed 2000, then discount 700: the amount stays 2000, the button says "Collect ₹2,000 in cash", "₹96,200 stays due" counts the discount, and there is no advance line. In the code the Discount box no longer resets the amount (`collect-form.tsx`: `amount = edited ?? ...`).
 - **Where:** Collect fee, Tarun Prasad (class 1 A, Rs 20,000). I typed 5000 (part payment), opened Discount and typed 3000: the amount jumped back to 20000 and the page said "Rs 3,000 more than the dues. It is held as advance". A cashier who then presses Collect takes the wrong amount. It happens each time the discount changes.
 - **Fix wanted:** never overwrite an amount the cashier typed; only recalculate the suggested amount while it is untouched.
 
 ## 30. Collect fee: reason is wiped and the over-limit red box stays after the fix (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-04: the refusal box clears when the discount changes. Reason wipe not reproduced in code (field is controlled); likely the test tool setting the value without a keystroke, recheck by hand
+- **Checked 2026-11-17:** Fixed 2026-11-05 (969f6124) and 2026-11-17 (2317e495, not live yet). In the browser with real key presses (`qa/full/ti-money-check.mjs`; also passed 2026-11-12, docs/qa/2026-11-12-selftest-B.md): the Reason and the amount stay after a refused Collect, the red box goes when the discount changes, and nothing stale is left with the discount cleared. Still wrong on that build: the Note (and the reason for a late-fee waiver) came back empty after a refused Collect. Fixed 2026-11-17: both boxes are held by the form like the others (`collect-form.tsx`; tests/fees/collect-form-refusal.test.ts fails for any typed box the form does not hold).
 - Pressing Collect with a discount above Rs 1,000 shows a good red message, but the Reason text I had typed was cleared ("Give a reason of at least 5 characters" then appears). After I set the discount to 0 the red "Discounts above Rs 1,000 need the principal's approval" text stayed, although it no longer applied (same family as 25).
 - **Fix wanted:** keep typed fields after a refused submit; clear the error when the value changes.
 
 ## 31. Concessions list shows error sentences as the Reason (Open, High, found 2026-11-04)
 - **Status:** FIXED 2026-11-04: server refuses reasons that are screen error sentences; lists, detail and export show "No reason given" for old rows
+- **Checked 2026-11-17:** Fixed 2026-11-05 (969f6124) and 2026-11-17 (164a76c3, not live yet). Still in the code: a request for approval refuses such a reason (src/lib/fees/concessions.ts `checkInput`), and the Concessions and Refunds lists, the detail sheet, the export and Approvals show "No reason given" (src/lib/fees/reason-words.ts). Two gaps closed 2026-11-17: a discount within the limit, or a late-fee waiver, given at the counter was still saved with such a sentence (src/lib/fees/collect.ts), and the Discount and concession report and the student's statement still printed it for old rows (src/lib/fees/reports.ts, ledger.ts). Test: tests/fees/testing-issues-money.test.ts. No code was found that puts the screen's message into the Reason box by itself (the box only sends what is typed), so the two old rows most likely came from the test tool.
 - Concessions & Refunds, 2 older rows for vasundhra: the Reason column reads "Discounts above Rs 1,000 need the principal's approval. Ask for approval..." and "Give a reason of at least 5 characters for the discount." That is the screen's own error text saved as the reason. Reports and the audit trail would then carry nonsense.
 - **Fix wanted:** find where the form sends the error message in place of the reason (likely the reason field falling back to the last error text) and reject it on the server too; show "No reason given" for old rows.
 
 ## 32. Refund form stays open after sending, with the amount prefilled again (Open, Low, found 2026-11-04)
 - **Status:** PASS 2026-11-06 (browser, accountant): after "Send for approval" the sheet closes, the toast says "Refund of ₹1 sent for approval. Once approved, mark it refunded..." with Open Approvals, and the row shows Waiting for Principal. qa/full/issue11-check.mjs
+- **Checked 2026-11-17:** Fixed (no code change was needed after the 2026-11-06 pass). Still in the code: the refund form is a SheetForm, which closes once the save works (src/components/ui/url-sheet.tsx lines 104-107; fee-management/concessions/sheets.tsx line 141).
 - After "Send for approval" the dialog stays open showing Amount 4,000 (5,000 minus the 1,000 pending) and an empty Reason; a second press would try a second refund. (It did not duplicate for me: it needs a reason.) Fix wanted: close the dialog and show "Refund sent to the Principal".
 - Good: refund form is plain ("Not more than Rs 5,000 (paid, minus earlier refunds)"), every refund goes to Approvals, and the page counts "1 refund waiting".
 
 ## 33. Refund marked "paid back" lowers the fee total instead of raising what is left (Open, High, found 2026-11-04, owner decision)
 - **Status:** WAITING on owner 2026-11-05: today a refund is an adjustment (lowers the fee and Paid; blueprint lists refunds under adjustments). Not changed
+- **Checked 2026-11-17:** Fixed 2026-11-12 (f6d02b7e), live since deploy 4 (13 Nov). The owner had said to decide everything, and the rule taken is the "Fix wanted" below: Mark refunded lowers Paid only, the fee stays, so what is left goes up; refunds made before 12 Nov keep their old rows. Still in the code (src/lib/fees/refunds.ts `markRefunded`) and tested with this item's own steps (tests/fees/testing-issues-money.test.ts: ₹24,000 fee, ₹5,000 paid, ₹3,000 discount, ₹1,000 refund gives Year 21,000, Paid 4,000, Left 17,000; also tests/fees/money.test.ts "refunds (rule 9)"). No money maths was changed on 17 Nov.
+- **What the blueprint says:** it does not say whether a refund lowers the fee. 06-fee-management.md: "Refund: full or partial, never more than paid ... once approved, Mark refunded records the refund with date and reference. Finance records it in the Day Book", and "once paid it appears in the Day Book as money out" (Done when 9); the ledger lists refunds under Adjustments. 04-data-model.md: a Refund is "Money given back from a payment". README "Decisions made" has no line on refunds (only: a fee payment is never deleted).
+- **For the owner to confirm:** keep the 12 Nov rule (recommended: it matches "money given back from a payment" and the Day Book, and the form already says to give a concession or waiver when the fee itself should come down). Still open: whether the refund form should warn, with the amount, when the student still owes fees ("Student still owes ₹12,000, refund anyway?").
 - Tarun Prasad (class 1 A): fee 20,000. Paid 5,000 cash. Discount 3,000 approved: Year 17,000, Paid 5,000, Left 12,000 (correct). Then a refund of 1,000 was approved and marked refunded (cash given back): the screen now says Year 16,000, Paid 4,000, Left 12,000. The money went back, but the family still owes 12,000 on a 16,000 fee; it should be Year 17,000, Paid 4,000, Left 13,000 (unless the refund is for an overpayment, which this was not).
 - **Fix wanted:** a refund only reduces Paid. Decide with the owner whether a refund is also allowed when the student has dues (the form could warn "Student still owes Rs 12,000, refund anyway?"). Add a test for Year/Paid/Left after discount + refund.
 - Good, same flow: Principal's Approvals showed both requests with the reason and the asker; approving told the asker; Refunds tab showed "Approved, to pay", then "Mark refunded" with date, reference and account.

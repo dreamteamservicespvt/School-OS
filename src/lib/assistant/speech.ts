@@ -40,6 +40,8 @@ const YESTERDAY_FORMS: Record<AssistantLang, string[]> = { en: ["yesterday"], te
  */
 const DATE_ON = /(\bon\s+)?\b(\d{2})-(\d{2})-(\d{4})\b(\s?(?:న|को)(?![ऀ-ॿఀ-౿]))?/g;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Stands in, inside writtenText only, for a date that repeats the day word written just before it. */
+const REPEATED = "\u0001";
 
 /**
  * The written reply with today's date as "today" and yesterday's as
@@ -61,6 +63,10 @@ export function writtenText(reply: string, lang: AssistantLang, today: Date): st
     const n = y * 10000 + m * 100 + d;
     const word = n === ymd(today) ? TODAY[lang] : n === ymd(yest) ? YESTERDAY[lang] : null;
     if (!word) return all;
+    // "No fees were collected today, 17-11-2026." must not become "today, today" (live test 17 Nov 2026):
+    // a date that only repeats the day word just before it is dropped, with its comma.
+    const same = n === ymd(today) ? TODAY_FORMS[lang] : YESTERDAY_FORMS[lang];
+    if (new RegExp(`(?:${same.map(escape).join("|")})(?:\\s*[,;:–-])?\\s+$`, "iu").test(text.slice(0, at))) return REPEATED;
     // At the start of a sentence: "Today ...".
     return lang === "en" && (at === 0 || /[.!?]\s+$/.test(text.slice(0, at))) ? word[0].toUpperCase() + word.slice(1) : word;
   });
@@ -68,7 +74,7 @@ export function writtenText(reply: string, lang: AssistantLang, today: Date): st
   for (const [forms, word] of [[TODAY_FORMS[lang], TODAY[lang]], [YESTERDAY_FORMS[lang], YESTERDAY[lang]]] as const) {
     s = s.replace(new RegExp(`(${forms.map(escape).join("|")})\\s*\\(${escape(word)}\\)`, "gi"), "$1");
   }
-  return s;
+  return s.replace(new RegExp(`(?:\\s*[,;:–-])?\\s+${REPEATED}`, "gu"), "").replaceAll(REPEATED, "");
 }
 
 /** The reply as it should be spoken. `today` is the device's date (the school's day for its staff). */

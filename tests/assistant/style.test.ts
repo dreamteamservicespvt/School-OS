@@ -156,6 +156,19 @@ describe("how a reply is written", () => {
     expect(writtenText("Nobody came late on 31-12-2026.", "en", new Date(2027, 0, 1))).toBe("Nobody came late yesterday.");
   });
 
+  it("a date right after the day word does not repeat the word (live 17 Nov 2026: 'collected today, today')", () => {
+    expect(writtenText("No fees were collected today, 17-11-2026. You can check the details in Fee Reports.", "en", today))
+      .toBe("No fees were collected today. You can check the details in Fee Reports.");
+    expect(writtenText("Today, 17-11-2026, nobody is absent.", "en", today)).toBe("Today, nobody is absent.");
+    expect(writtenText("Nobody came late yesterday: 16-11-2026.", "en", today)).toBe("Nobody came late yesterday.");
+    expect(writtenText("ఈరోజు, 17-11-2026 fee ఏమీ రాలేదు.", "te", today)).toBe("ఈరోజు fee ఏమీ రాలేదు.");
+    expect(writtenText("ఈ రోజు 17-11-2026 fee ఏమీ రాలేదు.", "te", today)).toBe("ఈ రోజు fee ఏమీ రాలేదు.");
+    expect(writtenText("आज, 17-11-2026 को कोई फ़ीस नहीं आई।", "hi", today)).toBe("आज कोई फ़ीस नहीं आई।");
+    // Two different days stay two days, and a word that only starts like the day word is left alone.
+    expect(writtenText("Late yesterday, 17-11-2026 nobody.", "en", today)).toBe("Late yesterday, today nobody.");
+    expect(writtenText("Collected today: today's total is ₹500.", "en", today)).toBe("Collected today: today's total is ₹500.");
+  });
+
   it("a date that repeats the day word in brackets is said once; a range in brackets keeps its dates", () => {
     expect(writtenText("₹500 was collected today (17-11-2026), in 1 payment.", "en", today)).toBe("₹500 was collected today, in 1 payment.");
     expect(writtenText("ఈరోజు (17-11-2026) ₹500 fee collect అయ్యింది, 1 payment లో.", "te", today)).toBe("ఈరోజు ₹500 fee collect అయ్యింది, 1 payment లో.");

@@ -14,6 +14,7 @@ import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percent
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
 import { feeStudentFilter, type FeeViewer } from "./access";
+import { shownReason } from "./reason-words";
 import { instantAt } from "@/lib/attendance/time";
 
 /** A report's dates as real instants in the school's time zone: a payment cancelled at 1 AM in India is on that day, not the day before (UTC). */
@@ -330,7 +331,7 @@ export const FEE_REPORTS: ReportDef[] = [
       const who = (id: string | null) => users.find((u) => u.id === id)?.displayName ?? "";
       const rows = filtered.map((c) => ({
         date: c.createdAt, student: n.get(c.studentId)?.fullName ?? "", class: classIn(c.studentId, c.academicYearId)?.label ?? "", type: concessionTypeLabel(c.type),
-        value: c.mode === "percent" ? percentWord(c.percentBp) : formatRupees(c.amountPaise), reason: c.reason, requestedBy: who(c.requestedById), decidedBy: who(c.decidedById),
+        value: c.mode === "percent" ? percentWord(c.percentBp) : formatRupees(c.amountPaise), reason: shownReason(c.reason), requestedBy: who(c.requestedById), decidedBy: who(c.decidedById),
         status: CONCESSION_STATUS_WORDS[c.status]?.label ?? c.status, applied: c.appliedPaise,
       }));
       return {

@@ -1104,4 +1104,16 @@ export const kn: Catalogue = {
   "Invite link": "ಆಹ್ವಾನ ಲಿಂಕ್",
   "Welcome to School OS": "School OS ಗೆ ಸ್ವಾಗತ",
   "Principal / Owner": "ಪ್ರಾಂಶುಪಾಲರು / ಮಾಲೀಕರು",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "ಈ ಸಂದೇಶ ಹೇಗೆ ತಲುಪಿತು",
+  "Still sending: {n} left": "ಇನ್ನೂ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ: {n} ಉಳಿದಿವೆ",
+  "So far: the numbers change until everyone has been sent it.": "ಇಲ್ಲಿಯವರೆಗೆ: ಎಲ್ಲರಿಗೂ ಕಳುಹಿಸುವವರೆಗೆ ಈ ಸಂಖ್ಯೆಗಳು ಬದಲಾಗುತ್ತವೆ.",
+  "By channel": "ಚಾನಲ್ ಪ್ರಕಾರ",
+  "No delivery report came back": "ಡೆಲಿವರಿ ವರದಿ ಬರಲಿಲ್ಲ",
+  "Read is not reported for this channel": "ಈ ಚಾನಲ್ ಯಾರು ಓದಿದರು ಎಂದು ಹೇಳುವುದಿಲ್ಲ",
+  "{n} more sent with no delivery report": "ಡೆಲಿವರಿ ವರದಿ ಇಲ್ಲದೆ ಇನ್ನೂ {n} ಕಳುಹಿಸಲಾಗಿದೆ",
+  "Delivered, not read yet": "ತಲುಪಿದೆ, ಇನ್ನೂ ಓದಿಲ್ಲ",
+  "Sent, no report": "ಕಳುಹಿಸಲಾಗಿದೆ, ವರದಿ ಇಲ್ಲ",
+  "{n} also sent by SMS backup": "{n} SMS ಬ್ಯಾಕಪ್ ಮೂಲಕವೂ ಕಳುಹಿಸಲಾಗಿದೆ",
+  "People of your campus only": "ನಿಮ್ಮ ಕ್ಯಾಂಪಸ್‌ನವರು ಮಾತ್ರ",
 };

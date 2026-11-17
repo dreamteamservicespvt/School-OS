@@ -28,6 +28,8 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { MessageActions, RefreshWhileGoing } from "./message-actions";
+import { HowItDid } from "./how-it-did";
+import { messageSummary } from "@/lib/communication/summary";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { RecordTitle } from "@/components/ui/record-title";
@@ -59,9 +61,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
     // A message only to another campus's people is not found for a person limited to one campus; within one, only their campus's people are listed.
     const m = await tx.message.findFirst({ where: { id, schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.user.id }), AND: [await messageCampusWhere(tx, current.ctx, access.scope.campusId)] } });
     if (!m) return null;
+    const campusPeople = await recipientCampusWhere(tx, current.ctx, access.scope.campusId);
     const where: Prisma.MessageRecipientWhereInput = {
       messageId: m.id,
-      AND: [await recipientCampusWhere(tx, current.ctx, access.scope.campusId)],
+      AND: [campusPeople],
       ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" } }, { description: { contains: list.q, mode: "insensitive" } }, { address: { contains: list.q } }] } : {}),
       // Test mode is its own status here: recorded, never delivered (COMM-04).
       ...(list.filters.status === "backup" ? { isBackup: true }
@@ -85,7 +88,9 @@ export default async function MessagePage({ params, searchParams }: Props) {
     const translated = Array.isArray(m.translations) && m.translations.length
       ? await tx.messageRecipient.groupBy({ by: ["language"], where: { messageId: m.id, isBackup: false, channel: { in: [...TRANSLATED_CHANNELS] }, recipientType: "guardian" }, _count: { _all: true } })
       : [];
-    return { m, rows, total, counts, retry, unread, names, resendOf, on, backupWhy, translated };
+    // How did this message do: the same people the list shows (one campus for a one-campus login).
+    const summary = await messageSummary(tx, current.ctx, m.id, campusPeople);
+    return { m, rows, total, counts, retry, unread, names, resendOf, on, backupWhy, translated, summary };
   });
   if (!data) notFound();
   const { m, counts } = data;
@@ -123,6 +128,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const versions = (Array.isArray(m.translations) ? m.translations : []) as { language: string; text: string; title: string | null; edited?: boolean }[];
   const versionLangs = new Set(versions.map((v) => v.language));
   const langCount = (l: string) => data.translated.find((t) => t.language === l)?._count._all ?? 0;
+  // How did this message do: once it has gone to somebody. "Resend to unread" moves under its rings.
+  const showSummary = m.status !== "SCHEDULED" && m.status !== "CANCELLED" && data.summary.total > 0;
+  const resendHere = showSummary && access.canChange && !isCode && data.unread > 0;
+  const resendChannels = (["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c));
   const versionOf = (r: R) => (r.recipientType === "guardian" && !r.isBackup && TRANSLATED_CHANNELS.has(r.channel) && versionLangs.has(r.language) && isTranslationLanguage(r.language) ? TRANSLATION_LANGUAGE_NAME[r.language] : null);
 
   return (
@@ -135,8 +144,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
           <MessageActions id={m.id} canCancel={m.status === "SCHEDULED"}
             scheduledWords={m.scheduledAt ? `It was going to ${m.recipientCount} people on ${formatDateTime(m.scheduledAt, tz)}.` : null}
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
-            unread={data.unread} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
-            channels={(["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c))} labels={CHANNEL_LABEL} />
+            unread={resendHere ? 0 : data.unread} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
+            channels={resendChannels} labels={CHANNEL_LABEL} />
         ) : m.status === "CANCELLED" ? <Pill tone="neutral"><Words k="Cancelled · not sent" /></Pill> : null} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
@@ -152,6 +161,13 @@ export default async function MessagePage({ params, searchParams }: Props) {
           </Banner>
         )}
         {(m.status === "QUEUED" || counts.queued > 0) && <RefreshWhileGoing />}
+        {showSummary && (
+          <HowItDid s={data.summary} campusOnly={Boolean(access.scope.campusId)}
+            resend={resendHere ? (
+              <MessageActions id={m.id} canCancel={false} scheduledWords={null} retryable={0} overLimit={0} retryLimit={data.retry.retryLimit}
+                unread={data.unread} failed={0} channels={resendChannels} labels={CHANNEL_LABEL} />
+            ) : null} />
+        )}
         <Stats items={[
           { label: "Recipients", value: counts.total.toLocaleString("en-IN"), icon: Users },
           ...(counts.testMode ? [{ label: "Test mode", value: counts.testMode.toLocaleString("en-IN"), tone: "warn" as const, icon: FlaskConical, sub: "Recorded, not sent" }] : []),

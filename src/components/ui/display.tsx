@@ -12,9 +12,10 @@ export function Ring({ value, size = 64, stroke = 7, children, tone = "brand", t
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} style={{ stroke: track.startsWith("rgb") ? track : `rgb(var(--${track}))` }} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
+        {/* Nothing at 0: a round cap on an empty arc still draws a dot. */}
+        {v > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)}
-          style={{ stroke: `rgb(var(--${tone}))`, transition: "stroke-dashoffset .3s cubic-bezier(.23,1,.32,1)" }} />
+          style={{ stroke: `rgb(var(--${tone}))`, transition: "stroke-dashoffset .3s cubic-bezier(.23,1,.32,1)" }} />}
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>
     </div>

@@ -1104,4 +1104,16 @@ export const ml: Catalogue = {
   "Invite link": "ക്ഷണ ലിങ്ക്",
   "Welcome to School OS": "School OS ലേക്ക് സ്വാഗതം",
   "Principal / Owner": "പ്രിൻസിപ്പൽ / ഉടമ",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "ഈ സന്ദേശം എങ്ങനെ എത്തി",
+  "Still sending: {n} left": "ഇപ്പോഴും അയയ്ക്കുന്നു: {n} ബാക്കി",
+  "So far: the numbers change until everyone has been sent it.": "ഇതുവരെ: എല്ലാവർക്കും അയയ്ക്കുന്നതുവരെ ഈ എണ്ണങ്ങൾ മാറും.",
+  "By channel": "ചാനൽ തിരിച്ച്",
+  "No delivery report came back": "ഡെലിവറി റിപ്പോർട്ട് വന്നില്ല",
+  "Read is not reported for this channel": "ആരെല്ലാം വായിച്ചു എന്ന് ഈ ചാനൽ പറയില്ല",
+  "{n} more sent with no delivery report": "ഡെലിവറി റിപ്പോർട്ട് ഇല്ലാതെ {n} കൂടി അയച്ചു",
+  "Delivered, not read yet": "എത്തി, ഇതുവരെ വായിച്ചിട്ടില്ല",
+  "Sent, no report": "അയച്ചു, റിപ്പോർട്ട് ഇല്ല",
+  "{n} also sent by SMS backup": "{n} എണ്ണം SMS ബാക്കപ്പ് വഴിയും അയച്ചു",
+  "People of your campus only": "നിങ്ങളുടെ ക്യാമ്പസിലുള്ളവർ മാത്രം",
 };

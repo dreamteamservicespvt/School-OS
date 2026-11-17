@@ -1104,4 +1104,16 @@ export const mr: Catalogue = {
   "Invite link": "आमंत्रण लिंक",
   "Welcome to School OS": "School OS मध्ये स्वागत आहे",
   "Principal / Owner": "मुख्याध्यापक / मालक",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "हा संदेश कसा पोहोचला",
+  "Still sending: {n} left": "अजून पाठवत आहे: {n} बाकी",
+  "So far: the numbers change until everyone has been sent it.": "आतापर्यंत: सर्वांना पाठवेपर्यंत हे आकडे बदलत राहतील.",
+  "By channel": "चॅनेलनुसार",
+  "No delivery report came back": "डिलिव्हरी अहवाल आला नाही",
+  "Read is not reported for this channel": "हे चॅनेल कोणी वाचले ते सांगत नाही",
+  "{n} more sent with no delivery report": "डिलिव्हरी अहवालाशिवाय आणखी {n} पाठवले",
+  "Delivered, not read yet": "पोहोचले, अजून वाचले नाही",
+  "Sent, no report": "पाठवले, अहवाल नाही",
+  "{n} also sent by SMS backup": "{n} SMS बॅकअपनेही पाठवले",
+  "People of your campus only": "फक्त तुमच्या कॅम्पसचे लोक",
 };

@@ -1104,4 +1104,16 @@ export const ta: Catalogue = {
   "Invite link": "அழைப்பு இணைப்பு",
   "Welcome to School OS": "School OS க்கு வரவேற்கிறோம்",
   "Principal / Owner": "முதல்வர் / உரிமையாளர்",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "இந்தச் செய்தி எப்படிச் சென்றது",
+  "Still sending: {n} left": "இன்னும் அனுப்புகிறது: {n} மீதம்",
+  "So far: the numbers change until everyone has been sent it.": "இதுவரை: அனைவருக்கும் அனுப்பும் வரை இந்த எண்ணிக்கைகள் மாறும்.",
+  "By channel": "சேனல் வாரியாக",
+  "No delivery report came back": "டெலிவரி அறிக்கை வரவில்லை",
+  "Read is not reported for this channel": "இந்தச் சேனல் யார் படித்தார்கள் என்று சொல்லாது",
+  "{n} more sent with no delivery report": "டெலிவரி அறிக்கை இல்லாமல் மேலும் {n} அனுப்பப்பட்டது",
+  "Delivered, not read yet": "சேர்ந்தது, இன்னும் படிக்கவில்லை",
+  "Sent, no report": "அனுப்பப்பட்டது, அறிக்கை இல்லை",
+  "{n} also sent by SMS backup": "{n} SMS பேக்கப் மூலமும் அனுப்பப்பட்டது",
+  "People of your campus only": "உங்கள் வளாகத்தினர் மட்டும்",
 };

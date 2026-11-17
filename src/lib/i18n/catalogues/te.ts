@@ -17355,4 +17355,16 @@ export const te: Catalogue = {
   "Use a saved template": "సేవ్ చేసిన టెంప్లేట్ వాడండి",
   "(fees, attendance, results)": "(ఫీజు, హాజరు, ఫలితాలు)",
   "No one yet": "ఇంకా ఎవరూ లేరు",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "ఈ సందేశం ఎలా చేరింది",
+  "Still sending: {n} left": "ఇంకా పంపుతోంది: {n} మిగిలారు",
+  "So far: the numbers change until everyone has been sent it.": "ఇప్పటివరకు: అందరికీ పంపే వరకు ఈ సంఖ్యలు మారుతాయి.",
+  "By channel": "ఛానెల్ వారీగా",
+  "No delivery report came back": "డెలివరీ నివేదిక తిరిగి రాలేదు",
+  "Read is not reported for this channel": "ఈ ఛానెల్ చదివారో లేదో చెప్పదు",
+  "{n} more sent with no delivery report": "డెలివరీ నివేదిక లేకుండా మరో {n} పంపబడింది",
+  "Delivered, not read yet": "చేరింది, ఇంకా చదవలేదు",
+  "Sent, no report": "పంపబడింది, నివేదిక లేదు",
+  "{n} also sent by SMS backup": "{n} SMS బ్యాకప్ ద్వారా కూడా పంపబడింది",
+  "People of your campus only": "మీ క్యాంపస్ వారు మాత్రమే",
 };

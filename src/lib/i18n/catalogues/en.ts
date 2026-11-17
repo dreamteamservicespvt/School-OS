@@ -17913,6 +17913,18 @@ export const EN = [
   "Use a saved template",
   "(fees, attendance, results)",
   "No one yet",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do",
+  "Still sending: {n} left",
+  "So far: the numbers change until everyone has been sent it.",
+  "By channel",
+  "No delivery report came back",
+  "Read is not reported for this channel",
+  "{n} more sent with no delivery report",
+  "Delivered, not read yet",
+  "Sent, no report",
+  "{n} also sent by SMS backup",
+  "People of your campus only",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

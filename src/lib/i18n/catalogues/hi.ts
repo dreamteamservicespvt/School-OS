@@ -17355,4 +17355,16 @@ export const hi: Catalogue = {
   "Use a saved template": "सहेजा हुआ टेम्पलेट इस्तेमाल करें",
   "(fees, attendance, results)": "(फ़ीस, हाज़िरी, परिणाम)",
   "No one yet": "अभी कोई नहीं",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "यह संदेश कैसा पहुँचा",
+  "Still sending: {n} left": "अभी भेजा जा रहा है: {n} बाकी",
+  "So far: the numbers change until everyone has been sent it.": "अब तक: सबको भेजे जाने तक ये संख्याएँ बदलती रहेंगी।",
+  "By channel": "चैनल के अनुसार",
+  "No delivery report came back": "कोई डिलीवरी रिपोर्ट नहीं आई",
+  "Read is not reported for this channel": "यह चैनल नहीं बताता कि किसने पढ़ा",
+  "{n} more sent with no delivery report": "{n} और भेजे गए, डिलीवरी रिपोर्ट के बिना",
+  "Delivered, not read yet": "पहुँचा, अभी पढ़ा नहीं",
+  "Sent, no report": "भेजा गया, रिपोर्ट नहीं",
+  "{n} also sent by SMS backup": "{n} को SMS बैकअप से भी भेजा गया",
+  "People of your campus only": "केवल आपके कैंपस के लोग",
 };

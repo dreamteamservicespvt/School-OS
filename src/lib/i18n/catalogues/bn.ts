@@ -1104,4 +1104,16 @@ export const bn: Catalogue = {
   "Invite link": "আমন্ত্রণ লিংক",
   "Welcome to School OS": "School OS-এ স্বাগতম",
   "Principal / Owner": "প্রধান শিক্ষক / মালিক",
+  // src/app/(school)/communication/history/[id]/how-it-did.tsx: how did this message do (research 2026-11-15, row 9).
+  "How did this message do": "এই বার্তাটি কেমন পৌঁছাল",
+  "Still sending: {n} left": "এখনও পাঠানো হচ্ছে: {n} বাকি",
+  "So far: the numbers change until everyone has been sent it.": "এ পর্যন্ত: সবাইকে পাঠানো শেষ না হওয়া পর্যন্ত এই সংখ্যাগুলি বদলাবে।",
+  "By channel": "চ্যানেল অনুযায়ী",
+  "No delivery report came back": "কোনো ডেলিভারি রিপোর্ট আসেনি",
+  "Read is not reported for this channel": "এই চ্যানেল জানায় না কে পড়েছে",
+  "{n} more sent with no delivery report": "ডেলিভারি রিপোর্ট ছাড়া আরও {n} পাঠানো হয়েছে",
+  "Delivered, not read yet": "পৌঁছেছে, এখনও পড়া হয়নি",
+  "Sent, no report": "পাঠানো হয়েছে, রিপোর্ট নেই",
+  "{n} also sent by SMS backup": "{n} জনকে SMS ব্যাকআপেও পাঠানো হয়েছে",
+  "People of your campus only": "শুধু আপনার ক্যাম্পাসের লোকজন",
 };

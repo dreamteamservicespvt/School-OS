@@ -373,11 +373,17 @@ export function TakeSheet(p: Props) {
       </ul>
       {list.length === 0 && <p className="text-center text-ink3 py-10"><Words k="No student called “" />{q}<Words k="” in" /> {p.sectionName}.</p>}
 
-      {/* Save bar */}
+      {/* Save bar. Solid page colour behind the note and the button, with only a short fade above it: on a phone
+          the absent note sat in the bar's see-through top and was drawn over the next student's name (demo video,
+          17 Nov). The note is its own row with its own background. */}
       {!readOnly && (
-        <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0">
+        <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-2 bg-bg" data-testid="save-bar">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-full h-4 bg-gradient-to-t from-bg to-bg/0" />
           {!savedNow && (counts.c.absent ?? 0) > 0 && (
-            <p className="text-[12.5px] text-ink2 text-center mb-1.5"><AbsentNote n={counts.c.absent ?? 0} /></p>
+            <p className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-[12.5px] leading-snug text-ink2" data-testid="absent-note">
+              <Info size={14} className="mt-[2px] shrink-0 text-ink3" aria-hidden="true" />
+              <span className="min-w-0"><AbsentNote n={counts.c.absent ?? 0} /></span>
+            </p>
           )}
           <Button variant="primary" size="lg" className={cx("w-full !h-14 !text-[16px] !whitespace-normal !leading-tight text-center shadow-pop", savedNow && "disabled:!opacity-100 !bg-surface !text-ink border border-line")} icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
             {saveLabel}

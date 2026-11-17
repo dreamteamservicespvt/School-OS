@@ -30,6 +30,7 @@ import { UTR_LENGTH, paymentRefProblem, upiTyping } from "@/lib/payment-ref";
 import type { FeeTimeline } from "@/lib/fees/timeline";
 import { FeeTimelineLine } from "../../ledger/[studentId]/timeline";
 import { quickAmounts, staysDue } from "./quick-amounts";
+import { limitLine, refusalShown } from "./refusal";
 
 export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean; timeline?: FeeTimeline | null };
 
@@ -92,7 +93,13 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const [tried, setTried] = useState(false);
   const [more, setMore] = useState(false);
   const [reason, setReason] = useState("");
+  // The note and the waiver's reason are held here like the other boxes: React resets the form after
+  // every answer from the server, and a box it does not hold came back empty after a refused Collect (issue 30).
+  const [note, setNote] = useState("");
+  const [waiveWhy, setWaiveWhy] = useState("");
   const [asked, setAsked] = useState(false);
+  // The discount as typed when it went to the principal ("Ask for approval" worked).
+  const [sentFor, setSentFor] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<Collected | null>(null);
   // The last payment stays named on the card after its receipt sheet is closed, to print again (layman loop 3).
   const [last, setLast] = useState<Collected | null>(null);
@@ -114,8 +121,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   // Said as what to do: an empty box is not "has 6 digits" (layman loop 3: the grey example looked typed).
   const errChqNo = mode === "CHEQUE" && !/^\d{6}$/.test(chq.no) ? (chq.no ? "Cheque number has 6 digits" : "Type the cheque number (6 digits)") : "";
   const errChqBank = mode === "CHEQUE" && !chq.bank.trim() ? "Type the bank name" : "";
-  // Above the counter limit the box turns red at once, not only after Collect (layman loop 3).
-  const errDisc = discountPaise + waiveTotal > limitPaise && discountPaise > 0 ? `More than ${limit} needs the principal’s approval` : "";
+  // Above the counter limit the box turns red at once, not only after Collect (layman loop 3);
+  // not again for the discount that was just sent for approval (issue 5).
+  const errDisc = limitLine({ discountPaise, waivePaise: waiveTotal, limitPaise, limit, sent: asked && sentFor === discount });
   const valid = (selTotal > 0 || (advanceOn && open.length === 0)) && !errAmt && !errRef && !errChqNo && !errChqBank;
   const partial = amt > 0 && amt < owed;
   const extra = amt > owed && advanceOn ? amt - owed : 0;
@@ -132,9 +140,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
     for (const r of rows) if (ticked.has(r.id)) { const take = Math.min(left, r.balance); split.set(r.id, take); left -= take; }
   }
 
-  // A refusal stops showing once the discount it was about changes (QA issue 30).
+  // A refusal stops showing once the discount it was about changes (QA issue 30), or once that
+  // discount has gone to the principal (issue 5: no red "ask for approval" under the green "Sent").
   const [hideFor, setHideFor] = useState<unknown>(null);
-  const server = state && !state.ok && hideFor !== state ? state : null;
+  const server = refusalShown(state, hideFor, asked);
   const problem = server?.data as Problem | undefined;
   // A "same payment again?" warning is said once, in its box, not also in red under the amount (layman loop 3).
   const fieldErrors = problem?.warning ? undefined : server?.errors;
@@ -153,6 +162,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       setRef("");
       setDiscount("");
       setReason("");
+      setNote("");
+      setWaiveWhy("");
       setWaive(new Set());
       setTried(false);
       setPaidOn("");
@@ -162,7 +173,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const [seenAsk, setSeenAsk] = useState(askState);
   if (askState !== seenAsk) {
     setSeenAsk(askState);
-    if (askState?.ok) setAsked(true);
+    if (askState?.ok) { setAsked(true); setSentFor(discount); }
   }
   useEffect(() => { if (state?.ok && dupRef.current) dupRef.current.value = ""; }, [state]);
   const [seenQr, setSeenQr] = useState(qrState);
@@ -368,7 +379,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                       <span className="flex-1">{r.label}</span><span className="tnum font-semibold">{inr(r.balance)}</span>
                     </label>
                   ))}
-                  {waive.size > 0 && <input name="waiveReason" aria-label="Reason for the waiver" placeholder="Reason, like: in hospital in July" className={cx(inputCls(serverErr("waiveReason")), "h-10 text-[14px]")} />}
+                  {waive.size > 0 && <input name="waiveReason" value={waiveWhy} onChange={(e) => setWaiveWhy(e.target.value)} aria-label="Reason for the waiver" placeholder="Reason, like: in hospital in July" className={cx(inputCls(serverErr("waiveReason")), "h-10 text-[14px]")} />}
                   {serverErr("waiveReason") && <p className="text-[12.5px] text-bad">{serverErr("waiveReason")}</p>}
                 </div>
               )}
@@ -378,7 +389,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 </FieldShell>
               )}
               <FieldShell label="Note" id="pay-note" help="On the office copy of the receipt">
-                <input id="pay-note" name="note" maxLength={300} className={cx(inputCls(false), "h-11")} placeholder="Optional" />
+                <input id="pay-note" name="note" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} className={cx(inputCls(false), "h-11")} placeholder="Optional" />
               </FieldShell>
             </div>
           </div>

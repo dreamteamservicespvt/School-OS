@@ -10,6 +10,7 @@ import { formatDate, formatRupees } from "../format";
 import { todayIn } from "../staff/dates";
 import { dueStatus, netAmount } from "./dues";
 import { cancelReasonLabel, concessionTypeLabel, modeLabel } from "./words";
+import { shownReason } from "./reason-words";
 
 const ZERO = BigInt(0);
 
@@ -149,7 +150,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     const c = l.concession;
     const by = who(c.decidedById ?? c.requestedById);
     const title = `${concessionTypeLabel(c.type)} · ${rowName(l.dueId)}`;
-    entries.push({ ...base, key: `con:${l.id}`, kind: "concession", date: dayOf(l.createdAt, tz), title, sub: `${c.reason}${by ? ` · ${by}` : ""}`, ref: null, debit: ZERO, credit: l.amountPaise, balance: ZERO, order: 1 });
+    entries.push({ ...base, key: `con:${l.id}`, kind: "concession", date: dayOf(l.createdAt, tz), title, sub: `${shownReason(c.reason)}${by ? ` · ${by}` : ""}`, ref: null, debit: ZERO, credit: l.amountPaise, balance: ZERO, order: 1 });
     if (c.status === "REJECTED") {
       entries.push({ ...base, key: `con-off:${l.id}`, kind: "reversal", date: dayOf(c.updatedAt, tz), title: `Concession taken off · ${rowName(l.dueId)}`, sub: c.decisionNote ?? "Taken off", ref: null, debit: l.amountPaise, credit: ZERO, balance: ZERO, order: 2 });
     }

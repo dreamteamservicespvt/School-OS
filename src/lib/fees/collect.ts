@@ -22,6 +22,7 @@ import { MoneyProblem, MoneyWarning } from "./problem";
 import { advanceHeld, DUE_WINDOW_DAYS, lockDues, openDues, refreshBalances, studentCard } from "./dues";
 import { counterAllowed, featureOn, feeSettings, type FeeSettings } from "./settings";
 import { bulkDiscountFor, recordAppliedLines, spread } from "./concessions";
+import { isScreenMessage } from "./reason-words";
 import { modeLabel, NEEDS_REFERENCE } from "./words";
 import { paymentRefProblem } from "../payment-ref";
 import { placeOfSupply, taxLines } from "./tax";
@@ -124,9 +125,10 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
   const waived = open.filter((d) => input.waiveDueIds.includes(d.id));
   if (waived.some((d) => d.kind !== "LATE_FEE")) throw new MoneyProblem("Only late fee rows can be waived here. Use a concession for other rows.");
   if (waived.length && !counterAllowed(settings, who.roleKeys, "waive-late-fee")) throw new MoneyProblem("Waiving a late fee needs the \"waive late fee\" permission.", "waive");
-  if (waived.length && (!input.waiveReason || input.waiveReason.length < 5)) throw new MoneyProblem("Give a reason of at least 5 characters for the waiver.", "waiveReason");
+  // A screen's own error sentence is not a reason (QA issue 31): refused here as on a request for approval.
+  if (waived.length && (!input.waiveReason || input.waiveReason.length < 5 || isScreenMessage(input.waiveReason))) throw new MoneyProblem("Give a reason of at least 5 characters for the waiver.", "waiveReason");
   if (input.discountPaise > ZERO && !counterAllowed(settings, who.roleKeys, "give-discount")) throw new MoneyProblem("Giving a discount needs the \"give discount\" permission.", "discount");
-  if (input.discountPaise > ZERO && (!input.discountReason || input.discountReason.length < 5)) throw new MoneyProblem("Give a reason of at least 5 characters for the discount.", "discountReason");
+  if (input.discountPaise > ZERO && (!input.discountReason || input.discountReason.length < 5 || isScreenMessage(input.discountReason))) throw new MoneyProblem("Give a reason of at least 5 characters for the discount.", "discountReason");
   const waiveTotal = sum(waived, (d) => d.balancePaise);
   if (waiveTotal + input.discountPaise > settings.concessionLimitPaise) {
     throw new MoneyProblem(

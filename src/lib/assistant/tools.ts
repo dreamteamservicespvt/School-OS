@@ -127,7 +127,8 @@ function askTool(tool: ToolName, key: QuestionKey, about: string, takes: ToolDef
       // a short list (up to 5) says who, unless the sentence already lists something.
       const names = a.total > 0 && a.total <= 5 && !a.sentence.includes(":") ? a.table.rows.map((r) => String(r.name ?? "").trim()).filter(Boolean) : [];
       const end = a.sentence.search(/[.।](\s|$)/);
-      const sentence = names.length === a.total && end > 0 ? `${a.sentence.slice(0, end)}: ${names.join(", ")}${a.sentence.slice(end)}` : a.sentence;
+      // Only a list with names in it: an empty one (nothing taken yet, nobody absent) left "...: ." (live test 17 Nov 2026).
+      const sentence = names.length > 0 && names.length === a.total && end > 0 ? `${a.sentence.slice(0, end)}: ${names.join(", ")}${a.sentence.slice(end)}` : a.sentence;
       return { tool, ok: true, sentence, facts: { answer: a.sentence, ...askFacts(a) }, scope, link, total: a.total, good };
     },
   };

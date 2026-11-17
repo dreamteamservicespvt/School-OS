@@ -387,7 +387,8 @@ async function feesCollected(c: Ctx): Promise<AskAnswer> {
   const { t, f } = await catalogue(c, "fe-receipts", { period: "custom", from: r.from, to: r.to, ...classParams(c) });
   if (!t.rows.length && t.empty && !t.columns.length) return refuse(c, t.empty);
   const amount = typeof t.totals?.amount === "bigint" ? t.totals.amount : t.rows.reduce((s, x) => s + (typeof x.amount === "bigint" ? x.amount : BigInt(0)), BigInt(0));
-  const words = { when: c.t.any(r.label.toLowerCase()), dates: f.range ? c.t("{from} to {to}", { from: day(f.from), to: day(f.to) }) : day(c.today) };
+  // One day is one date: "today (17-11-2026)", not "today (17-11-2026 to 17-11-2026)".
+  const words = { when: c.t.any(r.label.toLowerCase()), dates: f.range && day(f.from) !== day(f.to) ? c.t("{from} to {to}", { from: day(f.from), to: day(f.to) }) : day(f.range ? f.from : c.today) };
   const n = t.rows.length;
   const feeReports = feePageAllowedFor(c.who, "reports") && pageMode(c.who, "fee-management", "reports") !== "hidden";
   return {

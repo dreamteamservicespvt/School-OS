@@ -39,7 +39,8 @@ import { allowedNumbers, inventedNumbers } from "./numbers";
 import { COMPOSER_SYSTEM, PLANNER_SYSTEM, composerRequest, plannerRequest, planSchema, replySchema, type Plan } from "./prompt";
 import { answerWords, isToolName, offeredTools, QUESTION_TOOL, runTool, TOOLS, type ToolArgs, type ToolName, type ToolResult } from "./tools";
 import { cardOf, ENQUIRY_FORM, mayAddEnquiry, newPrepared, planEnquiry, type Confirmed, type ConfirmCard, type EnquiryPlan, type Prepared } from "./enquiry";
-import { words, type WordKey } from "./words";
+import { withoutEmptyList, words, type WordKey } from "./words";
+import { schoolToday, writtenText } from "./speech";
 import type { ReplyFeel } from "./mascot-state";
 import { cleanDelivery, deliveryFor } from "./voice";
 
@@ -336,6 +337,10 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
     delivery = plan.kind === "clarify" ? deliveryFor(feel, "question") : plan.kind === "chat" ? deliveryFor(feel, "greeting") : null;
     if (plan.kind !== "clarify") chips = chipsFor();
   }
+
+  // The written reply says "today" / "yesterday" for those dates in the school's own day, and an empty
+  // list never leaves "...: ." (live test 17 Nov 2026). Done before it is kept, so the voice says the same words.
+  reply = withoutEmptyList(writtenText(reply, lang, schoolToday(clock.setup.timeZone, now)));
 
   // 6. Remember, and 7. log (never the words or the values).
   const turn: StoredTurn = { said: said.slice(0, 300), tools: calls, action, reply: reply.slice(0, 700), at: now.toISOString() };

@@ -135,7 +135,10 @@ export default async function SchoolLayout({ children }: { children: React.React
             : banner.payUrl ? <a href={banner.payUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">{t("Pay now")}</a> : null}
         </div>
       )}
-      <main id="main" tabIndex={-1} className="outline-none w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
+      {/* With the assistant, the page ends with room for its round button (src/components/assistant/launcher-lift.ts):
+          the last button on a page (Collect, Save) can always be scrolled clear of it, and a Save bar that has
+          scrolled up to the end of the page leaves the button its own spot below it. */}
+      <main id="main" tabIndex={-1} className={cx("outline-none w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 animate-rise", assistant ? "pb-[calc(10.5rem+env(safe-area-inset-bottom))] md:pb-24" : "pb-28 md:pb-10")}>{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
       {assistant && <AssistantPanel {...assistant} school={{ ...assistant.school, logoUrl: assistantLogo }} />}
     </AppShell>

@@ -203,7 +203,7 @@ export function RollCallForm({ hostelId, date, session, rows, floors, saved, can
         </ul>
       )}
       {canSave && (
-        <div className="sticky bottom-0 z-[2] bg-surface border-t border-line px-4 md:px-5 py-3 flex flex-wrap items-center gap-3 justify-between">
+        <div data-action-bar="" className="sticky bottom-0 z-[2] bg-surface border-t border-line px-4 md:px-5 py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="text-[13px] min-w-0">
             {state && !state.ok ? <span className="text-bad" role="alert">{state.message}</span>
               : !editable ? <span className="text-ink3"><Words k="Roll calls older than 7 days cannot be changed." /></span>

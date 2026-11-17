@@ -79,7 +79,7 @@ export function ResendBar({ form }: { form: string }) {
     router.refresh();
   });
   return (
-    <form id={form} onSubmit={(e) => e.preventDefault()} aria-hidden={count || note ? undefined : true}
+    <form id={form} onSubmit={(e) => e.preventDefault()} aria-hidden={count || note ? undefined : true} data-action-bar=""
       className={count || note ? "fixed inset-x-2 bottom-20 z-30 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4 lg:left-[17rem] lg:right-6" : "hidden"}>
       <div className="flex flex-wrap items-center gap-2">
         <p className={cx("mr-2 text-[14px]", note ? (note.bad ? "text-bad" : "text-ok") : "font-semibold")} aria-live="polite">{note ? note.text : `${count} guardian${count === 1 ? "" : "s"} chosen`}</p>

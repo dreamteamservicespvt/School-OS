@@ -190,7 +190,7 @@ function BottomNav({ can, onMore }: { can: ConsoleShellProps["can"]; onMore: () 
   const on = (href: string) => (href === "/console/schools" ? isOn(href) && !isOn("/console/schools/new") : isOn(href));
   const moreOn = !items.some(([h]) => on(h));
   return (
-    <nav className="md:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label="Console menu">
+    <nav data-action-bar="" className="md:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label="Console menu">
       <ul className="grid grid-cols-5">
         {items.map(([href, label, Ic, big]) => {
           const active = on(href);

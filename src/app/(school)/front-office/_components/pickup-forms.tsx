@@ -74,7 +74,7 @@ export function ScanIdButton({ base }: { base: string }) {
     <>
       <Button type="button" variant="secondary" size="lg" icon={ScanLine} onClick={() => { setProblem(null); setOpen((x) => !x); }} aria-pressed={open}><span className="hidden sm:inline">{open ? t("Stop scanning") : t("Scan ID card")}</span></Button>
       {open && (
-        <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:right-6 sm:w-80 rounded-2xl overflow-hidden bg-ink shadow-pop">
+        <div data-action-bar="" className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:right-6 sm:w-80 rounded-2xl overflow-hidden bg-ink shadow-pop">
           <video ref={video} muted playsInline className="w-full h-48 object-cover" />
           <p className="text-[12.5px] text-bg px-3 py-2"><Words k="Hold the QR on the ID card in front of the camera." /></p>
         </div>

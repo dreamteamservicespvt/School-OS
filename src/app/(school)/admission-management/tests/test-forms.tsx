@@ -167,7 +167,7 @@ export function ScoreDialog({ testId, title, sub, maxMarks, lines, canChange, cl
 function AddApplicants({ testId, more, chosen, onChange }: { testId: string; more: Applicant[]; chosen: Set<string>; onChange: (s: Set<string>) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="fixed bottom-4 right-4 z-[70] print:hidden">
+    <div className="fixed bottom-4 right-4 z-[70] print:hidden" data-action-bar="">
       <Button variant="secondary" icon={UserPlus} onClick={() => setOpen(true)} className="shadow-pop"><Words k="Add applicants" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Add applicants to this test" sub="Parents get the date, time and venue" action={addToTestAction} hidden={{ testId }} submitLabel={`Add ${chosen.size}`} submitIcon={UserPlus}>
         {(f) => <Picker applicants={more} chosen={chosen} onChange={onChange} error={f.err("applicationIds")} />}

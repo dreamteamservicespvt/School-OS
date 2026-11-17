@@ -327,7 +327,8 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
   return (
     // A page with its own number pad on screen (data-keypad: marks One at a time) opens no phone keyboard, so the
     // check above never fires: the bar steps aside while the pad is shown (layman loop 3: keys 7 to 9 and Next were under it).
-    <nav className="md:hidden [html:has([data-keypad])_&]:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label={t("Quick menu")}>
+    // data-action-bar: the assistant's round button keeps clear of it, on an iPhone's taller bar too (launcher-lift.ts).
+    <nav data-action-bar="" className="md:hidden [html:has([data-keypad])_&]:hidden fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-2 pt-1.5 z-30 no-print" style={{ paddingBottom: "calc(6px + env(safe-area-inset-bottom, 0px))" }} aria-label={t("Quick menu")}>
       {/* As many columns as there are items, so a short bar has no gaps. */}
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 4) + 1}, minmax(0, 1fr))` }}>
         {items.slice(0, 4).map((it) => {

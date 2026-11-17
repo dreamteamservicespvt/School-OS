@@ -49,7 +49,7 @@ export function DecisionBar({ id, summary, amount = null, canDecide, canReject =
     <>
       {/* Sticky, not fixed: a fixed bar is placed against the animated page (its transform), so it sat at the page end
           instead of above the bottom menu (layman loop 3, 390 px). Sticky stays in view from the first screen. */}
-      <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] z-20 -mx-4 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:mx-0 sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
+      <div data-action-bar="" className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] z-20 -mx-4 border-t border-line bg-surface p-3 shadow-pop sm:static sm:z-auto sm:mx-0 sm:rounded-2xl sm:border sm:p-4 sm:shadow-none">
         {error && !asking && <p role="alert" className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="flex flex-wrap gap-2">
           {canDecide && (

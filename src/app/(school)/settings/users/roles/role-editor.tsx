@@ -132,7 +132,7 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
         )}
 
         {!readOnly && (
-          <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-surface px-4 py-3 sm:static sm:mx-0 sm:px-0">
+          <div data-action-bar="" className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-surface px-4 py-3 sm:static sm:mx-0 sm:px-0">
             <Button onClick={save} loading={pending} loadingText="Saving…">{id ? "Save role" : "Create role"}</Button>
             <Link href={cancelHref} className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>
           </div>

@@ -377,7 +377,7 @@ export function TakeSheet(p: Props) {
           the absent note sat in the bar's see-through top and was drawn over the next student's name (demo video,
           17 Nov). The note is its own row with its own background. */}
       {!readOnly && (
-        <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-2 bg-bg" data-testid="save-bar">
+        <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-2 bg-bg" data-testid="save-bar" data-action-bar="">
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-full h-4 bg-gradient-to-t from-bg to-bg/0" />
           {!savedNow && (counts.c.absent ?? 0) > 0 && (
             <p className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-[12.5px] leading-snug text-ink2" data-testid="absent-note">

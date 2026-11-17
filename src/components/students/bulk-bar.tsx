@@ -60,7 +60,7 @@ export function BulkBar({ form, actions, noun = "student" }: { form: string; act
       if (submitter?.dataset.file) window.location.assign(url); else router.push(url);
     }}
       className={count ? "no-print fixed inset-x-2 bottom-20 z-30 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4 lg:left-[17rem]" : "hidden"}
-      aria-hidden={count ? undefined : true}>
+      aria-hidden={count ? undefined : true} data-action-bar="">
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-2 font-medium" aria-live="polite">{count} {noun}{count === 1 ? "" : "s"} <Words k="chosen" /></p>
         {actions.map((a) => (

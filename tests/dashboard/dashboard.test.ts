@@ -65,7 +65,12 @@ describe("what each role's home loads", () => {
     expect(home.leader).toBe(true);
     // With Attendance built, the leader's band leads with students and staff present today (BAND_ORDER).
     const staff = home.band.find((b) => b.id === "attendance.staff-present");
-    expect(staff?.of).toBe("/ 4");
+    // No staff attendance is saved for the day: the tile says "Not taken" as the students tile does,
+    // never "0 / 4 · 4 not in yet", which reads as every staff member absent (live test 17 Nov, Principal).
+    expect(staff?.big).toBe("Not taken");
+    expect(staff?.of).toBeUndefined();
+    expect(staff?.ring).toBeUndefined();
+    expect(staff?.foot).toBe("4 staff · 0 on leave");
     expect(staff?.href).toBe("/attendance-management/staff");
     expect(home.band.find((b) => b.id === "attendance.students-present")?.href).toBe("/attendance-management/register");
     expect(home.tasks.mine.every((t) => t.title !== "Other school task")).toBe(true);

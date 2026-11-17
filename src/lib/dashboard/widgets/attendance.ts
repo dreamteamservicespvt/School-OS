@@ -125,7 +125,11 @@ const staffPresent: Widget<"band"> = {
     const off = await schoolDayOff(c, a.campusId ?? c.viewer.campusId ?? null);
     const href = `${BASE}/staff`;
     if (!off.on) return { id: "attendance.staff-present", label: "Staff present", ...(await offTile(c, off, a.campusId ?? c.viewer.campusId ?? null)), href };
-    const t = staffDayCounts(await staffDay(c.tx, c.viewer.ctx, a, c.today));
+    const rows = await staffDay(c.tx, c.viewer.ctx, a, c.today);
+    const t = staffDayCounts(rows);
+    // Nothing saved for the day yet (by hand, tap or face): "Not taken", as the students tile says. "0 / 6 · 6 not in yet"
+    // read as every staff member absent while Staff & HR said "Once staff attendance is taken" (live test 17 Nov, Principal).
+    if (!rows.some((r) => r.mark)) return { id: "attendance.staff-present", label: "Staff present", big: "Not taken", foot: `${n(t.total)} staff · ${n(t.leave.length)} on leave`, href };
     return {
       id: "attendance.staff-present", label: "Staff present", big: n(t.present), of: `/ ${n(t.total)}`,
       ring: t.total ? Math.round((t.present / t.total) * 100) : undefined,

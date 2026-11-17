@@ -235,7 +235,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         </Section>
 
         {canEdit && (
-          <div className="sticky bottom-20 z-10 space-y-3 rounded-xl border border-line bg-surface p-4 shadow-pop lg:bottom-4">
+          <div data-action-bar="" className="sticky bottom-20 z-10 space-y-3 rounded-xl border border-line bg-surface p-4 shadow-pop lg:bottom-4">
             {result && <Alert tone={result.ok ? "success" : "danger"}>{result.message}</Alert>}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-ink-2">{dirty ? "Changes not saved yet." : "No unsaved changes."}</p>

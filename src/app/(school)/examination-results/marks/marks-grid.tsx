@@ -481,7 +481,7 @@ export function MarksGrid(props: Props) {
       </div>
 
       {canEdit && students.length > 0 && (
-        <div className={cx("md:sticky md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20", view === "grid" && "sticky bottom-16")}>
+        <div data-action-bar="" className={cx("md:sticky md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20", view === "grid" && "sticky bottom-16")}>
           {/* One at a time on a phone: the bar sits after the card, not over the number keys and Next (layman loop 2). */}
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-surface border border-line rounded-2xl shadow-pop p-2 pl-4" aria-live="polite">
             {/* Shown on a phone too, so "Save now" visibly says it saved (self-test B4). */}

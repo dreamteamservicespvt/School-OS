@@ -466,7 +466,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <ProblemText name="allocations" given={errors.allocations} />
       </fieldset>
 
-      <div className="sticky bottom-16 z-10 flex flex-col-reverse gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+      <div data-action-bar="" className="sticky bottom-16 z-10 flex flex-col-reverse gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <div>{step > 1 && <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}><Words k="Back" /></Button>}</div>
         <div className="flex flex-col gap-2 sm:flex-row">
           {step === 3 && teaching && data.classes.length > 0 && (!noSubjects || offer.classTeacher) && <Button variant="secondary" data-submit onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}

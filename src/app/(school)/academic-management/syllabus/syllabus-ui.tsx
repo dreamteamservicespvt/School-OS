@@ -199,7 +199,7 @@ export function DailyLog({ chapters, yearId, sectionId, date, maxDate }: { chapt
           </ul>
         </fieldset>
       ))}
-      <div className="sticky bottom-20 z-10 lg:bottom-4">
+      <div className="sticky bottom-20 z-10 lg:bottom-4" data-action-bar="">
         <SubmitButton pendingText="Saving…" className="w-full shadow-card sm:w-auto">
           {picked.length ? `Save ${picked.length} ${picked.length === 1 ? "topic" : "topics"} taught` : "Tick the topics taught"}
         </SubmitButton>

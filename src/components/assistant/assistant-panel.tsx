@@ -29,6 +29,7 @@ import { words, type WordKey } from "@/lib/assistant/words";
 import { playUiSound } from "@/lib/ui-sound";
 import { buttonClass } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { useLauncherLift } from "./launcher-lift";
 import { Mascot } from "./mascot";
 import s from "./mascot.module.css";
 
@@ -99,6 +100,8 @@ export function AssistantPanel({ screen, school, character, chips: startChips, v
     void audio.current?.close().catch(() => undefined);
   }, []);
   useEffect(() => { if (open) panel.current?.focus(); }, [open]);
+  // The round button moves up above a page's bottom bar (Save, Submit marks…) instead of covering it.
+  useLauncherLift(launcher, !open);
   // On a phone the panel fills the screen, so the page behind it stays still (page-lock.tsx);
   // on a wider screen it sits beside the page, which keeps scrolling.
   const [covers, setCovers] = useState(false);
@@ -310,9 +313,11 @@ export function AssistantPanel({ screen, school, character, chips: startChips, v
 
   return (
     <>
+      {/* It moves up over a page's bottom bar (useLauncherLift), gliding only when motion is allowed. On a phone
+          it steps aside, like the bottom menu, while the marks number keys are on screen (data-keypad). */}
       {!open && (
         <button ref={launcher} type="button" onClick={openPanel} onPointerEnter={preload} onFocus={preload}
-          className={cx(s.launcher, "fixed right-4 bottom-24 md:bottom-6 z-40 h-14 w-14 overflow-hidden rounded-full text-white flex items-center justify-center no-print focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand")}
+          className={cx(s.launcher, "fixed right-4 bottom-24 md:bottom-6 z-40 h-14 w-14 overflow-hidden rounded-full text-white flex items-center justify-center no-print motion-safe:transition-transform motion-safe:duration-200 ease-out max-md:[html:has([data-keypad])_&]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand")}
           aria-label={title} title={title} data-assistant-launcher="">
           {/* The assistant's own face (layman test 16 Nov 2026: a book icon did not say "assistant"). */}
           <span aria-hidden="true" className={cx(s.launcherFace, character === "cat" ? s.launcherCat : s.launcherRobot)} />

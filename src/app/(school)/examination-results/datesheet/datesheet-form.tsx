@@ -345,7 +345,7 @@ export function DatesheetForm({ data }: { data: Data }) {
             </div>
           </section>
         </div>
-        <div className="sticky bottom-16 md:bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-line bg-surface px-4 md:px-6 py-3.5 sm:flex-row sm:justify-end">
+        <div data-action-bar="" className="sticky bottom-16 md:bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-line bg-surface px-4 md:px-6 py-3.5 sm:flex-row sm:justify-end">
           <ButtonLink href={exam ? `/examination-results/datesheet/${exam.id}` : "/examination-results/datesheet"} variant="ghost"><Words k="Cancel" /></ButtonLink>
           <SubmitButton pendingText="Saving…"><Check size={17} aria-hidden="true" />{exam ? "Save changes" : "Save as draft"}</SubmitButton>
         </div>

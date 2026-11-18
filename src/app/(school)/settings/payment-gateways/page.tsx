@@ -53,11 +53,11 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
     <>
       <PageHeader title="Payment Gateways" href="/settings/payment-gateways" userId={current.user.id} />
       <p className="-mt-3 mb-4 max-w-prose text-ink-2">
-        <Words k="DREAM TEAM connects and tests the gateway. To change one, tell them." />{" "}
+        <Words k="Your School OS support team connects and tests the gateway. To change one, tell them." />{" "}
         <Words k="Which class or fee head uses which gateway is set in Fee Management, Fee Settings." />
       </p>
       {!rows.some((r) => r.isActive) && rows.length > 0 && !filtered && (
-        <Alert tone="warning" className="mb-4" title="No gateway is switched on"><Words k="Parents cannot pay online yet. DREAM TEAM switches a gateway on after its test passes." /></Alert>
+        <Alert tone="warning" className="mb-4" title="No gateway is switched on"><Words k="Parents cannot pay online yet. Your School OS support team switches a gateway on after its test passes." /></Alert>
       )}
       <ListToolbar placeholder="Search gateways"
         filters={[
@@ -84,7 +84,7 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
           <EmptyState title="No gateway matches these filters"><Link href="/settings/payment-gateways" className="font-medium text-brand-text underline"><Words k="Clear the filters" /></Link></EmptyState>
         ) : (
           <EmptyState title="No payment gateway yet">
-            <p><Words k="Counter payments (cash, UPI, cheque) work now. For online fees, tell DREAM TEAM." /></p>
+            <p><Words k="Counter payments (cash, UPI, cheque) work now. For online fees, tell your School OS support team." /></p>
           </EmptyState>
         )}
       />

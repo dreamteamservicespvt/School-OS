@@ -60,7 +60,8 @@ describe("which words ask for the guide", () => {
   });
 
   it.each([
-    "explain the fee structure of Class 5", "how many absent today", "Who is absent today?", "who has fees overdue?", "ee roju absent evaru?",
+    "explain the fee structure of Class 5", "how many absent today",
+    "Aarav Sharma హాజరు ఎలా ఉంది?", "Aarav attendance ela undi?", "How is Aarav's attendance?", "Aarav की हाज़िरी कैसी है?", "Who is absent today?", "who has fees overdue?", "ee roju absent evaru?",
     "fees entha vachindi", "aaj kaun absent hai", "కిందటి వారం ఎంత fee వచ్చింది?", "how much fee was collected today", "show me the defaulters of class 5",
     "hi", "thank you", "explain why attendance is low in 5 A", "Which staff are on leave today?", "how many students failed in maths",
     "నిన్న absent ఎవరు?", "किसकी fees बाकी है?",

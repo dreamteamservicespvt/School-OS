@@ -42,7 +42,7 @@ const AT: Record<AssistantLang, 0 | 1 | 2> = { en: 0, te: 1, hi: 2 };
 /** "How do I", "how to", "ela", "कैसे": the person asks how to do something. */
 const HOW = / how (do|can|should|would|could|will|shall|does) (i|we|you|one|a teacher|a person) | how to | how does | where (do|can|should) (i|we) | steps? (to|for) | show me how | teach me | guide me | help me | process (to|for) | way to | explain how | ela | elaa | ekkada | kaise | kese | kahan | kaha |ఎలా|ఎక్కడ|कैसे|कहाँ|कहां/;
 /** Words of a question about the records, not a way of working. */
-const DATA = / who | whom | whose | which | how many | how much | evaru | evari | enni | entha | kaun | kitne | kitna | kitni | below | percent | percentage | % | report | reports | topper | toppers |ఎవరు|ఎవరికి|ఎన్ని|ఎంత|कौन|कितने|कितना/;
+const DATA = / who | whom | whose | which | how many | how much | evaru | evari | enni | entha | kaun | kitne | kitna | kitni | below | percent | percentage | % | report | reports | topper | toppers |ఎవరు|ఎవరికి|ఎన్ని|ఎంత|कौन|कितने|कितना| how is | how was | how are | undi | vundi | unnadu | unnaru |ఉంది|ఉన్నాడు|ఉన్నారు|ఉన్నది|ఉన్నాయి| kaisi hai | kaisa hai |कैसी है|कैसा है|कैसे हैं|कैसी थी|कैसा था/;
 
 const T_ = {
   attendance: / attendance | attendence | register | hajaru | haziri | hazri |హాజరు|हाज़िरी|हाजिरी|उपस्थिति|అటెండెన్స్/,

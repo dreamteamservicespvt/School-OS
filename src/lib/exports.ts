@@ -150,8 +150,8 @@ export async function buildExport<Row>(format: ExportFormat, columns: ExportColu
   try {
     return { body: await htmlToPdf(html, { landscape: columns.length > 6 }), type: "application/pdf", name: `${base}.pdf` };
   } catch (e) {
-    // No PDF could be made: the list opens as a printable page instead (Print, then "Save as PDF").
-    if (e instanceof PdfUnavailableError) return { body: Buffer.from(pdfFallbackPage(html)), type: "text/html; charset=utf-8", name: `${base}.html` };
+    // No PDF could be made: the list opens as a printable page instead (Download PDF to try again, or Print), on its own paper size.
+    if (e instanceof PdfUnavailableError) return { body: Buffer.from(pdfFallbackPage(html, e.opts)), type: "text/html; charset=utf-8", name: `${base}.html` };
     throw e;
   }
 }

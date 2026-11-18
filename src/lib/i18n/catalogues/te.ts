@@ -17367,4 +17367,13 @@ export const te: Catalogue = {
   "Sent, no report": "పంపబడింది, నివేదిక లేదు",
   "{n} also sent by SMS backup": "{n} SMS బ్యాకప్ ద్వారా కూడా పంపబడింది",
   "People of your campus only": "మీ క్యాంపస్ వారు మాత్రమే",
+  // src/app/(school)/settings/users/page.tsx: two-step login, what to do
+  "Show these people": "ఈ వ్యక్తులను చూపించు",
+  "They still sign in with the password only, so nobody is locked out. To fix it:": "వారు ఇప్పటికీ పాస్‌వర్డ్‌తో మాత్రమే సైన్ ఇన్ అవుతారు, కాబట్టి ఎవరూ లాక్ అవ్వరు. సరిచేయడానికి:",
+  "Two-step login is on for {n} people, but no sign-in code can reach them": "{n} మందికి రెండు-దశల లాగిన్ ఆన్‌లో ఉంది, కానీ వారికి సైన్-ఇన్ కోడ్ చేరదు",
+  "Two-step login is on for 1 person, but no sign-in code can reach them": "1 వ్యక్తికి రెండు-దశల లాగిన్ ఆన్‌లో ఉంది, కానీ వారికి సైన్-ఇన్ కోడ్ చేరదు",
+  "Switch SMS on in Settings, SMS, WhatsApp & Email, so the code can go to their mobile number.": "సెట్టింగ్స్, SMS, WhatsApp & Emailలో SMS ఆన్ చేయండి, అప్పుడు కోడ్ వారి మొబైల్ నంబర్‌కు వెళ్తుంది.",
+  "For people with only a mobile number: add their email address, or switch SMS on.": "మొబైల్ నంబర్ మాత్రమే ఉన్నవారికి: వారి ఈమెయిల్ చిరునామా జోడించండి, లేదా SMS ఆన్ చేయండి.",
+  "For people with only an email address: add their mobile number.": "ఈమెయిల్ చిరునామా మాత్రమే ఉన్నవారికి: వారి మొబైల్ నంబర్ జోడించండి.",
+  "For people with no mobile number or email: open the person in this list and add one.": "మొబైల్ నంబర్ లేదా ఈమెయిల్ లేనివారికి: ఈ జాబితాలో ఆ వ్యక్తిని తెరిచి ఒకటి జోడించండి.",
 };

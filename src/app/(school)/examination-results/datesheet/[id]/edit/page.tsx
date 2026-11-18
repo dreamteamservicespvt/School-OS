@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { examPage, type SearchParams } from "../../../_lib/page";
@@ -21,6 +22,7 @@ export default async function EditDatesheetPage({ params, searchParams }: { para
   if (!data?.exam) notFound();
   return (
     <>
+      <RecordTitle name={data.exam.title} />
       <BackLink page={page} href={`/examination-results/datesheet/${id}`} label={data.exam.title} sub="Change datesheet" />
       <div className="mb-5">
         <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight"><Words k="Change" /> {data.exam.title}</h1>

@@ -69,7 +69,7 @@ Progress page: see docs/HANDOFF.md (link).
 - 13 Side menu: short labels (Attendance, Fees, Students, Admissions, Exams, ...); page titles keep full names; Time Table findable in search; blueprint updated to match.
 - 15 Moving in: allow a parent without a phone; mark "Phone missing"; no Parent Link or messages until a phone is added.
 - 18 Accountant opens Fee Management on Collect Fee (admin and principal on the Fee Dashboard).
-- 16 Settings wording: "the School OS support team" instead of DREAM TEAM.
+- 16 Settings wording: "the School OS support team" instead of DREAM TEAM. Done 19 Nov on fix/final-pending: Payment Gateways, SMS WhatsApp & Email and their Settings-home lines say "your School OS support team" (en, te, hi).
 - 14 Bell notifications in each reader's language: build it (kind + values, safe migration; old ones stay English).
 - 17 Parent Link footer: a per-school "WhatsApp number for parents" in School Profile; fallback the office mobile.
 - 10 Consent texts: draft Hindi and Telugu, marked draft, NOT shown to parents until the owner approves on Monday.

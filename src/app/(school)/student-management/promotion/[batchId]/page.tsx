@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -54,6 +55,7 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
 
   return (
     <>
+      <RecordTitle name={sec(batch.fromSectionId)} />
       <BackLink href={`${BASE}/promotion`} label="Promotion" />
       <PageHeader title={`Promotion of ${sec(batch.fromSectionId)} (${yearName(batch.fromYearId)})`} href={`${BASE}/promotion/${batch.id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/promotion`} size="sm"><Words k="Back to Promotion" /></ButtonLink>

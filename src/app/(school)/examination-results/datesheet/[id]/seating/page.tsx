@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -45,6 +46,7 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
   const DOTS = ["bg-brand/30", "bg-warn/30", "bg-ok/30", "bg-bad/30", "bg-ink3/40"];
   return (
     <>
+      <RecordTitle name={d.exam.title} />
       <BackLink page={page} href={`/examination-results/datesheet/${id}`} label={d.exam.title} sub="Seating arrangement" />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

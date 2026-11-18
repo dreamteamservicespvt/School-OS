@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -79,6 +80,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
 
   return (
     <>
+      <RecordTitle name={`${p.section.label} · ${p.subject.name}`} />
       <BackLink page={page} href="/examination-results/marks" label="Marks Entry" sub={`${p.exam.title} · ${p.subject.name} · ${p.section.label}`} />
       <MarksGrid
         entryId={entryId} sectionId={sectionId} paperLabel={label}

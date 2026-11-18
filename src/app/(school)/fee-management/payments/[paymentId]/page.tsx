@@ -1,3 +1,4 @@
+// tab: only redirects to the student's Fee Ledger, which names the tab.
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { canSeeStudent } from "@/lib/fees/access";

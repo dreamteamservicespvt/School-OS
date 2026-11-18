@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText, Hourglass, IndianRupee, PartyPopper, SearchX, Send, UserRound, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -66,6 +67,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
 
   return (
     <div>
+      <RecordTitle name={data.name} />
       <FeeHead pageName="Fee Dashboard" href={`${BASE}/dashboard`} sub={`${data.name} · fees as of today, ${formatDate(p.today)}`} />
       <Stack>
         <div className="flex flex-wrap items-center gap-2.5">

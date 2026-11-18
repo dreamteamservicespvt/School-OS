@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -40,6 +41,7 @@ export default async function ChangeStatusPage({ params }: { params: Promise<{ i
   const back = `${BASE}/students/${id}`;
   return (
     <>
+      <RecordTitle name={data.student.fullName} />
       <BackLink href={back} label={data.student.fullName} sub="Change status" />
       <PageHeader title="Change status" href={`${back}/status`} userId={current.user.id} />
       <div className="grid max-w-5xl gap-4 lg:grid-cols-2">

@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowUpDown, Download, Filter, Hourglass, Inbox, Info, Lock, PowerOff } from "lucide-react";
@@ -119,6 +120,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   return (
     <div>
       <BackLink href={BASE} label="All reports" />
+      <RecordTitle name={entry.name} />
       <RepHead title={entry.name} pageName={entry.name} href={href} sub={`${entry.sub} · from ${entry.category}`} tabs={false} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Card>

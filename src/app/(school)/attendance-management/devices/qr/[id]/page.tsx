@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -40,6 +41,7 @@ export default async function QrPosterPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
+      <RecordTitle name={session.name} />
       <PageHeader title={`QR poster: ${session.name}`} href={`${BASE}/devices/qr/${session.id}`} userId={current.user.id}>
         <Link href={`${BASE}/devices?view=qr`} className="font-medium text-brand-text hover:underline"><Words k="All QR posters" /></Link>
       </PageHeader>

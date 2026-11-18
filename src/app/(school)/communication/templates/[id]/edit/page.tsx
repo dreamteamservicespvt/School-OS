@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { commOfficePage } from "@/lib/communication/access";
@@ -19,6 +20,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
   if (!data) notFound();
   return (
     <>
+      <RecordTitle name={data.name} />
       <BackLink href={`/communication/templates/${id}`} label={data.name} sub="Edit" />
       <RecordHead title={`Edit ${data.name}`} sub={<span className="text-[14px] text-ink3"><Words k="Saving makes a new version. Messages already sent keep theirs." /></span>} />
       <TemplateForm data={data} />

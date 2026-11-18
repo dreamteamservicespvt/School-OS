@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -38,6 +39,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
 
   return (
     <>
+      <RecordTitle name={data.view?.guardianName} />
       <BackLink href={`/communication/parent-link/${id}`} label="Parent Link" sub="What they see" />
       <RecordHead title="What guardians see" />
       <Banner tone="info" title="A preview of this guardian’s page." className="mb-5"><Words k="Buttons do nothing here, and this visit is not counted as an open." /></Banner>

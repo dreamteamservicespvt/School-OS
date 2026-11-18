@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -41,6 +42,7 @@ export default async function RulePage({ params }: { params: Promise<{ type: str
   return (
     <>
       <Link href="/settings/forms-approvals" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Forms & Approvals"} /></Link>
+      <RecordTitle name={t.label} />
       <PageHeader title={`Approval rule: ${t.label}`} href={`/settings/forms-approvals/rules/${type}`} userId={current.user.id}>
         {rule.custom && <DefaultRuleButton type={type} label={t.label} />}
       </PageHeader>

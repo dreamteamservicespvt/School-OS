@@ -34,6 +34,7 @@ import { aiReady } from "@/lib/ai";
 import { AiColumnSuggestions } from "./ai-column-suggestions";
 import { PhotoRowBadge, RegisterPhotos } from "./register-photos";
 import { Any, Words } from "@/lib/i18n/client";
+import { RecordTitle } from "@/components/ui/record-title";
 
 const STEPS = [
   { key: "columns", label: "Match columns" },
@@ -125,7 +126,7 @@ export async function FileReview({ current, place, id, sp, back = true }: Props)
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         {back && <Link href={BASE} className="text-sm font-medium text-brand-text hover:underline">← {place.name}</Link>}
-        <h2 className="mt-1 text-xl font-semibold break-all">{file.fileName}{sheetName ? ` · ${sheetName}` : ""}</h2>
+        <h2 className="mt-1 text-xl font-semibold break-all">{file.fileName}<RecordTitle name={file.fileName} />{sheetName ? ` · ${sheetName}` : ""}</h2>
         <p className="text-sm text-ink-2">{label} · {count(allRows, "row")} <Words k="· uploaded" /> {formatDateTime(file.createdAt, tz)}</p>
       </div>
       {file.status !== "importing" && mayBring && <RemoveFileButton place={place.key} id={file.id} imported={file.status === "imported" || batches.length > 0} back={BASE} />}

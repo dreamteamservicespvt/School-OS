@@ -1,3 +1,4 @@
+// tab: only redirects to Expenses with the expense open.
 import { redirect } from "next/navigation";
 import { financePage } from "../../_lib/page";
 

@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SettingsLink } from "@/components/settings-link";
@@ -48,6 +49,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
 
   return (
     <>
+      <RecordTitle name={s.fullName} />
       <BackLink href={back} label={s.fullName} sub="Edit" />
       <PageHeader title={`${TITLES[section]}: ${s.fullName}`} href={`${BASE}/students/${id}/edit/${section}`} userId={current.user.id} />
       <nav aria-label="Sections" className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

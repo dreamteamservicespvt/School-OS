@@ -305,10 +305,15 @@ export async function visitorSearch(tx: Tx, rawQ: string, phones: boolean): Prom
   return { OR: or };
 }
 
-/** The visitor log's rows for a day range (and, when the range is today, older passes never closed). */
-export function visitorLogWhere(opts: { scope: Prisma.VisitorEntryWhereInput; from: Date; to: Date; withOpenExpired: boolean; status: string; search: Prisma.VisitorEntryWhereInput | null; now?: Date }): Prisma.VisitorEntryWhereInput {
+/**
+ * The visitor log's rows for the dates and one status chip. `today`: the dates chosen are today, and then the
+ * log also carries every pass from an older day that was never closed (still the desk's work today). They sit
+ * under "Expired" and so under "All" too: All is always In the building + Out + Expired, on every day (live
+ * test 17 Nov: "All 0 · Expired 6" under "6 visitors not checked out"). An older day shows only its own visitors.
+ */
+export function visitorLogWhere(opts: { scope: Prisma.VisitorEntryWhereInput; from: Date; to: Date; today: boolean; status: string; search: Prisma.VisitorEntryWhereInput | null; now?: Date }): Prisma.VisitorEntryWhereInput {
   const now = opts.now ?? new Date();
-  const day: Prisma.VisitorEntryWhereInput = opts.withOpenExpired ? { OR: [{ visitDate: { gte: opts.from, lte: opts.to } }, expiredWhere(now)] } : { visitDate: { gte: opts.from, lte: opts.to } };
+  const day: Prisma.VisitorEntryWhereInput = opts.today ? { OR: [{ visitDate: { gte: opts.from, lte: opts.to } }, expiredWhere(now)] } : { visitDate: { gte: opts.from, lte: opts.to } };
   return { AND: [{ archivedAt: null }, opts.scope, day, statusWhere(opts.status, now), ...(opts.search ? [opts.search] : [])] };
 }
 

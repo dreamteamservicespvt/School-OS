@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const result = await withSchool(x.current.ctx, async (tx) => {
     const search = await visitorSearch(tx, q, phones);
     const rows = await tx.visitorEntry.findMany({
-      where: visitorLogWhere({ scope: visitorScope(x.v, today), from: new Date(`${range.from}T00:00:00Z`), to: new Date(`${range.to}T00:00:00Z`), withOpenExpired: isToday && status === "Expired", status, search, now }),
+      where: visitorLogWhere({ scope: visitorScope(x.v, today), from: new Date(`${range.from}T00:00:00Z`), to: new Date(`${range.to}T00:00:00Z`), today: isToday, status, search, now }),
       orderBy: { timeIn: "asc" }, take: 20_000,
     });
     const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.meetStaffId).filter((s): s is string => Boolean(s)))] } }, select: { id: true, fullName: true } });

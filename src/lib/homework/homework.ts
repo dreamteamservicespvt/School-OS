@@ -15,7 +15,7 @@ import { effectiveVersion } from "../academic/timetable";
 import { weekday } from "../academic/common";
 import { formatDate } from "../format";
 import { HomeworkProblem } from "./access";
-import { listWhere, mayRead, onCampus, requireDesk, requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
+import { listWhere, mayRead, mayWork, onCampus, requireDesk, requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
 import { homeworkSettings } from "./settings";
 import { dayDate, homeworkStatus, HANDED_IN, isPastDue, plural, TO_CHECK, type HomeworkStatus } from "./words";
 import { tellParentsHomeworkSet } from "./notify-parents";
@@ -447,6 +447,18 @@ export function bandTotals(rows: HomeworkRow[]) {
   const seenOf = messaged.reduce((a, r) => a + r.counts.assigned, 0);
   const seen = messaged.reduce((a, r) => a + (r.seen ?? 0), 0);
   return { given: rows.length, assigned, submitted, toCheck, classes: new Set(rows.map((r) => r.sectionId)).size, seen, seenOf, messaged: messaged.length };
+}
+
+/**
+ * The band at the top of Homework for the homework given in the dates. `given` counts every one of them
+ * (current, past due and closed), the same rows "By teacher" lists under it, so the two always agree (live
+ * test 17 Nov: "Current · this month: 0" above teachers with 3 and 1 given, because the month's homework
+ * was past its due date). `current` is only the homework not yet due, for the tiles that say "current".
+ * A teacher's own band counts their own homework; a class teacher also reads other subjects of their class.
+ */
+export function homeworkBand(rows: HomeworkRow[], s: HomeworkScope) {
+  const counted = s.level === "own" ? rows.filter((r) => mayWork(s, r)) : rows;
+  return { given: bandTotals(counted), current: bandTotals(counted.filter((r) => r.status === "Current")) };
 }
 
 /** One homework with everything the details page needs, if this person may read it. */

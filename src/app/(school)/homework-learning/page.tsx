@@ -4,7 +4,7 @@ import { withSchool, type Tx } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { rangeWords } from "@/lib/periods";
 import { formatTime } from "@/lib/format";
-import { listHomework, bandTotals, nextClassDay, nextWorkingDay, sectionStudents, type HomeworkRow } from "@/lib/homework/homework";
+import { listHomework, homeworkBand, nextClassDay, nextWorkingDay, sectionStudents, type HomeworkRow } from "@/lib/homework/homework";
 import { byTeacher, loadByDay } from "@/lib/homework/overview";
 import { handInState } from "@/lib/homework/submissions";
 import { mayWork, PILING_UP, pilingUp, workSections, workSubjects, workToCheck } from "@/lib/homework/scope";
@@ -110,8 +110,10 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     .filter((r) => !q || r.title.toLowerCase().includes(q.toLowerCase()));
   if (tab === "history" || tab === "archived") rows.sort((a, b) => b.dueDate.getTime() - a.dueDate.getTime());
   const mine = s.level === "own";
-  // A teacher's own band counts their own homework; a class teacher also reads other subjects of their class.
-  const t = bandTotals(mine ? cur.filter((r) => mayWork(s, r)) : cur);
+  // The first tile counts every homework given in the dates, as "By teacher" below it does; the tiles that say
+  // "current" count only homework not yet due (src/lib/homework/homework.ts homeworkBand).
+  const band = homeworkBand(inP, s);
+  const t = band.current;
   const keep = { ...per.keep, q: q || null, section: sectionF || null, subject: subjectF || null, view: one(sp.view) || null, tab: tab === "current" ? null : tab, check: check ? one(sp.check) : null };
   const here = (extra: Record<string, string | null> = {}) => qs(BASE, { ...keep, ...extra });
   const sectionOpts = [...new Map(data.all.map((r) => [r.sectionId, r.sectionLabel])).entries()].sort((a, b) => a[1].localeCompare(b[1], "en", { numeric: true }));
@@ -145,7 +147,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink>} />
       <Stack>
         <Band items={[
-          { label: `${tr("Current")} · ${perWords.toLowerCase()}`, big: String(t.given), foot: tr(t.classes === 1 ? "{n} students given homework in 1 class" : "{n} students given homework in {n2} classes", { n: t.assigned, n2: t.classes }) },
+          { label: `${tr("Homework given")} · ${perWords.toLowerCase()}`, big: String(band.given.given), foot: tr(band.given.classes === 1 ? "{n} students given homework in 1 class" : "{n} students given homework in {n2} classes", { n: band.given.assigned, n2: band.given.classes }) },
           // Each tile says which homework it counts: "0% handed in" (current work, not due yet) sat next to
           // "72 to check" (older work) with nothing to say why (layman loop 5).
           { label: "Handed in · current", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },

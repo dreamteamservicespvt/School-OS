@@ -6,7 +6,7 @@ import {
 import { withSchool } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
 import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/lib/format";
-import { payrollCoverage, runBreakdown, lineDays } from "@/lib/salary/payroll";
+import { payrollCoverage, payrollGroupWords, runBreakdown, lineDays } from "@/lib/salary/payroll";
 import { salarySettings } from "@/lib/salary/settings";
 import { runsOnCampus } from "@/lib/salary/campus";
 import { staffWithoutStructure, addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
@@ -74,7 +74,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       ?? (await tx.payrollRun.findFirst({ where: { campusId }, orderBy: { month: "desc" } }));
     const allRuns = await tx.payrollRun.findMany({ where: { campusId }, select: { month: true, status: true } });
     // The same rule as Salary Structures: on this month's payroll, with a structure for this month.
-    const { staff: staffNow, missing } = await payrollCoverage(tx, campusId, run?.month ?? thisMonth);
+    const { staff: staffNow, missing, left } = await payrollCoverage(tx, campusId, run?.month ?? thisMonth);
     const lines = run ? await tx.payrollLine.findMany({ where: { runId: run.id } }) : [];
     const staff = await tx.staff.findMany({ where: { id: { in: [...lines.map((l) => l.staffId), ...missing.map((m) => m.id)] } }, select: { id: true, fullName: true, staffCode: true, designation: true, joiningDate: true } });
     const adjustments = run ? await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
@@ -97,7 +97,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
     const govFrom = paidRun ? await duesTrackedFrom(tx) : null;
     const gov = paidRun && govFrom && run.month >= govFrom ? { dues: await statutoryDues(tx, { runId: run.id, today: p.today }), payments: await statutoryPaymentsOf(tx, run.id) } : null;
     const banks = doing === "pay" || doing === "gov" ? await tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true, accountLast4: true } }) : [];
-    return { settings, runs, run, allRuns, staffNow, missing, lines, staff, adjustments, breakdown, structures, approval, users, banks, gov };
+    return { settings, runs, run, allRuns, staffNow, missing, left, lines, staff, adjustments, breakdown, structures, approval, users, banks, gov };
   });
 
   const run = data.run;
@@ -164,7 +164,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
           </Banner>
         )}
         <Stats items={[
-          { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: `${p.campuses.length > 1 && campus ? `${campus.name} · ` : ""}${data.run && data.run.month.getTime() !== thisMonth.getTime() ? `${monthName(data.run.month)} · ` : ""}${data.missing.length ? `${data.missing.length} missing · ${someNames(data.missing.map((s) => s.fullName), 2)}` : "Everyone has one"}`, tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
+          { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: `${p.campuses.length > 1 && campus ? `${campus.name} · ` : ""}${data.run && data.run.month.getTime() !== thisMonth.getTime() ? `${monthName(data.run.month)} · ` : ""}${payrollGroupWords({ staff: data.staffNow, left: data.left })}${data.staffNow.length ? ` · ${data.missing.length ? `${data.missing.length} missing · ${someNames(data.missing.map((s) => s.fullName), 1)}` : "everyone has one"}` : ""}`, tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
           { label: "Runs this year", value: String(yearRuns), sub: data.runs.length ? `${monthName(data.runs[data.runs.length - 1].month).split(" ")[0]} to ${monthName(data.runs[0].month)}` : per.label, icon: CalendarRange },
           { label: "Waiting for approval", value: String(waiting.length), sub: waiting.length ? waiting.map((r) => monthName(r.month)).join(", ") : "Nothing waiting", tone: waiting.length ? "warn" : undefined, icon: Hourglass },
           money

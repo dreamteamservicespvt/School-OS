@@ -6,7 +6,7 @@ import { formatDate, formatRupees, formatRupeesShort } from "@/lib/format";
 import { workOutPay } from "@/lib/salary/calc";
 import { asStatutory, components, ptSlabs, statutoryFor, templates as loadTemplates, lastFrozenMonth } from "@/lib/salary/settings";
 import { fromStored } from "@/lib/salary/structures";
-import { payrollCoverage } from "@/lib/salary/payroll";
+import { payrollCoverage, payrollGroupWords } from "@/lib/salary/payroll";
 import { someNames } from "@/lib/dashboard/common";
 import { staffOnCampus } from "@/lib/salary/campus";
 import { addMonths, firstOfMonth, monthName } from "@/lib/salary/words";
@@ -86,6 +86,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
   const without = data.staff.filter((s) => !versions.has(s.id));
   const onPayroll = data.coverage.reduce((n, c) => n + c.staff.length, 0);
   const missing = data.coverage.flatMap((c) => c.missing);
+  // The count is the payroll, not only the staff on roll: say who it has (live test, 17 Nov 2026).
+  const left = data.coverage.flatMap((c) => c.left);
+  const group = payrollGroupWords({ staff: data.coverage.flatMap((c) => c.staff), left });
   const byCampus = data.coverage.length > 1 ? data.coverage.filter((c) => c.missing.length).map((c) => `${c.campus.name} ${c.missing.length}`).join(", ") : "";
   const withS = data.staff.filter((s) => versions.has(s.id));
   const revised = data.all.filter((s) => s.version > 1 && (!per.from || s.effectiveFrom >= per.from) && (!per.to || s.effectiveFrom <= per.to));
@@ -124,7 +127,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         </>} />
       <Stack>
         <Stats items={[
-          { label: "Salary structures", value: `${onPayroll - missing.length} of ${onPayroll}`, sub: data.sentRuns.length ? `${monthName(thisMonth)} already sent with ${data.sentRuns.reduce((n, r) => n + r.staffCount, 0)} staff` : `staff on ${monthName(thisMonth)}’s payroll${data.coverage.length > 1 ? ", all campuses" : ""}`, icon: FileSpreadsheet },
+          { label: "Salary structures", value: `${onPayroll - missing.length} of ${onPayroll}`, sub: data.sentRuns.length ? `${monthName(thisMonth)} already sent with ${data.sentRuns.reduce((n, r) => n + r.staffCount, 0)} staff` : `${left.length ? "" : "staff on "}${monthName(thisMonth)}’s payroll${data.coverage.length > 1 ? ", all campuses" : ""}${onPayroll ? `${left.length ? ":" : ","} ${group}` : ""}`, icon: FileSpreadsheet },
           { label: "Without a structure", value: String(missing.length), sub: missing.length ? `${someNames(missing.map((s) => s.fullName))}${byCampus ? ` · ${byCampus}` : ""}` : "Everyone has one", tone: missing.length ? "warn" : undefined, icon: FileWarning },
           { label: "Revised", value: String(revisedStaff), sub: revised.length ? `${per.label} · ${commonReason || "new versions"}` : per.label, icon: TrendingUp },
           { label: "Monthly gross", value: formatRupeesShort(monthly), sub: "before loss of pay", icon: Wallet },

@@ -53,6 +53,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/exams", destination: "/examination-results", permanent: false },
       { source: "/exams/:path*", destination: "/examination-results", permanent: false },
+      { source: "/attendance", destination: "/attendance-management", permanent: false },
+      { source: "/attendance/:path*", destination: "/attendance-management", permanent: false },
     ];
   },
 };

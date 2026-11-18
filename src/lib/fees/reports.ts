@@ -28,7 +28,8 @@ async function instantRange(tx: Tx, ctx: SchoolContext, f: { from: Date; to: Dat
 const ZERO = BigInt(0);
 
 export type Cell = string | number | bigint | Date | null;
-export type ReportColumn = { key: string; label: string; kind?: "text" | "money" | "date" | "number" };
+/** `link`: the cell opens the payment (or its receipt) or the Student Fee Ledger, when the viewer may (cellHref). */
+export type ReportColumn = { key: string; label: string; kind?: "text" | "money" | "date" | "number"; link?: "receipt" | "ledger" };
 export type ReportResult = { columns: ReportColumn[]; rows: Record<string, Cell>[]; totals?: Record<string, Cell>; note?: string; chart?: { label: string; value: bigint }[] };
 export type ReportFilter = { from: Date; to: Date; classId: string | null; feeHeadId: string | null; mode: string | null; collectorId: string | null; group: "day" | "month" | "year"; today: Date };
 export type ReportFilterKey = "dates" | "class" | "head" | "mode" | "collector" | "group";
@@ -231,6 +232,9 @@ export const FEE_REPORTS: ReportDef[] = [
         date: p.paymentDate,
         receipt: receipts.find((r) => r.paymentId === p.id)?.number ?? "",
         student: n.get(p.studentId)?.fullName ?? "",
+        // Not columns (never shown or exported): where the receipt number and the name lead.
+        paymentId: p.id,
+        studentId: p.studentId,
         admissionNo: n.get(p.studentId)?.admissionNo ?? "",
         class: classIn(p.studentId, p.academicYearId)?.label ?? "",
         heads: [...new Set(p.allocations.map((a) => heads.get(a.feeHeadId)?.name ?? ""))].join(", ") || (p.advancePaise > ZERO ? "Advance" : ""),
@@ -241,7 +245,7 @@ export const FEE_REPORTS: ReportDef[] = [
       }));
       return {
         columns: [
-          { key: "date", label: "Date", kind: "date" }, { key: "receipt", label: "Receipt" }, { key: "student", label: "Student" }, { key: "admissionNo", label: "Admission no." },
+          { key: "date", label: "Date", kind: "date" }, { key: "receipt", label: "Receipt", link: "receipt" }, { key: "student", label: "Student", link: "ledger" }, { key: "admissionNo", label: "Admission no." },
           { key: "class", label: "Class" }, { key: "heads", label: "Fee heads" }, { key: "mode", label: "Mode" }, { key: "reference", label: "Reference" },
           { key: "collector", label: "Collected by" }, { key: "amount", label: "Amount", kind: "money" },
         ],
@@ -575,6 +579,18 @@ export const FEE_REPORTS: ReportDef[] = [
 export const findFeeReport = (key: string) => FEE_REPORTS.find((r) => r.key === key) ?? null;
 
 /** A cell as text for screens and exports. */
+/** What the viewer may open from a report: the payment (fee counter), the receipt PDF (print), the Student Fee Ledger. */
+export type ReportLinkAccess = { payments: boolean; receipt: boolean; ledger: boolean };
+
+/** Where a report cell leads, or null for plain text (no link on the column, no record, or not allowed). */
+export function cellHref(col: ReportColumn, row: Record<string, Cell>, may: ReportLinkAccess): string | null {
+  if (col.link === "receipt" && row[col.key] && typeof row.paymentId === "string") {
+    return may.payments ? `/fee-management/payments/${row.paymentId}` : may.receipt ? `/fee-management/payments/${row.paymentId}/receipt` : null;
+  }
+  if (col.link === "ledger" && row[col.key] && typeof row.studentId === "string" && may.ledger) return `/fee-management/ledger/${row.studentId}`;
+  return null;
+}
+
 export function cellText(c: Cell, kind: ReportColumn["kind"]): string {
   if (c === null || c === undefined) return "";
   if (kind === "money" && (typeof c === "bigint" || typeof c === "number")) return formatRupees(c);

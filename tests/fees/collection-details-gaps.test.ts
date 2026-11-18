@@ -5,7 +5,7 @@
 // (live test as Principal, 17 Nov 2026).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
-import { findFeeReport } from "@/lib/fees/reports";
+import { cellHref, findFeeReport } from "@/lib/fees/reports";
 import type { FeeViewer } from "@/lib/fees/access";
 import { cancelPayment } from "@/lib/fees/cancel";
 import { formatDate } from "@/lib/format";
@@ -61,5 +61,36 @@ describe("Collection details explains the receipt numbers that are not in the li
       expect(details.rows.length).toBe(0);
       expect(details.note ?? "").not.toContain("not in this list");
     });
+  });
+});
+
+// Live test as Principal (17 Nov 2026): the receipt number and the student name were plain text.
+describe("Collection details links the receipt and the student, when the viewer may open them", () => {
+  it("each row knows its payment and student, and the two columns say where they lead", async () => {
+    await withSchool(f.ctx, async (tx) => {
+      const details = await findFeeReport("collection-details")!.run(tx, f.ctx, filter, viewerOf(f));
+      const row = details.rows[0];
+      expect(typeof row.paymentId).toBe("string");
+      expect(row.studentId).toBe(f.ravi.id);
+      expect(details.columns.find((c) => c.key === "receipt")?.link).toBe("receipt");
+      expect(details.columns.find((c) => c.key === "student")?.link).toBe("ledger");
+      // The export columns stay the same: no id column is shown or exported.
+      expect(details.columns.map((c) => c.key)).not.toContain("paymentId");
+    });
+  });
+
+  it("opens the payment for the fee counter, the receipt for someone who may only print, and nothing otherwise", () => {
+    const receipt = { key: "receipt", label: "Receipt", link: "receipt" as const };
+    const student = { key: "student", label: "Student", link: "ledger" as const };
+    const row = { receipt: "SPS/2026/00002", student: "Ravi Kumar", paymentId: "p-1", studentId: "s-1" };
+    const all = { payments: true, receipt: true, ledger: true };
+    expect(cellHref(receipt, row, all)).toBe("/fee-management/payments/p-1");
+    expect(cellHref(receipt, row, { payments: false, receipt: true, ledger: false })).toBe("/fee-management/payments/p-1/receipt");
+    expect(cellHref(receipt, row, { payments: false, receipt: false, ledger: false })).toBeNull();
+    expect(cellHref(student, row, all)).toBe("/fee-management/ledger/s-1");
+    expect(cellHref(student, row, { payments: true, receipt: true, ledger: false })).toBeNull();
+    // A row with no receipt (or a column with no link) is plain text.
+    expect(cellHref(receipt, { ...row, receipt: "" }, all)).toBeNull();
+    expect(cellHref({ key: "mode", label: "Mode" }, row, all)).toBeNull();
   });
 });

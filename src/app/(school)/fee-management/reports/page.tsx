@@ -4,7 +4,8 @@ import {
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
-import { cellText, FEE_REPORTS, findFeeReport, type ReportFilterKey } from "@/lib/fees/reports";
+import { cellHref, cellText, FEE_REPORTS, findFeeReport, type Cell, type ReportFilterKey } from "@/lib/fees/reports";
+import { can } from "@/lib/permissions";
 import { reportFilter } from "@/lib/fees/report-params";
 import { feeStudentFilter } from "@/lib/fees/access";
 import { inCampus } from "@/lib/campus";
@@ -82,6 +83,15 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
   const datesWords = has("dates") ? (range ? range.label : `${formatDate(f.from)} to ${formatDate(f.to)}`) : `As on ${formatDate(p.today)}`;
   const chartMax = r.chart?.reduce((m, c) => (c.value > m ? c.value : m), BigInt(0)) ?? BigInt(0);
   const shown = r.rows.slice(0, SHOW);
+  // A receipt number opens the payment (or only its receipt, for someone who may print but not collect); a name opens the ledger.
+  const linkAccess = { payments: p.may("payments"), receipt: p.may("documents") && can(p.current.permissions, "fee-management", "print"), ledger: p.may("ledger") };
+  const cell = (c: (typeof r.columns)[number], row: Record<string, Cell>) => {
+    const text = cellText(row[c.key] ?? null, c.kind);
+    const href = cellHref(c, row, linkAccess);
+    if (!href) return text;
+    const cls = "text-brand font-medium underline-offset-2 hover:underline focus-visible:underline";
+    return href.endsWith("/receipt") ? <a href={href} target="_blank" rel="noopener" className={cls}>{text}</a> : <Link href={href} className={cls}>{text}</Link>;
+  };
   const filtersOn = has("class") || has("head") || has("mode") || has("collector") || has("group") || has("dates");
 
   return (
@@ -121,7 +131,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
               action={<Link href={qs(HREF, { r: def.key })} scroll={false} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />
           ) : (
             <SimpleTable minWidth={Math.max(560, r.columns.length * 120)} caption={def.label} rows={shown}
-              cols={r.columns.map((c) => ({ label: c.label, right: c.kind === "money" || c.kind === "number", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
+              cols={r.columns.map((c) => ({ label: c.label, right: c.kind === "money" || c.kind === "number", render: (row: Record<string, Cell>) => cell(c, row) }))}
               foot={r.totals ? r.columns.map((c) => cellText((r.totals?.[c.key] ?? null) as never, c.kind)) : undefined} />
           )}
           {(r.note || r.rows.length > SHOW) && (

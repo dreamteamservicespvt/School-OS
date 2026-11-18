@@ -70,16 +70,19 @@ export async function openRun(tx: Tx, ctx: SchoolContext, input: { campusId: str
   return run;
 }
 
+/** On roll, as Staff & HR counts it: working, on leave or suspended. Anyone else on a payroll has left and is paid up to the last working day. */
+const ON_ROLL = ["ACTIVE", "ON_LEAVE", "SUSPENDED"] as const;
+
 /** Staff paid in a month on a campus: joined by the month's end and not gone before it started. */
 export async function payrollStaff(tx: Tx, campusId: string, month: Date) {
   const end = lastOfMonth(month);
   return tx.staff.findMany({
     where: {
       campusId, archivedAt: null, joiningDate: { lte: end },
-      OR: [{ status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, { leavingDate: { gte: month } }],
+      OR: [{ status: { in: [...ON_ROLL] } }, { leavingDate: { gte: month } }],
     },
     orderBy: [{ staffCode: "asc" }],
-    select: { id: true, fullName: true, staffCode: true, designation: true, departmentId: true, joiningDate: true, leavingDate: true, userLoginId: true },
+    select: { id: true, fullName: true, staffCode: true, designation: true, departmentId: true, joiningDate: true, leavingDate: true, userLoginId: true, status: true },
   });
 }
 
@@ -88,13 +91,26 @@ export async function payrollStaff(tx: Tx, campusId: string, month: Date) {
  * structure for that month (left out of it, as the calculation does: a
  * structure counts from its effective month). The one rule for Generate Salary
  * and Salary Structures, so both pages give the same numbers (layman test LB7).
+ * `left` are the people on this payroll who are no longer on roll: they left in
+ * or after this month and are paid up to their last working day, so the count
+ * can be larger than "staff on roll" in Staff & HR (live test, 17 Nov 2026).
  */
 export async function payrollCoverage(tx: Tx, campusId: string, month: Date) {
   const staff = await payrollStaff(tx, campusId, month);
   // campus: only the staff of this campus (read above).
   const has = await tx.salaryStructure.findMany({ where: { staffId: { in: staff.map((s) => s.id) }, archivedAt: null, effectiveFrom: { lte: month } }, distinct: ["staffId"], select: { staffId: true } });
   const covered = new Set(has.map((h) => h.staffId));
-  return { staff, missing: staff.filter((s) => !covered.has(s.id)) };
+  const left = staff.filter((s) => !(ON_ROLL as readonly string[]).includes(s.status));
+  return { staff, missing: staff.filter((s) => !covered.has(s.id)), left };
+}
+
+/**
+ * Which staff a payroll count is about, in a few words for the Salary structures card:
+ * "6 on roll + 5 who left" explains "2 of 11" beside the 6 staff on roll of Staff & HR.
+ */
+export function payrollGroupWords(c: { staff: unknown[]; left: unknown[] }): string {
+  if (!c.staff.length) return "no staff yet";
+  return c.left.length ? `${c.staff.length - c.left.length} on roll + ${c.left.length} who left` : "all on roll";
 }
 
 /** Recoveries due this month: active, not paused advances and loans, oldest first. */

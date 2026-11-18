@@ -457,7 +457,8 @@ function Reply({ r, last, onChip, onCard, busy }: { r: TurnReply; last: boolean;
     <div className="self-start max-w-[92%] flex flex-col gap-2" lang={SPEECH_LANG[r.lang]}>
       <div className={cx("rounded-2xl rounded-bl-md px-4 py-3 text-[14.5px] leading-relaxed", r.by === "ai" ? "bg-info/10 border border-info/25" : "bg-sunken")}>
         {r.by === "ai" && <p className="text-[11.5px] font-semibold text-info mb-1">{w("suggestion")}</p>}
-        <p>{r.reply}</p>
+        {/* The guide writes one line per module or step: the lines are kept. */}
+        <p className="whitespace-pre-line">{r.reply}</p>
         {r.sources.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1">
             {r.sources.map((src) => (

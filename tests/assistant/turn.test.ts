@@ -165,19 +165,21 @@ describe("talking, in the person's language, from the records", () => {
     expect(r.reply).not.toContain("7");
   });
 
+  // The owner's own sentence now gets the built-in guide (see "the built-in how-to guide" below); any other
+  // "explain ... in Telugu" still goes to the model, which must answer in Telugu.
   it("'explain ... in Telugu' asks the model for Telugu and shows its Telugu line (live 17 Nov 2026: the stock greeting came instead)", async () => {
     const line = "School OS లో attendance, fees, exams అన్నీ ఒకే చోట ఉంటాయి. ఏదైనా అడగండి, నేను చూపిస్తాను.";
     const m = fakeModel([{ language: "te", kind: "chat", text: line }], []);
     useAiProvider(m.provider);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const r = await say(await viewer(f.school.id, f.principal.id), "Explain me about the software how to use it in Telugu");
+      const r = await say(await viewer(f.school.id, f.principal.id), "Explain me about my school day in Telugu");
       expect(r).toMatchObject({ ok: true, lang: "te", by: "ai", reply: line });
       expect(m.planner()[0].text).toContain("Telugu (Telugu script)");
       // A line the model wrote in English for a Telugu conversation is not shown, and the log says why (never the words).
       const m2 = fakeModel([{ language: "te", kind: "chat", text: "I can help with attendance and fees." }], []);
       useAiProvider(m2.provider);
-      const r2 = await say(await viewer(f.school.id, f.principal.id), "Explain me about the software how to use it in Telugu");
+      const r2 = await say(await viewer(f.school.id, f.principal.id), "Explain me about my school day in Telugu");
       expect(r2).toMatchObject({ lang: "te", by: "rules" });
       const logged = JSON.stringify(warn.mock.calls);
       expect(logged).toContain("assistant answer not used");
@@ -386,3 +388,49 @@ describe("talking without the AI service, the way the person talks", () => {
   });
 });
 
+
+// Owner, 17 Nov 2026: "Explain me about the software how to use it in Telugu" got only the stock greeting,
+// and "How do I take attendance?" a vague AI line. The guide answers from the code, never the AI service.
+describe("the built-in how-to guide", () => {
+  it("the owner's sentence gets the software in short in Telugu, with no AI request; what is kept is what is shown", async () => {
+    const m = fakeModel([{ language: "te", kind: "chat", text: "నమస్తే అండి!" }], []);
+    useAiProvider(m.provider);
+    const principal = await viewer(f.school.id, f.principal.id);
+    const r = await say(principal, "Explain me about the software how to use it in Telugu");
+    expect(m.sent).toHaveLength(0);
+    expect(r).toMatchObject({ ok: true, lang: "te", by: "rules" });
+    const lines = r.reply.split("\n").filter((l) => l.trim());
+    expect(lines.length).toBeGreaterThanOrEqual(6);
+    for (const l of lines) expect(l, l).toMatch(/[ఀ-౿]/);
+    expect(r.reply).not.toContain("Attendance, fees, homework, calendar, approvals గురించి ఏదైనా అడగండి");
+    expect(r.sources.length).toBeGreaterThanOrEqual(4);
+    expect(r.chips.length).toBeGreaterThan(0);
+    const kept = await withSchool(principal.ctx, (tx) => tx.assistantConversation.findFirst({ where: { id: r.conversationId! }, select: { turns: true } }));
+    expect((kept!.turns as { reply: string }[]).at(-1)!.reply).toBe(r.reply);
+  });
+
+  it("“How do I take attendance?” from a class teacher: the steps, in English and in Telugu, with the link", async () => {
+    const m = fakeModel([], []);
+    useAiProvider(m.provider);
+    const teacher = await viewer(f.school.id, f.teacherA.id);
+    const en = await say(teacher, "How do I take attendance?");
+    expect(m.sent).toHaveLength(0);
+    expect(en).toMatchObject({ lang: "en", by: "rules" });
+    expect(en.reply).toMatch(/^Here is how:\n1\. /);
+    expect(en.reply).toContain("Take Attendance");
+    expect(en.sources.map((s) => s.href)).toEqual(["/attendance-management"]);
+    const te = await say(teacher, "Attendance ఎలా తీసుకోవాలి?");
+    expect(te).toMatchObject({ lang: "te", by: "rules" });
+    expect(te.reply).toMatch(/^ఇలా చేయండి:\n1\. /);
+    // The Principal reads attendance but does not take it: who can, in one line.
+    const p = await say(await viewer(f.school.id, f.principal.id), "How do I take attendance?");
+    expect(p.reply.split("\n")).toHaveLength(1);
+    expect(p.reply).toMatch(/Class teachers/);
+  });
+
+  it("a question about the records is still answered from the records, not by the guide", async () => {
+    useAiProvider(fakeModel([], []).provider);
+    const r = await say(await viewer(f.school.id, f.principal.id), "Who is absent today?");
+    expect(r.reply).toMatch(/^3 students are absent today/);
+  });
+});

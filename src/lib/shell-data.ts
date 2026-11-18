@@ -72,7 +72,7 @@ export function mineLinks(current: Pick<Current, "permissions" | "modulesOn">, l
  * something (full access to a module, class teachers for student leave, by default),
  * or anyone with a request already waiting for them.
  */
-export function mayApprove(current: Current, waiting: number) {
+export function mayApprove(current: Pick<Current, "roles" | "permissions">, waiting: number) {
   return waiting > 0 || current.roles.some((r) => r.key === "class-teacher") || MODULES.some((m) => current.permissions[m.key].change === "all");
 }
 

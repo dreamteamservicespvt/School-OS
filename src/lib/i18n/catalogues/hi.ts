@@ -17367,4 +17367,13 @@ export const hi: Catalogue = {
   "Sent, no report": "भेजा गया, रिपोर्ट नहीं",
   "{n} also sent by SMS backup": "{n} को SMS बैकअप से भी भेजा गया",
   "People of your campus only": "केवल आपके कैंपस के लोग",
+  // src/app/(school)/settings/users/page.tsx: two-step login, what to do
+  "Show these people": "इन लोगों को दिखाएँ",
+  "They still sign in with the password only, so nobody is locked out. To fix it:": "वे अभी भी केवल पासवर्ड से साइन इन करते हैं, इसलिए कोई बाहर नहीं होता। ठीक करने के लिए:",
+  "Two-step login is on for {n} people, but no sign-in code can reach them": "{n} लोगों के लिए दो-चरण लॉगिन चालू है, लेकिन उन तक साइन-इन कोड नहीं पहुँचता",
+  "Two-step login is on for 1 person, but no sign-in code can reach them": "1 व्यक्ति के लिए दो-चरण लॉगिन चालू है, लेकिन उन तक साइन-इन कोड नहीं पहुँचता",
+  "Switch SMS on in Settings, SMS, WhatsApp & Email, so the code can go to their mobile number.": "सेटिंग्स, SMS, WhatsApp & Email में SMS चालू करें, ताकि कोड उनके मोबाइल नंबर पर जा सके।",
+  "For people with only a mobile number: add their email address, or switch SMS on.": "जिनके पास केवल मोबाइल नंबर है: उनका ईमेल पता जोड़ें, या SMS चालू करें।",
+  "For people with only an email address: add their mobile number.": "जिनके पास केवल ईमेल पता है: उनका मोबाइल नंबर जोड़ें।",
+  "For people with no mobile number or email: open the person in this list and add one.": "जिनके पास मोबाइल नंबर या ईमेल नहीं है: इस सूची में उस व्यक्ति को खोलें और एक जोड़ें।",
 };

@@ -9,6 +9,7 @@ import { backToThisYear, viewNow } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
 import { UUID_RE, instantToLocal, ownerFilter, zonedToInstant } from "@/lib/admission/act";
 import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
+import { followUpDue } from "@/lib/admission/follow-up-day";
 import { enquiryScope, canWorkOn } from "@/lib/admission/access";
 import { CLOSED_STATUSES, admissionYears, label, listYears, live } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
@@ -80,7 +81,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
       tx.enquiry.count({ where: base }),
       viewer.staffId ? tx.enquiry.count({ where: { ...base, ownerStaffId: viewer.staffId } }) : Promise.resolve(0),
       tx.enquiry.count({ where: { ...open, nextFollowUpAt: { gte: dayStart, lt: dayEnd } } }),
-      tx.enquiry.count({ where: { ...open, nextFollowUpAt: { lt: now } } }),
+      tx.enquiry.count({ where: { ...open, nextFollowUpAt: { lt: dayStart } } }),
       tx.enquiry.count({ where: { ...base, createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } } }),
       tx.enquiry.count({ where: { ...base, status: "lost" } }),
       tx.enquiry.count({ where: open }),
@@ -109,7 +110,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
           ownerStaffId: e.ownerStaffId, ownerName: e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? null : null,
           nextFollowUp: isOpen && e.nextFollowUpAt ? whenWords(e.nextFollowUpAt, tz, now) : null,
           nextFollowUpLocal: isOpen && e.nextFollowUpAt && e.nextFollowUpAt > now ? instantToLocal(e.nextFollowUpAt, tz) : null,
-          due: isOpen && e.nextFollowUpAt ? (e.nextFollowUpAt < now ? "overdue" : e.nextFollowUpAt < dayEnd ? "today" : "later") : null,
+          due: isOpen && e.nextFollowUpAt ? followUpDue(e.nextFollowUpAt, { start: dayStart, end: dayEnd }) : null,
           nextAction: isOpen ? e.nextAction : null, campaign: e.campaign?.name ?? null, created: formatDate(e.createdAt, tz), addedBy: who(e.createdById),
           seats: seat ? (seat.free > 0 ? `${seat.free} ${seat.free === 1 ? "seat" : "seats"} left` : "Class is full") : e.classId ? "No sections yet" : null,
           lostReason: e.status === "lost" && e.lostReason ? label(settings.lossList, e.lostReason) : null, lostNote: e.status === "lost" ? e.lostNote : null,
@@ -151,7 +152,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   ];
   const listRows: ListRow[] = rows.map((e) => {
     const isOpen = !CLOSED_STATUSES.includes(e.status);
-    const due = isOpen && e.nextFollowUpAt ? (e.nextFollowUpAt < now ? "overdue" : e.nextFollowUpAt < dayEnd ? "today" : "later") : null;
+    const due = isOpen && e.nextFollowUpAt ? followUpDue(e.nextFollowUpAt, { start: dayStart, end: dayEnd }) : null;
     const cls = e.classId ? n.classes.get(e.classId) ?? "" : "Not decided";
     const next = due && e.nextFollowUpAt
       ? <span key="n" className={cx("text-[13px] tnum whitespace-nowrap", due === "overdue" ? "text-bad font-semibold" : due === "today" ? "text-warn font-semibold" : "text-ink2")}>{due === "overdue" && <CircleAlert size={13} className="inline -mt-0.5 mr-1" aria-label="Overdue" />}{tx(whenWords(e.nextFollowUpAt, tz, now))}</span>

@@ -8,7 +8,7 @@ import { orderByFor } from "../list";
 import { applicationScope, enquiryScope, type Viewer } from "./access";
 import { CLOSED_STATUSES } from "./settings";
 import { STAGES } from "./applications";
-import { instantToLocal, zonedToInstant } from "./act";
+import { followUpDay } from "./follow-up-day";
 import { momentWhere, type DayRange } from "../periods";
 import { CONSENT_STANDS, DATA_CONSENT, PAPER_HOW } from "./consent";
 
@@ -39,12 +39,11 @@ export function enquiryWhere(params: ListParams, v: Viewer, opts: { yearId: stri
       { email: { contains: q, mode: "insensitive" } },
     ] });
   }
-  const today = instantToLocal(now, opts.timeZone).slice(0, 10);
-  const dayStart = zonedToInstant(`${today}T00:00`, opts.timeZone);
-  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+  // A follow-up is due today all day and overdue once its day is over (./follow-up-day.ts).
+  const day = followUpDay(opts.timeZone, now);
   if (f.quick === "mine") and.push({ ownerStaffId: v.staffId ?? "00000000-0000-0000-0000-000000000000" });
-  if (f.quick === "today") and.push({ status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { gte: dayStart, lt: dayEnd } });
-  if (f.quick === "overdue") and.push({ status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: now } });
+  if (f.quick === "today") and.push({ status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { gte: day.start, lt: day.end } });
+  if (f.quick === "overdue") and.push({ status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: day.start } });
   if (f.quick === "new-week") and.push({ createdAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } });
   if (f.quick === "lost") and.push({ status: "lost" });
   if (f.view === "whatsapp") and.push({ OR: [{ source: "whatsapp" }, { firstSource: "whatsapp" }, { activities: { some: { kind: "message", data: { path: ["channel"], equals: "whatsapp" } } } }] });

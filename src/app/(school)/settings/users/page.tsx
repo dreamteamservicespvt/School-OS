@@ -8,10 +8,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataTable, type Column } from "@/components/list/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { UserIcon } from "@/components/icons";
-import { TWO_STEP_WORDS, filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
+import { TWO_STEP_FIX_WORDS, TWO_STEP_SHORT, codeSending, filterUsers, schoolUsers, sortUsers, twoStepFix, type UserRow } from "@/lib/settings/user-list";
 import { STATE_LABEL, STATE_TONE } from "@/lib/settings/users";
 import { UsersNav } from "./sub-nav";
 import { schoolRoles } from "@/lib/school-roles";
@@ -28,8 +29,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const { current, may } = await requireSettingsPage("users");
   const params = readListParams(await searchParams, FILTERS);
   const tz = current.school.timeZone;
-  const { rows, roles } = await withSchool(current.ctx, async (tx) => ({
+  const { rows, roles, sending } = await withSchool(current.ctx, async (tx) => ({
     rows: await schoolUsers(tx, current.school.id),
+    sending: await codeSending(tx, current.school.id),
     roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   }));
   const filtered = sortUsers(filterUsers(rows, params.q, params.filters), params.sort, params.dir);
@@ -37,6 +39,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const page = filtered.slice(skip, skip + take);
   const counts = { ACTIVE: 0, INVITED: 0, DISABLED: 0 };
   for (const r of rows) counts[r.state]++;
+  // Two-step login on but no code reaches them: the fact once, with what to add and where (live test 17 Nov).
+  const fix = twoStepFix(rows, sending);
 
   const columns: Column<UserRow>[] = [
     { key: "name", label: "Name", sortable: true, phone: "title", cell: (r) => r.name },
@@ -45,9 +49,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     { key: "roles", label: "Roles", phone: "meta", cell: (r) => r.roles.map((x) => x.name).join(", ") || <span className="text-ink-2"><Words k="No role" /></span> },
     { key: "scope", label: "Scope", cell: (r) => (r.campus ? `${r.scope}: ${r.campus}` : r.scope) + (r.exceptions ? ` · ${r.exceptions} exception${r.exceptions === 1 ? "" : "s"}` : "") },
     { key: "status", label: "Status", sortable: true, phone: "badge", cell: (r) => <Badge tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Badge> },
-    { key: "lastSignIn", label: "Last sign-in", sortable: true, phone: "meta", cell: (r) => (r.lastSignInAt ? formatDateTime(r.lastSignInAt, tz) : "Never") },
+    { key: "lastSignIn", label: "Last sign-in", sortable: true, phone: "meta", className: "whitespace-nowrap", cell: (r) => (r.lastSignInAt ? formatDateTime(r.lastSignInAt, tz) : "Never") },
     // The same truth as the person's own My profile; amber when it is on but no code can reach them (L6-28).
-    { key: "twoStep", label: "Two-step login", cell: (r) => (r.twoStepState === "no-code" ? <Badge tone="warning">{TWO_STEP_WORDS[r.twoStepState]}</Badge> : TWO_STEP_WORDS[r.twoStepState]) },
+    { key: "twoStep", label: "Two-step login", cell: (r) => (r.twoStepState === "no-code" ? <Badge tone="warning">{TWO_STEP_SHORT[r.twoStepState]}</Badge> : TWO_STEP_SHORT[r.twoStepState]) },
   ];
   const exportBase = listHref("/settings/users/export", { ...params, page: 1 }, {});
   const sep = exportBase.includes("?") ? "&" : "?";
@@ -62,6 +66,13 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <p className="mb-4 text-sm text-ink-2">
         {counts.ACTIVE} <Words k="active ·" /> {counts.INVITED} <Words k="invited ·" /> {counts.DISABLED} <Words k="disabled. Most staff get their login from" /> <Link href="/staff-hr-management/add" className="font-medium text-brand-text underline"><Words k="Add Staff" /></Link> <Words k={"in Staff & HR. Everyone else is invited here."} />
       </p>
+      {fix && (
+        <Alert tone="warning" className="mb-4" title={fix.people === 1 ? "Two-step login is on for 1 person, but no sign-in code can reach them" : `Two-step login is on for ${fix.people} people, but no sign-in code can reach them`}>
+          <p><Words k="They still sign in with the password only, so nobody is locked out. To fix it:" /></p>
+          <ul className="mt-1 list-disc pl-5">{fix.steps.map((k) => <li key={k}><Words k={TWO_STEP_FIX_WORDS[k]} /></li>)}</ul>
+          <p className="mt-1"><Link href="/settings/users?twostep=no-code" className="font-medium text-brand-text underline"><Words k="Show these people" /></Link>{" · "}<Link href="/settings/messaging" className="font-medium text-brand-text underline"><Words k="SMS, WhatsApp & Email" /></Link></p>
+        </Alert>
+      )}
       <ListToolbar placeholder="Search name, username, phone or email" filters={[
         { key: "status", label: "Status", options: [{ value: "ACTIVE", label: "Active" }, { value: "INVITED", label: "Invited" }, { value: "DISABLED", label: "Disabled" }] },
         { key: "role", label: "Role", options: roles.map((r) => ({ value: r.id, label: r.name })) },

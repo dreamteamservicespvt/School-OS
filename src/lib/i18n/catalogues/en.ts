@@ -17925,6 +17925,15 @@ export const EN = [
   "Sent, no report",
   "{n} also sent by SMS backup",
   "People of your campus only",
+  // src/app/(school)/settings/users/page.tsx: two-step login, what to do
+  "Show these people",
+  "They still sign in with the password only, so nobody is locked out. To fix it:",
+  "Two-step login is on for {n} people, but no sign-in code can reach them",
+  "Two-step login is on for 1 person, but no sign-in code can reach them",
+  "Switch SMS on in Settings, SMS, WhatsApp & Email, so the code can go to their mobile number.",
+  "For people with only a mobile number: add their email address, or switch SMS on.",
+  "For people with only an email address: add their mobile number.",
+  "For people with no mobile number or email: open the person in this list and add one.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

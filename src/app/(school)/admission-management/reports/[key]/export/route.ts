@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
     const read = readFilters(raw, s, defaultYears(await admissionYears(tx, current.ctx, s, v.campusId), raw), current.school.timeZone);
     if (!read) return new Response("No academic year is set up yet.", { status: 400 });
     const n = await names(tx);
-    const r = await report(tx, s, v, key as ReportKey, read.f, n);
+    const r = await report(tx, s, v, key as ReportKey, read.f, n, new Date(), current.school.timeZone);
     const years = new Map((await tx.academicYear.findMany({ select: { id: true, name: true } })).map((y) => [y.id, y.name]));
     const filters = describeFilters(read.f, read.range, { ...n, years, sources: new Map(s.sourceList.map((x) => [x.key, x.label])) });
     const file = await buildExport<Row>(format, r.columns.map((c) => ({ label: c.label, value: (row: Row) => row[c.key] })), r.rows, { title: meta.title, schoolName: current.school.name, filters, exportedBy: current.user.displayName, timeZone: current.school.timeZone });

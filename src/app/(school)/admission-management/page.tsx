@@ -77,7 +77,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
       headline(tx, viewer, f, dayStart, now),
       whereNow(tx, settings, viewer, f, now),
       pipeline(tx, settings, viewer, f, n, 3, tz, now),
-      followUps(tx, viewer, f, dayStart, now),
+      followUps(tx, viewer, f, dayStart),
       // Seats of each campus's year; with several campuses, each class shows its campus.
       Promise.all(inView.map(async (y) => [...(await seatsFor(tx, y.id)).values()].map((c) => (inView.length > 1 ? { ...c, className: `${c.className} (${campusName.get(y.campusId) ?? ""})` } : c)))),
     ]);

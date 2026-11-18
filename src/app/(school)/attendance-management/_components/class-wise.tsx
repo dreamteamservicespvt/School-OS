@@ -10,9 +10,11 @@ import { formatTime } from "@/lib/format";
 import { percentText } from "@/lib/attendance/summary";
 import { attendanceTone, sortSections, type ClassWise } from "@/lib/attendance/classwise";
 import type { NotMarkedRow } from "@/lib/attendance/remind";
+import { notMarkedOffer, remindAllFor } from "@/lib/attendance/not-marked";
 import { BASE } from "@/lib/attendance/access";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Stats } from "@/components/ui/stats";
 import { Chips } from "@/components/ui/chips";
 import { Progress, Toolbar } from "@/components/ui/kit";
@@ -29,15 +31,21 @@ const TONE_BG = { ok: "bg-ok/12 text-ok", warn: "bg-warn/12 text-warn", bad: "bg
 const n = (v: number) => v.toLocaleString("en-IN");
 const short = (name: string) => name.replace(/^Class\s+/i, "").replace(/^Nursery/i, "Nur");
 
-export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows: NotMarkedRow[]; lockText: string; locked: boolean; canRemind: boolean; tz: string }) {
+/**
+ * `mayCorrect`: may this person change that class's register? `date`: the day shown (YYYY-MM-DD). After the lock a
+ * reminder cannot get the register taken, so each class offers a correction request instead (src/lib/attendance/not-marked.ts).
+ */
+export function NotMarkedCard({ rows, lockText, locked, canRemind, mayCorrect, date, tz }: { rows: NotMarkedRow[]; lockText: string; locked: boolean; canRemind: boolean; mayCorrect: (sectionId: string) => boolean; date: string; tz: string }) {
   if (rows.length === 0) return null;
-  const left = rows.filter((r) => !r.remindedAt && r.teacherLogin);
+  const left = remindAllFor(rows, { locked, canRemind });
   return (
     <Card>
       <CardHeader icon={Hourglass} title="Not marked yet" description={`Today · ${locked ? `locked at ${lockText}` : `marks lock at ${lockText}`}`}
-        action={canRemind && left.length > 1 ? <RemindButton all variant="soft" label="Remind all" run={remindNotMarkedAction.bind(null, left.map((r) => r.sectionId))} /> : <Pill tone="warn">{rows.length}</Pill>} />
+        action={left.length ? <RemindButton all variant="soft" label="Remind all" run={remindNotMarkedAction.bind(null, left.map((r) => r.sectionId))} /> : <Pill tone="warn">{rows.length}</Pill>} />
       <ul className="px-2 pb-2">
-        {rows.map((r) => (
+        {rows.map((r) => {
+          const offer = notMarkedOffer(r, { locked, canRemind, mayCorrect: mayCorrect(r.sectionId), date });
+          return (
           <li key={r.sectionId} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
             <span className="w-11 h-11 rounded-xl bg-warn/12 text-warn grid place-items-center shrink-0 text-[12.5px] font-bold" aria-hidden="true">{short(r.name)}</span>
             <Link href={`${BASE}/register?section=${r.sectionId}`} className="min-w-0 flex-1 group">
@@ -45,11 +53,12 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
               {/* Two lines rather than "16 stude…" (phone-width PW-22). */}
               <p className="text-[12.5px] text-ink3 line-clamp-2">{r.name} · {n(r.students)} {r.students === 1 ? "student" : "students"}{r.teacher ? " · class teacher" : ""}</p>
             </Link>
-            {canRemind && (r.teacherLogin
-              ? <RemindButton className="shrink-0" done={r.remindedAt ? formatTime(r.remindedAt, tz) : null} run={remindNotMarkedAction.bind(null, [r.sectionId])} />
-              : <Pill tone="neutral" className="shrink-0">{r.teacher ? "Cannot sign in" : "No class teacher"}</Pill>)}
+            {offer?.kind === "remind" && <RemindButton className="shrink-0" done={offer.remindedAt ? formatTime(offer.remindedAt, tz) : null} run={remindNotMarkedAction.bind(null, [r.sectionId])} />}
+            {offer?.kind === "note" && <Pill tone="neutral" className="shrink-0">{offer.text}</Pill>}
+            {offer?.kind === "correction" && <ButtonLink href={offer.href} size="sm" variant="soft" className="shrink-0"><Words k="Request a correction" /></ButtonLink>}
           </li>
-        ))}
+          );
+        })}
       </ul>
       <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents." /></p>
     </Card>

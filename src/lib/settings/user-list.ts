@@ -7,6 +7,7 @@ import { TWO_STEP_FEATURE } from "../auth/two-step";
 import { mailIsSetUp } from "../auth/mail";
 import { signInSmsTemplate } from "../auth/two-step-sms";
 import { mayLogCode } from "../dev-codes";
+import type { MessageKey } from "../i18n/t";
 
 /**
  * Two-step login as it really works for one person (layman loop 6, L6-28), the same rule as their
@@ -24,6 +25,35 @@ export function twoStepStateOf(input: { featureOn: boolean; roleNeeds: boolean; 
 }
 
 export const TWO_STEP_WORDS: Record<TwoStepState, string> = { on: "On", "no-code": "On, but not working: no code can reach them", off: "Off" };
+/** The list cell: short, so the column fits at 1280-1536 px; the note above the list says why and what to do. */
+export const TWO_STEP_SHORT: Record<TwoStepState, string> = { on: "On", "no-code": "On, but not working", off: "Off" };
+
+/** What to add so a sign-in code reaches the people it does not reach (live test 17 Nov: the warning offered no next step). */
+export type TwoStepFixStep = "no-sending" | "mobile-only" | "email-only" | "no-contact";
+export const TWO_STEP_FIX_WORDS: Record<TwoStepFixStep, MessageKey> = {
+  "no-sending": "Switch SMS on in Settings, SMS, WhatsApp & Email, so the code can go to their mobile number.",
+  "mobile-only": "For people with only a mobile number: add their email address, or switch SMS on.",
+  "email-only": "For people with only an email address: add their mobile number.",
+  "no-contact": "For people with no mobile number or email: open the person in this list and add one.",
+};
+
+/** How many people two-step login is on for but no code reaches, and the steps that fix it; null when none. */
+export function twoStepFix(rows: Pick<UserRow, "twoStepState" | "email" | "phone">[], ready: { mail: boolean; sms: boolean }): { people: number; steps: TwoStepFixStep[] } | null {
+  const stuck = rows.filter((r) => r.twoStepState === "no-code");
+  if (!stuck.length) return null;
+  const steps = new Set<TwoStepFixStep>();
+  if (!ready.mail && !ready.sms) steps.add("no-sending");
+  if (ready.mail && !ready.sms && stuck.some((r) => r.phone && !r.email)) steps.add("mobile-only");
+  if (ready.sms && !ready.mail && stuck.some((r) => r.email && !r.phone)) steps.add("email-only");
+  if (stuck.some((r) => !r.email && !r.phone)) steps.add("no-contact");
+  return { people: stuck.length, steps: (["no-sending", "mobile-only", "email-only", "no-contact"] as const).filter((x) => steps.has(x)) };
+}
+
+/** Whether email and SMS can carry a sign-in code in this school now (the server log stands in on a developer's computer). */
+export async function codeSending(tx: Tx, schoolId: string): Promise<{ mail: boolean; sms: boolean }> {
+  const devLog = mayLogCode("none");
+  return { mail: mailIsSetUp() || devLog, sms: devLog || Boolean(await signInSmsTemplate(tx, { schoolId, userId: null })) };
+}
 
 export type UserRow = {
   id: string;
@@ -56,9 +86,7 @@ export async function schoolUsers(tx: Tx, schoolId: string): Promise<UserRow[]> 
   ]);
   // What the profile page checks too: the feature switch, and whether mail or SMS can carry a code.
   const feature = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId, featureKey: TWO_STEP_FEATURE } }, select: { isOn: true } });
-  const devLog = mayLogCode("none");
-  const mailReady = mailIsSetUp() || devLog;
-  const smsReady = devLog || Boolean(await signInSmsTemplate(tx, { schoolId, userId: null }));
+  const { mail: mailReady, sms: smsReady } = await codeSending(tx, schoolId);
   const rows: UserRow[] = [];
   for (const id of ids) {
     const mine = accesses.filter((a) => a.userLoginId === id);

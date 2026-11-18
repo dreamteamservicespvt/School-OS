@@ -52,7 +52,7 @@ export default async function ReportsPage({ searchParams }: Search) {
     const def = defaultYears(admitting, raw);
     const read = readFilters(raw, settings, def, tz);
     const yearOpts = yearOptions(years, admitting, def, campus);
-    const all = read ? await Promise.all(REPORTS.map((r) => report(tx, settings, viewer, r.key, read.f, n))) : [];
+    const all = read ? await Promise.all(REPORTS.map((r) => report(tx, settings, viewer, r.key, read.f, n, new Date(), tz))) : [];
     return { years, choices, campuses, read, yearOpts, reports: new Map(all.map((r) => [r.key as ReportKey, r])) };
   });
 

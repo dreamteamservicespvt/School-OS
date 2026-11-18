@@ -61,7 +61,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   const data = await withSchool(ctx, async (tx) => {
     const search = await visitorSearch(tx, q, !masked);
     const dr = dateWhere(range);
-    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, withOpenExpired: isToday && st === "Expired", status: st, search, now });
+    const countWhere = (st: string) => visitorLogWhere({ scope, from: dr.gte, to: dr.lte, today: isToday, status: st, search, now });
     const where = countWhere(status);
     const [rows, counts, inside, oldest, todayCount, todayPeople, gateToday, expired, week, check] = await Promise.all([
       tx.visitorEntry.findMany({ where, orderBy: { timeIn: "desc" }, take: 300 }),
@@ -161,7 +161,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
               </Toolbar>
               <div className="px-3 pt-3 pb-1"><Chips value={status} options={statusChips} label="Visitor status" /></div>
               <DataList rows={rows} rowKey={(v) => v.id} minWidth={740} rowHref={(v) => addQ(sheetHref, { pass: v.id })} caption="Visitor log"
-                footer={`${rows.length === 1 ? t("Showing 1 visitor") : t("Showing {n} visitors", { n: rows.length })} · ${t.any(vp.label).toLowerCase()}${isToday && status === "Expired" && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? t(", and older passes not closed") : ""}`}
+                footer={`${rows.length === 1 ? t("Showing 1 visitor") : t("Showing {n} visitors", { n: rows.length })} · ${t.any(vp.label).toLowerCase()}${isToday && (status === "Expired" || status === "all") && data.expired.some((e) => e.visitDate.getTime() !== p.today.getTime()) ? t(", and older passes not closed") : ""}`}
                 columns={[
                   { key: "name", label: "Visitor", render: (v) => <div className="flex items-center gap-3"><Avatar name={v.name} size={36} src={v.photoFileId ? fileLink(v.photoFileId, v.schoolId) : null} /><div className="min-w-0"><p className="font-semibold leading-tight">{v.name}</p><p className="text-[12px] text-ink3 tnum whitespace-nowrap">{phoneOf(v.phone)}{v.peopleCount > 1 ? ` · ${t("{n} people", { n: v.peopleCount })}` : ""}</p>{v.vehicleNo && <p className="text-[12px] text-ink3 font-mono whitespace-nowrap">{v.vehicleNo}</p>}</div></div> },
                   { key: "purpose", label: "Purpose", render: (v) => <div className="min-w-[200px]"><p className="text-[13.5px]">{t.any(v.purpose)}</p>{v.note && <p className="text-[12px] text-ink3">{v.note}</p>}</div> },

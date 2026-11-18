@@ -43,6 +43,7 @@ import { withoutEmptyList, words, type WordKey } from "./words";
 import { schoolToday, writtenText } from "./speech";
 import type { ReplyFeel } from "./mascot-state";
 import { cleanDelivery, deliveryFor } from "./voice";
+import { GUIDE_MAX, guideIntent, guideReply, type GuideIntent } from "./guide";
 
 /** The model answered but its words were not shown (a number not in the records, the wrong language, no line):
  *  the code's own sentence was. Logged without the words (live 17 Nov: these replies were invisible in the log). */
@@ -209,12 +210,17 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let aiProblem: string | null = null;
   // Words the assistant's own rules know beyond Ask's questions (rules.ts): small talk, homework, the calendar, approvals, an enquiry.
   let special: "hello" | "thanks" | "enquiry" | null = null;
-  const match = matchIntent(said, offeredQuestions(who))[0];
-  const known: WordsIntent | null = match && match.score >= 3 ? null : wordsIntent(said);
+  // "Explain the software", "How do I take attendance?": the built-in guide (guide.ts), before Ask's questions
+  // ("How do I collect a fee?" is not "how much fee was collected"), never the AI service (owner, 17 Nov 2026).
+  const guide: GuideIntent | null = convo?.prepared ? null : guideIntent(said);
+  const match = guide ? undefined : matchIntent(said, offeredQuestions(who))[0];
+  const known: WordsIntent | null = guide || (match && match.score >= 3) ? null : wordsIntent(said);
   // A clear question about a list this role does not open ("who is absent today?" from the front office):
   // say it is not part of their role, never "I did not get that" (layman test 16 Nov 2026).
-  const otherRole = !match && !known ? matchIntent(said)[0] : undefined;
-  if (match && match.score >= 3 && !convo?.prepared) {
+  const otherRole = !guide && !match && !known ? matchIntent(said)[0] : undefined;
+  if (guide) {
+    understoodBy = "rules";
+  } else if (match && match.score >= 3 && !convo?.prepared) {
     plan = rulesPlan(match.key, match.params, before.lang);
     understoodBy = "rules";
   } else if (otherRole && otherRole.score >= 3 && !convo?.prepared) {
@@ -267,7 +273,15 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
   let feel: ReplyFeel = "answer";
   let delivery: string | null = null;
 
-  if (special === "hello" || special === "thanks") {
+  if (guide) {
+    // The screen words in the person's screen language, the sentences in the conversation's language.
+    const g = guideReply(who, guide, lang, input.screen ?? "en");
+    reply = g.reply;
+    extraSources.push(...g.sources);
+    chips = g.chips.length ? g.chips : chipsFor();
+    feel = g.may ? "answer" : "sorry";
+    delivery = deliveryFor(feel, g.may ? "instructions" : null);
+  } else if (special === "hello" || special === "thanks") {
     reply = words(lang, special);
     chips = chipsFor();
     feel = "happy";
@@ -349,15 +363,16 @@ export async function assistantTurn(who: Viewer, input: TurnInput, clock: AskClo
 
   // The written reply says "today" / "yesterday" for those dates in the school's own day, and an empty
   // list never leaves "...: ." (live test 17 Nov 2026). Done before it is kept, so the voice says the same words.
-  reply = withoutEmptyList(writtenText(reply, lang, schoolToday(clock.setup.timeZone, now)));
+  // Cut once, here, so the reply shown, the reply kept and the reply the voice route may read are the same words.
+  reply = withoutEmptyList(writtenText(reply, lang, schoolToday(clock.setup.timeZone, now))).slice(0, GUIDE_MAX);
 
   // 6. Remember, and 7. log (never the words or the values).
-  const turn: StoredTurn = { said: said.slice(0, 300), tools: calls, action, reply: reply.slice(0, 700), at: now.toISOString() };
+  const turn: StoredTurn = { said: said.slice(0, 300), tools: calls, action, reply, at: now.toISOString() };
   const conversationId = await withSchool(who.ctx, async (tx) => {
     const id = await saveConvo(tx, who, convo, { state: newState, turns: [...turns, turn], prepared });
     await writeAudit(tx, who.ctx, {
       action: "asked the assistant", recordType: "Assistant Conversation", recordId: id,
-      after: { via: input.via ?? "typed", understoodBy, kind: plan?.kind ?? "not-understood", tools: calls.map((c) => c.tool), rows: results.map((r) => r.total), language: lang, switched: after.switched, numberCheck, preparedChange: action },
+      after: { via: input.via ?? "typed", understoodBy, kind: guide ? "guide" : plan?.kind ?? "not-understood", tools: calls.map((c) => c.tool), rows: results.map((r) => r.total), language: lang, switched: after.switched, numberCheck, preparedChange: action },
       actorNote: by === "ai" ? AI_NOTE : null,
     });
     return id;

@@ -15,6 +15,8 @@ Status: Open = not fixed yet. Add new items at the bottom; never delete, mark Fi
 
 ## 2. Student list: School Admin sees a "My class" chip next to "class 1" (Open, found 2026-11-03)
 
+- **Status:** Fixed by 2026-11-04 (see item 6). Checked 2026-11-19 in the code: the "All" chip is left out when only one class has students, so the same list never shows under two names, and it reads "My classes" only for a person whose reach is their own classes, "All classes" for everyone else (`student-management/page.tsx` lines 171-176). Classes with 0 students still get no chip (a "consider" in the item, not done: the chips count students).
+
 - **Where:** Student Management → Student List, logged in as School Admin (Saiveni). The school has class 1 (1 student) and class 2 (0 students).
 - **What happens:** two chips appear, "My class 1" and "class 1 1". Both show the same single student, so it looks like two different classes.
 - **Root cause:** `src/app/(school)/student-management/page.tsx` line ~162: the "All" chip is labelled "My class" whenever only one class has students (`data.tiles.length === 1`), for every role. Classes with no students get no chip.
@@ -60,25 +62,30 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 
 ## 7. Import review page says "0 rows" for a file that has rows (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05: before any column is matched the header counts the file's filled rows (src/components/import/file-review.tsx). No unit test (server page); check by hand
+- **Checked 2026-11-19:** Still fixed (a4a0e677). In the code: before any column is matched the header counts the file's filled rows after the headings (`src/components/import/file-review.tsx` lines 119-123), so a file with rows never says "0 rows".
 - **Where:** Student Management → Import → Continue on Dream_Valley_Students_100.csv. Header: "Students · 0 rows", but the "Your file" preview lists rows.
 - **Risk:** an admin thinks the file is empty or the upload failed.
 - **Fix wanted:** show the real row count (100) once the file is read, or "Reading the file…" until then. Add a test.
 
 ## 8. Import: sample file cannot be imported as it stands, and the page does not warn early (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): step 1 Match columns warns at once about classes, designations or departments not found as written (match or add them in step 2) and about needed columns that are empty ("Parent's phone is empty in every row, and it is needed for every student"). src/components/import/file-review.tsx
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: step 1 shows "Before you go on: some rows will need fixing" with classes, designations or departments not found as written and needed columns that are empty ("... is empty in every row, and it is needed for every ..."), `file-review.tsx` lines 278-288.
 - The file has classes Nursery, LKG, UKG, Grade 1-5 but the school has only "class 1" and "class 2"; the Parent's phone column is empty ("This column is empty in the first rows") while the phone is required. The admin only learns this at step 3.
 - **Fix wanted:** on step 1 show a plain warning per column: "No class called Nursery in this school: add it in Academic Management first, or map it to an existing class", and "Parent's phone is needed for every student".
 
 ## 9. Import: Match columns page is very long and confusing (Open, Small, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): only needed columns not found stay open; matched ones fold into "✓ Matched (N)" (open when 4 or fewer); the picker says "(used for Full name)" instead of "(also ...)"
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: matched columns fold into "✓ Matched (N)", open only when 4 or fewer, and columns not needed wait in "More columns" (`src/components/import/file-forms.tsx` lines 223-248); the picker says "(used for <column>)" (line 283).
 - Every column picker repeats the same 20-item list, and some labels look wrong: "Student Status (also Full name)", "Class" showing alternatives in odd order. A first-time clerk will not know what to choose. Fix wanted: collapse matched columns ("Matched ✓") and open only the ones that need a choice.
 
 ## 10. Add student: empty form shows only the browser's one-line "Please fill out this field." (Open, Small, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 by FormProblems (every bad box red at once, first one brought into view) on Add Student; recheck by hand
+- **Checked 2026-11-19:** Still fixed. In the code: Add Student (`student-management/new/add-student-form.tsx`) is inside FormProblems, which marks every bad box at once and brings the first into view (`src/components/ui/form-problems.tsx` `checkAll`, `bringToBox`); tests/form-problems.test.ts passes (worker 7).
 - Only the first empty box is flagged; the others are not marked. Fix wanted: mark every missing box in red with a school-style message at once.
 
 ## 11. Staff list does not match the people who can log in (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-06: Staff List shows "N people can sign in but have no staff record" (logins of this school with no Staff, Student or Driver record; Driver/Student-only logins left out) with "Add staff record" per person. Add Staff `?login=<id>` prefills name, phone and email, step 2 says "They already have a login" and links it: no second login, roles unchanged, Audit Log "linkedLogin". Refused: another school's login, a login already linked, a whole-school login for a campus-limited adder, class teacher without the Class Teacher role. The linked login's own phone is not a duplicate. src/lib/staff/link-login.ts, tests/staff-hr/link-login.test.ts (8), browser qa/full/issue11-check.mjs. Not changed: staff code gaps (they come from removed records) and blank departments (set per person or Bulk "Change department"). Once linked, they count in "Staff present" (issue 17)
+- **Checked 2026-11-19:** Still fixed (2026-11-06). In the code: Staff List says "N people can sign in but have no staff record" (`staff-hr-management/page.tsx` line 170) and Add Staff links that login (`src/lib/staff/link-login.ts`); tests/staff-hr/link-login.test.ts (8) passes (worker 7).
 - Logins exist for Principal (anjali) and School Admin (Saiveni) but the staff list has only 3 people (KUSUMA, aksha, aswini); staff codes jump ST-001, 003, 006; Department is blank for all; Dashboard says "Staff present 0/3". KUSUMA, a Class Teacher, shows designation "Teacher".
 - **Fix wanted:** decide whether every login should have a staff record; show Department/Designation clearly; explain gaps in staff codes (removed records) or avoid gaps.
 
@@ -91,12 +98,14 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 
 ## 13. Principal sees "Two-step login on" and "Not set up" on the same page (Open, Small, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): when no code can reach the person the badge is amber "Two-step login: not set up yet" and jumps to Password and sign-in
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: when two-step login is required but no code can reach the person, the badge is the amber "Two-step login: not set up yet" and links to Password and sign-in (`profile/page.tsx` line 135).
 - **Where:** /profile for anjali. The green badge under her name says "Two-step login on"; the section below says "Required for your role, but no code can reach you yet... Not set up".
 - **Why it matters:** the Principal cannot tell whether her account is protected.
 - **Fix wanted:** the badge should say "Two-step login: not set up yet" (amber) with a button to fix it.
 
 ## 14. Approval shows the system's own sentence as the "Reason given" (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05: Approvals detail and list show "No reason given" for an old error-sentence reason (src/lib/fees/reason-words.ts); new ones are refused since fix 31
+- **Checked 2026-11-19:** Still fixed (a4a0e677). In the code: `shownReason` (src/lib/fees/reason-words.ts) shows "No reason given" for an error-sentence reason, used by Approvals (`approvals/approval-list.tsx`, `approvals/[id]/page.tsx`) and the concession lists and export; the server refuses such reasons (see 31).
 - **Where:** Principal opens "Discount of ₹1,500 for vasundhra". Reason given reads: "Discounts above ₹1,000 need the principal's approval. Ask for approval, then collect once it is approved, or collect without the discount. Reason" (a stray word "Reason" at the end). The accountant's real reason is not shown, so the Principal approves blind.
 - **Fix wanted:** show only what the accountant typed; if empty, say "No reason given". (Request was made before fix 5; re-test with a fresh request from Accountant.)
 - Approve itself worked: button shows "Approving...", then "Approved. The person who asked has been told." Good.
@@ -116,28 +125,33 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 
 ## 17. Dashboard small confusions (Open, Low, found 2026-11-04)
 - **Status:** PARTLY 2026-11-05 (batch 2): consent line reads "7 of 25 guardians have not given data consent". Staff present counts only staff records: since 2026-11-06 (issue 11) the Staff List offers "Add staff record" for logins without one, and they count once added. Counts refresh: bell checks every 30 s since 51761836
+- **Checked 2026-11-19:** All three parts now fixed. In the code: (1) Staff present counts staff records, and the Staff List offers "Add staff record" for logins without one (issue 11); (2) the consent item reads "N of M guardians have not allowed use of their child's data" with "DPDP consent; photo consent is counted apart" (`src/lib/dashboard/widgets/students.ts` lines 83-88); (3) the bell checks every 30 s and refreshes the page when the count changes (`src/components/shell/bell-watch.tsx` lines 15, 82-86), so badge counts move without a full reload.
 - "Staff present 0 / 3 · 3 not in yet" ignores the Principal and Admin who are logged in at that moment.
 - "7 guardians have not given data consent" while 32 students exist; unclear if the other 25 are fine or unknown.
 - Dashboard says "Good evening" with the top badge counts changing (approvals bell 1 to none) only after a full reload.
 
 ## 18. A Class Teacher with no section is stuck, and the Principal is not told (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): dashboard item "N Class Teachers have no section" (academic.class-teacher-no-section) next to "N sections have no class teacher"; saving the Class Teacher role in Settings, Users says when they have no section and where to set it. Add Staff step 3 already asks
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: dashboard item `academic.class-teacher-no-section` (src/lib/dashboard/widgets/academic.ts lines 371-390), and saving the Class Teacher role in Settings, Users says they have no section and where to set it (`settings/users/actions.ts` lines 94-104).
 - **Where:** KUSUMA has the role "Class Teacher" but Attendance says "No class to take... Ask the principal". Nothing tells the Principal that a Class Teacher has no section. Fix by hand: Academic Management → Classes & Sections → Edit → Class teacher (easy once found; worked, "class 1 A saved").
 - **Fix wanted:** when a role of Class Teacher is given, ask which section; or show the Principal a "Class teacher not set" item on the dashboard. Class 2 A still has none.
 
 ## 19. Locked attendance: buttons look live, tapping does nothing (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05: locked P/A/L look greyed and a tap says "Locked at 11:00 AM. To change a mark, use Request a correction." with the link; a hint says press and hold for Half-day, Leave and other marks (hi/te added)
+- **Checked 2026-11-19:** Fixed further since. In the code: once locked, a row shows only its saved mark (no buttons that look tappable), with the lock banner and a "Request a correction" button (`attendance-management/_components/take-sheet.tsx` lines 244-249, 344-348); every status (Half-day, Leave and the rest) is now its own button, with no hidden press-and-hold (lines 350-364).
 - **Where:** Attendance after 11:00 AM. The yellow lock banner is at the top, but P / A / L buttons still look normal; tapping P changes nothing, no message.
 - **Fix wanted:** grey the buttons out when locked, and if tapped say "Locked at 11:00 AM. Use Request a correction." Also: "L" is Late only; Leave and the other 4 statuses (Half-day, Excused, Leave, Medical) cannot be picked on this screen, so a teacher does not know where to mark "on leave". Show the words, or a "More" choice.
 
 ## 20. Correction form: a missed day means ticking children one by one (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): "Select all N" and "Clear ticks" on the student list; empty boxes are all marked by FormProblems
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: the correction form has "Select all N" and "Clear ticks" (`attendance-management/_components/correction-form.tsx` lines 80-81), and its sheet marks every missing box (FormProblems in `_components/sheet-form.tsx`).
 - Forgetting to mark is the most common mistake. The form has no "Select all", and when sent empty the browser's one bubble points at "New status", not at the missing children or reason (same as issue 10).
 - **Fix wanted:** add "Select all 16"; mark every missing box.
 - Good: after sending, the page shows the request, "Waiting", Withdraw, and a clear message. Not yet checked: the Principal's approval of it, and whether the register changes after.
 
 ## 21. Academic year says "upcoming" while the school day count is running (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): the year is really "upcoming" (never made active); the dashboard now says "2026-27 is not active yet: open it in Academic Management, Academic Settings, Years" instead of counting school days
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: an upcoming year shows "<year> is not active yet: open it in Academic Management, Academic Settings, Years" instead of a school-day count (src/lib/dashboard/compose.ts line 283).
 - Classes & Sections shows "2026-27 (upcoming)"; the dashboard says "School day 123 of 261". One of them is wrong or needs explaining.
 
 ## PROGRESS of the live test (2026-11-04, end of session 1)
@@ -150,6 +164,7 @@ NOT yet tested (do next, in this order): Class Teacher: marks, homework; Teacher
 
 ## 22. Approvals tab counts show 0 while the list has items (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): each tab counts the rows its list shows (decided ones too); ?tab=all / waiting / asked are read as ?view=
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: each tab's count uses the same filter as its list (`approvals/page.tsx` line 76), and an old ?tab= link is read as ?view= (lines 49-51).
 - **Where:** Approvals, after the Principal approved KUSUMA's correction: tabs read "Waiting 0 · Asked by me 0 · All requests 0", but All requests lists 3 items (1 Approved, 1 Approved, 1 Withdrawn). Opened with ?tab=all the page ignores it and shows Waiting (the real link is ?view=all).
 - **Fix wanted:** count the same rows the list shows; accept or redirect old ?tab links.
 
@@ -158,25 +173,30 @@ NOT yet tested (do next, in this order): Class Teacher: marks, homework; Teacher
 
 ## 24. Marks Entry is a dead end until a datesheet exists (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): the empty Marks Entry has "Add datesheet" for those who may, else "See datesheets"
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: the empty Marks Entry offers "Add datesheet" to those who may, else "See datesheets" (`examination-results/marks/page.tsx` lines 117-118).
 - Class Teacher opens Examination & Results → Marks Entry: "No papers to mark yet... ask the Exam In-charge". Plain words, but no link to where an exam is created, and the Principal is not told that no exam exists. Marks could not be tested; needs Datesheet set up first (do as Principal/Admin next).
 
 ## 25. Give homework: stale error after fixing the title (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 by FormProblems: a box's message goes as soon as it holds a good value; recheck by hand
+- **Checked 2026-11-19:** Still fixed. In the code: a sheet box's message goes as soon as it holds a good value (`useTyped` in src/components/ui/url-sheet.tsx lines 173-178, via `useFieldProblem`); Give homework's Title uses it (`homework-learning/sheets.tsx` lines 35, 157). tests/form-problems.test.ts "drops the server's message once the box is changed to a good value (issue 25)" passes (worker 7).
 - **Where:** Give homework form. Pressing Send empty shows a clear red "Give the homework a title" (good). After typing the title the red message and red border stay until Send is pressed again, so it looks as if the title is still wrong.
 - **Fix wanted:** clear the error as soon as the field has text.
 - Good: Send shows "Sending...", then "Homework sent to 1 A (16 students). Parents were not messaged: automatic messages to parents start when the school goes live." Homework card shows 16 assigned, 0 submitted, due next Telugu class (Fri 6 Nov). Subject picked by itself (TELUGU) for a class teacher with one subject.
 
 ## 26. Datesheet: "Percentage" chosen, but both papers save as "Graded", Max marks never set (Open, Medium, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): the form shows a note naming the grade-only subjects (set in Academic Management, Subjects) with "Open Subjects"; the saved page says "Grade only, no marks (set in ...)". Subjects with marks take Max marks (bulk Apply) and Mark categories as before
+- **Checked 2026-11-19:** Still fixed (28af9239). In the code: the form names grade-only subjects with "Open Subjects" (`examination-results/datesheet/datesheet-form.tsx` line 267) and the saved page says "Grade only, no marks", else the categories with their max or "Marks <max>" (`datesheet/[id]/page.tsx` line 166).
 - **Where:** Add datesheet (Principal), class 1. I picked Percentage (top pills and each paper's Pattern list) and typed Max marks 80 in the bulk box. After saving, the header says "Percentage" but both papers show "Graded" and Max marks "Graded"; Mark categories (Social, Telugu) also say "Graded" and nothing there can be edited. The Max marks column in the form also said "Graded" before saving, so the form never showed a number to type.
 - **Fix wanted:** when the exam pattern is Percentage, each paper takes a Max marks number (bulk Apply must work) and Mark categories (Theory 80 + Internal 20) must be editable on the saved page. Show clearly which pill is selected (the white pill looked selected for Percentage before I had touched it).
 
 ## 27. Publish dialog: "Message parents now" is ON by default (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): kept ON (blueprint A10: publishing tells parents) but the line now says how many students' families get it and "switch this off to publish without messaging"
+- **Checked 2026-11-19:** Still as decided (28af9239): ON by default (blueprint A10), and the line says how many students' families get it and "A message cannot be unsent: switch this off to publish without messaging" (`examination-results/datesheet/datesheet-ui.tsx` line 88). Whether to start it OFF stays an owner choice.
 - A layman presses Publish and 16 families get a message that "cannot be unsent". I switched it off for the test. Fix wanted: default OFF, or show the count and a clear confirm line. Also: the dialog's Publish button moved up after the toggle changed, so a quick second click can miss.
 
 ## 28. Small wording and links around exams (Open, Low, found 2026-11-04)
 - **Status:** FIXED 2026-11-05 (batch 2): /exams goes to Examination & Results; an Ongoing datesheet before its first paper says "First paper on <date>"; papers with no invigilator get a warning with "Rooms & invigilators"
+- **Checked 2026-11-19:** /exams redirect, "First paper on <date>" and the invigilator warning are still in the code (next.config.ts, `datesheet/[id]/page.tsx` lines 111, 120, 135). The note "(add to 28)" was still open: /attendance gave "This page is not here". Fixed 2026-11-19 (3bbed672, not live yet): /attendance and /attendance/... go to Attendance Management; tests/short-links.test.ts checks every short link lands on a real page.
 - /exams gives "This page is not here" (no redirect to Examination & Results). The published datesheet starts on 04-11, first paper 09-11, yet the badge reads "Ongoing" before any paper. One invigilator was told, but Social has "Not set" and nothing asks the Principal to set one.
 
 ## SESSION 3 (2026-11-04 night, user away; Claude ran alone)

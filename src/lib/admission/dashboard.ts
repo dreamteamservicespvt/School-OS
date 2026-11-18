@@ -11,6 +11,7 @@ import { progressOf } from "./documents";
 import { classRules } from "./settings";
 import { seatsFor } from "./seats";
 import { yearParam, yearWhere, type Filters } from "./reports";
+import { followUpDay, followUpDue } from "./follow-up-day";
 import { formatDate } from "../format";
 import type { MessageKey, Vars } from "../i18n/t";
 
@@ -104,6 +105,8 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
   const cls = (id: string | null) => (id ? names.classes.get(id) ?? null : null);
   const yearQ = new URLSearchParams(yearParam(f.yearId)).toString();
   const cols = boardColumns(s);
+  // Overdue only when the follow-up's day is over: one due today at 11:00 is still "Follow up" at 3:00 PM (./follow-up-day.ts).
+  const today = followUpDay(tz, now);
   const e: Prisma.EnquiryWhereInput = { ...enquiryWhere(f, v), status: { notIn: [...CLOSED_STATUSES] } };
   const [eRows, eCount] = await Promise.all([tx.enquiry.findMany({ where: e, take, orderBy: { createdAt: "desc" } }), tx.enquiry.count({ where: e })]);
   const out: PipeColumn[] = [{
@@ -111,7 +114,7 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
     cards: eRows.map((r) => {
       const due = r.nextFollowUpAt;
       const fact: PipeFact = due
-        ? due < now ? { k: "Follow-up overdue, was due {date}", vars: { date: formatDate(due, tz) }, tone: "bad" } : { k: "Follow up {date}", vars: { date: formatDate(due, tz) } }
+        ? followUpDue(due, today) === "overdue" ? { k: "Follow-up overdue, was due {date}", vars: { date: formatDate(due, tz) }, tone: "bad" } : { k: "Follow up {date}", vars: { date: formatDate(due, tz) } }
         : { k: "No follow-up set", tone: "warn" };
       return { id: r.id, name: r.childName, cls: cls(r.classId), fact, href: `/admission-management/enquiries?id=${r.id}`, act: { kind: "link", k: "Start application", href: `/admission-management/applications/new?enquiry=${r.id}` } };
     }),
@@ -157,7 +160,7 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
   return out;
 }
 
-/** Headline numbers for the band at the top. */
+/** Headline numbers for the band at the top. Follow-ups: overdue once their day is over, today all day (./follow-up-day.ts). */
 export async function headline(tx: Tx, v: Viewer, f: Filters, dayStart: Date, now = new Date()) {
   const week = new Date(now.getTime() - 7 * DAY);
   const e = enquiryWhere(f, v);
@@ -167,8 +170,8 @@ export async function headline(tx: Tx, v: Viewer, f: Filters, dayStart: Date, no
     tx.enquiry.count({ where: e }),
     tx.enquiry.count({ where: { ...e, createdAt: { gte: week } } }),
     tx.enquiry.count({ where: open }),
-    tx.enquiry.count({ where: { ...open, nextFollowUpAt: { lt: now } } }),
-    tx.enquiry.count({ where: { ...open, nextFollowUpAt: { gte: now, lt: new Date(dayStart.getTime() + DAY) } } }),
+    tx.enquiry.count({ where: { ...open, nextFollowUpAt: { lt: dayStart } } }),
+    tx.enquiry.count({ where: { ...open, nextFollowUpAt: { gte: dayStart, lt: new Date(dayStart.getTime() + DAY) } } }),
   ]);
   if (v.see !== "all") return { enquiries, enqWeek, enqOpen, overdue, today, applications: 0, waiting: 0, admitted: 0, seats: 0 };
   const [applications, waiting, admitted, seats] = await Promise.all([

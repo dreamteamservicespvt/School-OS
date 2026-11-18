@@ -40,7 +40,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
     const def = defaultYears(admitting, raw);
     const read = readFilters(raw, settings, def, tz);
     const yearOpts = yearOptions(years, admitting, def, campus);
-    const r = read ? await report(tx, settings, viewer, key as ReportKey, read.f, n) : null;
+    const r = read ? await report(tx, settings, viewer, key as ReportKey, read.f, n, new Date(), tz) : null;
     return { years, choices, campuses, read, yearOpts, r };
   });
   const path = `${BASE}/reports/${key}`;

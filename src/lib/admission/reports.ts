@@ -12,6 +12,7 @@ import { CLOSED_STATUSES, classRules, label, stageOn, type Settings } from "./se
 import { progressOf } from "./documents";
 import { stageLabel, OPEN_STAGES } from "./applications";
 import { applicationScope, enquiryScope, type Viewer } from "./access";
+import { followUpDay } from "./follow-up-day";
 
 export type Filters = {
   /** One year, or several: each campus's admission year (a school with two campuses has two). */
@@ -129,15 +130,15 @@ export async function board(tx: Tx, s: Settings, v: Viewer, f: Filters, classNam
   return cols;
 }
 
-/** Today's follow-ups: overdue, due today, due tomorrow. */
-export async function followUps(tx: Tx, v: Viewer, f: Filters, dayStart: Date, now = new Date()) {
+/** Today's follow-ups: overdue (their day is over), due today (all day, the time passed or not), due tomorrow (./follow-up-day.ts). */
+export async function followUps(tx: Tx, v: Viewer, f: Filters, dayStart: Date) {
   const e: Prisma.EnquiryWhereInput = { ...enquiryBase(f, v), status: { notIn: [...CLOSED_STATUSES] } };
   const pick = { id: true, childName: true, parentName: true, phone: true, nextFollowUpAt: true, nextAction: true, ownerStaffId: true, classId: true } as const;
   const [overdue, today, tomorrow, overdueCount] = await Promise.all([
-    tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { lt: now } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
-    tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { gte: now, lt: new Date(dayStart.getTime() + DAY) } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
+    tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { lt: dayStart } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
+    tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { gte: dayStart, lt: new Date(dayStart.getTime() + DAY) } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
     tx.enquiry.findMany({ where: { ...e, nextFollowUpAt: { gte: new Date(dayStart.getTime() + DAY), lt: new Date(dayStart.getTime() + 2 * DAY) } }, orderBy: { nextFollowUpAt: "asc" }, take: 8, select: pick }),
-    tx.enquiry.count({ where: { ...e, nextFollowUpAt: { lt: now } } }),
+    tx.enquiry.count({ where: { ...e, nextFollowUpAt: { lt: dayStart } } }),
   ]);
   return { overdue, today, tomorrow, overdueCount };
 }
@@ -158,7 +159,7 @@ export type ReportKey = (typeof REPORTS)[number]["key"];
 const pct = (a: number, b: number) => (b === 0 ? "0%" : `${Math.round((a / b) * 1000) / 10}%`);
 const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((p, x) => p + x, 0) / xs.length) * 10) / 10 : 0);
 
-export async function report(tx: Tx, s: Settings, v: Viewer, key: ReportKey, f: Filters, names: { classes: Map<string, string>; staff: Map<string, string> }, now = new Date()): Promise<Report> {
+export async function report(tx: Tx, s: Settings, v: Viewer, key: ReportKey, f: Filters, names: { classes: Map<string, string>; staff: Map<string, string> }, now = new Date(), timeZone = "Asia/Kolkata"): Promise<Report> {
   const meta = REPORTS.find((r) => r.key === key)!;
   const cls = (id: string | null) => (id ? names.classes.get(id) ?? "?" : "Class not set");
   const owner = (id: string | null) => (id ? names.staff.get(id) ?? "?" : "No owner");
@@ -247,7 +248,8 @@ export async function report(tx: Tx, s: Settings, v: Viewer, key: ReportKey, f: 
   if (key === "follow-ups") {
     const since = new Date(now.getTime() - 30 * DAY);
     const open = await tx.enquiry.groupBy({ by: ["ownerStaffId"], where: { ...e, status: { notIn: [...CLOSED_STATUSES] } }, _count: { _all: true } });
-    const overdue = await tx.enquiry.groupBy({ by: ["ownerStaffId"], where: { ...e, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: now } }, _count: { _all: true } });
+    // Overdue once the follow-up's day is over, as the Admission Dashboard and the Enquiries list count it (./follow-up-day.ts).
+    const overdue = await tx.enquiry.groupBy({ by: ["ownerStaffId"], where: { ...e, status: { notIn: [...CLOSED_STATUSES] }, nextFollowUpAt: { lt: followUpDay(timeZone, now).start } }, _count: { _all: true } });
     const done = await tx.enquiryActivity.findMany({ where: { kind: { in: ["call", "follow-up", "note", "message"] }, at: { gte: since }, enquiry: e }, select: { byId: true } });
     const staff = await tx.staff.findMany({ where: { userLoginId: { in: [...new Set(done.map((d) => d.byId).filter((x): x is string => Boolean(x)))] } }, select: { id: true, userLoginId: true } });
     const doneBy = new Map<string, number>();

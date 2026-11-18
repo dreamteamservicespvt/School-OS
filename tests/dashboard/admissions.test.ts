@@ -20,8 +20,10 @@ async function seed(s: School, opts: { mine: number; others: number; late: numbe
       i++;
       return tx.enquiry.create({ data: { schoolId: s.school.id, campusId: s.campusId, academicYearId: s.nextYearId, childName: `Child ${i}`, parentName: `Parent ${i}`, phone: `98765${String(10000 + i)}`, classId: s.c1, source: "walk-in", firstSource: "walk-in", ownerStaffId: owner, createdById, createdAt: extra.createdAt ?? new Date(NOW.getTime() - HOUR), nextFollowUpAt: extra.nextFollowUpAt } });
     };
-    for (let k = 0; k < opts.mine; k++) await enquiry(s.frontdeskStaff, s.frontdesk.id, { nextFollowUpAt: k < opts.late ? new Date(NOW.getTime() - 2 * HOUR) : new Date(NOW.getTime() + 3 * HOUR) });
-    for (let k = 0; k < opts.others; k++) await enquiry(s.counsellorStaff, s.counsellor.id, { nextFollowUpAt: new Date(NOW.getTime() - 5 * HOUR) });
+    // Late: set for yesterday (10:00 AM), so its day is over. The next one is from this morning (10:00 AM, the time has passed):
+    // still today's, not late (a follow-up turns overdue when its day ends, src/lib/admission/follow-up-day.ts). The rest: 3:00 PM today.
+    for (let k = 0; k < opts.mine; k++) await enquiry(s.frontdeskStaff, s.frontdesk.id, { nextFollowUpAt: k < opts.late ? new Date(NOW.getTime() - 26 * HOUR) : k === opts.late ? new Date(NOW.getTime() - 2 * HOUR) : new Date(NOW.getTime() + 3 * HOUR) });
+    for (let k = 0; k < opts.others; k++) await enquiry(s.counsellorStaff, s.counsellor.id, { nextFollowUpAt: new Date(NOW.getTime() - 29 * HOUR) });
     // An old enquiry: not "new this week".
     await enquiry(s.counsellorStaff, s.counsellor.id, { createdAt: new Date(NOW.getTime() - 20 * 24 * HOUR) });
     for (let k = 0; k < opts.deciding; k++) {
@@ -51,7 +53,7 @@ describe("admissions.new-enquiries", () => {
     const b = (await buildHome(frontdesk, { now: NOW })).band.find((x) => x.id === "admissions.new-enquiries");
     expect(b?.label).toBe("My new enquiries");
     expect(b?.big).toBe("3");
-    expect(b?.foot).toBe("This week · 3 follow-ups today"); // the list's "Follow-up today" includes the late one from this morning
+    expect(b?.foot).toBe("This week · 2 follow-ups today"); // the one from this morning whose time has passed and the 3:00 PM one; yesterday's is late, not today's
     expect(b?.href).toBe("/admission-management/enquiries?quick=new-week");
   });
 

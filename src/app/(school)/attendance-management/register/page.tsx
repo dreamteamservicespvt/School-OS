@@ -394,7 +394,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
         <EmptyState title="No classes to show" Icon={Users} action={<ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink>}><Words k="Add classes and sections in Academic Management." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
-          <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />
+          <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} mayCorrect={(id) => access.pages.register === "full" && !yearView?.past && mayChangeSection(access, id)} date={isoDay(today)} tz={tz} />
           {messageCountText(data.messages, isToday) && (
             <Banner tone={data.messages?.notSent ? "warn" : "info"} title={`${messageCountText(data.messages, isToday)}.`}>
               {data.messages?.notSent ? "Those parents were not told by message. The class teacher sees the same line on Take Attendance." : "Parents of students marked absent are told once for the day."}

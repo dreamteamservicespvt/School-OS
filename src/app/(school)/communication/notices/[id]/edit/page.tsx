@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -38,6 +39,7 @@ export default async function EditNoticePage({ params }: { params: Promise<{ id:
   return (
     <>
       {back}
+      <RecordTitle name={n.title} />
       <RecordHead title="Change notice" />
       <NoticeForm data={data} />
     </>

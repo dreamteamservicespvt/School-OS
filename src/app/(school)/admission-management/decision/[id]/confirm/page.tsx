@@ -1,3 +1,4 @@
+// tab: only redirects to the confirm sheet on Admission Decision.
 import { notFound, redirect } from "next/navigation";
 import { UUID_RE } from "@/lib/admission/act";
 import { workPage, BASE } from "@/lib/admission/page";

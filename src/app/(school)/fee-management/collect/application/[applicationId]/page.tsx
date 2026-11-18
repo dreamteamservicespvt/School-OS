@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, IndianRupee, Printer, ReceiptText } from "lucide-react";
@@ -41,6 +42,7 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
   const canTake = p.desk && !a.closed && a.leftPaise > BigInt(0);
   return (
     <div>
+      <RecordTitle name={a.name} />
       <div className="flex items-center justify-between gap-3 mb-4">
         <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Collect fee" /></Link>
         <span className="text-[13px] text-ink3 hidden md:inline"><Words k="Collecting as" /> {p.current.user.displayName}</span>

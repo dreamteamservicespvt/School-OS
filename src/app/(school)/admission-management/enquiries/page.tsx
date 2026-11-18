@@ -30,6 +30,7 @@ import { AdmissionHead } from "../_components/head";
 import { AddEnquiryButton } from "./enquiry-forms";
 import { EnquiryBulk } from "./campaign-bar";
 import { EnquiryPanel, type PanelEnquiry } from "./panel";
+import { RecordTitle } from "@/components/ui/record-title";
 import { STATUS_TONE } from "@/lib/admission/tones";
 import { periodFromSearch } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
@@ -235,6 +236,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
                 footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />
             </Card>
           </div>
+          {panel && <RecordTitle name={panel.childName} />}
           {panel && (
             <EnquiryPanel key={panel.id} e={panel} closeHref={listHref(PATH, params, { id: null })} canWork={data.canWork} full={full}
               canArchive={full && can(current.permissions, "admission-management", "archive")} c={choices}

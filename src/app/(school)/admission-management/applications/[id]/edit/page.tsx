@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -33,6 +34,7 @@ export default async function EditApplicationPage({ params }: { params: Promise<
   const prefs = (app.preferences ?? {}) as { secondLanguage?: string | null; transportNeeded?: boolean; transportStop?: string | null; hostelNeeded?: boolean };
   return (
     <>
+      <RecordTitle name={app.fullName} />
       <BackLink href={`${BASE}/applications/${id}`} label="Application" sub={app.applicationNo} />
       <PageHeader title={`Edit ${app.fullName}`} href={`${BASE}/applications/${id}/edit`} userId={current.user.id} sub="Changes are kept in the history." />
       <ApplicationForm

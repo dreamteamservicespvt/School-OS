@@ -1,3 +1,4 @@
+// tab: <ImportPage> draws <FileReview>, which names the tab after the import file.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ImportPage } from "../../../../_components/import-page";

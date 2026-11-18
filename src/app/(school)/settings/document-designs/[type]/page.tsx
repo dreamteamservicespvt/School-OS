@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -41,6 +42,7 @@ export default async function DesignPage({ params }: Params) {
   return (
     <>
       <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/document-designs" className="text-brand-text hover:underline"><Words k="Document Designs" /></Link></nav>
+      <RecordTitle name={t.label} />
       <PageHeader title={t.label} href={`/settings/document-designs/${t.key}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
           {design.version ? <Badge tone="brand"><Words k="Version" /> {design.version}</Badge> : <Badge><Words k="Ready design" /></Badge>}

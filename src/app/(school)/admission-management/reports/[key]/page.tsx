@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FileClock } from "lucide-react";
@@ -50,6 +51,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const r = data.r;
   return (
     <>
+      <RecordTitle name={meta.title} />
       <BackLink href={`${BASE}/reports${q ? `?${q}` : ""}`} label="Admission Reports" />
       <PageHeader title={meta.title} href={path} userId={current.user.id} sub={meta.about} />
       {!read || !r ? (

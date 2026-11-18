@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
@@ -78,6 +79,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
     <div className="max-w-[640px] mx-auto w-full">
       <Card className="p-5 md:p-7 flex flex-col items-center text-center">
         <span className="w-16 h-16 rounded-full bg-ok text-surface grid place-items-center shadow-pop"><Check size={34} strokeWidth={3} aria-hidden="true" /></span>
+        <RecordTitle name={student?.fullName ?? app.fullName} />
         <h1 className="font-display text-[24px] font-semibold mt-4">{student?.fullName ?? app.fullName} <Words k="is now a student" /></h1>
         <p className="text-ink3 text-[14px] mt-1"><Words k="Admission number" /> <b className="font-mono text-ink text-[13.5px]">{admNo}</b>{place ? ` · ${place}` : ""}{c?.rollNo ? ` · roll ${c.rollNo}` : ""}</p>
         <p className="text-ink3 text-[12.5px] mt-0.5"><Words k="Confirmed" /> {app.admittedAt ? formatDateTime(app.admittedAt, tz) : ""} <Words k="from application" /> {app.applicationNo}</p>

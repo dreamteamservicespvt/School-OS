@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -48,6 +49,7 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
   const back = `${BASE}/guardians/${id}`;
   return (
     <>
+      <RecordTitle name={data.keep.name} />
       <BackLink href={back} label={data.keep.name} sub="Merge" />
       <PageHeader title="Merge parent records" sub={<span className="block max-w-prose"><Words k="Keep" /> <strong>{data.keep.name}</strong> ({data.keep.phone}<Words k=") and move the other record's children, consents and documents here. The other record is archived." /></span>} href={`${back}/merge`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">

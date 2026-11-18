@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -50,6 +51,7 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
 
   return (
     <>
+      <RecordTitle name={batch.fileName} />
       <BackLink href={`${BASE}/import/history`} label="Import history" />
       <PageHeader title={`Import of ${batch.fileName}`} href={`${BASE}/import/${batch.id}`} userId={current.user.id}>
         <ButtonLink href={`${BASE}/import/history`} size="sm"><Words k="Import history" /></ButtonLink>

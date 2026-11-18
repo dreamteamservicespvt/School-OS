@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { commOfficePage } from "@/lib/communication/access";
@@ -20,6 +21,7 @@ export default async function EditSurveyPage({ params }: { params: Promise<{ id:
   if (!data) notFound();
   return (
     <>
+      <RecordTitle name={data.title} />
       <BackLink href={`/communication/surveys/${id}`} label="Survey" />
       <RecordHead title={`Survey: ${data.title}`} sub={<span className="text-[14px] text-ink3"><Words k="A draft can be changed until it is sent." /></span>} />
       <SurveyForm data={data} />

@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -46,6 +47,7 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
 
   return (
     <>
+      <RecordTitle name={data.student.fullName} />
       <BackLink href={back} label={data.student.fullName} sub={data.now ? "Change section" : "Place in a section"} />
       <PageHeader title={data.now ? "Change section" : "Place in a section"} href={`${back}/section`} userId={current.user.id} />
       <Card className="max-w-2xl">

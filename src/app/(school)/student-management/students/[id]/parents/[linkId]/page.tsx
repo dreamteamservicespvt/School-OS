@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -38,6 +39,7 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
   const back = `${BASE}/students/${id}`;
   return (
     <>
+      <RecordTitle name={l.guardian.name} />
       <BackLink href={back} label={data.student.fullName} sub={l.guardian.name} />
       <PageHeader title={`${l.guardian.name} and ${data.student.fullName}`} href={`${back}/parents/${linkId}`} userId={current.user.id} />
       <Card className="max-w-2xl">

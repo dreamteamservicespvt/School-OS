@@ -1,3 +1,4 @@
+// tab: only redirects to the Day Book or the entry's own page.
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { dayBookSourceLink } from "@/lib/finance/source-link";

@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -73,6 +74,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
 
   return (
     <>
+      <RecordTitle name={title} />
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/corrections/${c.id}`} sub={`Correction · ${title}`}
         actions={<ButtonLink href={`${BASE}/register/corrections`} icon={ArrowLeft}><Words k="All corrections" /></ButtonLink>} />
 

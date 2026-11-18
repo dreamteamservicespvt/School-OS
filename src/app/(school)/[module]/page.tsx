@@ -1,3 +1,4 @@
+// tab: a module's own page, not a record; its page title already names the module.
 import type { Metadata } from "next";
 import { settingsMay } from "@/lib/settings/page-access";
 import { notFound } from "next/navigation";

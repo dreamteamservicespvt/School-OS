@@ -1,3 +1,4 @@
+import { RecordTitle } from "@/components/ui/record-title";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -31,6 +32,7 @@ export default async function EditGuardianPage({ params, searchParams }: { param
   const both = kids.length > 1 ? `Parent of ${kids.slice(0, -1).join(", ")} and ${kids[kids.length - 1]}. Changes apply to ${kids.length === 2 ? "both" : `all ${kids.length}`}.` : null;
   return (
     <>
+      <RecordTitle name={g.name} />
       <BackLink href={from ? `${BASE}/students/${from}` : `${BASE}/guardians/${id}`} label={g.name} />
       <PageHeader title={`Edit ${g.name}`} href={`${BASE}/guardians/${id}/edit`} userId={current.user.id} />
       <Card className="max-w-3xl">

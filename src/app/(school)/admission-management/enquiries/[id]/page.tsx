@@ -1,3 +1,4 @@
+// tab: only redirects; the enquiry opens in the panel on Enquiries, which names the tab.
 import { notFound, redirect } from "next/navigation";
 import { UUID_RE } from "@/lib/admission/act";
 

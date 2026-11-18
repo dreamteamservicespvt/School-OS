@@ -113,8 +113,9 @@ async function getBrowser(): Promise<Browser> {
  * scripts are added under those names (each used only for its own letters).
  */
 let indianFonts: Promise<string> | null = null;
-const INDIAN_FONTS: [file: string, range: string][] = [
-  ["noto-sans-devanagari.woff2", "U+0900-097F, U+1CD0-1CFF, U+A8E0-A8FF, U+200C-200D, U+25CC"],
+// The rupee sign (U+20B9) comes from the Devanagari file: the serverless browser's Latin fonts have none, so receipts printed "20,000" with no ₹ (live test, 17 Nov 2026).
+export const INDIAN_FONTS: [file: string, range: string][] = [
+  ["noto-sans-devanagari.woff2", "U+0900-097F, U+1CD0-1CFF, U+A8E0-A8FF, U+200C-200D, U+20B9, U+25CC"],
   ["noto-sans-bengali.woff2", "U+0980-09FF, U+200C-200D, U+25CC"],
   ["noto-sans-telugu.woff2", "U+0C00-0C7F, U+200C-200D, U+25CC"],
   ["noto-sans-tamil.woff2", "U+0B80-0BFF, U+200C-200D, U+25CC"],

@@ -81,7 +81,10 @@ describe("a wrong pickup code", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ userLoginId: f.frontdesk.id, recordType: "Student", after: { guardianId: f.father.id, triesLeftOnCode: 4, wrongForStudentInHour: 1, wrongByPersonInHour: 1 } });
     // The code itself is never written down.
-    expect(JSON.stringify(lines)).not.toContain(code);
+    // Record ids are random UUIDs and can contain the code's digits by chance (failed once, 19 Nov 2026), so they are
+    // blanked first; every other value is still checked.
+    const noIds = JSON.stringify(lines).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<id>");
+    expect(noIds).not.toContain(code);
     const row = await withSchool(as(f, null), (tx) => tx.pickupCode.findFirstOrThrow({ where: { studentId: f.aarav.id }, orderBy: { createdAt: "desc" } }));
     expect(row.attempts).toBe(1);
     expect(await passes(f.aarav.id, startedAt)).toBe(0);
